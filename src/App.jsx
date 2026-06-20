@@ -19,6 +19,9 @@ function segmentsFromVertices(vertices) {
 // Pixel radius within which a click on the first vertex triggers polygon closure
 const CLOSE_SNAP_RADIUS = 16
 
+// Canvas-pixel tolerance for alignment guide snap (H or V alignment with any prior vertex)
+const ALIGN_TOLERANCE = 10
+
 function App() {
   const [pdf, setPdf] = useState(null)
   const [pageCount, setPageCount] = useState(0)
@@ -252,6 +255,62 @@ function App() {
     return { x, y }
   }
 
+  // Check cursor against all current-trace vertices for H/V alignment.
+  // Returns { snappedPos, guides: [{axis:'h'|'v', vertex}] }
+  const getAlignmentSnap = (mousePos, vertices) => {
+    let x = mousePos.x
+    let y = mousePos.y
+    const guides = []
+
+    let bestH = null // {vertex, dy}
+    let bestV = null // {vertex, dx}
+
+    for (const v of vertices) {
+      const dy = Math.abs(mousePos.y - v.y)
+      const dx = Math.abs(mousePos.x - v.x)
+      if (dy <= ALIGN_TOLERANCE && (!bestH || dy < bestH.dy)) bestH = { vertex: v, dy }
+      if (dx <= ALIGN_TOLERANCE && (!bestV || dx < bestV.dx)) bestV = { vertex: v, dx }
+    }
+
+    if (bestH) { y = bestH.vertex.y; guides.push({ axis: 'h', vertex: bestH.vertex }) }
+    if (bestV) { x = bestV.vertex.x; guides.push({ axis: 'v', vertex: bestV.vertex }) }
+
+    return { snappedPos: { x, y }, guides }
+  }
+
+  // Compute the final snapped position for a new point, respecting alignment guide priority.
+  // Alignment guide (H/V exact match with a prior vertex) beats angle snap.
+  // Dist snap is applied after either path.
+  const computeFinalSnapPos = (rawPos, vertices, useAngle, useDist, pageNum) => {
+    const last = vertices.length > 0 ? vertices[vertices.length - 1] : null
+    const { snappedPos: alignSnapped, guides } = getAlignmentSnap(rawPos, vertices)
+
+    if (guides.length > 0) {
+      // Guide fired — skip angle snap, apply dist snap only
+      return { pos: applySnap(alignSnapped, last, false, useDist, pageNum), guides }
+    }
+    return { pos: applySnap(rawPos, last, useAngle, useDist, pageNum), guides }
+  }
+
+  // Draw a full-canvas alignment guide line (amber dashed)
+  const drawAlignGuide = (ctx, guide, cw, ch) => {
+    ctx.save()
+    ctx.strokeStyle = '#f59e0b'
+    ctx.lineWidth = 1
+    ctx.globalAlpha = 0.75
+    ctx.setLineDash([5, 5])
+    ctx.beginPath()
+    if (guide.axis === 'h') {
+      ctx.moveTo(0, guide.vertex.y)
+      ctx.lineTo(cw, guide.vertex.y)
+    } else {
+      ctx.moveTo(guide.vertex.x, 0)
+      ctx.lineTo(guide.vertex.x, ch)
+    }
+    ctx.stroke()
+    ctx.restore()
+  }
+
   // Draw all locked shapes for a page onto an existing canvas context
   const drawLockedShapes = (ctx, pageNum) => {
     completedShapesRef.current
@@ -332,13 +391,17 @@ function App() {
         ctx.lineWidth = 2.5
         ctx.stroke()
       } else {
-        // Normal rubber-band line to snapped cursor
-        const snapped = applySnap(mousePos, last, useAngle, useDist, pageNum)
+        // Compute snapped position with alignment guide priority
+        const { pos: snapped, guides } = computeFinalSnapPos(mousePos, vertices, useAngle, useDist, pageNum)
 
+        // Draw alignment guide lines first (behind rubber-band)
+        guides.forEach(g => drawAlignGuide(ctx, g, c.width, c.height))
+
+        // Rubber-band line
         ctx.beginPath()
         ctx.moveTo(last.x, last.y)
         ctx.lineTo(snapped.x, snapped.y)
-        ctx.strokeStyle = 'rgba(59,130,246,0.65)'
+        ctx.strokeStyle = guides.length > 0 ? 'rgba(245,158,11,0.8)' : 'rgba(59,130,246,0.65)'
         ctx.lineWidth = 1.5
         ctx.setLineDash([5, 4])
         ctx.stroke()
@@ -346,7 +409,7 @@ function App() {
 
         ctx.beginPath()
         ctx.arc(snapped.x, snapped.y, 4, 0, Math.PI * 2)
-        ctx.fillStyle = '#3b82f6'
+        ctx.fillStyle = guides.length > 0 ? '#f59e0b' : '#3b82f6'
         ctx.fill()
 
         const ddx = snapped.x - last.x
@@ -360,7 +423,7 @@ function App() {
           const pad = 3
           ctx.fillStyle = 'rgba(255,255,255,0.88)'
           ctx.fillRect(mx - tw / 2 - pad, my - 15, tw + pad * 2, 18)
-          ctx.fillStyle = '#1d4ed8'
+          ctx.fillStyle = guides.length > 0 ? '#92400e' : '#1d4ed8'
           ctx.fillText(label, mx - tw / 2, my - 1)
         }
       }
@@ -464,9 +527,8 @@ function App() {
         }
       }
 
-      // Normal vertex placement
-      const last = verts.length > 0 ? verts[verts.length - 1] : null
-      const snapped = applySnap(rawPos, last, snapAngle, snapDist, currentPage)
+      // Normal vertex placement — alignment guide takes priority over angle snap
+      const { pos: snapped } = computeFinalSnapPos(rawPos, verts, snapAngle, snapDist, currentPage)
       const next = [...verts, snapped]
       drawVerticesRef.current = next
       setDrawVertexCount(next.length)
