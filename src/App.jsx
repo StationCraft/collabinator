@@ -16,6 +16,9 @@ function segmentsFromVertices(vertices) {
   return segs
 }
 
+// Pixel radius within which a click on the first vertex triggers polygon closure
+const CLOSE_SNAP_RADIUS = 16
+
 function App() {
   const [pdf, setPdf] = useState(null)
   const [pageCount, setPageCount] = useState(0)
@@ -37,15 +40,17 @@ function App() {
 
   // Drawing state
   const [drawMode, setDrawMode] = useState(false)
-  const [snapAngle, setSnapAngle] = useState(true)   // axis/45° snap — on by default
-  const [snapDist, setSnapDist] = useState(false)    // distance-increment snap
-  const [drawVertexCount, setDrawVertexCount] = useState(0) // mirrors drawVerticesRef.length for reactive UI
+  const [snapAngle, setSnapAngle] = useState(true)
+  const [snapDist, setSnapDist] = useState(false)
+  const [drawVertexCount, setDrawVertexCount] = useState(0)
+  const [reviewShape, setReviewShape] = useState(null) // {vertices, pageNumber} | null
 
   const canvasRef = useRef(null)
   const measureRef = useRef(null)
-  const pageScalesRef = useRef({})       // pageNum -> { pxPerMeter, displayUnit }
-  const drawVerticesRef = useRef([])     // [{x,y}] in-progress trace
-  const mousePosRef = useRef(null)       // last canvas mouse position
+  const pageScalesRef = useRef({})        // pageNum -> { pxPerMeter, displayUnit }
+  const drawVerticesRef = useRef([])      // [{x,y}] in-progress trace
+  const mousePosRef = useRef(null)
+  const completedShapesRef = useRef([])   // [{vertices, pageNumber, status:'locked'}]
 
   // ── Page rendering ─────────────────────────────────────────────────────────
 
@@ -55,20 +60,16 @@ function App() {
       const page = await pdfDoc.getPage(pageNum)
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
-
       const containerWidth = Math.min(window.innerWidth - 48, 1200)
       const viewport = page.getViewport({ scale: 1 })
       const scale = containerWidth / viewport.width
       const scaled = page.getViewport({ scale })
-
       canvas.width = scaled.width
       canvas.height = scaled.height
-
       if (measureRef.current) {
         measureRef.current.width = scaled.width
         measureRef.current.height = scaled.height
       }
-
       await page.render({ canvasContext: ctx, viewport: scaled }).promise
       setCurrentPage(pageNum)
     } catch (err) {
@@ -143,7 +144,6 @@ function App() {
     if (!c) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
-
     if (points.length >= 1) {
       if (points.length === 2) {
         ctx.beginPath()
@@ -175,7 +175,6 @@ function App() {
     const dx = p2.x - p1.x
     const dy = p2.y - p1.y
     const pixelDist = Math.sqrt(dx * dx + dy * dy)
-
     let realWorldMeters = 0
     if (scaleUnit === 'imperial') {
       const feet = parseFloat(feetVal) || 0
@@ -186,32 +185,28 @@ function App() {
       realWorldMeters = parseFloat(metersVal) || 0
       if (realWorldMeters <= 0) { setScaleError('Enter a dimension greater than zero.'); return }
     }
-
     if (pixelDist < 5) { setScaleError('Reference line is too short. Click two distinct points.'); return }
-
     pageScalesRef.current[currentPage] = {
       pxPerMeter: pixelDist / realWorldMeters,
       displayUnit: scaleUnit === 'imperial' ? 'ft' : 'm',
     }
-
     setShowScaleDialog(false)
     setCalibMode(false)
     setCalibPoints([])
     setScaleError('')
-    // Amber line stays visible as confirmation; cleared on next mode or page change
   }
 
   // ── Drawing ────────────────────────────────────────────────────────────────
 
   const exitDrawMode = () => {
     setDrawMode(false)
+    setReviewShape(null)
     drawVerticesRef.current = []
     setDrawVertexCount(0)
     mousePosRef.current = null
     clearMeasureCanvas()
   }
 
-  // Convert a pixel distance to a display string using this page's scale
   const pxToDisplayDist = (px, pageNum) => {
     const scale = pageScalesRef.current[pageNum]
     if (!scale || px <= 0) return null
@@ -225,14 +220,10 @@ function App() {
     return `${meters.toFixed(3)} m`
   }
 
-  // Apply angle snap then distance snap to a raw canvas position
   const applySnap = (rawPos, lastVertex, useAngle, useDist, pageNum) => {
     if (!lastVertex) return rawPos
-
     let x = rawPos.x
     let y = rawPos.y
-
-    // Step 1 — constrain direction to nearest 45°
     if (useAngle) {
       const dx = x - lastVertex.x
       const dy = y - lastVertex.y
@@ -244,12 +235,10 @@ function App() {
         y = lastVertex.y + dist * Math.sin(snapped)
       }
     }
-
-    // Step 2 — constrain length along the (possibly snapped) direction
     if (useDist) {
       const scale = pageScalesRef.current[pageNum]
       if (scale) {
-        const snapPx = scale.pxPerMeter * 0.1524 // 6-inch / ~15cm grid
+        const snapPx = scale.pxPerMeter * 0.1524
         const dx = x - lastVertex.x
         const dy = y - lastVertex.y
         const dist = Math.sqrt(dx * dx + dy * dy)
@@ -260,16 +249,38 @@ function App() {
         }
       }
     }
-
     return { x, y }
   }
 
-  // Full canvas redraw for draw mode — called on every mousemove and after mutations
+  // Draw all locked shapes for a page onto an existing canvas context
+  const drawLockedShapes = (ctx, pageNum) => {
+    completedShapesRef.current
+      .filter(s => s.pageNumber === pageNum)
+      .forEach(shape => {
+        const verts = shape.vertices
+        if (verts.length < 3) return
+        ctx.beginPath()
+        ctx.moveTo(verts[0].x, verts[0].y)
+        for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
+        ctx.closePath()
+        ctx.fillStyle = 'rgba(59,130,246,0.1)'
+        ctx.fill()
+        ctx.strokeStyle = '#2563eb'
+        ctx.lineWidth = 1.5
+        ctx.lineJoin = 'round'
+        ctx.stroke()
+      })
+  }
+
+  // Full canvas redraw for active tracing — called on every mousemove and after mutations
   const redrawDrawCanvas = (mousePos, vertices, useAngle, useDist, pageNum) => {
     const c = measureRef.current
     if (!c) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
+
+    // Locked shapes (background)
+    drawLockedShapes(ctx, pageNum)
 
     // Placed segments (solid blue)
     if (vertices.length >= 2) {
@@ -293,39 +304,132 @@ function App() {
       ctx.stroke()
     })
 
-    // Rubber-band line + snapped cursor dot + distance label
     if (vertices.length >= 1 && mousePos) {
       const last = vertices[vertices.length - 1]
-      const snapped = applySnap(mousePos, last, useAngle, useDist, pageNum)
+      const first = vertices[0]
 
-      ctx.beginPath()
-      ctx.moveTo(last.x, last.y)
-      ctx.lineTo(snapped.x, snapped.y)
-      ctx.strokeStyle = 'rgba(59,130,246,0.65)'
-      ctx.lineWidth = 1.5
-      ctx.setLineDash([5, 4])
-      ctx.stroke()
-      ctx.setLineDash([])
+      // Check if cursor is near first vertex (closure zone)
+      const nearClose = vertices.length >= 3 && (() => {
+        const dx = mousePos.x - first.x
+        const dy = mousePos.y - first.y
+        return Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS
+      })()
 
-      ctx.beginPath()
-      ctx.arc(snapped.x, snapped.y, 4, 0, Math.PI * 2)
-      ctx.fillStyle = '#3b82f6'
-      ctx.fill()
+      if (nearClose) {
+        // Closure preview: green dashed line to first vertex + highlight ring
+        ctx.beginPath()
+        ctx.moveTo(last.x, last.y)
+        ctx.lineTo(first.x, first.y)
+        ctx.strokeStyle = 'rgba(22,163,74,0.75)'
+        ctx.lineWidth = 2
+        ctx.setLineDash([5, 4])
+        ctx.stroke()
+        ctx.setLineDash([])
 
-      const ddx = snapped.x - last.x
-      const ddy = snapped.y - last.y
-      const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), pageNum)
-      if (label) {
-        const mx = (last.x + snapped.x) / 2
-        const my = (last.y + snapped.y) / 2
-        ctx.font = '12px system-ui, sans-serif'
-        const tw = ctx.measureText(label).width
-        const pad = 3
-        ctx.fillStyle = 'rgba(255,255,255,0.88)'
-        ctx.fillRect(mx - tw / 2 - pad, my - 15, tw + pad * 2, 18)
-        ctx.fillStyle = '#1d4ed8'
-        ctx.fillText(label, mx - tw / 2, my - 1)
+        ctx.beginPath()
+        ctx.arc(first.x, first.y, 10, 0, Math.PI * 2)
+        ctx.strokeStyle = '#16a34a'
+        ctx.lineWidth = 2.5
+        ctx.stroke()
+      } else {
+        // Normal rubber-band line to snapped cursor
+        const snapped = applySnap(mousePos, last, useAngle, useDist, pageNum)
+
+        ctx.beginPath()
+        ctx.moveTo(last.x, last.y)
+        ctx.lineTo(snapped.x, snapped.y)
+        ctx.strokeStyle = 'rgba(59,130,246,0.65)'
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([5, 4])
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        ctx.beginPath()
+        ctx.arc(snapped.x, snapped.y, 4, 0, Math.PI * 2)
+        ctx.fillStyle = '#3b82f6'
+        ctx.fill()
+
+        const ddx = snapped.x - last.x
+        const ddy = snapped.y - last.y
+        const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), pageNum)
+        if (label) {
+          const mx = (last.x + snapped.x) / 2
+          const my = (last.y + snapped.y) / 2
+          ctx.font = '12px system-ui, sans-serif'
+          const tw = ctx.measureText(label).width
+          const pad = 3
+          ctx.fillStyle = 'rgba(255,255,255,0.88)'
+          ctx.fillRect(mx - tw / 2 - pad, my - 15, tw + pad * 2, 18)
+          ctx.fillStyle = '#1d4ed8'
+          ctx.fillText(label, mx - tw / 2, my - 1)
+        }
       }
+    }
+  }
+
+  // Draw the reviewing (closed, not yet confirmed) polygon
+  const redrawReviewCanvas = (shape, pageNum) => {
+    const c = measureRef.current
+    if (!c) return
+    const ctx = c.getContext('2d')
+    ctx.clearRect(0, 0, c.width, c.height)
+
+    // Locked shapes behind it
+    drawLockedShapes(ctx, pageNum)
+
+    const verts = shape.vertices
+    ctx.beginPath()
+    ctx.moveTo(verts[0].x, verts[0].y)
+    for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(34,197,94,0.18)'
+    ctx.fill()
+    ctx.strokeStyle = '#16a34a'
+    ctx.lineWidth = 2.5
+    ctx.lineJoin = 'round'
+    ctx.stroke()
+
+    verts.forEach(v => {
+      ctx.beginPath()
+      ctx.arc(v.x, v.y, 4, 0, Math.PI * 2)
+      ctx.fillStyle = '#16a34a'
+      ctx.fill()
+      ctx.strokeStyle = 'white'
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+    })
+  }
+
+  const confirmShape = () => {
+    if (!reviewShape) return
+    completedShapesRef.current = [
+      ...completedShapesRef.current,
+      { vertices: reviewShape.vertices, pageNumber: currentPage, status: 'locked' },
+    ]
+    setReviewShape(null)
+    drawVerticesRef.current = []
+    setDrawVertexCount(0)
+    // Redraw locked shapes; user stays in draw mode to trace the next shape
+    const c = measureRef.current
+    if (c) {
+      const ctx = c.getContext('2d')
+      ctx.clearRect(0, 0, c.width, c.height)
+      drawLockedShapes(ctx, currentPage)
+    }
+  }
+
+  const discardShape = () => {
+    setReviewShape(null)
+    setDrawMode(false)
+    drawVerticesRef.current = []
+    setDrawVertexCount(0)
+    mousePosRef.current = null
+    // Clear canvas but keep locked shapes visible — they are not affected by discard
+    const c = measureRef.current
+    if (c) {
+      const ctx = c.getContext('2d')
+      ctx.clearRect(0, 0, c.width, c.height)
+      if (currentPage) drawLockedShapes(ctx, currentPage)
     }
   }
 
@@ -341,9 +445,26 @@ function App() {
         if (next.length === 2) setShowScaleDialog(true)
         return next
       })
-    } else if (drawMode) {
+    } else if (drawMode && !reviewShape) {
       const rawPos = getCanvasPos(e)
       const verts = drawVerticesRef.current
+
+      // Closure check — must have ≥3 vertices already placed
+      if (verts.length >= 3) {
+        const first = verts[0]
+        const dx = rawPos.x - first.x
+        const dy = rawPos.y - first.y
+        if (Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS) {
+          const shape = { vertices: verts, pageNumber: currentPage }
+          setReviewShape(shape)
+          drawVerticesRef.current = []
+          setDrawVertexCount(0)
+          redrawReviewCanvas(shape, currentPage)
+          return
+        }
+      }
+
+      // Normal vertex placement
       const last = verts.length > 0 ? verts[verts.length - 1] : null
       const snapped = applySnap(rawPos, last, snapAngle, snapDist, currentPage)
       const next = [...verts, snapped]
@@ -357,7 +478,7 @@ function App() {
     if (calibMode && !showScaleDialog && calibPoints.length === 1) {
       const pos = getCanvasPos(e)
       drawCalibState([calibPoints[0], pos])
-    } else if (drawMode) {
+    } else if (drawMode && !reviewShape) {
       const pos = getCanvasPos(e)
       mousePosRef.current = pos
       redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle, snapDist, currentPage)
@@ -370,10 +491,10 @@ function App() {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         if (calibMode) exitCalibMode()
+        else if (reviewShape) discardShape()
         else if (drawMode) exitDrawMode()
       }
-      if (drawMode && (e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
-        // Undo last vertex
+      if (drawMode && !reviewShape && (e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
         const verts = drawVerticesRef.current
         if (verts.length === 0) return
         const next = verts.slice(0, -1)
@@ -384,7 +505,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, snapAngle, snapDist, currentPage]) // re-register when relevant state changes
+  }, [calibMode, drawMode, reviewShape, snapAngle, snapDist, currentPage])
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
@@ -426,7 +547,6 @@ function App() {
           </div>
         )}
 
-        {/* Set Scale button — hidden while calibrating or drawing */}
         {currentPage && !calibMode && !drawMode && (
           <button
             className={`calib-btn ${pageHasScale ? 'calib-btn--done' : ''}`}
@@ -442,7 +562,6 @@ function App() {
           </button>
         )}
 
-        {/* Calibration status bar */}
         {calibMode && (
           <div className="calib-status">
             <span className="calib-instructions">
@@ -456,7 +575,6 @@ function App() {
           </div>
         )}
 
-        {/* Draw button — hidden while calibrating */}
         {currentPage && !calibMode && !drawMode && (
           <button
             className="draw-btn"
@@ -469,38 +587,49 @@ function App() {
           </button>
         )}
 
-        {/* Drawing mode toolbar */}
         {drawMode && (
           <div className="draw-toolbar">
-            <button
-              className={`snap-btn ${snapAngle ? 'snap-btn--on' : ''}`}
-              onClick={() => {
-                const next = !snapAngle
-                setSnapAngle(next)
-                redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, next, snapDist, currentPage)
-              }}
-              title="Snap to 45° axis angles"
-            >
-              Axis Snap {snapAngle ? 'ON' : 'OFF'}
-            </button>
-            <button
-              className={`snap-btn ${snapDist ? 'snap-btn--on' : ''} ${!pageHasScale ? 'snap-btn--unavail' : ''}`}
-              onClick={() => {
-                if (!pageHasScale) return
-                const next = !snapDist
-                setSnapDist(next)
-                redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, next, currentPage)
-              }}
-              title={pageHasScale ? 'Snap to 6″ distance increments' : 'Set scale first to enable distance snap'}
-            >
-              Dist Snap {snapDist ? 'ON' : 'OFF'}
-            </button>
-            <span className="draw-status">
-              {drawVertexCount === 0
-                ? 'Click to start tracing'
-                : 'Click to continue · Z to undo · Esc to cancel'}
-            </span>
-            <button className="calib-cancel" onClick={exitDrawMode}>Stop</button>
+            {!reviewShape ? (
+              <>
+                <button
+                  className={`snap-btn ${snapAngle ? 'snap-btn--on' : ''}`}
+                  onClick={() => {
+                    const next = !snapAngle
+                    setSnapAngle(next)
+                    redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, next, snapDist, currentPage)
+                  }}
+                  title="Snap to 45° axis angles"
+                >
+                  Axis Snap {snapAngle ? 'ON' : 'OFF'}
+                </button>
+                <button
+                  className={`snap-btn ${snapDist ? 'snap-btn--on' : ''} ${!pageHasScale ? 'snap-btn--unavail' : ''}`}
+                  onClick={() => {
+                    if (!pageHasScale) return
+                    const next = !snapDist
+                    setSnapDist(next)
+                    redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, next, currentPage)
+                  }}
+                  title={pageHasScale ? 'Snap to 6″ distance increments' : 'Set scale first to enable distance snap'}
+                >
+                  Dist Snap {snapDist ? 'ON' : 'OFF'}
+                </button>
+                <span className="draw-status">
+                  {drawVertexCount === 0
+                    ? 'Click to start tracing'
+                    : drawVertexCount < 3
+                    ? 'Click to continue · Z to undo · Esc to cancel'
+                    : 'Continue tracing · click start point to close · Z to undo · Esc to cancel'}
+                </span>
+                <button className="calib-cancel" onClick={exitDrawMode}>Stop</button>
+              </>
+            ) : (
+              <>
+                <span className="review-status">Shape closed — confirm or discard</span>
+                <button className="btn-primary" onClick={confirmShape}>Confirm Shape</button>
+                <button className="btn-secondary" onClick={discardShape}>Discard</button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -536,7 +665,6 @@ function App() {
             <p className="modal-sub">
               Enter the real-world length of the reference line you just drew.
             </p>
-
             <div className="modal-unit-toggle">
               <label className={scaleUnit === 'imperial' ? 'active' : ''}>
                 <input
@@ -555,7 +683,6 @@ function App() {
                 Metric (m)
               </label>
             </div>
-
             {scaleUnit === 'imperial' ? (
               <div className="modal-inputs">
                 <div className="input-group">
@@ -589,9 +716,7 @@ function App() {
                 </div>
               </div>
             )}
-
             {scaleError && <p className="modal-error">{scaleError}</p>}
-
             <div className="modal-actions">
               <button className="btn-secondary" onClick={exitCalibMode}>Cancel</button>
               <button className="btn-primary" onClick={handleConfirmScale}>Confirm Scale</button>
