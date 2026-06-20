@@ -353,8 +353,14 @@ canvas {
   white-space: nowrap;
 }
 
-.draw-btn:hover {
+.draw-btn:hover:not(:disabled) {
   background: #1d4ed8;
+}
+
+.draw-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .draw-toolbar {
@@ -400,6 +406,23 @@ canvas {
   border-radius: 4px;
   border: 1px solid #bfdbfe;
   white-space: nowrap;
+}
+
+.snap-increment-select {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid #93c5fd;
+  border-radius: 5px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.snap-increment-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
 
 .review-status {

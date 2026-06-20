@@ -44,7 +44,8 @@ function App() {
   // Drawing state
   const [drawMode, setDrawMode] = useState(false)
   const [snapAngle, setSnapAngle] = useState(true)
-  const [snapDist, setSnapDist] = useState(false)
+  const [snapDist, setSnapDist] = useState(true)
+  const [snapIncrement, setSnapIncrement] = useState(0.1524) // meters; 0.1524 = 6", 0.15 = 15cm
   const [drawVertexCount, setDrawVertexCount] = useState(0)
   const [reviewShape, setReviewShape] = useState(null) // {vertices, pageNumber} | null
 
@@ -54,6 +55,7 @@ function App() {
   const drawVerticesRef = useRef([])      // [{x,y}] in-progress trace
   const mousePosRef = useRef(null)
   const completedShapesRef = useRef([])   // [{vertices, pageNumber, status:'locked'}]
+  const snapIncrementRef = useRef(0.1524) // mirrors snapIncrement state for use in event handlers
 
   // ── Page rendering ─────────────────────────────────────────────────────────
 
@@ -207,6 +209,8 @@ function App() {
     drawVerticesRef.current = []
     setDrawVertexCount(0)
     mousePosRef.current = null
+    snapIncrementRef.current = 0.1524
+    setSnapIncrement(0.1524)
     clearMeasureCanvas()
   }
 
@@ -241,7 +245,7 @@ function App() {
     if (useDist) {
       const scale = pageScalesRef.current[pageNum]
       if (scale) {
-        const snapPx = scale.pxPerMeter * 0.1524
+        const snapPx = scale.pxPerMeter * snapIncrementRef.current
         const dx = x - lastVertex.x
         const dy = y - lastVertex.y
         const dist = Math.sqrt(dx * dx + dy * dy)
@@ -503,7 +507,8 @@ function App() {
       const pos = getCanvasPos(e)
       setCalibPoints(prev => {
         if (prev.length >= 2) return prev
-        const next = [...prev, pos]
+        const snapped = prev.length === 1 ? applySnap(pos, prev[0], true, false, currentPage) : pos
+        const next = [...prev, snapped]
         drawCalibState(next)
         if (next.length === 2) setShowScaleDialog(true)
         return next
@@ -539,7 +544,8 @@ function App() {
   const handleMeasureMouseMove = (e) => {
     if (calibMode && !showScaleDialog && calibPoints.length === 1) {
       const pos = getCanvasPos(e)
-      drawCalibState([calibPoints[0], pos])
+      const snapped = applySnap(pos, calibPoints[0], true, false, currentPage)
+      drawCalibState([calibPoints[0], snapped])
     } else if (drawMode && !reviewShape) {
       const pos = getCanvasPos(e)
       mousePosRef.current = pos
@@ -640,7 +646,13 @@ function App() {
         {currentPage && !calibMode && !drawMode && (
           <button
             className="draw-btn"
+            disabled={!pageHasScale}
+            title={!pageHasScale ? 'Set scale first to enable drawing' : undefined}
             onClick={() => {
+              const unit = pageScalesRef.current[currentPage]?.displayUnit
+              const defaultIncrement = unit === 'm' ? 0.15 : 0.1524
+              snapIncrementRef.current = defaultIncrement
+              setSnapIncrement(defaultIncrement)
               clearMeasureCanvas()
               setDrawMode(true)
             }}
@@ -672,10 +684,42 @@ function App() {
                     setSnapDist(next)
                     redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, next, currentPage)
                   }}
-                  title={pageHasScale ? 'Snap to 6″ distance increments' : 'Set scale first to enable distance snap'}
+                  title={pageHasScale ? 'Snap to distance increments' : 'Set scale first to enable distance snap'}
                 >
                   Dist Snap {snapDist ? 'ON' : 'OFF'}
                 </button>
+                {snapDist && pageHasScale && (() => {
+                  const isImperial = pageScalesRef.current[currentPage]?.displayUnit === 'ft'
+                  return (
+                    <select
+                      className="snap-increment-select"
+                      value={snapIncrement}
+                      onChange={e => {
+                        const v = parseFloat(e.target.value)
+                        snapIncrementRef.current = v
+                        setSnapIncrement(v)
+                        redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, true, currentPage)
+                      }}
+                      title="Distance snap increment"
+                    >
+                      {isImperial ? (
+                        <>
+                          <option value={0.0254}>1″</option>
+                          <option value={0.0762}>3″</option>
+                          <option value={0.1524}>6″</option>
+                          <option value={0.3048}>12″</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value={0.025}>2.5 cm</option>
+                          <option value={0.075}>7.5 cm</option>
+                          <option value={0.15}>15 cm</option>
+                          <option value={0.30}>30 cm</option>
+                        </>
+                      )}
+                    </select>
+                  )
+                })()}
                 <span className="draw-status">
                   {drawVertexCount === 0
                     ? 'Click to start tracing'
