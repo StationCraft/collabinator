@@ -1,0 +1,250 @@
+# Collabinator — Functionality Summary (Phase 1.5 Design Decisions)
+
+This document captures every design decision made during the Phase 1.5 planning
+conversation (compass rose → page categorization → multi-floor → elevations → roof →
+windows). It exists so these decisions are a durable, readable file instead of living
+only in chat history. Claude Code should read this alongside `CLAUDE.md` before
+building any Phase 1.5 feature.
+
+**Status of these decisions:** Confirmed in conversation, not yet built. The previous
+multi-floor implementation (8a–8d) that prompted this redesign was lost (file
+overwrite, no backup) and is **not being rebuilt as it was** — these decisions
+describe what should be built instead, the first time, correctly.
+
+---
+
+## 1. Coordinate system
+
+- **X, Y** = horizontal plan coordinates (per compass rose orientation)
+- **Z** = vertical elevation. Z = 0 is typically top of foundation slab.
+- This does not change from the original Phase 1 design.
+
+---
+
+## 2. Build order (confirmed sequence)
+
+1. Compass rose alignment (first thing after PDF upload)
+2. Page categorization + working area selection
+3. Ground floor plan tracing + origin point
+4. Multi-floor reference/alignment for subsequent floor plans
+5. Roof plan tracing
+6. Elevation calibration + tracing
+7. Cross-section reference geometry
+8. Windows/doors placement
+9. Phase 2 threshold: 3D wireframe + spreadsheet output
+
+---
+
+## 3. Compass rose alignment
+
+- **Manual only** — no image recognition/auto-detect. Simpler and more reliable.
+- On PDF upload, immediately show a compass rose overlay (centered on screen).
+- User can **drag** it to position and **rotate** it (drag, arrow keys, or slider —
+  implementation detail, not yet specified) to match the compass rose printed on the
+  plan set.
+- User clicks **"Confirm compass alignment"**.
+- The actual rotation angle (e.g., "15° clockwise from vertical") is stored.
+- **Labeling logic:** the system rounds the actual angle to the nearest of
+  N/NE/E/SE/S/SW/W/NW for axis labels and references throughout the app (e.g., "North
+  Elevation"), even if true north is off by a few degrees. The precise stored angle is
+  retained separately for tools that need exact values later (solar exposure analysis,
+  etc.).
+- This happens **before** page categorization.
+
+---
+
+## 4. Page categorization & working area
+
+**Order: category is assigned first, then working area is selected for that page.**
+
+For each page:
+1. User assigns a **category**: Floor Plan / Elevation / Cross-Section / Detail /
+   Roof Plan
+2. If Floor Plan: sub-label (Ground, L1, L2, Crawlspace/Basement, etc.)
+3. If Elevation: direction (North, South, East, West) — derived from compass rose
+4. User selects a **working area** (crop box, drag corners) for that page
+5. If a single PDF page contains multiple elements (e.g., a floor plan and an
+   elevation on the same sheet): a **"Duplicate this page"** button creates two
+   copies of the page, each independently assigned a category and working area
+
+**Working area behavior:**
+- Once selected, the working area becomes the default view: **fit to screen**
+  (auto-zoom to fit height or width) whenever that page is opened.
+- The rest of the original page still exists and is not deleted/cropped — the working
+  area is just the default viewport.
+
+**High-res toggle:**
+- Temporary, not persistent. Used specifically when setting scale, to make small
+  dimension text legible. Reverts to normal (fast/nimble) resolution otherwise.
+
+**Sidebar:**
+- Shows all categorized pages, organized by:
+  1. Floor plans, lowest to highest elevation. Plans at slightly different
+     elevations within what's conceptually "the same floor" (e.g., a sunken living
+     room) are visually indented/sub-grouped under that floor rather than treated as
+     a separate floor level.
+  2. Elevations: Front, Back, Left, Right (translated from N/S/E/W per compass)
+  3. Cross-sections
+- Clicking a sidebar entry navigates to that page and shows whatever has been drawn
+  on it.
+- **Recategorization is non-destructive:** if a page was mislabeled (e.g., "Left
+  Elevation" should have been "Right Elevation") and the user has already traced
+  windows or geometry on it, recategorizing changes the label/orientation without
+  losing the existing geometry or scale.
+
+---
+
+## 5. Ground floor tracing + origin point
+
+- Uses the existing, working scale-and-trace tool (calibration → draw → close →
+  review/confirm), unchanged.
+- Once a polygon is locked, **every exterior corner automatically functions as a
+  potential reference/origin point** — no special pre-selection step is needed during
+  tracing itself.
+- User selects which corner is the project origin, **with confirmation, and the
+  ability to change it later.**
+- The origin point is the spatial anchor subsequent floors and elevations align to.
+
+---
+
+## 6. Multi-floor alignment (replaces the old 8a–8d design entirely)
+
+This is the corrected design — the old vertex-drag/break-point/"unlock inherited
+geometry" approach is **not** being rebuilt.
+
+- When the user opens a new floor-plan page, the previous floor's locked geometry
+  shows as a **read-only, toggleable reference ghost** — never directly editable.
+- User aligns the ghost to the new page's PDF and scales it to match (drag/corner-drag
+  to scale, similar to the original 8c corner-drag mechanic).
+- User clicks **"Confirm scale"** — this locks the per-page PDF transform
+  (`{tx, ty, s, angle}`) and applies it to the actual PDF backdrop, not just the
+  ghost.
+- Once confirmed, **new polygons drawn on this page automatically snap to the same
+  global grid as the previous floor** — alignment is automatic, not something the
+  user manages by hand.
+- The reference ghost remains visible (toggleable) as a non-editable backdrop on any
+  page using the same axis alignment.
+- **Known bug from the prior implementation (do not reintroduce):** scale appearing to
+  reset after confirm, and the reference becoming undraggable. Root cause was the CSS
+  transform being applied inconsistently between the PDF canvas and the
+  measurement/drawing canvas. Both must transform together as a single unit (apply
+  transform to the parent `.canvas-stack`, not to one child canvas).
+
+---
+
+## 7. Roof plan
+
+- Traced the same way as a floor plan (perimeter polygon, calibrated scale).
+- User selects **roof type: flat or pitched**.
+- If pitched, user draws **slope lines** in addition to the perimeter.
+- Ridge height and eave height are set later, during elevation work (see below).
+- **Eave projection** = horizontal distance between the roof plan's perimeter edge and
+  the top floor's wall perimeter edge, for a given elevation/side.
+- This data feeds roof plane area, angle, and exposure calculations.
+
+---
+
+## 8. Elevation calibration & tracing
+
+**Purpose:** elevations are **reference-only** for the 3D envelope — they are not
+used to generate new floor/wall planes (those already exist from the floor-plan
+traces). Elevations exist to:
+- Calibrate vertical (Z) heights per floor
+- Capture eave projections (combined with roof plan data)
+- Capture window/door openings
+- Later: serve as the visual reference for envelope penetrations (vents, etc.) at
+  their correct 3D location
+
+**Calibration workflow:**
+1. User selects which floor-plan edge this elevation represents (the system shows the
+   relevant floor-plan reference geometry; user picks the corresponding edge).
+2. System derives **floor-level reference lines** from the floor plan data (one line
+   per floor, proportionally positioned) and displays them on the elevation's working
+   area.
+3. User drags the PDF to align the **lowest floor line** to the correct part of the
+   drawing.
+4. User scales the PDF (slider, or drag mechanism — exact UI TBD) until the **next
+   floor line** lands correctly on the drawing.
+5. User confirms scale.
+6. User drags left/right to align a reference corner (vertical alignment uses the
+   corner/origin reference established on the ground floor; vertical lines extend
+   upward from floor-plan corners to align elevations, even where a cantilever means
+   corners don't line up exactly floor to floor).
+7. User traces the elevation outline as a single continuous polyline (not separate
+   polygons per floor segment).
+
+**Open/unresolved at time of writing:** whether multiple alignment/reference points
+per floor are needed (vs. one), given that a corner may shift between floors due to
+cantilevers. Current direction: vertical reference lines rising from each ground-floor
+corner are likely sufficient without requiring multiple stored alignment points — this
+should be validated once elevation calibration is actually built and tested.
+
+---
+
+## 9. Cross-sections
+
+- Reference-only geometry — same as elevations, used for vertical/ceiling-height
+  confirmation, not for generating new wall planes.
+- Unlike elevations, cross-sections are **not aligned to one outside edge** — they cut
+  through the whole building, so alignment uses the visible floor-line references
+  rather than a single corner/edge match.
+
+---
+
+## 10. Windows & doors
+
+Two input methods:
+
+1. **Drag-and-drop:** A generic window blank (default 24"×24") sits in a tray on the
+   side of the screen. User drags it onto the elevation, drops it aligned to a corner
+   of the actual window opening (snapped to a grid), grabbing/dropping by a corner
+   handle.
+2. **Resize:** Either drag the opposite corner to match the real opening, or click to
+   type exact dimensions — when dimensions are typed, the **original drop-handle
+   corner stays locked in place** and the opposite corner adjusts.
+
+**Additional UI:**
+- A top bar toggle indicates whether the user is entering **frame dimension** or
+  **rough opening** dimension.
+- A snap-grid setting controls the smallest increment the drag/resize tool honors.
+- Once one window's size is set, **"suggested reference lines" activate** (same
+  mechanic as floor-plan tracing) to help align subsequent windows.
+- Workflow otherwise mirrors floor-plan tracing: click/place, then confirm.
+
+**Future connection (not Phase 1.5, noted for continuity):** the same elevation canvas
+will later be used to display envelope penetrations (e.g., a bathroom exhaust vent),
+automatically rendered at the correct location based on the penetration's stored 3D
+path and elevation — this is why elevation geometry needs to be accurately scaled and
+positioned now, even though penetrations themselves are a later phase.
+
+---
+
+## 11. Important scope note — structural plane only (for now)
+
+Everything traced in this phase (floor plans, elevations, roof) represents the
+**structural outside face** of the building envelope — not the finished/cladding
+face. Additional assembly thickness (e.g., 2" exterior insulation + 3-layer cladding)
+will later shift the true outside plane outward from what's traced here. This is a
+**Phase 2 assembly-thickness concern**, not something to solve while tracing now, but
+it's worth keeping in mind so the data model doesn't accidentally treat the traced
+line as the final exterior face.
+
+---
+
+## 12. Phase 2 (confirmed scope, for context only — not building yet)
+
+- 3D wireframe model, orbitable
+- Spreadsheet output of all outer-shell building envelope data
+- Assembly type assignment
+- Interior surface geometry generation (derived from exterior plane + assembly
+  thickness)
+
+---
+
+## 13. Explicitly deferred / abandoned approaches (do not reintroduce)
+
+- Vertex-drag and break-point insertion directly on **inherited/reference** geometry —
+  abandoned in favor of the simpler read-only-ghost + confirm-scale model (Section 6).
+- Auto-detecting the compass rose via image recognition — manual alignment only.
+- Treating the working-area crop as a permanent crop (it's a default viewport, not a
+  destructive crop).
