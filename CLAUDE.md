@@ -26,24 +26,34 @@ BC, Canada. Working on a laptop, which requires zoom for readability.
 
 `C:\Users\ben\Collabinator\pdf-viewer`
 
-## What is built so far (current state after session 4, before cleanup)
+## What is built so far (rebuilt from scratch — current state)
 
 A React + Vite app with:
 
-- PDF loading and multi-page navigation with per-file page memory
+- PDF loading and multi-page navigation
 - Page-specific canvas sizing for all formats
-- Full calibration workflow (scale + snap setup)
-- Live drawing with axis/angle snap and distance snap (independent toggles)
-- Chained segments with undo/escape
-- Shape closure detection and polygon review/confirm workflow
-- Post-completion editing (segment drag + label numeric override)
-- Zoom & pan with correct coordinate mapping
-- Multi-floor support (8a–8c partial):
-  * Global scale lock after page 1
-  * Per-polygon floor assignment (level + elevation Z)
-  * Inherited geometry overlay from previous floor (8b)
-  * Per-page PDF scale adjustment (8c corner drag)
-  * 8d confirm-scale button (has alignment bug — see below)
+- Calibration workflow: two-click amber reference line on the PDF canvas,
+  imperial (ft + in) or metric (m) scale dialog, per-page scale factor stored
+- Live drawing tool (vertex array storage — `{vertices: [{x,y}]}`):
+  * Click-to-trace chained polyline segments
+  * Axis/angle snap (nearest 45°) — independent toggle, on by default
+  * Distance snap (6-inch / ~15cm grid) — independent toggle, requires scale set
+  * Alignment guides: H/V snap to any prior vertex in the active trace,
+    10px tolerance, amber dashed guide lines, takes priority over axis snap
+  * Undo (Z key removes last vertex), Escape/Stop cancels trace
+- Shape closure detection: click near first vertex (16px radius) to close;
+  green ring + dashed preview line signals closure zone
+- Polygon review/confirm workflow:
+  * Closed polygon enters review state (green fill/stroke, static)
+  * Confirm locks it to `completedShapesRef` (blue fill/stroke, persists on canvas)
+  * Discard removes it; locked shapes from earlier confirms remain visible
+  * Escape in review state = discard
+- Multiple shapes per page; locked shapes rendered as background on all redraws
+
+**Not yet built (next increments):**
+- Post-completion editing (segment drag, label numeric override)
+- Zoom & pan
+- Multi-floor coordination, compass rose, page categorization (Phase 1.5)
 
 ## Pre-Phase 1.5 Cleanup Sessions (A.0.1–A.0.3)
 
