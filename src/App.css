@@ -338,3 +338,66 @@ canvas {
 .btn-secondary:hover {
   background: #f5f5f5;
 }
+
+/* ── Draw mode toolbar ── */
+.draw-btn {
+  padding: 0.45rem 1rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.draw-btn:hover {
+  background: #1d4ed8;
+}
+
+.draw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.snap-btn {
+  padding: 0.35rem 0.75rem;
+  background: white;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+
+.snap-btn--on {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.snap-btn--on:hover {
+  background: #bfdbfe;
+}
+
+.snap-btn--unavail {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.draw-status {
+  font-size: 0.8rem;
+  color: #1d4ed8;
+  background: #eff6ff;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid #bfdbfe;
+  white-space: nowrap;
+}
