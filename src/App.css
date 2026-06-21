@@ -572,11 +572,11 @@ canvas {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #d4d4d8;
+  background: transparent;
+  border: none;
   border-radius: 12px;
   padding: 1rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+  box-shadow: none;
   user-select: none;
   cursor: grab;
   outline: none;
@@ -622,6 +622,9 @@ canvas {
   width: 100%;
   min-width: 220px;
   cursor: default;
+  background: rgba(255,255,255,0.82);
+  border-radius: 8px;
+  padding: 0.5rem 0.5rem 0.25rem;
 }
 
 .compass-angle-row {
@@ -652,6 +655,18 @@ canvas {
   outline: none;
   border-color: #7c3aed;
   box-shadow: 0 0 0 2px rgba(124,58,237,0.2);
+}
+
+.compass-instruction {
+  font-size: 0.72rem;
+  color: #555;
+  text-align: center;
+  max-width: 220px;
+  line-height: 1.4;
+  margin-bottom: 0.25rem;
+  background: rgba(255,255,255,0.82);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
 }
 
 .compass-hint {

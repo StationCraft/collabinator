@@ -1913,6 +1913,9 @@ function App() {
           onPointerMove={e => { onCompassBodyPointerMove(e); onRotHandlePointerMove(e) }}
           onPointerUp={e => { onCompassBodyPointerUp(e); onRotHandlePointerUp(e) }}
         >
+          <p className="compass-instruction">
+            Move this panel over your plan's compass rose, then drag the handle on the N arm to rotate until it matches.
+          </p>
           {/* SVG compass rose — rotated by compassDraftAngle */}
           <div
             className="compass-rose-wrap"
