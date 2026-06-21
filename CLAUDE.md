@@ -278,17 +278,28 @@ After A.0.1–A.0.3 cleanup, Phase 1.5 builds the foundational architecture for 
 ## Design notes (Phase 1.5+)
 
 - **Coordinate system:** X,Y from plan (per compass rose), Z from elevations (vertical).
-  Origin point on ground floor anchors the project.
-- **Origin point is NOT a user-facing step:** the internal coordinate anchor is
-  derived automatically from the first vertex placed on the ground floor page; no
-  user action required.
+  The origin (0,0,0) is a **fixed, arbitrary zero** — not a building feature. All
+  geometry lives in the coordinate space at whatever coordinates it lands on, and all
+  relationships are computed **geometry-to-geometry**, never against the origin.
+- **No origin point / no origin capture:** nothing "is" the origin. The earlier idea of
+  deriving an internal anchor from the first vertex on the ground floor is **reversed** —
+  there is no such anchor. The lowest floor is identified (via `getAnchorFloor`) only as
+  a **building fact: the base of the floor stack**, carrying no coordinate-origin meaning.
+- **Floor levels (Z) are a relative-offset stack:** each floor stores its offset from the
+  floor below; absolute Z accumulates up from the base. Changing a lower floor's height
+  shifts every floor above it up (intended). Offsets are set via the elevation/cross-
+  section line-slider mechanic; floor-system thickness = ceiling-to-next-floor offset.
 - **Compass rose:** Manual overlay alignment + rotation input. Defines all axis labels.
 - **Plans define structural envelope:** Floor plans + roof plan → outer shell geometry.
 - **Elevations show vertical section:** Align to plan edges; show floor heights, roof
   pitch, eave projections; walls/openings traced on top.
 - **Cross-sections are reference-only:** Vertical slices aligned to plan reference lines.
 - **Real-world coordinate system:** Post-Phase 1.5 refactor; currently all coords are
-  canvas pixels. Will convert to feet/meters before Phase 2.
+  canvas pixels. Will convert to feet/meters before Phase 2. Target model: a **fixed
+  arbitrary origin**, all relationships computed **geometry-to-geometry**, floor levels
+  as a **relative-offset stack** (absolute Z accumulated from the base floor), and named
+  control/reference points (e.g. the CAD-export datum) stored as data at their computed
+  coordinates within the space.
 
 ## Reference documents (not in this folder)
 

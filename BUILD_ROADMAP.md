@@ -25,10 +25,18 @@ building."
 [x] Step 4a — pageId migration — DONE, committed
 [x] Step 4b — Page categorization UI — DONE, committed
 [x] Step 4c — Sidebar + navigation — DONE, committed (b314eab, 23d66bc)
-[ ] Ground floor tracing + origin point  <-- YOU ARE HERE
+[~] Ground floor tracing  <-- YOU ARE HERE
+    [x] Step 5a   — getAnchorFloor helper + FLOOR_ORDER — DONE, committed (9266bdc)
+    [x] Step 5a-ii — known-level requirement in categorization — DONE, committed (ef09039)
+    [-] Step 5b   — origin capture — CANCELLED / DISSOLVED. The fixed-arbitrary-origin
+        reframing means there is no origin to capture (see FUNCTIONALITY_SUMMARY.md
+        Section 1 & 5). Nothing replaces it.
+    [ ] Step 5c   — front-face designation  <-- NEXT BUILD
 ```
 
-**This chat's goal is complete. A fresh planning chat picks up at ground floor tracing.**
+**This chat's goal is complete. Ground floor tracing is underway: 5a and 5a-ii are
+done and committed, 5b (origin capture) is dissolved, and the next build is front-face
+designation (5c).**
 
 ---
 
@@ -38,7 +46,7 @@ Once the infrastructure above is solid, a fresh planning chat picks up at the ac
 building-tracing sequence, per `FUNCTIONALITY_SUMMARY.md`:
 
 ```
-Ground floor tracing + origin point
+Ground floor tracing (no origin capture — origin is a fixed arbitrary zero)
   -> Multi-floor reference & alignment (built correctly this time)
     -> Roof plan tracing
       -> Elevation calibration + tracing

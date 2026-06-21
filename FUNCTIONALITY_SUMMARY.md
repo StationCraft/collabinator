@@ -15,9 +15,23 @@ describe what should be built instead, the first time, correctly.
 
 ## 1. Coordinate system
 
-- **X, Y** = horizontal plan coordinates (per compass rose orientation)
-- **Z** = vertical elevation. Z = 0 is typically top of foundation slab.
-- This does not change from the original Phase 1 design.
+- The coordinate origin (X, Y, Z = 0,0,0) is a **fixed, arbitrary zero**. It is not a
+  building feature — nothing in the building "is" the origin. It is simply the zero
+  mark of the coordinate space. All building geometry lives within that space at
+  whatever coordinates it lands on.
+- **X, Y** = horizontal plan coordinates (per compass rose orientation).
+- **Z** = vertical elevation.
+- All geometric relationships are computed **geometry-to-geometry** (e.g. vertex A
+  minus vertex B), never by measuring against the origin. The origin is only a shared
+  reference frame, not a thing anything relates to.
+- **Floor levels (Z) form a stack.** The lowest floor is the base of the stack. Each
+  floor stores its **offset from the floor below it**; a floor's absolute Z is derived
+  by accumulating offsets up the stack from the base. Changing a lower floor's height
+  therefore **shifts every floor above it up** — this is intended, physically-correct
+  behavior (raise the basement ceiling and everything stacked on it rises with it).
+- Z values are set via the Section 8 elevation/cross-section line-slider mechanic
+  (drag floor/ceiling lines, or type inter-level distances). Floor-system thickness is
+  just the offset between a ceiling plane and the next floor plane above it.
 
 ---
 
@@ -25,7 +39,7 @@ describe what should be built instead, the first time, correctly.
 
 1. Compass rose alignment (first thing after PDF upload)
 2. Page categorization + working area selection
-3. Ground floor plan tracing + origin point
+3. Ground floor plan tracing
 4. Multi-floor reference/alignment for subsequent floor plans
 5. Roof plan tracing
 6. Elevation calibration + tracing
@@ -94,14 +108,20 @@ For each page:
 
 ---
 
-## 5. Ground floor tracing + origin point
+## 5. Ground floor tracing
 
 - Uses the existing, working scale-and-trace tool (calibration → draw → close →
   review/confirm), unchanged.
-- Origin point is handled internally — no user action required. The system
-  automatically uses the first vertex placed on the ground floor page as the
-  internal coordinate anchor. All subsequent floors and elevations relate to this
-  anchor via their stored per-page transforms.
+- **There is no origin capture and no "origin point" step.** The coordinate origin is
+  a fixed, arbitrary zero (Section 1) — no vertex is the origin, and the first vertex
+  placed on the ground floor carries no special coordinate meaning. *(This reverses the
+  earlier "first vertex placed on the ground floor becomes the internal coordinate
+  anchor" decision, which is now superseded.)*
+- The lowest floor is identified as **the base of the floor stack** — a building fact
+  only, surfaced via the `getAnchorFloor` helper. It anchors the Z stack (Section 1),
+  not the coordinate origin.
+- All floors and elevations relate to each other geometry-to-geometry and via the
+  relative-offset Z stack, not through the origin.
 
 ---
 
@@ -117,9 +137,13 @@ geometry" approach is **not** being rebuilt.
 - User clicks **"Confirm scale"** — this locks the per-page PDF transform
   (`{tx, ty, s, angle}`) and applies it to the actual PDF backdrop, not just the
   ghost.
-- Once confirmed, **new polygons drawn on this page automatically snap to the same
-  global grid as the previous floor** — alignment is automatic, not something the
-  user manages by hand.
+- Once confirmed, **new polygons drawn on this page align directly to the previous
+  floor's geometry** (geometry-to-geometry, via the shared snap grid) — alignment is
+  automatic, not something the user manages by hand. Floors are positioned relative to
+  each other, never relative to the coordinate origin.
+- Vertically, each floor relates to the one below it through the **relative-offset Z
+  stack** (Section 1): its Z offset is set later in the Section 8 elevation work, and
+  absolute Z accumulates up the stack from the base floor.
 - The reference ghost remains visible (toggleable) as a non-editable backdrop on any
   page using the same axis alignment.
 - **Known bug from the prior implementation (do not reintroduce):** scale appearing to
@@ -156,20 +180,32 @@ traces). Elevations exist to:
 **Calibration workflow:**
 1. User selects which floor-plan edge this elevation represents (the system shows the
    relevant floor-plan reference geometry; user picks the corresponding edge).
-2. System derives **floor-level reference lines** from the floor plan data (one line
-   per floor, proportionally positioned) and displays them on the elevation's working
-   area.
-3. User drags the PDF to align the **lowest floor line** to the correct part of the
-   drawing.
-4. User scales the PDF (slider, or drag mechanism — exact UI TBD) until the **next
-   floor line** lands correctly on the drawing.
-5. User confirms scale.
+2. User scales the elevation PDF first (drag/corner-drag or slider) to a workable
+   size — scale does **not** depend on pre-positioned floor lines.
+3. The system shows a draggable horizontal reference line for **every floor level AND
+   every ceiling level** known to the project. Each line is set either by dragging it
+   onto the corresponding line in the drawing, or by typing the distance to its
+   adjacent level. Lines carry a live readout.
+4. Because each floor level and each ceiling level has its own line, the gap between a
+   ceiling line and the next floor line above it directly captures the **floor-system
+   thickness** as a first-class value (not inferred later). Bulkheads and floor drops
+   are represented as additional lines or offsets on the same mechanic.
+5. Z values for **ALL floors** are set here, in context — including free-text-labelled
+   Plan Views that have no implicit elevation order. This supersedes any earlier idea
+   of capturing a numeric elevation value at page-categorization time.
 6. User drags left/right to align a reference corner (vertical alignment uses the
-   corner/origin reference established on the ground floor; vertical lines extend
-   upward from floor-plan corners to align elevations, even where a cantilever means
-   corners don't line up exactly floor to floor).
+   corner/anchor reference established on the ground/anchor floor; vertical lines
+   extend upward from floor-plan corners to align elevations, even where a cantilever
+   means corners do not line up exactly floor to floor).
 7. User traces the elevation outline as a single continuous polyline (not separate
    polygons per floor segment).
+
+**Scope boundary — geometry vs. interstitial modelling:** Capturing the line geometry
+(floor/ceiling line positions, inter-level gaps, floor-system thickness, bulkhead
+offsets) is in scope for this step. *Modelling* what interstitial space means — surface
+ownership, which level a bulkhead's services belong to — remains deferred to Phase 2
+architecture planning per `ADDITIONAL_FUNCTIONALITY.md` entry #4. This mechanic
+collects the measurements without committing to the interstitial data model.
 
 **Cantilevers do not require multiple reference points.** The ghost displays the full
 previous floor polygon and the user aligns on matching portions naturally. The
@@ -182,9 +218,13 @@ This question is closed.
 
 - Reference-only geometry — same as elevations, used for vertical/ceiling-height
   confirmation, not for generating new wall planes.
+- Cross-sections use the **same scale-first-then-drag-lines mechanic** as elevations
+  (Section 8): scale the PDF to a workable size first, then set each draggable
+  floor/ceiling reference line by dragging onto the drawing or typing the distance to
+  its adjacent level.
 - Unlike elevations, cross-sections are **not aligned to one outside edge** — they cut
   through the whole building, so alignment uses the visible floor-line references
-  rather than a single corner/edge match.
+  throughout rather than a single corner/edge match.
 
 ---
 
