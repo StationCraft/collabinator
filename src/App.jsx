@@ -91,6 +91,9 @@ function App() {
   const [splitSelected, setSplitSelected] = useState(null)
   const [splitCut, setSplitCut] = useState([])
 
+  // ── Sidebar (Step 4c) ───────────────────────────────────────────────────────
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   // ── Compass rose ──────────────────────────────────────────────────────────
   const [showCompassOverlay, setShowCompassOverlay] = useState(false)
   const [compassAngleDeg, setCompassAngleDeg] = useState(null)   // null = not yet set
@@ -1692,6 +1695,44 @@ function App() {
   const currentPageEntry = pages.find(p => p.pageNum === currentPage) || null
   const categorizedCount = pages.filter(p => p.category).length
 
+  // ── Sidebar sections ───────────────────────────────────────────────────────
+  // category is stored as a key ('floor-plan', 'elevation', …), not a label.
+  const sidebarSections = (() => {
+    const byCat = (key) => pages.filter(p => p.category === key)
+    const orderBy = (entries, order, getKey) =>
+      [...entries].sort((a, b) => {
+        const ia = order.indexOf(getKey(a)), ib = order.indexOf(getKey(b))
+        const ra = ia === -1 ? order.length : ia, rb = ib === -1 ? order.length : ib
+        return ra - rb || a.pageNum - b.pageNum
+      })
+
+    const floor = orderBy(byCat('floor-plan'),
+      ['Basement', 'Crawlspace', 'Main Floor', '2nd Floor', '3rd Floor'],
+      p => p.subLabel
+    ).map(p => ({ pageNum: p.pageNum, label: p.subLabel || 'Floor Plan' }))
+
+    const elevation = orderBy(byCat('elevation'),
+      ['North', 'South', 'East', 'West'],
+      p => p.subLabel
+    ).map(p => ({ pageNum: p.pageNum, label: p.subLabel ? `${p.subLabel} Elevation` : 'Elevation' }))
+
+    const simple = (key, fallback) =>
+      byCat(key).map(p => ({ pageNum: p.pageNum, label: p.subLabel || fallback }))
+
+    const unused = pages.filter(p => !p.category)
+      .map(p => ({ pageNum: p.pageNum, label: `Page ${p.pageNum}` }))
+
+    return [
+      { title: 'Plan Views',     entries: floor },
+      { title: 'Elevations',     entries: elevation },
+      { title: 'Roof Plans',     entries: simple('roof-plan', 'Roof Plan') },
+      { title: 'Cross-Sections', entries: simple('cross-section', 'Cross-Section') },
+      { title: 'Details',        entries: simple('detail', 'Detail') },
+      { title: 'Site Plans',     entries: simple('site-plan', 'Site Plan') },
+      { title: 'Unused Pages',   entries: unused },
+    ].filter(s => s.entries.length > 0)
+  })()
+
   // Page-arrow navigation. While categorizing, arrows cycle every page. After
   // Done (not categorizing), arrows step through categorized pages only,
   // skipping uncategorized ones. Falls back to sequential nav if nothing is
@@ -2082,6 +2123,36 @@ function App() {
 
       {error && <p className="error">{error}</p>}
 
+      <div className="canvas-area">
+        <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : 'sidebar--closed'}`}>
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen(o => !o)}
+            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            {sidebarOpen ? '‹' : '›'}
+          </button>
+          {sidebarOpen && (
+            <div className="sidebar-content">
+              {pdf && sidebarSections.map(section => (
+                <div key={section.title} className="sidebar-section">
+                  <div className="sidebar-section-title">{section.title}</div>
+                  {section.entries.map(entry => (
+                    <button
+                      key={entry.pageNum}
+                      className={`sidebar-entry ${entry.pageNum === currentPage ? 'sidebar-entry--active' : ''}`}
+                      onClick={() => goToPage(entry.pageNum)}
+                      title={entry.label}
+                    >
+                      {entry.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
+
       <div className={`canvas-wrapper ${currentPage ? 'visible' : ''}`}>
         <div
           className="canvas-stack"
@@ -2141,6 +2212,7 @@ function App() {
           <p>Upload a PDF architectural drawing set to begin</p>
         </div>
       )}
+      </div>
 
       {showCompassOverlay && compassPos.x !== null && (
         <div
