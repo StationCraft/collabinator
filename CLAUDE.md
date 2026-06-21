@@ -26,7 +26,7 @@ BC, Canada. Working on a laptop, which requires zoom for readability.
 
 `C:\Users\ben\Collabinator\pdf-viewer`
 
-## What is built so far (rebuilt from scratch — current state)
+## What is built so far (current state)
 
 A React + Vite app with:
 
@@ -37,7 +37,11 @@ A React + Vite app with:
 - Live drawing tool (vertex array storage — `{vertices: [{x,y}]}`):
   * Click-to-trace chained polyline segments
   * Axis/angle snap (nearest 45°) — independent toggle, on by default
-  * Distance snap (6-inch / ~15cm grid) — independent toggle, requires scale set
+  * Distance snap (configurable grid: 1″/3″/6″/12″ or 2.5/7.5/15/30 cm) —
+    independent toggle, requires scale set
+  * Shared absolute page grid: all shapes on a page snap to the same
+    `{x:0, y:0}`-origin Cartesian grid, including the first vertex of every
+    new shape (prevents per-shape grid drift)
   * Alignment guides: H/V snap to any prior vertex in the active trace,
     10px tolerance, amber dashed guide lines, takes priority over axis snap
   * Undo (Z key removes last vertex), Escape/Stop cancels trace
@@ -49,94 +53,78 @@ A React + Vite app with:
   * Discard removes it; locked shapes from earlier confirms remain visible
   * Escape in review state = discard
 - Multiple shapes per page; locked shapes rendered as background on all redraws
+- **Edit Shapes mode** — entered after at least one shape is locked on the page:
+  * **Segment drag:** click-drag any edge perpendicular to its axis; adjacent
+    vertices move with it; canvas-clamped
+  * **Vertex drag:** click-drag any corner to reposition; canvas-clamped
+  * **Label override:** click a segment length label to type an exact measurement;
+    the segment is resized around its midpoint
+  * **Undo:** reverts the last edit operation (not available for Draw undo, which
+    uses the Z key)
+  * **Move Shape sub-mode:** click-drag a whole shape; each vertex independently
+    snaps to the absolute page grid (prevents float drift from delta-snapping)
+  * **Combine Shapes sub-mode:** collinear-overlap detection — two shapes are
+    eligible if they each have an edge on the same infinite line (anti-parallel)
+    with nonzero overlap length; merge inserts new vertices at the exact overlap
+    boundaries via linear interpolation (no rounding/snapping), then splices the
+    shared portion out; full-edge-match is a special case and still works
+  * **Split Shape sub-mode:** click a shape to select it, draw a two-point cut
+    line; the line is extended infinitely to find two boundary intersections and
+    produce two independent locked shapes
+- **PDF upload full-state reset:** uploading a new file clears all locked shapes,
+  calibration/scale data, page grid origins, in-progress drawing trace, review
+  state, and edit undo history — new file always starts completely clean
 
 **Not yet built (next increments):**
-- Post-completion editing (segment drag, label numeric override)
 - Zoom & pan
 - Multi-floor coordination, compass rose, page categorization (Phase 1.5)
 
-## Pre-Phase 1.5 Cleanup Sessions (A.0.1–A.0.3)
+**Deferred for next session (small polish items):**
+- Delete-shape button in Edit Shapes mode
+- Vertex insertion on edge midpoint (click-drag to add a control point) and
+  vertex deletion via drag-onto-neighbor merge
+- Rename "Cancel" buttons to only apply where an action would actually revert a
+  confirmed change (vs. simply closing/exiting a mode)
+- Universal Shift-to-temporarily-release-axis-lock across all drawing/editing
+  tools (currently inconsistent between tools; Split Shape specifically needs
+  axis-lock added)
 
-Before building compass rose and page categorization, the codebase needs three focused
-refactor sessions to fix bugs and simplify structures. **These are required before
-Phase 1.5 begins.**
-
-See `CLAUDE_cleanup_specs.md` for detailed specs. Summary:
-
-**A.0.1 — Fix 8d alignment bug:**
-- **Problem:** After confirming scale on page 2, PDF canvas is transformed but measure
-  canvas is not. Traces land offset from the visual PDF.
-- **Fix:** Apply CSS transform to whole `.canvas-stack` div (both canvases together)
-- **Test:** Draw on page 2 after scale confirm; verify traces land exactly on visual PDF
-
-**A.0.2 — Vertex array refactor + dead code cleanup:**
-- Switch polygon storage from `{segments: [{a,b,dist}]}` to `{vertices: [{x,y}]}`
-- Delete dead `scaleSet` state
-- Delete redundant `pageScaleConfirmedRef`
-- Make `floorElevZ` optional in modal
-- Merge `getAngleSnapped` and `getSnapped`
-- **Outcome:** Cleaner data, shorter code, prep for elevation geometry work
-
-**A.0.3 — Per-page transform struct + page categorization:**
-- Store per-page transform as struct `{tx, ty, s, angle}` instead of CSS strings
-- Add `projectState.pages` array for page metadata (category, subcategory, working area)
-- Create helper functions for transform math and page queries
-- **Outcome:** Ready for compass rose rotation and sidebar navigation in Phase 1.5
-
-**After A.0.1–A.0.3:** Codebase is cleaner, bugs fixed, structures simplified. Ready
-to build Phase 1.5 features (compass rose, categorization, elevations) on solid ground.
-
-## Data structures (current implementation, pre-cleanup)
+## Data structures (current implementation)
 
 **Polygons (completed shapes):**
 ```
 completedShapesRef.current = Array<{
-  segments: Segment[],           // Will switch to vertices in A.0.2
-  status: 'reviewing' | 'locked'
+  vertices: [{x, y}],           // canvas-pixel coordinates
+  status: 'reviewing' | 'locked',
   pageNumber: number,
   floorLevel: string,
   elevationZ: number
 }>
 ```
 
-**Project state:**
+**Per-page scales:**
 ```
-projectRef.current = {
-  scaleLocked: boolean,
-  scaleRef: { factor, unit, snapPx },
-  floors: [{pageNumber, floorLevel, elevationZ}],
-  pdfOffsets: [{pageNumber, offsetX, offsetY}],
-  pages: [] // Added in A.0.3
-}
+pageScalesRef.current[pageNum] = { pxPerMeter: number, displayUnit: 'ft' | 'm' }
 ```
 
-**Per-page transforms (current, will change in A.0.3):**
+**Page grid origins** (default `{x:0, y:0}` — the absolute Cartesian grid anchor):
 ```
-pageTransformsRef.current[pageNum] = {
-  transform: 'translate(...) scale(...)',  // CSS string
-  transformOrigin: '...'
-}
-// Will become: {tx, ty, s, angle}
+pageGridOriginRef.current[pageNum] = { x, y }
 ```
+
+All of the above are cleared on PDF upload.
 
 ## Known issues
-
-### Critical (fixed in cleanup):
-- **8d alignment bug:** PDF canvas transformed, measure canvas not. Traces misaligned.
-  Fixed in A.0.1.
 
 ### Bugs (deferred):
 - **feet+inches carry-over (low priority):** Display shows `2' 12.0"` instead of `3' 0.0"`
 - **Parallel alignment guide tolerance:** Too loose with small snap grids; guides show
-  green but snapped endpoint can be off-axis. Defer to post-8f optimization.
+  green but snapped endpoint can be off-axis. Defer to post-Phase 1 optimization.
 
-### Design gaps (documented, deferred to Phase 2):
-- **Inherited geometry displays on all pages:** Locked polygons from floor N show on
-  N+1, N+2, etc. Should only show as reference when explicitly toggled. Layer
+### Design gaps (deferred to Phase 2):
+- **Inherited geometry displays on all pages:** Locked polygons from page N show on
+  all other pages. Should only show as reference when explicitly toggled. Layer
   management deferred to Phase 2+.
-- **No vertex-level editing in Phase 1:** Shape editing is segment-level only (drag
-  perpendicular, override length). No break-point insertion or vertex repositioning.
-  Deferred to Phase 2+ if needed.
 
 ### Limitations (expected at this phase):
 - **Segment drag is perpendicular-only:** Non-axis-aligned shapes may have adjacent
