@@ -434,3 +434,63 @@ canvas {
   border: 1px solid #bbf7d0;
   white-space: nowrap;
 }
+
+/* ── Edit mode ── */
+.edit-btn {
+  padding: 0.45rem 1rem;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.edit-btn:hover {
+  background: #6d28d9;
+}
+
+.edit-btn--small {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.edit-status {
+  font-size: 0.8rem;
+  color: #6d28d9;
+  background: #f5f3ff;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid #ddd6fe;
+  white-space: nowrap;
+}
+
+/* Inline label editor — absolutely positioned within .canvas-stack */
+.label-edit-overlay {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  margin-top: -4px;
+  z-index: 10;
+}
+
+.label-edit-input {
+  padding: 0.2rem 0.4rem;
+  font-size: 12px;
+  font-family: system-ui, sans-serif;
+  border: 2px solid #f59e0b;
+  border-radius: 4px;
+  background: #fffbeb;
+  color: #1c1c1c;
+  width: 90px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.label-edit-input:focus {
+  outline: none;
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.25), 0 2px 8px rgba(0,0,0,0.15);
+}
