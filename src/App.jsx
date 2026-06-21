@@ -50,7 +50,9 @@ const CATEGORY_OPTIONS = [
   { key: 'detail',        label: 'Detail' },
   { key: 'roof-plan',     label: 'Roof Plan' },
 ]
-const FLOOR_SUBLABELS = ['Basement', 'Crawlspace', 'Main Floor', '2nd Floor', '3rd Floor', 'Other']
+// Known floor levels — the ONLY way to identify a floor plan's level. Free text
+// is never a level (see subLabelNote). Mirrors FLOOR_ORDER from geometry.js.
+const FLOOR_SUBLABELS = ['Basement', 'Crawlspace', 'Main Floor', '2nd Floor', '3rd Floor']
 // Categories whose sub-label is a simple optional free-text input
 const FREETEXT_SUBLABEL_CATEGORIES = ['site-plan', 'cross-section', 'detail', 'roof-plan']
 const ELEVATION_DIRS = ['North', 'South', 'East', 'West']
@@ -109,10 +111,10 @@ function App() {
 
   // ── Page categorization (Step 4b) ───────────────────────────────────────────
   const [categorizeMode, setCategorizeMode] = useState(false)
-  const [pages, setPages] = useState([])  // [{pageId, pageNum, category, subLabel}]
+  const [pages, setPages] = useState([])  // [{pageId, pageNum, category, subLabel, subLabelNote}]
   const [catDraftCategory, setCatDraftCategory] = useState(null)
   const [catDraftSubLabel, setCatDraftSubLabel] = useState('')
-  const [catDraftOther, setCatDraftOther] = useState('')  // floor-plan "Other" free text
+  const [catDraftNote, setCatDraftNote] = useState('')  // floor-plan optional extra descriptor (no level meaning)
   const [recatPageNum, setRecatPageNum] = useState(null)  // page actively being (re)edited; null = none
   const [catReentry, setCatReentry] = useState(false)     // true = entered via "+ Categorize more pages" (cycle uncategorized only)
 
@@ -237,7 +239,7 @@ function App() {
     setCompassDraftAngle(0); setCompassPos({ x: null, y: null })
     setShowCompassOverlay(false)
     setCategorizeMode(false); setPages([])
-    setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftOther(''); setRecatPageNum(null); setCatReentry(false)
+    setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote(''); setRecatPageNum(null); setCatReentry(false)
     resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
@@ -245,7 +247,7 @@ function App() {
       const newPages = []
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         pageIdMapRef.current[i] = `page-${i}`
-        newPages.push({ pageId: `page-${i}`, pageNum: i, category: null, subLabel: null })
+        newPages.push({ pageId: `page-${i}`, pageNum: i, category: null, subLabel: null, subLabelNote: null })
       }
       setPages(newPages)
       setPdf(pdfDoc); setPageCount(pdfDoc.numPages)
@@ -1534,13 +1536,10 @@ function App() {
   const loadDraftFromEntry = (entry) => {
     if (entry && entry.category) {
       setCatDraftCategory(entry.category)
-      if (entry.category === 'floor-plan' && entry.subLabel && !FLOOR_SUBLABELS.includes(entry.subLabel)) {
-        setCatDraftSubLabel('Other'); setCatDraftOther(entry.subLabel)
-      } else {
-        setCatDraftSubLabel(entry.subLabel || ''); setCatDraftOther('')
-      }
+      setCatDraftSubLabel(entry.subLabel || '')
+      setCatDraftNote(entry.subLabelNote || '')
     } else {
-      setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftOther('')
+      setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote('')
     }
   }
 
@@ -1555,17 +1554,17 @@ function App() {
   }, [categorizeMode, currentPage, pages])
 
   const selectCatCategory = (key) => {
-    setCatDraftCategory(key); setCatDraftSubLabel(''); setCatDraftOther('')
+    setCatDraftCategory(key); setCatDraftSubLabel(''); setCatDraftNote('')
   }
 
   const resolveSubLabel = () => {
     if (!catDraftCategory) return null
-    if (catDraftCategory === 'floor-plan' && catDraftSubLabel === 'Other') {
-      return catDraftOther.trim() || 'Other'
-    }
     const v = (catDraftSubLabel || '').trim()
     return v || null
   }
+
+  // Floor Plan requires a known level before it can be confirmed.
+  const catConfirmDisabled = catDraftCategory === 'floor-plan' && !catDraftSubLabel
 
   // Advance to the next page lacking a category (wraps; never re-navigates to self).
   const advanceToNextUncategorized = (pagesList) => {
@@ -1578,10 +1577,12 @@ function App() {
   }
 
   const confirmCatPage = () => {
-    if (!catDraftCategory) return
+    if (!catDraftCategory || catConfirmDisabled) return
     const subLabel = resolveSubLabel()
+    // subLabelNote is a floor-plan-only extra descriptor; never carries level meaning.
+    const subLabelNote = catDraftCategory === 'floor-plan' ? (catDraftNote.trim() || null) : null
     const newPages = pages.map(p =>
-      p.pageNum === currentPage ? { ...p, category: catDraftCategory, subLabel } : p
+      p.pageNum === currentPage ? { ...p, category: catDraftCategory, subLabel, subLabelNote } : p
     )
     setPages(newPages)
     setRecatPageNum(null)
@@ -1590,7 +1591,7 @@ function App() {
 
   const skipCatPage = () => {
     const newPages = pages.map(p =>
-      p.pageNum === currentPage ? { ...p, category: null, subLabel: null } : p
+      p.pageNum === currentPage ? { ...p, category: null, subLabel: null, subLabelNote: null } : p
     )
     setPages(newPages)
     setRecatPageNum(null)
@@ -2064,6 +2065,7 @@ function App() {
                 <span className="cat-summary-text">
                   {categoryLabel(currentPageEntry.category)}
                   {currentPageEntry.subLabel ? ` — ${currentPageEntry.subLabel}` : ''}
+                  {currentPageEntry.subLabelNote ? ` (${currentPageEntry.subLabelNote})` : ''}
                 </span>
                 <button className="cat-recat-btn" onClick={startRecategorize}>Recategorize</button>
               </div>
@@ -2088,13 +2090,11 @@ function App() {
                       <>
                         <select className="cat-sublabel-select" value={catDraftSubLabel}
                           onChange={e => setCatDraftSubLabel(e.target.value)}>
-                          <option value="">— sub-label —</option>
+                          <option value="">— level (required) —</option>
                           {FLOOR_SUBLABELS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        {catDraftSubLabel === 'Other' && (
-                          <input className="cat-sublabel-input" type="text" placeholder="Custom label"
-                            value={catDraftOther} onChange={e => setCatDraftOther(e.target.value)} />
-                        )}
+                        <input className="cat-sublabel-input" type="text" placeholder="Note (optional)"
+                          value={catDraftNote} onChange={e => setCatDraftNote(e.target.value)} />
                       </>
                     )}
 
@@ -2111,7 +2111,7 @@ function App() {
                         value={catDraftSubLabel} onChange={e => setCatDraftSubLabel(e.target.value)} />
                     )}
 
-                    <button className="btn-primary btn-sm" onClick={confirmCatPage}>Confirm this page</button>
+                    <button className="btn-primary btn-sm" onClick={confirmCatPage} disabled={catConfirmDisabled}>Confirm this page</button>
                   </div>
                 )}
               </>
