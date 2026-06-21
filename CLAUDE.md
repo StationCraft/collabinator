@@ -111,9 +111,42 @@ A React + Vite app with:
 - **PDF upload full-state reset:** uploading a new file clears all locked shapes,
   calibration/scale data, page grid origins, in-progress drawing trace, review
   state, and edit undo/redo history — new file always starts completely clean
+- **Compass rose overlay:** fixed overlay above the canvas; drag the rose body to
+  reposition, drag the rotation handle (~60% along the N arm) to rotate, arrow-key
+  nudge (±1°, ±0.1° with Shift), numeric angle input; Confirm stores
+  `compassAngleDeg` + `compassCardinal`, Skip stores 0°/N; transparent background
+  (PDF visible through it) with amber "action required" instruction styling;
+  re-openable via "Set North"; persists across page nav/zoom, clears on PDF upload
+- **pageId architecture:** every page is assigned a stable `pageId` at load
+  (`pageIdMapRef.current[pageNum] = "page-N"`); `getPageId(pageNum)` helper; all
+  page-keyed refs (`pageScalesRef`, `pageGridOriginRef`, etc.) are keyed by
+  `pageId`, and shapes carry a `pageId` field (not `pageNumber`). `pageNum` is
+  retained only for PDF.js rendering. `pageTransformsRef` placeholder reserved.
+- **Page categorization:** distinct app mode that auto-triggers after compass
+  Confirm/Skip (also re-enterable any time):
+  * Categories: Site Plan / Floor Plan / Elevation / Cross-Section / Detail /
+    Roof Plan, plus "Skip this page"
+  * Sub-labels per category — Floor Plan dropdown (Basement / Crawlspace /
+    Main Floor / 2nd Floor / 3rd Floor / Other + free text); Elevation dropdown
+    (North / South / East / West); Site Plan / Cross-Section / Detail / Roof Plan
+    optional free text
+  * Non-modal panel — PDF and page navigation stay usable; Confirm saves and
+    advances to the next uncategorized page
+  * Compact summary + Recategorize button shows immediately for any already-
+    categorized page mid-categorization; recategorize is non-destructive (no
+    geometry/scale loss)
+  * Stored in `pages` array (`{pageId, pageNum, category, subLabel}`), cleared on
+    PDF upload
+  * Navigation: while categorizing the arrows cycle all pages; after Done they
+    cycle categorized pages only; re-entry via "+ Categorize more pages" jumps to
+    and cycles uncategorized pages only ("All pages categorized" end state)
 
 **Not yet built (next increments):**
-- Multi-floor coordination, compass rose, page categorization (Phase 1.5)
+- **Step 4c: sidebar (NEXT)** — collapsible left panel listing categorized pages
+  by type, plus an "Unused Pages" section; click to navigate
+- Ground floor tracing + origin point
+- Multi-floor reference and alignment
+- Roof plan, elevations, cross-sections, windows/doors
 
 **Deferred polish items:**
 - **Redundant collinear vertex after Combine:** some complex merges leave a
@@ -123,12 +156,21 @@ A React + Vite app with:
 
 ## Data structures (current implementation)
 
+All page-keyed state is keyed by the stable string `pageId` (e.g. `"page-1"`),
+not the numeric `pageNum`. `pageNum` is retained only for PDF.js rendering;
+`getPageId(pageNum)` maps between them via `pageIdMapRef`.
+
+**Page ID map** (assigned at PDF load, one per page):
+```
+pageIdMapRef.current[pageNum] = `page-${pageNum}`   // e.g. 1 -> "page-1"
+```
+
 **Polygons (completed shapes):**
 ```
 completedShapesRef.current = Array<{
   vertices: [{x, y}],           // canvas-pixel coordinates
   status: 'reviewing' | 'locked',
-  pageNumber: number,
+  pageId: string,               // e.g. "page-1" (migrated from pageNumber)
   floorLevel: string,
   elevationZ: number
 }>
@@ -136,12 +178,17 @@ completedShapesRef.current = Array<{
 
 **Per-page scales:**
 ```
-pageScalesRef.current[pageNum] = { pxPerMeter: number, displayUnit: 'ft' | 'm' }
+pageScalesRef.current[pageId] = { pxPerMeter: number, displayUnit: 'ft' | 'm' }
 ```
 
 **Page grid origins** (default `{x:0, y:0}` — the absolute Cartesian grid anchor):
 ```
-pageGridOriginRef.current[pageNum] = { x, y }
+pageGridOriginRef.current[pageId] = { x, y }
+```
+
+**Page categorization:**
+```
+pages = Array<{ pageId: string, pageNum: number, category: string|null, subLabel: string|null }>
 ```
 
 All of the above are cleared on PDF upload.

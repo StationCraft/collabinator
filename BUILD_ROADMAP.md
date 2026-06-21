@@ -21,8 +21,10 @@ building."
     [x] Bonus: Snap grid selector in Edit Shapes mode
     [x] Bugfix: Combine winding-direction (same-winding shapes now eligible)
 [x] Step 2 — Zoom / pan — DONE, committed
-[ ] Step 3 — Compass rose alignment  <-- YOU ARE HERE
-[ ] Step 4 — Page categorization + working area + sidebar  (may split into 2 sessions)
+[x] Step 3 — Compass rose alignment — DONE, committed
+[x] Step 4a — pageId migration — DONE, committed
+[x] Step 4b — Page categorization UI — DONE, committed
+[ ] Step 4c — Sidebar + navigation  <-- YOU ARE HERE
 ```
 
 **This chat's goal is complete when Step 4 is committed and tested.**

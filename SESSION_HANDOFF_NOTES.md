@@ -232,6 +232,33 @@ as a short stray line. Cosmetically harmless, no geometry error. Logged in
 
 ---
 
+## SESSION 5 — Compass rose polish + Step 4a + Step 4b
+
+**Branch:** main
+
+### Completed and committed
+
+- Compass rose numeric input bug fix (controlled-input, local `inputVal` state)
+- Compass overlay: transparent background, amber instruction text styling
+- Compass rotation handle repositioned to 60% along N arm
+- **Step 4a: pageId migration** — all page-keyed refs and shape fields migrated
+  from `pageNum` to `pageId`; `pageIdMapRef` and `getPageId` helper added;
+  `pageTransformsRef` placeholder added
+- Bug fix: locked shapes invisible in view mode (`drawLockedShapes` call sites
+  passing `pageNum` instead of `pageId`)
+- **Step 4b: page categorization UI** — Site Plan / Floor Plan / Elevation /
+  Cross-Section / Detail / Roof Plan categories; simplified floor sub-labels
+  (Basement / Crawlspace / Main Floor / 2nd / 3rd / Other); auto-triggers after
+  compass; compact summary mid-categorization; recategorize non-destructive;
+  zoom fix in categorize mode; post-Done nav cycles categorized pages only;
+  re-entry via "+ Categorize more pages" cycles uncategorized pages only;
+  "All pages categorized" end state
+
+Working area dropped from scope — zoom makes it redundant; duplicate page
+handles mixed-page case when prioritised (logged in `ADDITIONAL_FUNCTIONALITY.md`).
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -249,13 +276,14 @@ as a short stray line. Cosmetically harmless, no geometry error. Logged in
 1. ~~Zoom/pan~~ — DONE
 2. ~~Compass rose alignment~~ — DONE
 3. ~~Step 4a: pageId migration~~ — DONE
-4. **Step 4b (NEXT): Page categorization UI** — category + sub-label per page,
-   auto-starts after compass Confirm/Skip, stored in `projectState.pages`.
-   Working area removed from scope.
-5. **Step 4c: Sidebar + navigation**
+4. ~~Step 4b: Page categorization UI~~ — DONE
+5. **Step 4c (NEXT): Sidebar + navigation** — collapsible (default open), left
+   panel, shows categorized pages organized by type (Floor Plans low-to-high,
+   Elevations, Cross-Sections, Details, Roof Plans) + an "Unused Pages" section
+   for uncategorized. Clicking a sidebar entry navigates to that page.
 
-Then a fresh planning chat picks up at ground floor tracing onward (see
-`FUNCTIONALITY_SUMMARY.md`).
+After Step 4c: a fresh planning chat picks up at ground floor tracing onward
+(see `FUNCTIONALITY_SUMMARY.md`).
 
 ---
 
