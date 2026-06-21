@@ -661,15 +661,17 @@ function App() {
       return
     }
     setCombineError('')
-    // Insert overlap boundary vertices into each shape as needed, then splice the shared portion out
+    // Insert overlap boundary vertices into each shape as needed, then splice the shared portion out.
+    // Point order for B depends on winding: anti-parallel (reversed) = P_end first;
+    // parallel (same) = P_start first, because B's edge walks in the same direction as A's.
     const { newVerts: vertsA, newSegIdx: segA } = prepareForMerge(
       shapes[idxA].vertices, ov.segA, ov.P_start, ov.P_end
     )
-    const { newVerts: vertsB, newSegIdx: segB } = prepareForMerge(
-      shapes[idxB].vertices, ov.segB, ov.P_end, ov.P_start
-    )
+    const { newVerts: vertsB, newSegIdx: segB } = ov.dir === 'reversed'
+      ? prepareForMerge(shapes[idxB].vertices, ov.segB, ov.P_end, ov.P_start)
+      : prepareForMerge(shapes[idxB].vertices, ov.segB, ov.P_start, ov.P_end)
     pushUndo()
-    const merged = mergePolygons(vertsA, vertsB, segA, segB, 'reversed')
+    const merged = mergePolygons(vertsA, vertsB, segA, segB, ov.dir)
     const newShapes = shapes
       .map((s, i) => i === idxA ? { ...s, vertices: merged } : s)
       .filter((_, i) => i !== idxB)

@@ -62,8 +62,8 @@ export const COLLINEAR_TOL = 0.5  // max perpendicular distance to be considered
 export const OVERLAP_MIN   = 1.0  // minimum overlap length to be considered a shared edge (px)
 export const ENDPOINT_TOL  = 0.5  // coincidence tolerance for existing edge endpoints (px)
 
-// Returns overlap info if vertsA and vertsB share a collinear anti-parallel edge segment,
-// or null if no combinable overlap exists.
+// Returns overlap info if vertsA and vertsB share a collinear edge segment
+// (anti-parallel OR parallel — both winding combinations are handled), or null.
 export function findCollinearOverlap(vertsA, vertsB) {
   const NA = vertsA.length, NB = vertsB.length
   for (let i = 0; i < NA; i++) {
@@ -81,22 +81,24 @@ export function findCollinearOverlap(vertsA, vertsB) {
       if (Math.abs((b1.x - a1.x) * perpX + (b1.y - a1.y) * perpY) > COLLINEAR_TOL) continue
       if (Math.abs((b2.x - a1.x) * perpX + (b2.y - a1.y) * perpY) > COLLINEAR_TOL) continue
 
-      // B must traverse this line in the opposite direction (anti-parallel)
       const lenB = Math.hypot(b2.x - b1.x, b2.y - b1.y)
       if (lenB < 0.001) continue
-      if ((b2.x - b1.x) * dirX + (b2.y - b1.y) * dirY >= 0) continue
 
-      // Project b1 and b2 onto A's line; anti-parallel guarantees t_b1 > t_b2
+      // Determine winding relationship: anti-parallel (dot < 0) or parallel (dot > 0).
+      // Both are valid shared-wall configurations depending on how the user traced the shapes.
+      const dot = (b2.x - b1.x) * dirX + (b2.y - b1.y) * dirY
+      const dir = dot < 0 ? 'reversed' : 'same'
+
+      // Project b1 and b2 onto A's line, then compute the overlap interval robustly
+      // for both winding cases using min/max instead of assuming t_b1 > t_b2.
       const t_b1 = (b1.x - a1.x) * dirX + (b1.y - a1.y) * dirY
       const t_b2 = (b2.x - a1.x) * dirX + (b2.y - a1.y) * dirY
-
-      // Overlap of A's range [0, lenA] with B's range [t_b2, t_b1]
-      const t_ov_start = Math.max(0, t_b2)
-      const t_ov_end   = Math.min(lenA, t_b1)
+      const t_ov_start = Math.max(0, Math.min(t_b1, t_b2))
+      const t_ov_end   = Math.min(lenA, Math.max(t_b1, t_b2))
       if (t_ov_end - t_ov_start < OVERLAP_MIN) continue
 
       return {
-        segA: i, segB: j, dirX, dirY, a1, a2, lenA, b1, b2, lenB,
+        segA: i, segB: j, dir, dirX, dirY, a1, a2, lenA, b1, b2, lenB,
         t_b1, t_b2, t_ov_start, t_ov_end,
         P_start: { x: a1.x + t_ov_start * dirX, y: a1.y + t_ov_start * dirY },
         P_end:   { x: a1.x + t_ov_end   * dirX, y: a1.y + t_ov_end   * dirY },
