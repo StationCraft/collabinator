@@ -197,13 +197,14 @@ body {
 }
 
 .sidebar-entry:hover {
-  background: #334155;
+  background: rgba(255, 255, 255, 0.25);
+  color: #111;
 }
 
 .sidebar-entry--active {
-  background: #1d4ed8;
-  border-left-color: #60a5fa;
-  color: #fff;
+  background: rgba(29, 78, 216, 0.20);
+  border-left: 3px solid #1d4ed8;
+  color: #1d4ed8;
 }
 
 .canvas-wrapper {
