@@ -59,8 +59,13 @@ A React + Vite app with:
   * **Vertex drag:** click-drag any corner to reposition; canvas-clamped
   * **Label override:** click a segment length label to type an exact measurement;
     the segment is resized around its midpoint
-  * **Undo:** reverts the last edit operation (not available for Draw undo, which
-    uses the Z key)
+  * **Undo/Redo:** full undo/redo stack present in all Edit Shapes sub-modes
+    (default, Move, Combine, Split, Delete); each new edit clears the redo stack;
+    not available for Draw mode (uses Z key for vertex undo instead)
+  * **Shift-to-release-axis-lock:** holding Shift during draw-tool rubber-band,
+    vertex drag, or segment drag temporarily releases the 45° angle constraint
+    while keeping distance-snap grid active; Split Shape cut line also axis-snaps
+    by default, released with Shift
   * **Move Shape sub-mode:** click-drag a whole shape; each vertex independently
     snaps to the absolute page grid (prevents float drift from delta-snapping)
   * **Combine Shapes sub-mode:** collinear-overlap detection — two shapes are
@@ -70,24 +75,28 @@ A React + Vite app with:
     shared portion out; full-edge-match is a special case and still works
   * **Split Shape sub-mode:** click a shape to select it, draw a two-point cut
     line; the line is extended infinitely to find two boundary intersections and
-    produce two independent locked shapes
+    produce two independent locked shapes; handles near-collinear and vertex-
+    grazing cut lines correctly (robust intersection via perpendicular-distance
+    vertex pass, not just edge-parameter check)
+  * **Delete Shape sub-mode:** click any locked shape to remove it; pushes to
+    undo stack; exits Edit Shapes automatically if last shape is deleted
+  * **Vertex insertion:** click-and-hold (~550ms) on any segment edge to arm
+    insert mode, then drag the new vertex to position; snaps identically to
+    normal vertex drag; quick drag (before hold fires) still does segment drag
+  * **Vertex deletion:** drag an existing vertex onto an adjacent vertex (same
+    edge); when within 14px the target turns red; release to merge/delete; only
+    works if polygon has >3 vertices
+  * **Button labels:** "Cancel" only appears where clicking reverts a confirmed
+    change; mode-exit buttons say "Done", "Back", or "Exit" as appropriate
 - **PDF upload full-state reset:** uploading a new file clears all locked shapes,
   calibration/scale data, page grid origins, in-progress drawing trace, review
-  state, and edit undo history — new file always starts completely clean
+  state, and edit undo/redo history — new file always starts completely clean
 
 **Not yet built (next increments):**
 - Zoom & pan
 - Multi-floor coordination, compass rose, page categorization (Phase 1.5)
 
-**Deferred for next session (small polish items):**
-- Delete-shape button in Edit Shapes mode
-- Vertex insertion on edge midpoint (click-drag to add a control point) and
-  vertex deletion via drag-onto-neighbor merge
-- Rename "Cancel" buttons to only apply where an action would actually revert a
-  confirmed change (vs. simply closing/exiting a mode)
-- Universal Shift-to-temporarily-release-axis-lock across all drawing/editing
-  tools (currently inconsistent between tools; Split Shape specifically needs
-  axis-lock added)
+**Deferred polish items:** none — all previously deferred items are complete.
 
 ## Data structures (current implementation)
 
@@ -127,11 +136,11 @@ All of the above are cleared on PDF upload.
   management deferred to Phase 2+.
 
 ### Limitations (expected at this phase):
-- **Segment drag is perpendicular-only:** Non-axis-aligned shapes may have adjacent
-  segments that stretch unexpectedly. Geometrically correct but may surprise users.
+- **Segment drag is perpendicular-only by default:** Shift held during segment drag
+  switches to free-direction translation (both endpoints move together, each grid-
+  snapped). Non-axis-aligned shapes may still have adjacent segments that stretch
+  unexpectedly during perpendicular drag — geometrically correct but may surprise.
 - **No persistence:** All geometry lives in memory only. Lost on page reload.
-- **Cartesian snap in free-angle mode (known gap):** When Shift held, snap is radial
-  not Cartesian. Address before widespread use.
 
 ## Working environment notes
 

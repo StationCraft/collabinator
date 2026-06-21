@@ -24,6 +24,22 @@ function segmentGeom(a, b) {
   return { dir: { x: dx / len, y: dy / len }, perp: { x: -dy / len, y: dx / len }, len }
 }
 
+function projT(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y
+  const len2 = dx * dx + dy * dy
+  if (len2 < 0.001) return 0
+  return Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
+}
+
+function applyAxisSnap(pos, origin) {
+  const dx = pos.x - origin.x, dy = pos.y - origin.y
+  const dist = Math.hypot(dx, dy)
+  if (dist < 0.001) return pos
+  const angle = Math.atan2(dy, dx)
+  const snapped = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4)
+  return { x: origin.x + dist * Math.cos(snapped), y: origin.y + dist * Math.sin(snapped) }
+}
+
 function parseDisplayDistInput(str, displayUnit) {
   const s = str.trim()
   if (displayUnit === 'ft') {
@@ -129,20 +145,67 @@ function mergePolygons(vertsA, vertsB, segA, segB, dir) {
 }
 
 function linePolyIntersect(p1, p2, verts) {
+  // Robust version that correctly handles cut lines that are collinear with, pass
+  // through, or graze existing polygon edges/vertices.
   const N = verts.length
   const dx = p2.x - p1.x, dy = p2.y - p1.y
+  const lineLen2 = dx * dx + dy * dy
+  if (lineLen2 < 0.001) return []
+
+  const lineMag = Math.sqrt(lineLen2)
+  const perpX = -dy / lineMag, perpY = dx / lineMag
+  const ON_TOL = 0.5 // px: vertex counts as "on the cut line" within this distance
+
+  // Signed perpendicular distance of each vertex from the infinite cut line
+  const perp = verts.map(v => (v.x - p1.x) * perpX + (v.y - p1.y) * perpY)
+
   const results = []
+
+  // Pass 1 — standard interior edge crossings: both endpoints off the line, opposite sides
   for (let i = 0; i < N; i++) {
+    const pA = perp[i], pB = perp[(i + 1) % N]
+    if (Math.abs(pA) <= ON_TOL || Math.abs(pB) <= ON_TOL) continue // vertex case, handled below
+    if (pA * pB > 0) continue // same side
     const a = verts[i], b = verts[(i + 1) % N]
     const d2x = b.x - a.x, d2y = b.y - a.y
     const cross = dx * d2y - dy * d2x
     if (Math.abs(cross) < 0.001) continue
     const ex = a.x - p1.x, ey = a.y - p1.y
-    const t = (ex * d2y - ey * d2x) / cross
     const u = (ex * dy - ey * dx) / cross
-    if (u > 0.0001 && u < 0.9999)
-      results.push({ edgeIdx: i, edgeT: u, lineT: t, point: { x: a.x + u * d2x, y: a.y + u * d2y } })
+    if (u <= 0 || u >= 1) continue
+    const px = a.x + u * d2x, py = a.y + u * d2y
+    results.push({
+      edgeIdx: i, edgeT: u,
+      lineT: ((px - p1.x) * dx + (py - p1.y) * dy) / lineLen2,
+      point: { x: px, y: py }
+    })
   }
+
+  // Pass 2 — vertex crossings: a polygon vertex lies on (or very near) the cut line.
+  // The polygon genuinely crosses the line at a vertex when the nearest non-collinear
+  // vertices on either side of it are on opposite sides of the cut line.
+  // For collinear runs (consecutive on-line vertices), only the FIRST vertex of each
+  // run is emitted (the one entered from an off-line edge), avoiding duplicate points.
+  for (let i = 0; i < N; i++) {
+    if (Math.abs(perp[i]) > ON_TOL) continue
+    // Skip if the previous vertex is also on the line (we're in the interior of a run)
+    if (Math.abs(perp[(i - 1 + N) % N]) <= ON_TOL) continue
+    // Walk forward/backward to find the nearest off-line vertices
+    let prevP = null, nextP = null
+    for (let k = 1; k < N; k++) {
+      if (prevP === null && Math.abs(perp[(i - k + N) % N]) > ON_TOL) prevP = perp[(i - k + N) % N]
+      if (nextP === null && Math.abs(perp[(i + k) % N]) > ON_TOL) nextP = perp[(i + k) % N]
+      if (prevP !== null && nextP !== null) break
+    }
+    if (prevP === null || nextP === null) continue // all vertices on line (degenerate)
+    if (prevP * nextP >= 0) continue // same side — tangent graze, not a crossing
+    results.push({
+      edgeIdx: i, edgeT: 0,
+      lineT: ((verts[i].x - p1.x) * dx + (verts[i].y - p1.y) * dy) / lineLen2,
+      point: { ...verts[i] }
+    })
+  }
+
   return results.sort((a, b) => a.lineT - b.lineT)
 }
 
@@ -216,6 +279,7 @@ function App() {
   const [editCursor, setEditCursor] = useState('default')
   const [labelEditState, setLabelEditState] = useState(null)
   const [editUndoCount, setEditUndoCount] = useState(0)
+  const [editRedoCount, setEditRedoCount] = useState(0)
   const [combineSelection, setCombineSelection] = useState([])
   const [combineError, setCombineError] = useState('')
   const [splitSelected, setSplitSelected] = useState(null)
@@ -235,6 +299,7 @@ function App() {
   const dragStateRef = useRef(null)
   const segLabelRectsRef = useRef([])
   const editUndoStackRef = useRef([])
+  const editRedoStackRef = useRef([])
 
   // Sub-mode refs (always in sync with state)
   const editSubModeRef = useRef(null)
@@ -246,6 +311,8 @@ function App() {
   const splitSelectedRef = useRef(null)
   const splitCutRef = useRef([])
   const splitMouseRef = useRef(null)
+  const deleteHoverIdxRef = useRef(null)
+  const holdTimerRef = useRef(null)
 
   // ── Page rendering ──────────────────────────────────────────────────────
 
@@ -276,13 +343,15 @@ function App() {
 
   const resetEditState = () => {
     setEditMode(false); setEditSubMode(null); setLabelEditState(null)
-    setEditCursor('default'); setEditUndoCount(0)
+    setEditCursor('default'); setEditUndoCount(0); setEditRedoCount(0)
     setCombineSelection([]); setSplitSelected(null); setSplitCut([])
-    editHoverRef.current = null; dragStateRef.current = null; editUndoStackRef.current = []
+    editHoverRef.current = null; dragStateRef.current = null; editUndoStackRef.current = []; editRedoStackRef.current = []
     editSubModeRef.current = null; moveHoverIdxRef.current = null; moveDragRef.current = null
     combineEligibleRef.current = new Set(); combineSelectRef.current = []
     splitHoverIdxRef.current = null; splitSelectedRef.current = null
     splitCutRef.current = []; splitMouseRef.current = null
+    deleteHoverIdxRef.current = null
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null }
   }
 
   const handleFileChange = async (e) => {
@@ -600,6 +669,18 @@ function App() {
       return
     }
 
+    // ── Delete sub-mode ───────────────────────────────────────────────────
+    if (subMode === 'delete') {
+      const hoverIdx = deleteHoverIdxRef.current
+      completedShapesRef.current.forEach((shape, idx) => {
+        if (shape.pageNumber !== currentPage) return
+        ctx.save()
+        drawShapePoly(ctx, shape.vertices, idx === hoverIdx ? 'hover' : 'normal')
+        ctx.restore()
+      })
+      return
+    }
+
     // ── Split sub-mode ────────────────────────────────────────────────────
     if (subMode === 'split') {
       const selIdx = splitSelectedRef.current
@@ -672,11 +753,14 @@ function App() {
         verts.forEach((v, i) => {
           const isVertHover = hoverState?.type === 'vertex' &&
             hoverState.shapeIdx === shapeIdx && hoverState.vertIdx === i
+          const ds = dragStateRef.current
+          const isMergeTarget = ds?.type === 'vertexDrag' && ds.shapeIdx === shapeIdx &&
+            ds.mergeTarget === i && i !== ds.vertIdx
           ctx.beginPath()
-          ctx.arc(v.x, v.y, isVertHover ? 7 : 5, 0, Math.PI * 2)
-          ctx.fillStyle = isVertHover ? '#f59e0b' : '#3b82f6'
+          ctx.arc(v.x, v.y, isMergeTarget ? 9 : (isVertHover ? 7 : 5), 0, Math.PI * 2)
+          ctx.fillStyle = isMergeTarget ? '#dc2626' : (isVertHover ? '#f59e0b' : '#3b82f6')
           ctx.fill()
-          ctx.strokeStyle = 'white'; ctx.lineWidth = isVertHover ? 2 : 1.5; ctx.stroke()
+          ctx.strokeStyle = 'white'; ctx.lineWidth = isMergeTarget ? 2.5 : (isVertHover ? 2 : 1.5); ctx.stroke()
         })
       })
   }
@@ -731,19 +815,40 @@ function App() {
 
   // ── Edit: undo ───────────────────────────────────────────────────────────
 
+  const snapshotShapes = () =>
+    completedShapesRef.current.map(s => ({ ...s, vertices: s.vertices.map(v => ({ ...v })) }))
+
   const pushUndo = () => {
-    editUndoStackRef.current.push(
-      completedShapesRef.current.map(s => ({ ...s, vertices: s.vertices.map(v => ({ ...v })) }))
-    )
+    editUndoStackRef.current.push(snapshotShapes())
     setEditUndoCount(c => c + 1)
+    // Any new edit clears the redo stack
+    editRedoStackRef.current = []
+    setEditRedoCount(0)
   }
 
   const handleEditUndo = () => {
     const prev = editUndoStackRef.current.pop()
     if (!prev) return
+    // Save current state to redo stack before reverting
+    editRedoStackRef.current.push(snapshotShapes())
+    setEditRedoCount(c => c + 1)
     completedShapesRef.current = prev
     setEditUndoCount(c => c - 1)
-    // Refresh combine eligible set if in combine mode
+    if (editSubModeRef.current === 'combine') {
+      combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPage)
+      combineSelectRef.current = []; setCombineSelection([])
+    }
+    drawEditCanvas(editHoverRef.current)
+  }
+
+  const handleEditRedo = () => {
+    const next = editRedoStackRef.current.pop()
+    if (!next) return
+    // Save current state to undo stack before re-applying
+    editUndoStackRef.current.push(snapshotShapes())
+    setEditUndoCount(c => c + 1)
+    completedShapesRef.current = next
+    setEditRedoCount(c => c - 1)
     if (editSubModeRef.current === 'combine') {
       combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPage)
       combineSelectRef.current = []; setCombineSelection([])
@@ -789,8 +894,16 @@ function App() {
     splitHoverIdxRef.current = null; splitSelectedRef.current = null
     splitCutRef.current = []; splitMouseRef.current = null
     setSplitSelected(null); setSplitCut([])
+    deleteHoverIdxRef.current = null
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null }
     setEditCursor('default')
     drawEditCanvas(editHoverRef.current)
+  }
+
+  const enterDeleteMode = () => {
+    editSubModeRef.current = 'delete'; setEditSubMode('delete')
+    deleteHoverIdxRef.current = null
+    setEditCursor('default'); drawEditCanvas()
   }
 
   const enterMoveMode = () => {
@@ -858,10 +971,9 @@ function App() {
 
   // ── Split operations ─────────────────────────────────────────────────────
 
-  const handleSplitClick = (pos) => {
+  const handleSplitClick = (pos, shiftKey = false) => {
     const selIdx = splitSelectedRef.current
     if (selIdx === null) {
-      // Select a shape
       const idx = hitTestShapeBody(pos)
       if (idx !== null) {
         splitSelectedRef.current = idx; setSplitSelected(idx)
@@ -869,10 +981,13 @@ function App() {
       }
       return
     }
-    // Add cut point
     const cut = splitCutRef.current
     if (cut.length < 2) {
-      const snapped = snapToGrid(pos, currentPage)
+      let snapped = snapToGrid(pos, currentPage)
+      // Axis snap second cut point relative to first (unless Shift held)
+      if (cut.length === 1 && !shiftKey) {
+        snapped = snapToGrid(applyAxisSnap(pos, cut[0]), currentPage)
+      }
       const newCut = [...cut, snapped]
       splitCutRef.current = newCut; setSplitCut([...newCut])
       drawEditCanvas()
@@ -930,7 +1045,7 @@ function App() {
   const handleMeasureMouseDown = (e) => {
     if (!editMode || labelEditState) return
     const subMode = editSubModeRef.current
-    if (subMode === 'combine' || subMode === 'split') return // handled by onClick
+    if (subMode === 'combine' || subMode === 'split' || subMode === 'delete') return // handled by onClick
     if (subMode === 'move') {
       const pos = getCanvasPos(e)
       const idx = hitTestShapeBody(pos)
@@ -966,11 +1081,32 @@ function App() {
       const a = verts[segHit.segIdx], b = verts[(segHit.segIdx + 1) % verts.length]
       const geom = segmentGeom(a, b)
       if (!geom) return
+      // Hold timer: if mouse stays still for 350ms, arm vertex insertion instead of segment drag
+      const capturedPos = { ...pos }
+      const holdTimer = setTimeout(() => { // 550ms hold to arm vertex insertion
+        if (!dragStateRef.current || dragStateRef.current.type !== 'segPending') return
+        const t = projT(capturedPos, a, b)
+        const insertPt = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) }
+        const newVerts = [...verts.map(v => ({ ...v }))]
+        newVerts.splice(segHit.segIdx + 1, 0, { ...insertPt })
+        dragStateRef.current = {
+          type: 'vertexDrag', shapeIdx: segHit.shapeIdx, vertIdx: segHit.segIdx + 1,
+          startPos: capturedPos, origVerts: newVerts,
+          isDragging: false, previewVerts: null, mergeTarget: null,
+        }
+        holdTimerRef.current = null
+        setEditCursor('crosshair')
+        drawEditCanvas(
+          { type: 'vertex', shapeIdx: segHit.shapeIdx, vertIdx: segHit.segIdx + 1 },
+          { shapeIdx: segHit.shapeIdx, vertices: newVerts }
+        )
+      }, 550)
+      holdTimerRef.current = holdTimer
       dragStateRef.current = {
-        type: 'segDrag', shapeIdx: segHit.shapeIdx, segIdx: segHit.segIdx,
+        type: 'segPending', shapeIdx: segHit.shapeIdx, segIdx: segHit.segIdx,
         startPos: pos, origVerts: verts.map(v => ({ ...v })),
         origA: { ...a }, origB: { ...b }, perpDir: geom.perp,
-        isDragging: false, previewVerts: null,
+        isDragging: false, previewVerts: null, holdTimer,
       }
       setEditCursor('grabbing')
     }
@@ -979,6 +1115,9 @@ function App() {
   const handleMeasureMouseUp = (e) => {
     if (!editMode) return
     const subMode = editSubModeRef.current
+
+    // Clear any pending hold timer
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null }
 
     if (subMode === 'move') {
       const drag = moveDragRef.current
@@ -997,6 +1136,13 @@ function App() {
     const ds = dragStateRef.current
     if (!ds) return
 
+    // segPending that never became a drag (quick click) → treat as no-op
+    if (ds.type === 'segPending') {
+      dragStateRef.current = null
+      setEditCursor(editHoverRef.current ? 'pointer' : 'default')
+      return
+    }
+
     if (ds.type === 'labelClick' && !ds.moved) {
       const lbl = ds.labelHit
       const c = measureRef.current
@@ -1006,12 +1152,22 @@ function App() {
         cssX: (lbl.mx / c.width) * rect.width,
         cssY: (lbl.my / c.height) * rect.height,
       })
-    } else if (ds.type === 'vertexDrag' && ds.isDragging && ds.previewVerts) {
-      pushUndo()
-      const newShapes = completedShapesRef.current.map((s, i) =>
-        i === ds.shapeIdx ? { ...s, vertices: ds.previewVerts } : s
-      )
-      completedShapesRef.current = newShapes
+    } else if (ds.type === 'vertexDrag' && ds.isDragging) {
+      if (ds.mergeTarget !== null && ds.mergeTarget !== undefined) {
+        // Vertex deletion via drag-onto-adjacent
+        if (ds.origVerts.length > 3) {
+          pushUndo()
+          const newVerts = ds.origVerts.filter((_, i) => i !== ds.vertIdx)
+          completedShapesRef.current = completedShapesRef.current.map((s, i) =>
+            i === ds.shapeIdx ? { ...s, vertices: newVerts } : s
+          )
+        }
+      } else if (ds.previewVerts) {
+        pushUndo()
+        completedShapesRef.current = completedShapesRef.current.map((s, i) =>
+          i === ds.shapeIdx ? { ...s, vertices: ds.previewVerts } : s
+        )
+      }
       drawEditCanvas(editHoverRef.current)
     } else if (ds.type === 'segDrag' && ds.isDragging && ds.previewVerts) {
       pushUndo()
@@ -1030,7 +1186,19 @@ function App() {
     if (editMode) {
       const subMode = editSubModeRef.current
       if (subMode === 'combine') { handleCombineClick(getCanvasPos(e)); return }
-      if (subMode === 'split') { handleSplitClick(getCanvasPos(e)); return }
+      if (subMode === 'split') { handleSplitClick(getCanvasPos(e), e.shiftKey); return }
+      if (subMode === 'delete') {
+        const pos = getCanvasPos(e)
+        const idx = hitTestShapeBody(pos)
+        if (idx !== null) {
+          pushUndo()
+          completedShapesRef.current = completedShapesRef.current.filter((_, i) => i !== idx)
+          deleteHoverIdxRef.current = null
+          setEditCursor('default')
+          drawEditCanvas()
+        }
+        return
+      }
       return
     }
     if (calibMode && !showScaleDialog) {
@@ -1055,19 +1223,17 @@ function App() {
           redrawReviewCanvas(shape, currentPage); return
         }
       }
-      // First vertex: snap directly to the shared absolute page grid.
-      // computeFinalSnapPos skips all snapping when there is no prior vertex,
-      // which would place the first point raw and create a per-shape offset grid.
+      const useAngleNow = snapAngle && !e.shiftKey
       let finalPos
       if (verts.length === 0) {
         finalPos = snapToGrid(rawPos, currentPage)
       } else {
-        const { pos } = computeFinalSnapPos(rawPos, verts, snapAngle, snapDist, currentPage)
+        const { pos } = computeFinalSnapPos(rawPos, verts, useAngleNow, snapDist, currentPage)
         finalPos = pos
       }
       const next = [...verts, finalPos]
       drawVerticesRef.current = next; setDrawVertexCount(next.length)
-      redrawDrawCanvas(rawPos, next, snapAngle, snapDist, currentPage)
+      redrawDrawCanvas(rawPos, next, useAngleNow, snapDist, currentPage)
     }
   }
 
@@ -1112,8 +1278,17 @@ function App() {
         return
       }
 
+      if (subMode === 'delete') {
+        const idx = hitTestShapeBody(pos)
+        if (idx !== deleteHoverIdxRef.current) {
+          deleteHoverIdxRef.current = idx
+          setEditCursor(idx !== null ? 'pointer' : 'default')
+          drawEditCanvas()
+        }
+        return
+      }
+
       if (subMode === 'split') {
-        splitMouseRef.current = pos
         const selIdx = splitSelectedRef.current
         if (selIdx === null) {
           const idx = hitTestShapeBody(pos)
@@ -1123,7 +1298,11 @@ function App() {
             drawEditCanvas()
           }
         } else if (splitCutRef.current.length === 1) {
-          drawEditCanvas() // rubber band
+          // Axis-snap rubber band (unless Shift held)
+          let previewMouse = pos
+          if (!e.shiftKey) previewMouse = applyAxisSnap(pos, splitCutRef.current[0])
+          splitMouseRef.current = previewMouse
+          drawEditCanvas()
         }
         return
       }
@@ -1133,9 +1312,38 @@ function App() {
       if (ds) {
         const dx = pos.x - ds.startPos.x, dy = pos.y - ds.startPos.y
         if (Math.hypot(dx, dy) > 3) ds.moved = true
+
+        if (ds.type === 'segPending' && ds.moved) {
+          // Moved before hold timer fired — cancel hold, promote to segment drag
+          clearTimeout(ds.holdTimer)
+          holdTimerRef.current = null
+          ds.type = 'segDrag'
+          // Fall through to segDrag branch below
+        }
+
         if (ds.type === 'vertexDrag' && ds.moved) {
           ds.isDragging = true
-          const snapped = clampToCanvas(snapToGrid(pos, currentPage))
+          // Snap origV to grid so axis-snap rays align with grid intersections.
+          // For normal vertices origV is already on-grid (no-op). For inserted
+          // vertices origV is an interpolated off-grid point — snapping it first
+          // ensures 45° rays land precisely on grid points.
+          const origV = snapToGrid(ds.origVerts[ds.vertIdx], currentPage)
+          // Axis snap relative to (grid-aligned) original vertex position (unless Shift held)
+          let snapTarget = pos
+          if (!e.shiftKey) snapTarget = applyAxisSnap(pos, origV)
+          const snapped = clampToCanvas(snapToGrid(snapTarget, currentPage))
+          // Merge detection: check adjacent vertices (only if polygon has >3 verts)
+          const N = ds.origVerts.length
+          if (N > 3) {
+            const prevIdx = (ds.vertIdx - 1 + N) % N
+            const nextIdx = (ds.vertIdx + 1) % N
+            const MERGE_DIST = 14
+            const toPrev = Math.hypot(snapped.x - ds.origVerts[prevIdx].x, snapped.y - ds.origVerts[prevIdx].y)
+            const toNext = Math.hypot(snapped.x - ds.origVerts[nextIdx].x, snapped.y - ds.origVerts[nextIdx].y)
+            ds.mergeTarget = toPrev < MERGE_DIST ? prevIdx : toNext < MERGE_DIST ? nextIdx : null
+          } else {
+            ds.mergeTarget = null
+          }
           ds.previewVerts = ds.origVerts.map((v, i) => i === ds.vertIdx ? snapped : { ...v })
           drawEditCanvas(
             { type: 'vertex', shapeIdx: ds.shapeIdx, vertIdx: ds.vertIdx },
@@ -1143,9 +1351,21 @@ function App() {
           )
         } else if (ds.type === 'segDrag' && ds.moved) {
           ds.isDragging = true
-          const tRaw = dx * ds.perpDir.x + dy * ds.perpDir.y
-          const tClamped = clampT(ds.origA, ds.origB, snapPerp(tRaw), ds.perpDir)
-          ds.previewVerts = applySegmentMove(ds.origVerts, ds.segIdx, tClamped, ds.perpDir)
+          if (e.shiftKey) {
+            // Shift: free-direction move of both segment endpoints, each grid-snapped
+            const newA = clampToCanvas(snapToGrid({ x: ds.origA.x + dx, y: ds.origA.y + dy }, currentPage))
+            const newB = clampToCanvas(snapToGrid({ x: ds.origB.x + dx, y: ds.origB.y + dy }, currentPage))
+            const N = ds.origVerts.length
+            ds.previewVerts = ds.origVerts.map((v, i) => {
+              if (i === ds.segIdx) return newA
+              if (i === (ds.segIdx + 1) % N) return newB
+              return { ...v }
+            })
+          } else {
+            const tRaw = dx * ds.perpDir.x + dy * ds.perpDir.y
+            const tClamped = clampT(ds.origA, ds.origB, snapPerp(tRaw), ds.perpDir)
+            ds.previewVerts = applySegmentMove(ds.origVerts, ds.segIdx, tClamped, ds.perpDir)
+          }
           drawEditCanvas(
             { type: 'segment', shapeIdx: ds.shapeIdx, segIdx: ds.segIdx },
             { shapeIdx: ds.shapeIdx, vertices: ds.previewVerts }
@@ -1178,7 +1398,7 @@ function App() {
       drawCalibState([calibPoints[0], applySnap(pos, calibPoints[0], true, false, currentPage)])
     } else if (drawMode && !reviewShape) {
       mousePosRef.current = pos
-      redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle, snapDist, currentPage)
+      redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle && !e.shiftKey, snapDist, currentPage)
     }
   }
 
@@ -1379,7 +1599,7 @@ function App() {
                 : calibPoints.length === 1 ? 'Click point B to complete the reference line'
                 : 'Reference line set — enter real-world length below'}
             </span>
-            <button className="calib-cancel" onClick={exitCalibMode}>Cancel</button>
+            <button className="calib-cancel" onClick={exitCalibMode}>Exit</button>
           </div>
         )}
 
@@ -1482,8 +1702,12 @@ function App() {
                 <button className="submode-btn" onClick={enterSplitMode} title="Draw a cut line to split a shape in two">
                   Split Shape
                 </button>
-                <span className="edit-status">Drag corner · side · click label to edit</span>
+                <button className="submode-btn submode-btn--danger" onClick={enterDeleteMode} title="Click a shape to delete it">
+                  Delete Shape
+                </button>
+                <span className="edit-status">Drag corner · side · click label to edit · hold segment to insert vertex</span>
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
+                {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitEditMode}>Done</button>
               </>
             )}
@@ -1492,6 +1716,8 @@ function App() {
               <>
                 <span className="submode-status submode-status--move">Move Shape</span>
                 <span className="edit-status">Click and drag a shape · Esc to cancel</span>
+                {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
+                {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
               </>
             )}
@@ -1509,7 +1735,19 @@ function App() {
                 {canApplyCombine && (
                   <button className="btn-primary btn-sm" onClick={applyMerge}>Apply Combine</button>
                 )}
-                <button className="calib-cancel" onClick={exitSubMode}>Cancel</button>
+                {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
+                {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
+                <button className="calib-cancel" onClick={exitSubMode}>Back</button>
+              </>
+            )}
+
+            {editSubMode === 'delete' && (
+              <>
+                <span className="submode-status submode-status--delete">Delete Shape</span>
+                <span className="edit-status">Click a shape to delete it permanently</span>
+                {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
+                {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
+                <button className="calib-cancel" onClick={exitSubMode}>Back</button>
               </>
             )}
 
@@ -1532,7 +1770,9 @@ function App() {
                     setSplitCut([]); drawEditCanvas()
                   }}>Reset Cut</button>
                 )}
-                <button className="calib-cancel" onClick={exitSubMode}>Cancel</button>
+                {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
+                {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
+                <button className="calib-cancel" onClick={exitSubMode}>Back</button>
               </>
             )}
           </div>
@@ -1621,7 +1861,7 @@ function App() {
             )}
             {scaleError && <p className="modal-error">{scaleError}</p>}
             <div className="modal-actions">
-              <button className="btn-secondary" onClick={exitCalibMode}>Cancel</button>
+              <button className="btn-secondary" onClick={exitCalibMode}>Back</button>
               <button className="btn-primary" onClick={handleConfirmScale}>Confirm Scale</button>
             </div>
           </div>
