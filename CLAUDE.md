@@ -98,12 +98,21 @@ A React + Vite app with:
   highlight; clicking places the new shape's first vertex exactly coincident.
   Shift suppresses it for a free start point. Implemented via `getVisibleVertices()`
   so it extends automatically to future reference/ghost geometry with no rework.
+- **Zoom & pan:**
+  * Mouse wheel zooms in/out anchored to cursor position (point under cursor stays
+    fixed); clamped 0.1× minimum to 10× maximum
+  * Left-drag on empty canvas pans in all modes (view, draw, calib, edit);
+    middle-mouse drag pans in all modes
+  * Pan drag <3px does not suppress the following click
+  * Implementation: `canvas-world` div wraps both canvases inside `.canvas-stack`
+    and receives the CSS transform; `getCanvasPos()` via `getBoundingClientRect()`
+    auto-compensates — no coordinate mapping changes in any existing handler
+  * Zoom and pan reset to defaults on page navigation and PDF upload
 - **PDF upload full-state reset:** uploading a new file clears all locked shapes,
   calibration/scale data, page grid origins, in-progress drawing trace, review
   state, and edit undo/redo history — new file always starts completely clean
 
 **Not yet built (next increments):**
-- Zoom & pan
 - Multi-floor coordination, compass rose, page categorization (Phase 1.5)
 
 **Deferred polish items:**
