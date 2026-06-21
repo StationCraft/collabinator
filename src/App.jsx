@@ -7,13 +7,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString()
 
-function segmentsFromVertices(vertices) {
-  const segs = []
-  for (let i = 0; i + 1 < vertices.length; i++) {
-    segs.push({ a: vertices[i], b: vertices[i + 1] })
-  }
-  return segs
-}
+// ── Module-level geometry helpers ──────────────────────────────────────────
 
 function distToSegment(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y
@@ -47,9 +41,150 @@ function parseDisplayDistInput(str, displayUnit) {
   return m ? parseFloat(m[1]) : null
 }
 
+function pointInPolygon(pt, verts) {
+  let inside = false
+  for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
+    const xi = verts[i].x, yi = verts[i].y, xj = verts[j].x, yj = verts[j].y
+    if ((yi > pt.y) !== (yj > pt.y) && pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi)
+      inside = !inside
+  }
+  return inside
+}
+
+const COLLINEAR_TOL = 0.5  // max perpendicular distance to be considered on the same line (px)
+const OVERLAP_MIN   = 1.0  // minimum overlap length to be considered a shared edge (px)
+const ENDPOINT_TOL  = 0.5  // coincidence tolerance for existing edge endpoints (px)
+
+// Returns overlap info if vertsA and vertsB share a collinear anti-parallel edge segment,
+// or null if no combinable overlap exists.
+function findCollinearOverlap(vertsA, vertsB) {
+  const NA = vertsA.length, NB = vertsB.length
+  for (let i = 0; i < NA; i++) {
+    const a1 = vertsA[i], a2 = vertsA[(i + 1) % NA]
+    const dax = a2.x - a1.x, day = a2.y - a1.y
+    const lenA = Math.hypot(dax, day)
+    if (lenA < 0.001) continue
+    const dirX = dax / lenA, dirY = day / lenA
+    const perpX = -dirY, perpY = dirX
+
+    for (let j = 0; j < NB; j++) {
+      const b1 = vertsB[j], b2 = vertsB[(j + 1) % NB]
+
+      // Both B endpoints must lie on the infinite line through a1→a2
+      if (Math.abs((b1.x - a1.x) * perpX + (b1.y - a1.y) * perpY) > COLLINEAR_TOL) continue
+      if (Math.abs((b2.x - a1.x) * perpX + (b2.y - a1.y) * perpY) > COLLINEAR_TOL) continue
+
+      // B must traverse this line in the opposite direction (anti-parallel)
+      const lenB = Math.hypot(b2.x - b1.x, b2.y - b1.y)
+      if (lenB < 0.001) continue
+      if ((b2.x - b1.x) * dirX + (b2.y - b1.y) * dirY >= 0) continue
+
+      // Project b1 and b2 onto A's line; anti-parallel guarantees t_b1 > t_b2
+      const t_b1 = (b1.x - a1.x) * dirX + (b1.y - a1.y) * dirY
+      const t_b2 = (b2.x - a1.x) * dirX + (b2.y - a1.y) * dirY
+
+      // Overlap of A's range [0, lenA] with B's range [t_b2, t_b1]
+      const t_ov_start = Math.max(0, t_b2)
+      const t_ov_end   = Math.min(lenA, t_b1)
+      if (t_ov_end - t_ov_start < OVERLAP_MIN) continue
+
+      return {
+        segA: i, segB: j, dirX, dirY, a1, a2, lenA, b1, b2, lenB,
+        t_b1, t_b2, t_ov_start, t_ov_end,
+        P_start: { x: a1.x + t_ov_start * dirX, y: a1.y + t_ov_start * dirY },
+        P_end:   { x: a1.x + t_ov_end   * dirX, y: a1.y + t_ov_end   * dirY },
+      }
+    }
+  }
+  return null
+}
+
+// Insert P_first (if not already coincident with edge start) and P_second
+// (if not coincident with edge end) into verts at segIdx.
+// Returns {newVerts, newSegIdx} where newSegIdx is the index of P_first.
+function prepareForMerge(verts, segIdx, P_first, P_second) {
+  const N = verts.length
+  const edgeStart = verts[segIdx], edgeEnd = verts[(segIdx + 1) % N]
+  const insertP1 = Math.hypot(P_first.x  - edgeStart.x, P_first.y  - edgeStart.y) >= ENDPOINT_TOL
+  const insertP2 = Math.hypot(P_second.x - edgeEnd.x,   P_second.y - edgeEnd.y)   >= ENDPOINT_TOL
+  const result = [...verts]
+  let offset = 0
+  if (insertP1) { result.splice(segIdx + 1, 0, { ...P_first });  offset++ }
+  if (insertP2) { result.splice(segIdx + 1 + offset, 0, { ...P_second }) }
+  return { newVerts: result, newSegIdx: segIdx + (insertP1 ? 1 : 0) }
+}
+
+function mergePolygons(vertsA, vertsB, segA, segB, dir) {
+  const NA = vertsA.length
+  let bVerts = vertsB, effSegB = segB
+  if (dir === 'same') {
+    bVerts = [...vertsB].reverse()
+    effSegB = vertsB.length - 1 - ((segB + 1) % vertsB.length)
+  }
+  const NB = bVerts.length
+  const result = []
+  for (let i = 0; i < NA; i++) result.push({ ...vertsA[(segA + 1 + i) % NA] })
+  for (let i = 0; i < NB - 2; i++) result.push({ ...bVerts[(effSegB + 2 + i) % NB] })
+  return result
+}
+
+function linePolyIntersect(p1, p2, verts) {
+  const N = verts.length
+  const dx = p2.x - p1.x, dy = p2.y - p1.y
+  const results = []
+  for (let i = 0; i < N; i++) {
+    const a = verts[i], b = verts[(i + 1) % N]
+    const d2x = b.x - a.x, d2y = b.y - a.y
+    const cross = dx * d2y - dy * d2x
+    if (Math.abs(cross) < 0.001) continue
+    const ex = a.x - p1.x, ey = a.y - p1.y
+    const t = (ex * d2y - ey * d2x) / cross
+    const u = (ex * dy - ey * dx) / cross
+    if (u > 0.0001 && u < 0.9999)
+      results.push({ edgeIdx: i, edgeT: u, lineT: t, point: { x: a.x + u * d2x, y: a.y + u * d2y } })
+  }
+  return results.sort((a, b) => a.lineT - b.lineT)
+}
+
+function splitPolygon(verts, cutP1, cutP2) {
+  const hits = linePolyIntersect(cutP1, cutP2, verts)
+  if (hits.length < 2) return null
+  const h0 = hits[0], h1 = hits[hits.length - 1]
+  const i0 = h0.edgeIdx, i1 = h1.edgeIdx
+  const p0 = h0.point, p1 = h1.point
+  const N = verts.length
+
+  const polyA = [{ ...p0 }]
+  let cur = (i0 + 1) % N, stop1 = (i1 + 1) % N, guard = N + 2
+  while (cur !== stop1 && guard-- > 0) { polyA.push({ ...verts[cur] }); cur = (cur + 1) % N }
+  polyA.push({ ...p1 })
+
+  const polyB = [{ ...p1 }]
+  cur = (i1 + 1) % N; let stop2 = (i0 + 1) % N; guard = N + 2
+  while (cur !== stop2 && guard-- > 0) { polyB.push({ ...verts[cur] }); cur = (cur + 1) % N }
+  polyB.push({ ...p0 })
+
+  if (polyA.length < 3 || polyB.length < 3) return null
+  return [polyA, polyB]
+}
+
+function getEligibleShapes(shapes, pageNum) {
+  const pageIdxs = shapes.map((s, i) => ({ s, i })).filter(({ s }) => s.pageNumber === pageNum).map(({ i }) => i)
+  const eligible = new Set()
+  for (let a = 0; a < pageIdxs.length; a++) {
+    for (let b = a + 1; b < pageIdxs.length; b++) {
+      if (findCollinearOverlap(shapes[pageIdxs[a]].vertices, shapes[pageIdxs[b]].vertices)) {
+        eligible.add(pageIdxs[a]); eligible.add(pageIdxs[b])
+      }
+    }
+  }
+  return eligible
+}
+
 const CLOSE_SNAP_RADIUS = 16
 const ALIGN_TOLERANCE = 10
 const HIT_SEG_DIST = 8
+const HIT_VERT_DIST = 9
 
 function App() {
   const [pdf, setPdf] = useState(null)
@@ -77,9 +212,14 @@ function App() {
   const [reviewShape, setReviewShape] = useState(null)
 
   const [editMode, setEditMode] = useState(false)
+  const [editSubMode, setEditSubMode] = useState(null) // 'move'|'combine'|'split'|null
   const [editCursor, setEditCursor] = useState('default')
   const [labelEditState, setLabelEditState] = useState(null)
   const [editUndoCount, setEditUndoCount] = useState(0)
+  const [combineSelection, setCombineSelection] = useState([])
+  const [combineError, setCombineError] = useState('')
+  const [splitSelected, setSplitSelected] = useState(null)
+  const [splitCut, setSplitCut] = useState([])
 
   const canvasRef = useRef(null)
   const measureRef = useRef(null)
@@ -88,14 +228,26 @@ function App() {
   const mousePosRef = useRef(null)
   const completedShapesRef = useRef([])
   const snapIncrementRef = useRef(0.1524)
-  const pageGridOriginRef = useRef({})   // pageNum → {x,y} — absolute snap grid origin per page
+  const pageGridOriginRef = useRef({})
 
+  // Default edit mode refs
   const editHoverRef = useRef(null)
   const dragStateRef = useRef(null)
   const segLabelRectsRef = useRef([])
   const editUndoStackRef = useRef([])
 
-  // ── Page rendering ─────────────────────────────────────────────────────────
+  // Sub-mode refs (always in sync with state)
+  const editSubModeRef = useRef(null)
+  const moveHoverIdxRef = useRef(null)
+  const moveDragRef = useRef(null)
+  const combineEligibleRef = useRef(new Set())
+  const combineSelectRef = useRef([])
+  const splitHoverIdxRef = useRef(null)
+  const splitSelectedRef = useRef(null)
+  const splitCutRef = useRef([])
+  const splitMouseRef = useRef(null)
+
+  // ── Page rendering ──────────────────────────────────────────────────────
 
   const renderPage = useCallback(async (pdfDoc, pageNum) => {
     setRenderingPage(true)
@@ -115,34 +267,40 @@ function App() {
       }
       await page.render({ canvasContext: ctx, viewport: scaled }).promise
       setCurrentPage(pageNum)
-    } catch (err) {
+    } catch {
       setError('Failed to render page.')
     } finally {
       setRenderingPage(false)
     }
   }, [])
 
+  const resetEditState = () => {
+    setEditMode(false); setEditSubMode(null); setLabelEditState(null)
+    setEditCursor('default'); setEditUndoCount(0)
+    setCombineSelection([]); setSplitSelected(null); setSplitCut([])
+    editHoverRef.current = null; dragStateRef.current = null; editUndoStackRef.current = []
+    editSubModeRef.current = null; moveHoverIdxRef.current = null; moveDragRef.current = null
+    combineEligibleRef.current = new Set(); combineSelectRef.current = []
+    splitHoverIdxRef.current = null; splitSelectedRef.current = null
+    splitCutRef.current = []; splitMouseRef.current = null
+  }
+
   const handleFileChange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    setError('')
-    setLoading(true)
-    setPdf(null)
-    setCurrentPage(null)
-    setPageCount(0)
-    setFileName(file.name)
+    setError(''); setLoading(true)
+    setPdf(null); setCurrentPage(null); setPageCount(0); setFileName(file.name)
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
-    setEditMode(false); setLabelEditState(null); setEditUndoCount(0)
+    resetEditState()
+    completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
     drawVerticesRef.current = []; mousePosRef.current = null
-    editHoverRef.current = null; dragStateRef.current = null; editUndoStackRef.current = []
     try {
       const arrayBuffer = await file.arrayBuffer()
       const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-      setPdf(pdfDoc)
-      setPageCount(pdfDoc.numPages)
+      setPdf(pdfDoc); setPageCount(pdfDoc.numPages)
       await renderPage(pdfDoc, 1)
-    } catch (err) {
+    } catch {
       setError('Failed to load PDF. Make sure the file is a valid PDF.')
     } finally {
       setLoading(false)
@@ -153,13 +311,12 @@ function App() {
     if (!pdf || renderingPage) return
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
-    setEditMode(false); setLabelEditState(null); setEditUndoCount(0)
+    resetEditState()
     drawVerticesRef.current = []; mousePosRef.current = null
-    editHoverRef.current = null; dragStateRef.current = null; editUndoStackRef.current = []
     renderPage(pdf, pageNum)
   }
 
-  // ── Shared canvas utilities ────────────────────────────────────────────────
+  // ── Canvas utilities ────────────────────────────────────────────────────
 
   const clearMeasureCanvas = () => {
     const c = measureRef.current
@@ -182,7 +339,6 @@ function App() {
     return { x: Math.max(0, Math.min(c.width, v.x)), y: Math.max(0, Math.min(c.height, v.y)) }
   }
 
-  // Clamp perpendicular drag offset so both origA and origB stay within canvas
   const clampT = (origA, origB, tRaw, perpDir) => {
     const c = measureRef.current
     if (!c) return tRaw
@@ -190,22 +346,31 @@ function App() {
     let tMin = -Infinity, tMax = Infinity
     for (const pt of [origA, origB]) {
       if (Math.abs(perpDir.x) > 0.001) {
-        const t1 = (0 - pt.x) / perpDir.x
-        const t2 = (W - pt.x) / perpDir.x
-        tMin = Math.max(tMin, Math.min(t1, t2))
-        tMax = Math.min(tMax, Math.max(t1, t2))
+        const t1 = (0 - pt.x) / perpDir.x, t2 = (W - pt.x) / perpDir.x
+        tMin = Math.max(tMin, Math.min(t1, t2)); tMax = Math.min(tMax, Math.max(t1, t2))
       }
       if (Math.abs(perpDir.y) > 0.001) {
-        const t1 = (0 - pt.y) / perpDir.y
-        const t2 = (H - pt.y) / perpDir.y
-        tMin = Math.max(tMin, Math.min(t1, t2))
-        tMax = Math.min(tMax, Math.max(t1, t2))
+        const t1 = (0 - pt.y) / perpDir.y, t2 = (H - pt.y) / perpDir.y
+        tMin = Math.max(tMin, Math.min(t1, t2)); tMax = Math.min(tMax, Math.max(t1, t2))
       }
     }
     return Math.max(tMin, Math.min(tMax, tRaw))
   }
 
-  // ── Draw locked shapes (always-visible base layer) ─────────────────────────
+  const snapToGrid = (pos, pageNum) => {
+    if (!snapDist) return pos
+    const scale = pageScalesRef.current[pageNum]
+    if (!scale) return pos
+    const snapPx = scale.pxPerMeter * snapIncrementRef.current
+    if (snapPx <= 0) return pos
+    const origin = pageGridOriginRef.current[pageNum] || { x: 0, y: 0 }
+    return {
+      x: origin.x + Math.round((pos.x - origin.x) / snapPx) * snapPx,
+      y: origin.y + Math.round((pos.y - origin.y) / snapPx) * snapPx,
+    }
+  }
+
+  // ── Draw locked shapes (base layer) ─────────────────────────────────────
 
   const drawLockedShapes = (ctx, pageNum) => {
     completedShapesRef.current
@@ -219,36 +384,24 @@ function App() {
         ctx.closePath()
         ctx.fillStyle = 'rgba(59,130,246,0.1)'
         ctx.fill()
-        ctx.strokeStyle = '#2563eb'
-        ctx.lineWidth = 1.5
-        ctx.lineJoin = 'round'
+        ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'
         ctx.stroke()
       })
   }
 
-  // Redraw locked shapes into the measure canvas (used when returning to idle state)
-  const redrawIdleCanvas = (pageNum) => {
-    const c = measureRef.current
-    if (!c || !pageNum) return
-    const ctx = c.getContext('2d')
-    ctx.clearRect(0, 0, c.width, c.height)
-    drawLockedShapes(ctx, pageNum)
-  }
-
-  // ── Idle-state redraw: whenever all modes are off, show locked shapes ───────
   useEffect(() => {
     if (calibMode || drawMode || editMode) return
-    redrawIdleCanvas(currentPage)
+    const c = measureRef.current
+    if (!c || !currentPage) return
+    const ctx = c.getContext('2d')
+    ctx.clearRect(0, 0, c.width, c.height)
+    drawLockedShapes(ctx, currentPage)
   }, [calibMode, drawMode, editMode, currentPage])
 
-  // ── Calibration ────────────────────────────────────────────────────────────
+  // ── Calibration ──────────────────────────────────────────────────────────
 
   const exitCalibMode = () => {
-    setCalibMode(false)
-    setCalibPoints([])
-    setShowScaleDialog(false)
-    setScaleError('')
-    // idle useEffect will redraw locked shapes
+    setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
   }
 
   const drawCalibState = (points) => {
@@ -258,25 +411,15 @@ function App() {
     ctx.clearRect(0, 0, c.width, c.height)
     if (points.length >= 1) {
       if (points.length === 2) {
-        ctx.beginPath()
-        ctx.moveTo(points[0].x, points[0].y)
-        ctx.lineTo(points[1].x, points[1].y)
-        ctx.strokeStyle = '#f59e0b'
-        ctx.lineWidth = 2
-        ctx.setLineDash([6, 3])
-        ctx.stroke()
-        ctx.setLineDash([])
+        ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y); ctx.lineTo(points[1].x, points[1].y)
+        ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2; ctx.setLineDash([6, 3])
+        ctx.stroke(); ctx.setLineDash([])
       }
       points.forEach((p, i) => {
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
-        ctx.fillStyle = '#f59e0b'
-        ctx.fill()
-        ctx.strokeStyle = '#92400e'
-        ctx.lineWidth = 1.5
-        ctx.stroke()
-        ctx.fillStyle = '#92400e'
-        ctx.font = 'bold 12px system-ui, sans-serif'
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
+        ctx.fillStyle = '#f59e0b'; ctx.fill()
+        ctx.strokeStyle = '#92400e'; ctx.lineWidth = 1.5; ctx.stroke()
+        ctx.fillStyle = '#92400e'; ctx.font = 'bold 12px system-ui, sans-serif'
         ctx.fillText(i === 0 ? 'A' : 'B', p.x + 8, p.y - 6)
       })
     }
@@ -288,38 +431,29 @@ function App() {
     const pixelDist = Math.sqrt(dx * dx + dy * dy)
     let realWorldMeters = 0
     if (scaleUnit === 'imperial') {
-      const feet = parseFloat(feetVal) || 0
-      const inches = parseFloat(inchesVal) || 0
+      const feet = parseFloat(feetVal) || 0, inches = parseFloat(inchesVal) || 0
       if (feet === 0 && inches === 0) { setScaleError('Enter a dimension greater than zero.'); return }
       realWorldMeters = (feet * 12 + inches) * 0.0254
     } else {
       realWorldMeters = parseFloat(metersVal) || 0
       if (realWorldMeters <= 0) { setScaleError('Enter a dimension greater than zero.'); return }
     }
-    if (pixelDist < 5) { setScaleError('Reference line is too short. Click two distinct points.'); return }
+    if (pixelDist < 5) { setScaleError('Reference line is too short.'); return }
     pageScalesRef.current[currentPage] = {
       pxPerMeter: pixelDist / realWorldMeters,
       displayUnit: scaleUnit === 'imperial' ? 'ft' : 'm',
     }
-    // Reset grid origin so it re-aligns to new scale
     delete pageGridOriginRef.current[currentPage]
-    setShowScaleDialog(false)
-    setCalibMode(false)
-    setCalibPoints([])
-    setScaleError('')
+    setShowScaleDialog(false); setCalibMode(false); setCalibPoints([]); setScaleError('')
   }
 
-  // ── Drawing ────────────────────────────────────────────────────────────────
+  // ── Drawing ──────────────────────────────────────────────────────────────
 
   const exitDrawMode = () => {
-    setDrawMode(false)
-    setReviewShape(null)
-    drawVerticesRef.current = []
-    setDrawVertexCount(0)
+    setDrawMode(false); setReviewShape(null)
+    drawVerticesRef.current = []; setDrawVertexCount(0)
     mousePosRef.current = null
-    snapIncrementRef.current = 0.1524
-    setSnapIncrement(0.1524)
-    // idle useEffect redraws locked shapes
+    snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
   }
 
   const pxToDisplayDist = (px, pageNum) => {
@@ -335,7 +469,6 @@ function App() {
     return `${meters.toFixed(3)} m`
   }
 
-  // Absolute Cartesian grid snap: all shapes on a page share the same grid origin
   const applySnap = (rawPos, lastVertex, useAngle, useDist, pageNum) => {
     if (!lastVertex) return rawPos
     let x = rawPos.x, y = rawPos.y
@@ -368,8 +501,7 @@ function App() {
     const guides = []
     let bestH = null, bestV = null
     for (const v of vertices) {
-      const dy = Math.abs(mousePos.y - v.y)
-      const dx = Math.abs(mousePos.x - v.x)
+      const dy = Math.abs(mousePos.y - v.y), dx = Math.abs(mousePos.x - v.x)
       if (dy <= ALIGN_TOLERANCE && (!bestH || dy < bestH.dy)) bestH = { vertex: v, dy }
       if (dx <= ALIGN_TOLERANCE && (!bestV || dx < bestV.dx)) bestV = { vertex: v, dx }
     }
@@ -381,34 +513,123 @@ function App() {
   const computeFinalSnapPos = (rawPos, vertices, useAngle, useDist, pageNum) => {
     const last = vertices.length > 0 ? vertices[vertices.length - 1] : null
     const { snappedPos: alignSnapped, guides } = getAlignmentSnap(rawPos, vertices)
-    if (guides.length > 0) {
-      return { pos: applySnap(alignSnapped, last, false, useDist, pageNum), guides }
-    }
+    if (guides.length > 0) return { pos: applySnap(alignSnapped, last, false, useDist, pageNum), guides }
     return { pos: applySnap(rawPos, last, useAngle, useDist, pageNum), guides }
   }
 
   const drawAlignGuide = (ctx, guide, cw, ch) => {
     ctx.save()
-    ctx.strokeStyle = '#f59e0b'
-    ctx.lineWidth = 1
-    ctx.globalAlpha = 0.75
-    ctx.setLineDash([5, 5])
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1; ctx.globalAlpha = 0.75; ctx.setLineDash([5, 5])
     ctx.beginPath()
     if (guide.axis === 'h') { ctx.moveTo(0, guide.vertex.y); ctx.lineTo(cw, guide.vertex.y) }
     else { ctx.moveTo(guide.vertex.x, 0); ctx.lineTo(guide.vertex.x, ch) }
-    ctx.stroke()
-    ctx.restore()
+    ctx.stroke(); ctx.restore()
   }
 
-  // ── Edit mode canvas ───────────────────────────────────────────────────────
+  // ── Edit canvas drawing ──────────────────────────────────────────────────
 
-  const drawEditCanvas = (hoverSeg, previewOverride = null) => {
+  const drawShapePoly = (ctx, verts, style) => {
+    const N = verts.length
+    if (N < 3) return
+    ctx.beginPath()
+    ctx.moveTo(verts[0].x, verts[0].y)
+    for (let i = 1; i < N; i++) ctx.lineTo(verts[i].x, verts[i].y)
+    ctx.closePath()
+    if (style === 'hover') {
+      ctx.fillStyle = 'rgba(245,158,11,0.18)'; ctx.fill()
+      ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2.5
+    } else if (style === 'selected') {
+      ctx.fillStyle = 'rgba(22,163,74,0.18)'; ctx.fill()
+      ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2.5
+    } else if (style === 'drag-preview') {
+      ctx.fillStyle = 'rgba(245,158,11,0.12)'; ctx.fill()
+      ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2; ctx.setLineDash([4, 3])
+    } else {
+      ctx.fillStyle = 'rgba(59,130,246,0.1)'; ctx.fill()
+      ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5
+    }
+    ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([])
+  }
+
+  const drawEditCanvas = (hoverState = null, previewOverride = null) => {
     const c = measureRef.current
     if (!c || !currentPage) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
     segLabelRectsRef.current = []
 
+    const subMode = editSubModeRef.current
+
+    // ── Move sub-mode ─────────────────────────────────────────────────────
+    if (subMode === 'move') {
+      const moveHoverIdx = moveHoverIdxRef.current
+      const drag = moveDragRef.current
+      completedShapesRef.current.forEach((shape, idx) => {
+        if (shape.pageNumber !== currentPage) return
+        ctx.save()
+        const isDragged = drag && drag.shapeIdx === idx
+        const verts = isDragged && drag.previewVerts ? drag.previewVerts : shape.vertices
+        const style = isDragged ? 'drag-preview' : (idx === moveHoverIdx ? 'hover' : 'normal')
+        drawShapePoly(ctx, verts, style)
+        ctx.restore()
+      })
+      return
+    }
+
+    // ── Combine sub-mode ──────────────────────────────────────────────────
+    if (subMode === 'combine') {
+      const eligible = combineEligibleRef.current
+      const sel = combineSelectRef.current
+      completedShapesRef.current.forEach((shape, idx) => {
+        if (shape.pageNumber !== currentPage) return
+        ctx.save()
+        if (!eligible.has(idx)) ctx.globalAlpha = 0.2
+        const style = sel.includes(idx) ? 'selected' : 'normal'
+        drawShapePoly(ctx, shape.vertices, style)
+        ctx.restore()
+      })
+      // Highlight shared overlap segment if 2 shapes selected
+      if (sel.length === 2) {
+        const shapes = completedShapesRef.current
+        const ov = findCollinearOverlap(shapes[sel[0]].vertices, shapes[sel[1]].vertices)
+        if (ov) {
+          ctx.beginPath(); ctx.moveTo(ov.P_start.x, ov.P_start.y); ctx.lineTo(ov.P_end.x, ov.P_end.y)
+          ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 4; ctx.stroke()
+        }
+      }
+      return
+    }
+
+    // ── Split sub-mode ────────────────────────────────────────────────────
+    if (subMode === 'split') {
+      const selIdx = splitSelectedRef.current
+      const hoverIdx = splitHoverIdxRef.current
+      completedShapesRef.current.forEach((shape, idx) => {
+        if (shape.pageNumber !== currentPage) return
+        ctx.save()
+        if (selIdx !== null && idx !== selIdx) ctx.globalAlpha = 0.2
+        const style = idx === selIdx ? 'normal' : (selIdx === null && idx === hoverIdx ? 'hover' : 'normal')
+        drawShapePoly(ctx, shape.vertices, style)
+        ctx.restore()
+      })
+      // Draw cut line / rubber band
+      const cut = splitCutRef.current
+      const mouse = splitMouseRef.current
+      if (cut.length >= 1) {
+        ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4])
+        ctx.beginPath(); ctx.moveTo(cut[0].x, cut[0].y)
+        if (cut.length >= 2) ctx.lineTo(cut[1].x, cut[1].y)
+        else if (mouse) ctx.lineTo(mouse.x, mouse.y)
+        ctx.stroke(); ctx.setLineDash([])
+        cut.forEach(p => {
+          ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
+          ctx.fillStyle = '#dc2626'; ctx.fill()
+        })
+      }
+      return
+    }
+
+    // ── Default edit mode (vertex/segment drag, labels) ───────────────────
     completedShapesRef.current
       .filter(s => s.pageNumber === currentPage)
       .forEach((shape, shapeIdx) => {
@@ -421,46 +642,41 @@ function App() {
         ctx.moveTo(verts[0].x, verts[0].y)
         for (let i = 1; i < N; i++) ctx.lineTo(verts[i].x, verts[i].y)
         ctx.closePath()
-        ctx.fillStyle = 'rgba(59,130,246,0.1)'
-        ctx.fill()
+        ctx.fillStyle = 'rgba(59,130,246,0.1)'; ctx.fill()
 
         for (let segIdx = 0; segIdx < N; segIdx++) {
-          const a = verts[segIdx]
-          const b = verts[(segIdx + 1) % N]
-          const isHover = hoverSeg?.shapeIdx === shapeIdx && hoverSeg?.segIdx === segIdx
+          const a = verts[segIdx], b = verts[(segIdx + 1) % N]
+          const isSegHover = hoverState?.type === 'segment' &&
+            hoverState.shapeIdx === shapeIdx && hoverState.segIdx === segIdx
 
-          ctx.beginPath()
-          ctx.moveTo(a.x, a.y)
-          ctx.lineTo(b.x, b.y)
-          ctx.strokeStyle = isHover ? '#f59e0b' : '#2563eb'
-          ctx.lineWidth = isHover ? 3 : 1.5
-          ctx.lineJoin = 'round'
-          ctx.stroke()
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
+          ctx.strokeStyle = isSegHover ? '#f59e0b' : '#2563eb'
+          ctx.lineWidth = isSegHover ? 3 : 1.5
+          ctx.lineJoin = 'round'; ctx.stroke()
 
           const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
           const lenPx = Math.hypot(b.x - a.x, b.y - a.y)
           const label = pxToDisplayDist(lenPx, currentPage)
           if (label) {
             ctx.font = '12px system-ui, sans-serif'
-            const tw = ctx.measureText(label).width
-            const pad = 3
+            const tw = ctx.measureText(label).width, pad = 3
             const lx = mx - tw / 2 - pad, ly = my - 15, lw = tw + pad * 2, lh = 18
-            ctx.fillStyle = isHover ? 'rgba(254,243,199,0.97)' : 'rgba(255,255,255,0.92)'
+            ctx.fillStyle = isSegHover ? 'rgba(254,243,199,0.97)' : 'rgba(255,255,255,0.92)'
             ctx.fillRect(lx, ly, lw, lh)
-            ctx.fillStyle = isHover ? '#92400e' : '#1d4ed8'
+            ctx.fillStyle = isSegHover ? '#92400e' : '#1d4ed8'
             ctx.fillText(label, mx - tw / 2, my - 1)
             segLabelRectsRef.current.push({ shapeIdx, segIdx, x: lx, y: ly, w: lw, h: lh, mx, my, label })
           }
         }
 
-        verts.forEach(v => {
+        verts.forEach((v, i) => {
+          const isVertHover = hoverState?.type === 'vertex' &&
+            hoverState.shapeIdx === shapeIdx && hoverState.vertIdx === i
           ctx.beginPath()
-          ctx.arc(v.x, v.y, 3, 0, Math.PI * 2)
-          ctx.fillStyle = '#3b82f6'
+          ctx.arc(v.x, v.y, isVertHover ? 7 : 5, 0, Math.PI * 2)
+          ctx.fillStyle = isVertHover ? '#f59e0b' : '#3b82f6'
           ctx.fill()
-          ctx.strokeStyle = 'white'
-          ctx.lineWidth = 1
-          ctx.stroke()
+          ctx.strokeStyle = 'white'; ctx.lineWidth = isVertHover ? 2 : 1.5; ctx.stroke()
         })
       })
   }
@@ -469,7 +685,7 @@ function App() {
     if (editMode && currentPage) drawEditCanvas(editHoverRef.current)
   }, [editMode, currentPage])
 
-  // ── Edit mode hit tests ────────────────────────────────────────────────────
+  // ── Edit hit tests ───────────────────────────────────────────────────────
 
   const hitTestLabels = (pos) => {
     const PAD = 4
@@ -478,6 +694,18 @@ function App() {
           pos.y >= lbl.y - PAD && pos.y <= lbl.y + lbl.h + PAD) return lbl
     }
     return null
+  }
+
+  const hitTestVertices = (pos) => {
+    let best = null, bestDist = HIT_VERT_DIST
+    completedShapesRef.current.forEach((shape, shapeIdx) => {
+      if (shape.pageNumber !== currentPage) return
+      shape.vertices.forEach((v, vertIdx) => {
+        const d = Math.hypot(pos.x - v.x, pos.y - v.y)
+        if (d < bestDist) { bestDist = d; best = { shapeIdx, vertIdx } }
+      })
+    })
+    return best
   }
 
   const hitTestSegments = (pos) => {
@@ -493,7 +721,192 @@ function App() {
     return best
   }
 
-  // ── Edit mode: segment move ────────────────────────────────────────────────
+  const hitTestShapeBody = (pos) => {
+    const shapes = completedShapesRef.current
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      if (shapes[i].pageNumber === currentPage && pointInPolygon(pos, shapes[i].vertices)) return i
+    }
+    return null
+  }
+
+  // ── Edit: undo ───────────────────────────────────────────────────────────
+
+  const pushUndo = () => {
+    editUndoStackRef.current.push(
+      completedShapesRef.current.map(s => ({ ...s, vertices: s.vertices.map(v => ({ ...v })) }))
+    )
+    setEditUndoCount(c => c + 1)
+  }
+
+  const handleEditUndo = () => {
+    const prev = editUndoStackRef.current.pop()
+    if (!prev) return
+    completedShapesRef.current = prev
+    setEditUndoCount(c => c - 1)
+    // Refresh combine eligible set if in combine mode
+    if (editSubModeRef.current === 'combine') {
+      combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPage)
+      combineSelectRef.current = []; setCombineSelection([])
+    }
+    drawEditCanvas(editHoverRef.current)
+  }
+
+  // ── Edit: label override ─────────────────────────────────────────────────
+
+  const commitLabelEdit = () => {
+    if (!labelEditState) return
+    const { shapeIdx, segIdx, value } = labelEditState
+    const scale = pageScalesRef.current[currentPage]
+    if (!scale) { setLabelEditState(null); return }
+    const meters = parseDisplayDistInput(value, scale.displayUnit)
+    if (!meters || meters <= 0) { setLabelEditState(null); drawEditCanvas(editHoverRef.current); return }
+    const shape = completedShapesRef.current[shapeIdx]
+    const verts = shape.vertices, N = verts.length
+    const a = verts[segIdx], b = verts[(segIdx + 1) % N]
+    const geom = segmentGeom(a, b)
+    if (!geom) { setLabelEditState(null); return }
+    const newLenPx = meters * scale.pxPerMeter
+    const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2
+    const half = newLenPx / 2
+    const newA = clampToCanvas({ x: midX - geom.dir.x * half, y: midY - geom.dir.y * half })
+    const newB = clampToCanvas({ x: midX + geom.dir.x * half, y: midY + geom.dir.y * half })
+    pushUndo()
+    const newVerts = verts.map(v => ({ ...v }))
+    newVerts[segIdx] = newA; newVerts[(segIdx + 1) % N] = newB
+    const newShapes = [...completedShapesRef.current]
+    newShapes[shapeIdx] = { ...shape, vertices: newVerts }
+    completedShapesRef.current = newShapes
+    setLabelEditState(null)
+    drawEditCanvas(editHoverRef.current)
+  }
+
+  // ── Sub-mode lifecycle ───────────────────────────────────────────────────
+
+  const exitSubMode = () => {
+    editSubModeRef.current = null; setEditSubMode(null)
+    moveHoverIdxRef.current = null; moveDragRef.current = null
+    combineEligibleRef.current = new Set(); combineSelectRef.current = []; setCombineSelection([])
+    splitHoverIdxRef.current = null; splitSelectedRef.current = null
+    splitCutRef.current = []; splitMouseRef.current = null
+    setSplitSelected(null); setSplitCut([])
+    setEditCursor('default')
+    drawEditCanvas(editHoverRef.current)
+  }
+
+  const enterMoveMode = () => {
+    editSubModeRef.current = 'move'; setEditSubMode('move')
+    setEditCursor('default'); drawEditCanvas()
+  }
+
+  const enterCombineMode = () => {
+    const eligible = getEligibleShapes(completedShapesRef.current, currentPage)
+    combineEligibleRef.current = eligible
+    combineSelectRef.current = []; setCombineSelection([])
+    editSubModeRef.current = 'combine'; setEditSubMode('combine')
+    setEditCursor('default'); drawEditCanvas()
+  }
+
+  const enterSplitMode = () => {
+    editSubModeRef.current = 'split'; setEditSubMode('split')
+    splitSelectedRef.current = null; splitCutRef.current = []; splitMouseRef.current = null
+    setSplitSelected(null); setSplitCut([])
+    setEditCursor('default'); drawEditCanvas()
+  }
+
+  // ── Combine operations ───────────────────────────────────────────────────
+
+  const handleCombineClick = (pos) => {
+    const shapes = completedShapesRef.current
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const s = shapes[i]
+      if (s.pageNumber !== currentPage) continue
+      if (!combineEligibleRef.current.has(i)) continue
+      if (!pointInPolygon(pos, s.vertices)) continue
+      const sel = combineSelectRef.current
+      const newSel = sel.includes(i) ? sel.filter(x => x !== i) : [...sel, i]
+      combineSelectRef.current = newSel; setCombineSelection([...newSel]); setCombineError('')
+      drawEditCanvas(); return
+    }
+  }
+
+  const applyMerge = () => {
+    const [idxA, idxB] = combineSelectRef.current
+    const shapes = completedShapesRef.current
+    const ov = findCollinearOverlap(shapes[idxA].vertices, shapes[idxB].vertices)
+    if (!ov) {
+      setCombineError('No collinear overlapping edge — shapes must share a common edge segment to combine.')
+      return
+    }
+    setCombineError('')
+    // Insert overlap boundary vertices into each shape as needed, then splice the shared portion out
+    const { newVerts: vertsA, newSegIdx: segA } = prepareForMerge(
+      shapes[idxA].vertices, ov.segA, ov.P_start, ov.P_end
+    )
+    const { newVerts: vertsB, newSegIdx: segB } = prepareForMerge(
+      shapes[idxB].vertices, ov.segB, ov.P_end, ov.P_start
+    )
+    pushUndo()
+    const merged = mergePolygons(vertsA, vertsB, segA, segB, 'reversed')
+    const newShapes = shapes
+      .map((s, i) => i === idxA ? { ...s, vertices: merged } : s)
+      .filter((_, i) => i !== idxB)
+    completedShapesRef.current = newShapes
+    combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPage)
+    combineSelectRef.current = []; setCombineSelection([])
+    drawEditCanvas()
+  }
+
+  // ── Split operations ─────────────────────────────────────────────────────
+
+  const handleSplitClick = (pos) => {
+    const selIdx = splitSelectedRef.current
+    if (selIdx === null) {
+      // Select a shape
+      const idx = hitTestShapeBody(pos)
+      if (idx !== null) {
+        splitSelectedRef.current = idx; setSplitSelected(idx)
+        setEditCursor('crosshair'); drawEditCanvas()
+      }
+      return
+    }
+    // Add cut point
+    const cut = splitCutRef.current
+    if (cut.length < 2) {
+      const snapped = snapToGrid(pos, currentPage)
+      const newCut = [...cut, snapped]
+      splitCutRef.current = newCut; setSplitCut([...newCut])
+      drawEditCanvas()
+    }
+  }
+
+  const applySplit = () => {
+    const shapeIdx = splitSelectedRef.current
+    const cut = splitCutRef.current
+    if (shapeIdx === null || cut.length < 2) return
+    const shape = completedShapesRef.current[shapeIdx]
+    const result = splitPolygon(shape.vertices, cut[0], cut[1])
+    if (!result) return
+    pushUndo()
+    const [polyA, polyB] = result
+    const newShapes = [
+      ...completedShapesRef.current.slice(0, shapeIdx),
+      { ...shape, vertices: polyA },
+      { ...shape, vertices: polyB },
+      ...completedShapesRef.current.slice(shapeIdx + 1),
+    ]
+    completedShapesRef.current = newShapes
+    splitSelectedRef.current = null; splitCutRef.current = []; splitMouseRef.current = null
+    setSplitSelected(null); setSplitCut([])
+    drawEditCanvas()
+  }
+
+  // ── Exit edit mode ───────────────────────────────────────────────────────
+
+  const exitEditMode = () => {
+    resetEditState()
+  }
+
+  // ── Segment move helpers ─────────────────────────────────────────────────
 
   const applySegmentMove = (vertices, segIdx, tPx, perpDir) => {
     const N = vertices.length
@@ -512,74 +925,264 @@ function App() {
     return snapPx > 0 ? Math.round(tRaw / snapPx) * snapPx : tRaw
   }
 
-  // ── Edit mode: undo ────────────────────────────────────────────────────────
+  // ── Canvas mouse handlers ─────────────────────────────────────────────────
 
-  const pushUndo = () => {
-    editUndoStackRef.current.push(
-      completedShapesRef.current.map(s => ({ ...s, vertices: s.vertices.map(v => ({ ...v })) }))
-    )
-    setEditUndoCount(c => c + 1)
+  const handleMeasureMouseDown = (e) => {
+    if (!editMode || labelEditState) return
+    const subMode = editSubModeRef.current
+    if (subMode === 'combine' || subMode === 'split') return // handled by onClick
+    if (subMode === 'move') {
+      const pos = getCanvasPos(e)
+      const idx = hitTestShapeBody(pos)
+      if (idx !== null) {
+        moveDragRef.current = {
+          shapeIdx: idx, startPos: pos,
+          origVerts: completedShapesRef.current[idx].vertices.map(v => ({ ...v })),
+          previewVerts: null, isDragging: false,
+        }
+        setEditCursor('grabbing')
+      }
+      return
+    }
+    // Default: vertex/segment drag
+    const pos = getCanvasPos(e)
+    const labelHit = hitTestLabels(pos)
+    if (labelHit) {
+      dragStateRef.current = { type: 'labelClick', labelHit, startPos: pos, moved: false }; return
+    }
+    const vertHit = hitTestVertices(pos)
+    if (vertHit) {
+      dragStateRef.current = {
+        type: 'vertexDrag', shapeIdx: vertHit.shapeIdx, vertIdx: vertHit.vertIdx,
+        startPos: pos,
+        origVerts: completedShapesRef.current[vertHit.shapeIdx].vertices.map(v => ({ ...v })),
+        isDragging: false, previewVerts: null,
+      }
+      setEditCursor('grabbing'); return
+    }
+    const segHit = hitTestSegments(pos)
+    if (segHit) {
+      const verts = completedShapesRef.current[segHit.shapeIdx].vertices
+      const a = verts[segHit.segIdx], b = verts[(segHit.segIdx + 1) % verts.length]
+      const geom = segmentGeom(a, b)
+      if (!geom) return
+      dragStateRef.current = {
+        type: 'segDrag', shapeIdx: segHit.shapeIdx, segIdx: segHit.segIdx,
+        startPos: pos, origVerts: verts.map(v => ({ ...v })),
+        origA: { ...a }, origB: { ...b }, perpDir: geom.perp,
+        isDragging: false, previewVerts: null,
+      }
+      setEditCursor('grabbing')
+    }
   }
 
-  const handleEditUndo = () => {
-    const prev = editUndoStackRef.current.pop()
-    if (!prev) return
-    completedShapesRef.current = prev
-    setEditUndoCount(c => c - 1)
-    drawEditCanvas(editHoverRef.current)
-  }
+  const handleMeasureMouseUp = (e) => {
+    if (!editMode) return
+    const subMode = editSubModeRef.current
 
-  // ── Edit mode: label override ──────────────────────────────────────────────
+    if (subMode === 'move') {
+      const drag = moveDragRef.current
+      if (drag && drag.isDragging && drag.previewVerts) {
+        pushUndo()
+        const newShapes = completedShapesRef.current.map((s, i) =>
+          i === drag.shapeIdx ? { ...s, vertices: drag.previewVerts } : s
+        )
+        completedShapesRef.current = newShapes
+      }
+      moveDragRef.current = null
+      setEditCursor(moveHoverIdxRef.current !== null ? 'move' : 'default')
+      drawEditCanvas(); return
+    }
 
-  // Extends symmetrically from the segment midpoint — both endpoints move equally.
-  // This is neutral w.r.t. drawing direction and avoids the "extends in draw order" surprise.
-  const commitLabelEdit = () => {
-    if (!labelEditState) return
-    const { shapeIdx, segIdx, value } = labelEditState
-    const scale = pageScalesRef.current[currentPage]
-    if (!scale) { setLabelEditState(null); return }
-    const meters = parseDisplayDistInput(value, scale.displayUnit)
-    if (!meters || meters <= 0) { setLabelEditState(null); drawEditCanvas(editHoverRef.current); return }
+    const ds = dragStateRef.current
+    if (!ds) return
 
-    const shape = completedShapesRef.current[shapeIdx]
-    const verts = shape.vertices
-    const N = verts.length
-    const a = verts[segIdx], b = verts[(segIdx + 1) % N]
-    const geom = segmentGeom(a, b)
-    if (!geom) { setLabelEditState(null); return }
+    if (ds.type === 'labelClick' && !ds.moved) {
+      const lbl = ds.labelHit
+      const c = measureRef.current
+      const rect = c.getBoundingClientRect()
+      setLabelEditState({
+        shapeIdx: lbl.shapeIdx, segIdx: lbl.segIdx, value: lbl.label,
+        cssX: (lbl.mx / c.width) * rect.width,
+        cssY: (lbl.my / c.height) * rect.height,
+      })
+    } else if (ds.type === 'vertexDrag' && ds.isDragging && ds.previewVerts) {
+      pushUndo()
+      const newShapes = completedShapesRef.current.map((s, i) =>
+        i === ds.shapeIdx ? { ...s, vertices: ds.previewVerts } : s
+      )
+      completedShapesRef.current = newShapes
+      drawEditCanvas(editHoverRef.current)
+    } else if (ds.type === 'segDrag' && ds.isDragging && ds.previewVerts) {
+      pushUndo()
+      const newShapes = completedShapesRef.current.map((s, i) =>
+        i === ds.shapeIdx ? { ...s, vertices: ds.previewVerts } : s
+      )
+      completedShapesRef.current = newShapes
+      drawEditCanvas(editHoverRef.current)
+    }
 
-    const newLenPx = meters * scale.pxPerMeter
-    const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2
-    const half = newLenPx / 2
-    const newA = clampToCanvas({ x: midX - geom.dir.x * half, y: midY - geom.dir.y * half })
-    const newB = clampToCanvas({ x: midX + geom.dir.x * half, y: midY + geom.dir.y * half })
-
-    pushUndo()
-    const newVerts = verts.map(v => ({ ...v }))
-    newVerts[segIdx] = newA
-    newVerts[(segIdx + 1) % N] = newB
-    const newShapes = [...completedShapesRef.current]
-    newShapes[shapeIdx] = { ...shape, vertices: newVerts }
-    completedShapesRef.current = newShapes
-
-    setLabelEditState(null)
-    drawEditCanvas(editHoverRef.current)
-  }
-
-  // ── Edit mode lifecycle ────────────────────────────────────────────────────
-
-  const exitEditMode = () => {
-    setEditMode(false)
-    setLabelEditState(null)
-    setEditCursor('default')
-    setEditUndoCount(0)
-    editHoverRef.current = null
     dragStateRef.current = null
-    editUndoStackRef.current = []
-    // idle useEffect redraws locked shapes
+    setEditCursor(editHoverRef.current ? 'pointer' : 'default')
   }
 
-  // ── Drawing canvas render ──────────────────────────────────────────────────
+  const handleMeasureClick = (e) => {
+    if (editMode) {
+      const subMode = editSubModeRef.current
+      if (subMode === 'combine') { handleCombineClick(getCanvasPos(e)); return }
+      if (subMode === 'split') { handleSplitClick(getCanvasPos(e)); return }
+      return
+    }
+    if (calibMode && !showScaleDialog) {
+      const pos = getCanvasPos(e)
+      setCalibPoints(prev => {
+        if (prev.length >= 2) return prev
+        const snapped = prev.length === 1 ? applySnap(pos, prev[0], true, false, currentPage) : pos
+        const next = [...prev, snapped]
+        drawCalibState(next)
+        if (next.length === 2) setShowScaleDialog(true)
+        return next
+      })
+    } else if (drawMode && !reviewShape) {
+      const rawPos = getCanvasPos(e)
+      const verts = drawVerticesRef.current
+      if (verts.length >= 3) {
+        const first = verts[0]
+        const dx = rawPos.x - first.x, dy = rawPos.y - first.y
+        if (Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS) {
+          const shape = { vertices: verts, pageNumber: currentPage }
+          setReviewShape(shape); drawVerticesRef.current = []; setDrawVertexCount(0)
+          redrawReviewCanvas(shape, currentPage); return
+        }
+      }
+      // First vertex: snap directly to the shared absolute page grid.
+      // computeFinalSnapPos skips all snapping when there is no prior vertex,
+      // which would place the first point raw and create a per-shape offset grid.
+      let finalPos
+      if (verts.length === 0) {
+        finalPos = snapToGrid(rawPos, currentPage)
+      } else {
+        const { pos } = computeFinalSnapPos(rawPos, verts, snapAngle, snapDist, currentPage)
+        finalPos = pos
+      }
+      const next = [...verts, finalPos]
+      drawVerticesRef.current = next; setDrawVertexCount(next.length)
+      redrawDrawCanvas(rawPos, next, snapAngle, snapDist, currentPage)
+    }
+  }
+
+  const handleMeasureMouseMove = (e) => {
+    const pos = getCanvasPos(e)
+
+    if (editMode) {
+      const subMode = editSubModeRef.current
+
+      if (subMode === 'move') {
+        const drag = moveDragRef.current
+        if (drag) {
+          const dx = pos.x - drag.startPos.x, dy = pos.y - drag.startPos.y
+          if (Math.hypot(dx, dy) > 3) {
+            drag.isDragging = true
+            drag.previewVerts = drag.origVerts.map(v =>
+              clampToCanvas(snapToGrid({ x: v.x + dx, y: v.y + dy }, currentPage))
+            )
+            drawEditCanvas()
+          }
+          return
+        }
+        const idx = hitTestShapeBody(pos)
+        if (idx !== moveHoverIdxRef.current) {
+          moveHoverIdxRef.current = idx
+          setEditCursor(idx !== null ? 'move' : 'default')
+          drawEditCanvas()
+        }
+        return
+      }
+
+      if (subMode === 'combine') {
+        const eligible = combineEligibleRef.current
+        let found = null
+        for (let i = completedShapesRef.current.length - 1; i >= 0; i--) {
+          const s = completedShapesRef.current[i]
+          if (s.pageNumber === currentPage && eligible.has(i) && pointInPolygon(pos, s.vertices)) {
+            found = i; break
+          }
+        }
+        setEditCursor(found !== null ? 'pointer' : 'default')
+        return
+      }
+
+      if (subMode === 'split') {
+        splitMouseRef.current = pos
+        const selIdx = splitSelectedRef.current
+        if (selIdx === null) {
+          const idx = hitTestShapeBody(pos)
+          if (idx !== splitHoverIdxRef.current) {
+            splitHoverIdxRef.current = idx
+            setEditCursor(idx !== null ? 'pointer' : 'default')
+            drawEditCanvas()
+          }
+        } else if (splitCutRef.current.length === 1) {
+          drawEditCanvas() // rubber band
+        }
+        return
+      }
+
+      // Default: vertex/segment hover + drag
+      const ds = dragStateRef.current
+      if (ds) {
+        const dx = pos.x - ds.startPos.x, dy = pos.y - ds.startPos.y
+        if (Math.hypot(dx, dy) > 3) ds.moved = true
+        if (ds.type === 'vertexDrag' && ds.moved) {
+          ds.isDragging = true
+          const snapped = clampToCanvas(snapToGrid(pos, currentPage))
+          ds.previewVerts = ds.origVerts.map((v, i) => i === ds.vertIdx ? snapped : { ...v })
+          drawEditCanvas(
+            { type: 'vertex', shapeIdx: ds.shapeIdx, vertIdx: ds.vertIdx },
+            { shapeIdx: ds.shapeIdx, vertices: ds.previewVerts }
+          )
+        } else if (ds.type === 'segDrag' && ds.moved) {
+          ds.isDragging = true
+          const tRaw = dx * ds.perpDir.x + dy * ds.perpDir.y
+          const tClamped = clampT(ds.origA, ds.origB, snapPerp(tRaw), ds.perpDir)
+          ds.previewVerts = applySegmentMove(ds.origVerts, ds.segIdx, tClamped, ds.perpDir)
+          drawEditCanvas(
+            { type: 'segment', shapeIdx: ds.shapeIdx, segIdx: ds.segIdx },
+            { shapeIdx: ds.shapeIdx, vertices: ds.previewVerts }
+          )
+        }
+        return
+      }
+
+      const vertHit = hitTestVertices(pos)
+      const segHit = !vertHit ? hitTestSegments(pos) : null
+      const newHover = vertHit
+        ? { type: 'vertex', shapeIdx: vertHit.shapeIdx, vertIdx: vertHit.vertIdx }
+        : segHit ? { type: 'segment', shapeIdx: segHit.shapeIdx, segIdx: segHit.segIdx } : null
+
+      const prev = editHoverRef.current
+      const changed = (!newHover && prev) || (newHover && !prev) ||
+        (newHover && prev && (
+          newHover.type !== prev.type || newHover.shapeIdx !== prev.shapeIdx ||
+          (newHover.type === 'segment' ? newHover.segIdx !== prev.segIdx : newHover.vertIdx !== prev.vertIdx)
+        ))
+      if (changed) {
+        editHoverRef.current = newHover
+        setEditCursor(newHover ? 'pointer' : 'default')
+        drawEditCanvas(newHover)
+      }
+      return
+    }
+
+    if (calibMode && !showScaleDialog && calibPoints.length === 1) {
+      drawCalibState([calibPoints[0], applySnap(pos, calibPoints[0], true, false, currentPage)])
+    } else if (drawMode && !reviewShape) {
+      mousePosRef.current = pos
+      redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle, snapDist, currentPage)
+    }
+  }
+
+  // ── Draw mode canvas render ──────────────────────────────────────────────
 
   const redrawDrawCanvas = (mousePos, vertices, useAngle, useDist, pageNum) => {
     const c = measureRef.current
@@ -589,70 +1192,44 @@ function App() {
     drawLockedShapes(ctx, pageNum)
 
     if (vertices.length >= 2) {
-      ctx.beginPath()
-      ctx.moveTo(vertices[0].x, vertices[0].y)
+      ctx.beginPath(); ctx.moveTo(vertices[0].x, vertices[0].y)
       for (let i = 1; i < vertices.length; i++) ctx.lineTo(vertices[i].x, vertices[i].y)
-      ctx.strokeStyle = '#2563eb'
-      ctx.lineWidth = 2
-      ctx.lineJoin = 'round'
-      ctx.stroke()
+      ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke()
     }
 
     vertices.forEach((v, i) => {
-      ctx.beginPath()
-      ctx.arc(v.x, v.y, i === 0 ? 5 : 4, 0, Math.PI * 2)
-      ctx.fillStyle = i === 0 ? '#1d4ed8' : '#3b82f6'
-      ctx.fill()
-      ctx.strokeStyle = 'white'
-      ctx.lineWidth = 1.5
-      ctx.stroke()
+      ctx.beginPath(); ctx.arc(v.x, v.y, i === 0 ? 5 : 4, 0, Math.PI * 2)
+      ctx.fillStyle = i === 0 ? '#1d4ed8' : '#3b82f6'; ctx.fill()
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke()
     })
 
     if (vertices.length >= 1 && mousePos) {
-      const last = vertices[vertices.length - 1]
-      const first = vertices[0]
+      const last = vertices[vertices.length - 1], first = vertices[0]
       const nearClose = vertices.length >= 3 && (() => {
         const dx = mousePos.x - first.x, dy = mousePos.y - first.y
         return Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS
       })()
 
       if (nearClose) {
-        ctx.beginPath()
-        ctx.moveTo(last.x, last.y)
-        ctx.lineTo(first.x, first.y)
-        ctx.strokeStyle = 'rgba(22,163,74,0.75)'
-        ctx.lineWidth = 2
-        ctx.setLineDash([5, 4])
-        ctx.stroke()
-        ctx.setLineDash([])
-        ctx.beginPath()
-        ctx.arc(first.x, first.y, 10, 0, Math.PI * 2)
-        ctx.strokeStyle = '#16a34a'
-        ctx.lineWidth = 2.5
-        ctx.stroke()
+        ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(first.x, first.y)
+        ctx.strokeStyle = 'rgba(22,163,74,0.75)'; ctx.lineWidth = 2; ctx.setLineDash([5, 4])
+        ctx.stroke(); ctx.setLineDash([])
+        ctx.beginPath(); ctx.arc(first.x, first.y, 10, 0, Math.PI * 2)
+        ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2.5; ctx.stroke()
       } else {
         const { pos: snapped, guides } = computeFinalSnapPos(mousePos, vertices, useAngle, useDist, pageNum)
         guides.forEach(g => drawAlignGuide(ctx, g, c.width, c.height))
-        ctx.beginPath()
-        ctx.moveTo(last.x, last.y)
-        ctx.lineTo(snapped.x, snapped.y)
+        ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(snapped.x, snapped.y)
         ctx.strokeStyle = guides.length > 0 ? 'rgba(245,158,11,0.8)' : 'rgba(59,130,246,0.65)'
-        ctx.lineWidth = 1.5
-        ctx.setLineDash([5, 4])
-        ctx.stroke()
-        ctx.setLineDash([])
-        ctx.beginPath()
-        ctx.arc(snapped.x, snapped.y, 4, 0, Math.PI * 2)
-        ctx.fillStyle = guides.length > 0 ? '#f59e0b' : '#3b82f6'
-        ctx.fill()
-
+        ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([])
+        ctx.beginPath(); ctx.arc(snapped.x, snapped.y, 4, 0, Math.PI * 2)
+        ctx.fillStyle = guides.length > 0 ? '#f59e0b' : '#3b82f6'; ctx.fill()
         const ddx = snapped.x - last.x, ddy = snapped.y - last.y
         const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), pageNum)
         if (label) {
           const mx = (last.x + snapped.x) / 2, my = (last.y + snapped.y) / 2
           ctx.font = '12px system-ui, sans-serif'
-          const tw = ctx.measureText(label).width
-          const pad = 3
+          const tw = ctx.measureText(label).width, pad = 3
           ctx.fillStyle = 'rgba(255,255,255,0.88)'
           ctx.fillRect(mx - tw / 2 - pad, my - 15, tw + pad * 2, 18)
           ctx.fillStyle = guides.length > 0 ? '#92400e' : '#1d4ed8'
@@ -669,24 +1246,15 @@ function App() {
     ctx.clearRect(0, 0, c.width, c.height)
     drawLockedShapes(ctx, pageNum)
     const verts = shape.vertices
-    ctx.beginPath()
-    ctx.moveTo(verts[0].x, verts[0].y)
+    ctx.beginPath(); ctx.moveTo(verts[0].x, verts[0].y)
     for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
     ctx.closePath()
-    ctx.fillStyle = 'rgba(34,197,94,0.18)'
-    ctx.fill()
-    ctx.strokeStyle = '#16a34a'
-    ctx.lineWidth = 2.5
-    ctx.lineJoin = 'round'
-    ctx.stroke()
+    ctx.fillStyle = 'rgba(34,197,94,0.18)'; ctx.fill()
+    ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.stroke()
     verts.forEach(v => {
-      ctx.beginPath()
-      ctx.arc(v.x, v.y, 4, 0, Math.PI * 2)
-      ctx.fillStyle = '#16a34a'
-      ctx.fill()
-      ctx.strokeStyle = 'white'
-      ctx.lineWidth = 1.5
-      ctx.stroke()
+      ctx.beginPath(); ctx.arc(v.x, v.y, 4, 0, Math.PI * 2)
+      ctx.fillStyle = '#16a34a'; ctx.fill()
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke()
     })
   }
 
@@ -696,176 +1264,20 @@ function App() {
       ...completedShapesRef.current,
       { vertices: reviewShape.vertices, pageNumber: currentPage, status: 'locked' },
     ]
-    setReviewShape(null)
-    drawVerticesRef.current = []
-    setDrawVertexCount(0)
+    setReviewShape(null); drawVerticesRef.current = []; setDrawVertexCount(0)
     const c = measureRef.current
     if (c) {
-      const ctx = c.getContext('2d')
-      ctx.clearRect(0, 0, c.width, c.height)
-      drawLockedShapes(ctx, currentPage)
+      c.getContext('2d').clearRect(0, 0, c.width, c.height)
+      drawLockedShapes(c.getContext('2d'), currentPage)
     }
   }
 
   const discardShape = () => {
-    setReviewShape(null)
-    setDrawMode(false)
-    drawVerticesRef.current = []
-    setDrawVertexCount(0)
-    mousePosRef.current = null
-    // idle useEffect redraws
+    setReviewShape(null); setDrawMode(false)
+    drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
   }
 
-  // ── Canvas event handlers ──────────────────────────────────────────────────
-
-  const handleMeasureMouseDown = (e) => {
-    if (!editMode || labelEditState) return
-    const pos = getCanvasPos(e)
-    const labelHit = hitTestLabels(pos)
-    if (labelHit) {
-      dragStateRef.current = { type: 'labelClick', labelHit, startPos: pos, moved: false }
-      return
-    }
-    const segHit = hitTestSegments(pos)
-    if (segHit) {
-      const shape = completedShapesRef.current[segHit.shapeIdx]
-      const verts = shape.vertices
-      const a = verts[segHit.segIdx], b = verts[(segHit.segIdx + 1) % verts.length]
-      const geom = segmentGeom(a, b)
-      if (!geom) return
-      dragStateRef.current = {
-        type: 'segDrag',
-        shapeIdx: segHit.shapeIdx,
-        segIdx: segHit.segIdx,
-        startPos: pos,
-        origVerts: verts.map(v => ({ ...v })),
-        origA: { ...a }, origB: { ...b },
-        perpDir: geom.perp,
-        isDragging: false,
-        previewVerts: null,
-      }
-      setEditCursor('grabbing')
-    }
-  }
-
-  const handleMeasureMouseUp = (e) => {
-    if (!editMode) return
-    const ds = dragStateRef.current
-    if (!ds) return
-
-    if (ds.type === 'labelClick' && !ds.moved) {
-      const lbl = ds.labelHit
-      const c = measureRef.current
-      const rect = c.getBoundingClientRect()
-      setLabelEditState({
-        shapeIdx: lbl.shapeIdx,
-        segIdx: lbl.segIdx,
-        value: lbl.label,
-        cssX: (lbl.mx / c.width) * rect.width,
-        cssY: (lbl.my / c.height) * rect.height,
-      })
-    } else if (ds.type === 'segDrag' && ds.isDragging && ds.previewVerts) {
-      pushUndo()
-      const newShapes = [...completedShapesRef.current]
-      newShapes[ds.shapeIdx] = { ...newShapes[ds.shapeIdx], vertices: ds.previewVerts }
-      completedShapesRef.current = newShapes
-      drawEditCanvas(editHoverRef.current)
-    }
-
-    dragStateRef.current = null
-    setEditCursor(editHoverRef.current ? 'pointer' : 'default')
-  }
-
-  const handleMeasureClick = (e) => {
-    if (editMode) return
-
-    if (calibMode && !showScaleDialog) {
-      const pos = getCanvasPos(e)
-      setCalibPoints(prev => {
-        if (prev.length >= 2) return prev
-        const snapped = prev.length === 1 ? applySnap(pos, prev[0], true, false, currentPage) : pos
-        const next = [...prev, snapped]
-        drawCalibState(next)
-        if (next.length === 2) setShowScaleDialog(true)
-        return next
-      })
-    } else if (drawMode && !reviewShape) {
-      const rawPos = getCanvasPos(e)
-      const verts = drawVerticesRef.current
-
-      if (verts.length >= 3) {
-        const first = verts[0]
-        const dx = rawPos.x - first.x, dy = rawPos.y - first.y
-        if (Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS) {
-          const shape = { vertices: verts, pageNumber: currentPage }
-          setReviewShape(shape)
-          drawVerticesRef.current = []
-          setDrawVertexCount(0)
-          redrawReviewCanvas(shape, currentPage)
-          return
-        }
-      }
-
-      const { pos: snapped } = computeFinalSnapPos(rawPos, verts, snapAngle, snapDist, currentPage)
-      const next = [...verts, snapped]
-
-      // First vertex on this page establishes the absolute snap grid origin
-      if (next.length === 1 && !pageGridOriginRef.current[currentPage]) {
-        pageGridOriginRef.current[currentPage] = snapped
-      }
-
-      drawVerticesRef.current = next
-      setDrawVertexCount(next.length)
-      redrawDrawCanvas(rawPos, next, snapAngle, snapDist, currentPage)
-    }
-  }
-
-  const handleMeasureMouseMove = (e) => {
-    if (editMode) {
-      const pos = getCanvasPos(e)
-      const ds = dragStateRef.current
-
-      if (ds) {
-        const dx = pos.x - ds.startPos.x, dy = pos.y - ds.startPos.y
-        if (Math.sqrt(dx * dx + dy * dy) > 3) ds.moved = true
-
-        if (ds.type === 'segDrag' && ds.moved) {
-          ds.isDragging = true
-          const tRaw = dx * ds.perpDir.x + dy * ds.perpDir.y
-          const tClamped = clampT(ds.origA, ds.origB, snapPerp(tRaw), ds.perpDir)
-          const previewVerts = applySegmentMove(ds.origVerts, ds.segIdx, tClamped, ds.perpDir)
-          ds.previewVerts = previewVerts
-          drawEditCanvas(
-            { shapeIdx: ds.shapeIdx, segIdx: ds.segIdx },
-            { shapeIdx: ds.shapeIdx, vertices: previewVerts }
-          )
-        }
-        return
-      }
-
-      const hit = hitTestSegments(pos)
-      const prev = editHoverRef.current
-      const changed = (!hit && prev) || (hit && !prev) ||
-        (hit && prev && (hit.shapeIdx !== prev.shapeIdx || hit.segIdx !== prev.segIdx))
-      if (changed) {
-        editHoverRef.current = hit
-        setEditCursor(hit ? 'pointer' : 'default')
-        drawEditCanvas(hit)
-      }
-      return
-    }
-
-    if (calibMode && !showScaleDialog && calibPoints.length === 1) {
-      const pos = getCanvasPos(e)
-      drawCalibState([calibPoints[0], applySnap(pos, calibPoints[0], true, false, currentPage)])
-    } else if (drawMode && !reviewShape) {
-      const pos = getCanvasPos(e)
-      mousePosRef.current = pos
-      redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle, snapDist, currentPage)
-    }
-  }
-
-  // ── Keyboard handler ───────────────────────────────────────────────────────
+  // ── Keyboard ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const onKey = (e) => {
@@ -875,15 +1287,30 @@ function App() {
         else if (drawMode) exitDrawMode()
         else if (editMode) {
           if (labelEditState) { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }
-          else exitEditMode()
+          else if (editSubModeRef.current === 'move' && moveDragRef.current) {
+            moveDragRef.current = null; drawEditCanvas()
+          } else if (editSubModeRef.current === 'split') {
+            if (splitCutRef.current.length > 0) {
+              splitCutRef.current = []; splitMouseRef.current = null
+              setSplitCut([]); drawEditCanvas()
+            } else if (splitSelectedRef.current !== null) {
+              splitSelectedRef.current = null; setSplitSelected(null)
+              setEditCursor('default'); drawEditCanvas()
+            } else exitSubMode()
+          } else if (editSubModeRef.current === 'combine') {
+            if (combineSelectRef.current.length > 0) {
+              combineSelectRef.current = []; setCombineSelection([]); drawEditCanvas()
+            } else exitSubMode()
+          } else if (editSubModeRef.current) {
+            exitSubMode()
+          } else exitEditMode()
         }
       }
       if (drawMode && !reviewShape && (e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
         const verts = drawVerticesRef.current
         if (verts.length === 0) return
         const next = verts.slice(0, -1)
-        drawVerticesRef.current = next
-        setDrawVertexCount(next.length)
+        drawVerticesRef.current = next; setDrawVertexCount(next.length)
         redrawDrawCanvas(mousePosRef.current, next, snapAngle, snapDist, currentPage)
       }
     }
@@ -891,14 +1318,29 @@ function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [calibMode, drawMode, reviewShape, snapAngle, snapDist, currentPage, editMode, labelEditState])
 
-  // ── Derived ────────────────────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
 
   const pageHasScale = currentPage && !!pageScalesRef.current[currentPage]
   const lockedShapesOnPage = currentPage
     ? completedShapesRef.current.filter(s => s.pageNumber === currentPage)
     : []
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const hasCombinableShapes = editMode
+    ? getEligibleShapes(completedShapesRef.current, currentPage).size >= 2
+    : false
+
+  const canApplyCombine = combineSelection.length === 2 && (() => {
+    const [a, b] = combineSelection
+    const shapes = completedShapesRef.current
+    return !!(shapes[a] && shapes[b] && findCollinearOverlap(shapes[a].vertices, shapes[b].vertices))
+  })()
+
+  const splitResult = splitSelected !== null && splitCut.length === 2
+    ? splitPolygon(completedShapesRef.current[splitSelected]?.vertices || [], splitCut[0], splitCut[1])
+    : null
+  const canApplySplit = !!splitResult
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="app">
@@ -950,8 +1392,7 @@ function App() {
               const unit = pageScalesRef.current[currentPage]?.displayUnit
               snapIncrementRef.current = unit === 'm' ? 0.15 : 0.1524
               setSnapIncrement(unit === 'm' ? 0.15 : 0.1524)
-              clearMeasureCanvas()
-              setDrawMode(true)
+              clearMeasureCanvas(); setDrawMode(true)
             }}
           >
             Draw
@@ -974,7 +1415,6 @@ function App() {
                     const next = !snapAngle; setSnapAngle(next)
                     redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, next, snapDist, currentPage)
                   }}
-                  title="Snap to 45° axis angles"
                 >Axis Snap {snapAngle ? 'ON' : 'OFF'}</button>
                 <button
                   className={`snap-btn ${snapDist ? 'snap-btn--on' : ''} ${!pageHasScale ? 'snap-btn--unavail' : ''}`}
@@ -983,7 +1423,6 @@ function App() {
                     const next = !snapDist; setSnapDist(next)
                     redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, next, currentPage)
                   }}
-                  title={pageHasScale ? 'Snap to distance increments' : 'Set scale first to enable distance snap'}
                 >Dist Snap {snapDist ? 'ON' : 'OFF'}</button>
                 {snapDist && pageHasScale && (() => {
                   const isImperial = pageScalesRef.current[currentPage]?.displayUnit === 'ft'
@@ -994,15 +1433,12 @@ function App() {
                         snapIncrementRef.current = v; setSnapIncrement(v)
                         redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, true, currentPage)
                       }}
-                      title="Distance snap increment"
                     >
-                      {isImperial ? (
-                        <><option value={0.0254}>1″</option><option value={0.0762}>3″</option>
-                          <option value={0.1524}>6″</option><option value={0.3048}>12″</option></>
-                      ) : (
-                        <><option value={0.025}>2.5 cm</option><option value={0.075}>7.5 cm</option>
-                          <option value={0.15}>15 cm</option><option value={0.30}>30 cm</option></>
-                      )}
+                      {isImperial
+                        ? <><option value={0.0254}>1″</option><option value={0.0762}>3″</option>
+                            <option value={0.1524}>6″</option><option value={0.3048}>12″</option></>
+                        : <><option value={0.025}>2.5 cm</option><option value={0.075}>7.5 cm</option>
+                            <option value={0.15}>15 cm</option><option value={0.30}>30 cm</option></>}
                     </select>
                   )
                 })()}
@@ -1016,8 +1452,7 @@ function App() {
                     drawVerticesRef.current = []; setDrawVertexCount(0)
                     mousePosRef.current = null; setReviewShape(null)
                     snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
-                    setDrawMode(false)
-                    setEditMode(true)
+                    setDrawMode(false); setEditMode(true)
                   }}>Edit Shapes</button>
                 )}
                 <button className="calib-cancel" onClick={exitDrawMode}>Done</button>
@@ -1034,13 +1469,72 @@ function App() {
 
         {editMode && (
           <div className="draw-toolbar">
-            <span className="edit-status">
-              Hover a segment · drag to move · click label to set length · Esc to exit
-            </span>
-            {editUndoCount > 0 && (
-              <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>
+            {editSubMode === null && (
+              <>
+                <button className="submode-btn" onClick={enterMoveMode} title="Click and drag shapes to reposition">
+                  Move Shape
+                </button>
+                <button className="submode-btn" onClick={enterCombineMode}
+                  disabled={!hasCombinableShapes}
+                  title={hasCombinableShapes ? 'Merge two shapes that share an edge' : 'No adjacent shapes to combine'}>
+                  Combine Shapes
+                </button>
+                <button className="submode-btn" onClick={enterSplitMode} title="Draw a cut line to split a shape in two">
+                  Split Shape
+                </button>
+                <span className="edit-status">Drag corner · side · click label to edit</span>
+                {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
+                <button className="calib-cancel" onClick={exitEditMode}>Done</button>
+              </>
             )}
-            <button className="calib-cancel" onClick={exitEditMode}>Done</button>
+
+            {editSubMode === 'move' && (
+              <>
+                <span className="submode-status submode-status--move">Move Shape</span>
+                <span className="edit-status">Click and drag a shape · Esc to cancel</span>
+                <button className="calib-cancel" onClick={exitSubMode}>Back</button>
+              </>
+            )}
+
+            {editSubMode === 'combine' && (
+              <>
+                <span className="submode-status submode-status--combine">Combine Shapes</span>
+                <span className="edit-status">
+                  {combineError ? combineError
+                    : combineSelection.length === 0 ? 'Click a highlighted shape to select it'
+                    : combineSelection.length === 1 ? 'Click another adjacent shape'
+                    : canApplyCombine ? 'Exact shared edge found — ready to combine'
+                    : 'Selected shapes don\'t share an exact edge'}
+                </span>
+                {canApplyCombine && (
+                  <button className="btn-primary btn-sm" onClick={applyMerge}>Apply Combine</button>
+                )}
+                <button className="calib-cancel" onClick={exitSubMode}>Cancel</button>
+              </>
+            )}
+
+            {editSubMode === 'split' && (
+              <>
+                <span className="submode-status submode-status--split">Split Shape</span>
+                <span className="edit-status">
+                  {splitSelected === null ? 'Click a shape to select it'
+                    : splitCut.length === 0 ? 'Click to place first cut point'
+                    : splitCut.length === 1 ? 'Click to complete cut line'
+                    : canApplySplit ? 'Cut line valid — ready to split'
+                    : 'Cut line doesn\'t cross the shape — reset and try again'}
+                </span>
+                {canApplySplit && (
+                  <button className="btn-primary btn-sm" onClick={applySplit}>Apply Split</button>
+                )}
+                {splitCut.length > 0 && (
+                  <button className="calib-cancel" onClick={() => {
+                    splitCutRef.current = []; splitMouseRef.current = null
+                    setSplitCut([]); drawEditCanvas()
+                  }}>Reset Cut</button>
+                )}
+                <button className="calib-cancel" onClick={exitSubMode}>Cancel</button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1059,29 +1553,24 @@ function App() {
             onClick={handleMeasureClick}
             onMouseMove={handleMeasureMouseMove}
           />
-          {editMode && labelEditState && (() => {
-            return (
-              <div className="label-edit-overlay"
-                style={{ left: labelEditState.cssX, top: labelEditState.cssY }}>
-                <input
-                  type="text"
-                  className="label-edit-input"
-                  value={labelEditState.value}
-                  autoFocus
-                  onChange={e => setLabelEditState(prev => ({ ...prev, value: e.target.value }))}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); commitLabelEdit() }
-                    if (e.key === 'Escape') {
-                      e.stopPropagation()
-                      setLabelEditState(null)
-                      drawEditCanvas(editHoverRef.current)
-                    }
-                  }}
-                  onBlur={() => { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }}
-                />
-              </div>
-            )
-          })()}
+          {editMode && labelEditState && (
+            <div className="label-edit-overlay"
+              style={{ left: labelEditState.cssX, top: labelEditState.cssY }}>
+              <input
+                type="text" className="label-edit-input"
+                value={labelEditState.value} autoFocus
+                onChange={e => setLabelEditState(prev => ({ ...prev, value: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); commitLabelEdit() }
+                  if (e.key === 'Escape') {
+                    e.stopPropagation()
+                    setLabelEditState(null); drawEditCanvas(editHoverRef.current)
+                  }
+                }}
+                onBlur={() => { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -1092,7 +1581,7 @@ function App() {
       )}
 
       {showScaleDialog && (
-        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && exitCalibMode()}>
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && exitCalibMode()}>
           <div className="modal">
             <h2 className="modal-title">Set Scale</h2>
             <p className="modal-sub">Enter the real-world length of the reference line you just drew.</p>

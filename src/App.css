@@ -468,6 +468,45 @@ canvas {
   white-space: nowrap;
 }
 
+/* ── Edit sub-mode buttons ── */
+.submode-btn {
+  padding: 0.35rem 0.8rem;
+  background: white;
+  color: #555;
+  border: 1.5px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.submode-btn:hover:not(:disabled) {
+  background: #f5f3ff;
+  border-color: #a78bfa;
+  color: #7c3aed;
+}
+
+.submode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.submode-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.submode-status--move   { color: #92400e; background: #fef3c7; border: 1px solid #fde68a; }
+.submode-status--combine { color: #065f46; background: #d1fae5; border: 1px solid #a7f3d0; }
+.submode-status--split  { color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; }
+
+.btn-sm { padding: 0.35rem 0.9rem; font-size: 0.8rem; }
+
 /* Inline label editor — absolutely positioned within .canvas-stack */
 .label-edit-overlay {
   position: absolute;
