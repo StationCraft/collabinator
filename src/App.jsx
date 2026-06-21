@@ -1,253 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import './App.css'
+import {
+  distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
+  findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
+  CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
+} from './geometry.js'
+import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString()
-
-// ── Module-level geometry helpers ──────────────────────────────────────────
-
-function distToSegment(p, a, b) {
-  const dx = b.x - a.x, dy = b.y - a.y
-  const len2 = dx * dx + dy * dy
-  if (len2 < 0.001) return Math.hypot(p.x - a.x, p.y - a.y)
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
-}
-
-function segmentGeom(a, b) {
-  const dx = b.x - a.x, dy = b.y - a.y
-  const len = Math.sqrt(dx * dx + dy * dy)
-  if (len < 0.001) return null
-  return { dir: { x: dx / len, y: dy / len }, perp: { x: -dy / len, y: dx / len }, len }
-}
-
-function projT(p, a, b) {
-  const dx = b.x - a.x, dy = b.y - a.y
-  const len2 = dx * dx + dy * dy
-  if (len2 < 0.001) return 0
-  return Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
-}
-
-function applyAxisSnap(pos, origin) {
-  const dx = pos.x - origin.x, dy = pos.y - origin.y
-  const dist = Math.hypot(dx, dy)
-  if (dist < 0.001) return pos
-  const angle = Math.atan2(dy, dx)
-  const snapped = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4)
-  return { x: origin.x + dist * Math.cos(snapped), y: origin.y + dist * Math.sin(snapped) }
-}
-
-function parseDisplayDistInput(str, displayUnit) {
-  const s = str.trim()
-  if (displayUnit === 'ft') {
-    const m1 = s.match(/^(\d+(?:\.\d+)?)'\s*([\d.]+)"?$/)
-    if (m1) return (parseFloat(m1[1]) * 12 + parseFloat(m1[2])) * 0.0254
-    const m2 = s.match(/^(\d+(?:\.\d+)?)'$/)
-    if (m2) return parseFloat(m2[1]) * 12 * 0.0254
-    const m3 = s.match(/^(\d+(?:\.\d+)?)"$/)
-    if (m3) return parseFloat(m3[1]) * 0.0254
-    const m4 = s.match(/^(\d+(?:\.\d+)?)$/)
-    if (m4) return parseFloat(m4[1]) * 0.0254
-    return null
-  }
-  const m = s.match(/^([\d.]+)/)
-  return m ? parseFloat(m[1]) : null
-}
-
-function pointInPolygon(pt, verts) {
-  let inside = false
-  for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
-    const xi = verts[i].x, yi = verts[i].y, xj = verts[j].x, yj = verts[j].y
-    if ((yi > pt.y) !== (yj > pt.y) && pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi)
-      inside = !inside
-  }
-  return inside
-}
-
-const COLLINEAR_TOL = 0.5  // max perpendicular distance to be considered on the same line (px)
-const OVERLAP_MIN   = 1.0  // minimum overlap length to be considered a shared edge (px)
-const ENDPOINT_TOL  = 0.5  // coincidence tolerance for existing edge endpoints (px)
-
-// Returns overlap info if vertsA and vertsB share a collinear anti-parallel edge segment,
-// or null if no combinable overlap exists.
-function findCollinearOverlap(vertsA, vertsB) {
-  const NA = vertsA.length, NB = vertsB.length
-  for (let i = 0; i < NA; i++) {
-    const a1 = vertsA[i], a2 = vertsA[(i + 1) % NA]
-    const dax = a2.x - a1.x, day = a2.y - a1.y
-    const lenA = Math.hypot(dax, day)
-    if (lenA < 0.001) continue
-    const dirX = dax / lenA, dirY = day / lenA
-    const perpX = -dirY, perpY = dirX
-
-    for (let j = 0; j < NB; j++) {
-      const b1 = vertsB[j], b2 = vertsB[(j + 1) % NB]
-
-      // Both B endpoints must lie on the infinite line through a1→a2
-      if (Math.abs((b1.x - a1.x) * perpX + (b1.y - a1.y) * perpY) > COLLINEAR_TOL) continue
-      if (Math.abs((b2.x - a1.x) * perpX + (b2.y - a1.y) * perpY) > COLLINEAR_TOL) continue
-
-      // B must traverse this line in the opposite direction (anti-parallel)
-      const lenB = Math.hypot(b2.x - b1.x, b2.y - b1.y)
-      if (lenB < 0.001) continue
-      if ((b2.x - b1.x) * dirX + (b2.y - b1.y) * dirY >= 0) continue
-
-      // Project b1 and b2 onto A's line; anti-parallel guarantees t_b1 > t_b2
-      const t_b1 = (b1.x - a1.x) * dirX + (b1.y - a1.y) * dirY
-      const t_b2 = (b2.x - a1.x) * dirX + (b2.y - a1.y) * dirY
-
-      // Overlap of A's range [0, lenA] with B's range [t_b2, t_b1]
-      const t_ov_start = Math.max(0, t_b2)
-      const t_ov_end   = Math.min(lenA, t_b1)
-      if (t_ov_end - t_ov_start < OVERLAP_MIN) continue
-
-      return {
-        segA: i, segB: j, dirX, dirY, a1, a2, lenA, b1, b2, lenB,
-        t_b1, t_b2, t_ov_start, t_ov_end,
-        P_start: { x: a1.x + t_ov_start * dirX, y: a1.y + t_ov_start * dirY },
-        P_end:   { x: a1.x + t_ov_end   * dirX, y: a1.y + t_ov_end   * dirY },
-      }
-    }
-  }
-  return null
-}
-
-// Insert P_first (if not already coincident with edge start) and P_second
-// (if not coincident with edge end) into verts at segIdx.
-// Returns {newVerts, newSegIdx} where newSegIdx is the index of P_first.
-function prepareForMerge(verts, segIdx, P_first, P_second) {
-  const N = verts.length
-  const edgeStart = verts[segIdx], edgeEnd = verts[(segIdx + 1) % N]
-  const insertP1 = Math.hypot(P_first.x  - edgeStart.x, P_first.y  - edgeStart.y) >= ENDPOINT_TOL
-  const insertP2 = Math.hypot(P_second.x - edgeEnd.x,   P_second.y - edgeEnd.y)   >= ENDPOINT_TOL
-  const result = [...verts]
-  let offset = 0
-  if (insertP1) { result.splice(segIdx + 1, 0, { ...P_first });  offset++ }
-  if (insertP2) { result.splice(segIdx + 1 + offset, 0, { ...P_second }) }
-  return { newVerts: result, newSegIdx: segIdx + (insertP1 ? 1 : 0) }
-}
-
-function mergePolygons(vertsA, vertsB, segA, segB, dir) {
-  const NA = vertsA.length
-  let bVerts = vertsB, effSegB = segB
-  if (dir === 'same') {
-    bVerts = [...vertsB].reverse()
-    effSegB = vertsB.length - 1 - ((segB + 1) % vertsB.length)
-  }
-  const NB = bVerts.length
-  const result = []
-  for (let i = 0; i < NA; i++) result.push({ ...vertsA[(segA + 1 + i) % NA] })
-  for (let i = 0; i < NB - 2; i++) result.push({ ...bVerts[(effSegB + 2 + i) % NB] })
-  return result
-}
-
-function linePolyIntersect(p1, p2, verts) {
-  // Robust version that correctly handles cut lines that are collinear with, pass
-  // through, or graze existing polygon edges/vertices.
-  const N = verts.length
-  const dx = p2.x - p1.x, dy = p2.y - p1.y
-  const lineLen2 = dx * dx + dy * dy
-  if (lineLen2 < 0.001) return []
-
-  const lineMag = Math.sqrt(lineLen2)
-  const perpX = -dy / lineMag, perpY = dx / lineMag
-  const ON_TOL = 0.5 // px: vertex counts as "on the cut line" within this distance
-
-  // Signed perpendicular distance of each vertex from the infinite cut line
-  const perp = verts.map(v => (v.x - p1.x) * perpX + (v.y - p1.y) * perpY)
-
-  const results = []
-
-  // Pass 1 — standard interior edge crossings: both endpoints off the line, opposite sides
-  for (let i = 0; i < N; i++) {
-    const pA = perp[i], pB = perp[(i + 1) % N]
-    if (Math.abs(pA) <= ON_TOL || Math.abs(pB) <= ON_TOL) continue // vertex case, handled below
-    if (pA * pB > 0) continue // same side
-    const a = verts[i], b = verts[(i + 1) % N]
-    const d2x = b.x - a.x, d2y = b.y - a.y
-    const cross = dx * d2y - dy * d2x
-    if (Math.abs(cross) < 0.001) continue
-    const ex = a.x - p1.x, ey = a.y - p1.y
-    const u = (ex * dy - ey * dx) / cross
-    if (u <= 0 || u >= 1) continue
-    const px = a.x + u * d2x, py = a.y + u * d2y
-    results.push({
-      edgeIdx: i, edgeT: u,
-      lineT: ((px - p1.x) * dx + (py - p1.y) * dy) / lineLen2,
-      point: { x: px, y: py }
-    })
-  }
-
-  // Pass 2 — vertex crossings: a polygon vertex lies on (or very near) the cut line.
-  // The polygon genuinely crosses the line at a vertex when the nearest non-collinear
-  // vertices on either side of it are on opposite sides of the cut line.
-  // For collinear runs (consecutive on-line vertices), only the FIRST vertex of each
-  // run is emitted (the one entered from an off-line edge), avoiding duplicate points.
-  for (let i = 0; i < N; i++) {
-    if (Math.abs(perp[i]) > ON_TOL) continue
-    // Skip if the previous vertex is also on the line (we're in the interior of a run)
-    if (Math.abs(perp[(i - 1 + N) % N]) <= ON_TOL) continue
-    // Walk forward/backward to find the nearest off-line vertices
-    let prevP = null, nextP = null
-    for (let k = 1; k < N; k++) {
-      if (prevP === null && Math.abs(perp[(i - k + N) % N]) > ON_TOL) prevP = perp[(i - k + N) % N]
-      if (nextP === null && Math.abs(perp[(i + k) % N]) > ON_TOL) nextP = perp[(i + k) % N]
-      if (prevP !== null && nextP !== null) break
-    }
-    if (prevP === null || nextP === null) continue // all vertices on line (degenerate)
-    if (prevP * nextP >= 0) continue // same side — tangent graze, not a crossing
-    results.push({
-      edgeIdx: i, edgeT: 0,
-      lineT: ((verts[i].x - p1.x) * dx + (verts[i].y - p1.y) * dy) / lineLen2,
-      point: { ...verts[i] }
-    })
-  }
-
-  return results.sort((a, b) => a.lineT - b.lineT)
-}
-
-function splitPolygon(verts, cutP1, cutP2) {
-  const hits = linePolyIntersect(cutP1, cutP2, verts)
-  if (hits.length < 2) return null
-  const h0 = hits[0], h1 = hits[hits.length - 1]
-  const i0 = h0.edgeIdx, i1 = h1.edgeIdx
-  const p0 = h0.point, p1 = h1.point
-  const N = verts.length
-
-  const polyA = [{ ...p0 }]
-  let cur = (i0 + 1) % N, stop1 = (i1 + 1) % N, guard = N + 2
-  while (cur !== stop1 && guard-- > 0) { polyA.push({ ...verts[cur] }); cur = (cur + 1) % N }
-  polyA.push({ ...p1 })
-
-  const polyB = [{ ...p1 }]
-  cur = (i1 + 1) % N; let stop2 = (i0 + 1) % N; guard = N + 2
-  while (cur !== stop2 && guard-- > 0) { polyB.push({ ...verts[cur] }); cur = (cur + 1) % N }
-  polyB.push({ ...p0 })
-
-  if (polyA.length < 3 || polyB.length < 3) return null
-  return [polyA, polyB]
-}
-
-function getEligibleShapes(shapes, pageNum) {
-  const pageIdxs = shapes.map((s, i) => ({ s, i })).filter(({ s }) => s.pageNumber === pageNum).map(({ i }) => i)
-  const eligible = new Set()
-  for (let a = 0; a < pageIdxs.length; a++) {
-    for (let b = a + 1; b < pageIdxs.length; b++) {
-      if (findCollinearOverlap(shapes[pageIdxs[a]].vertices, shapes[pageIdxs[b]].vertices)) {
-        eligible.add(pageIdxs[a]); eligible.add(pageIdxs[b])
-      }
-    }
-  }
-  return eligible
-}
-
-const CLOSE_SNAP_RADIUS = 16
-const ALIGN_TOLERANCE = 10
-const HIT_SEG_DIST = 8
-const HIT_VERT_DIST = 9
 
 function App() {
   const [pdf, setPdf] = useState(null)
@@ -441,30 +205,13 @@ function App() {
 
   // ── Draw locked shapes (base layer) ─────────────────────────────────────
 
-  const drawLockedShapes = (ctx, pageNum) => {
-    completedShapesRef.current
-      .filter(s => s.pageNumber === pageNum)
-      .forEach(shape => {
-        const verts = shape.vertices
-        if (verts.length < 3) return
-        ctx.beginPath()
-        ctx.moveTo(verts[0].x, verts[0].y)
-        for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
-        ctx.closePath()
-        ctx.fillStyle = 'rgba(59,130,246,0.1)'
-        ctx.fill()
-        ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'
-        ctx.stroke()
-      })
-  }
-
   useEffect(() => {
     if (calibMode || drawMode || editMode) return
     const c = measureRef.current
     if (!c || !currentPage) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
-    drawLockedShapes(ctx, currentPage)
+    drawLockedShapes(ctx, completedShapesRef.current, currentPage)
   }, [calibMode, drawMode, editMode, currentPage])
 
   // ── Calibration ──────────────────────────────────────────────────────────
@@ -525,19 +272,6 @@ function App() {
     snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
   }
 
-  const pxToDisplayDist = (px, pageNum) => {
-    const scale = pageScalesRef.current[pageNum]
-    if (!scale || px <= 0) return null
-    const meters = px / scale.pxPerMeter
-    if (scale.displayUnit === 'ft') {
-      const totalInches = meters / 0.0254
-      const feet = Math.floor(totalInches / 12)
-      const inches = totalInches % 12
-      return `${feet}' ${inches.toFixed(1)}"`
-    }
-    return `${meters.toFixed(3)} m`
-  }
-
   const applySnap = (rawPos, lastVertex, useAngle, useDist, pageNum) => {
     if (!lastVertex) return rawPos
     let x = rawPos.x, y = rawPos.y
@@ -586,39 +320,7 @@ function App() {
     return { pos: applySnap(rawPos, last, useAngle, useDist, pageNum), guides }
   }
 
-  const drawAlignGuide = (ctx, guide, cw, ch) => {
-    ctx.save()
-    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1; ctx.globalAlpha = 0.75; ctx.setLineDash([5, 5])
-    ctx.beginPath()
-    if (guide.axis === 'h') { ctx.moveTo(0, guide.vertex.y); ctx.lineTo(cw, guide.vertex.y) }
-    else { ctx.moveTo(guide.vertex.x, 0); ctx.lineTo(guide.vertex.x, ch) }
-    ctx.stroke(); ctx.restore()
-  }
-
   // ── Edit canvas drawing ──────────────────────────────────────────────────
-
-  const drawShapePoly = (ctx, verts, style) => {
-    const N = verts.length
-    if (N < 3) return
-    ctx.beginPath()
-    ctx.moveTo(verts[0].x, verts[0].y)
-    for (let i = 1; i < N; i++) ctx.lineTo(verts[i].x, verts[i].y)
-    ctx.closePath()
-    if (style === 'hover') {
-      ctx.fillStyle = 'rgba(245,158,11,0.18)'; ctx.fill()
-      ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2.5
-    } else if (style === 'selected') {
-      ctx.fillStyle = 'rgba(22,163,74,0.18)'; ctx.fill()
-      ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2.5
-    } else if (style === 'drag-preview') {
-      ctx.fillStyle = 'rgba(245,158,11,0.12)'; ctx.fill()
-      ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2; ctx.setLineDash([4, 3])
-    } else {
-      ctx.fillStyle = 'rgba(59,130,246,0.1)'; ctx.fill()
-      ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5
-    }
-    ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([])
-  }
 
   const drawEditCanvas = (hoverState = null, previewOverride = null) => {
     const c = measureRef.current
@@ -737,7 +439,7 @@ function App() {
 
           const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
           const lenPx = Math.hypot(b.x - a.x, b.y - a.y)
-          const label = pxToDisplayDist(lenPx, currentPage)
+          const label = pxToDisplayDist(lenPx, pageScalesRef.current, currentPage)
           if (label) {
             ctx.font = '12px system-ui, sans-serif'
             const tw = ctx.measureText(label).width, pad = 3
@@ -1409,7 +1111,7 @@ function App() {
     if (!c) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
-    drawLockedShapes(ctx, pageNum)
+    drawLockedShapes(ctx, completedShapesRef.current, pageNum)
 
     if (vertices.length >= 2) {
       ctx.beginPath(); ctx.moveTo(vertices[0].x, vertices[0].y)
@@ -1445,7 +1147,7 @@ function App() {
         ctx.beginPath(); ctx.arc(snapped.x, snapped.y, 4, 0, Math.PI * 2)
         ctx.fillStyle = guides.length > 0 ? '#f59e0b' : '#3b82f6'; ctx.fill()
         const ddx = snapped.x - last.x, ddy = snapped.y - last.y
-        const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), pageNum)
+        const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), pageScalesRef.current, pageNum)
         if (label) {
           const mx = (last.x + snapped.x) / 2, my = (last.y + snapped.y) / 2
           ctx.font = '12px system-ui, sans-serif'
@@ -1464,7 +1166,7 @@ function App() {
     if (!c) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
-    drawLockedShapes(ctx, pageNum)
+    drawLockedShapes(ctx, completedShapesRef.current, pageNum)
     const verts = shape.vertices
     ctx.beginPath(); ctx.moveTo(verts[0].x, verts[0].y)
     for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
@@ -1488,7 +1190,7 @@ function App() {
     const c = measureRef.current
     if (c) {
       c.getContext('2d').clearRect(0, 0, c.width, c.height)
-      drawLockedShapes(c.getContext('2d'), currentPage)
+      drawLockedShapes(c.getContext('2d'), completedShapesRef.current, currentPage)
     }
   }
 
