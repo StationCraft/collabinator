@@ -1,8 +1,8 @@
 // ── Stateless canvas drawing primitives ───────────────────────────────────
 // All functions take explicit data parameters — no closure over App state.
 
-export function pxToDisplayDist(px, pageScales, pageNum) {
-  const scale = pageScales[pageNum]
+export function pxToDisplayDist(px, pageScales, pageId) {
+  const scale = pageScales[pageId]
   if (!scale || px <= 0) return null
   const meters = px / scale.pxPerMeter
   if (scale.displayUnit === 'ft') {
@@ -14,9 +14,9 @@ export function pxToDisplayDist(px, pageScales, pageNum) {
   return `${meters.toFixed(3)} m`
 }
 
-export function drawLockedShapes(ctx, completedShapes, pageNum) {
+export function drawLockedShapes(ctx, completedShapes, pageId) {
   completedShapes
-    .filter(s => s.pageNumber === pageNum)
+    .filter(s => s.pageId === pageId)
     .forEach(shape => {
       const verts = shape.vertices
       if (verts.length < 3) return

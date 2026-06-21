@@ -602,7 +602,7 @@ canvas {
 /* Rotation handle — small circle at the top of the rose */
 .compass-rot-handle {
   position: absolute;
-  top: -14px;
+  top: 15px;
   left: 50%;
   transform: translateX(-50%);
   width: 18px;

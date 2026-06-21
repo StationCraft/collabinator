@@ -96,6 +96,8 @@ function App() {
   const completedShapesRef = useRef([])
   const snapIncrementRef = useRef(0.1524)
   const pageGridOriginRef = useRef({})
+  const pageIdMapRef = useRef({})       // pageIdMapRef.current[pageNum] = pageId
+  const pageTransformsRef = useRef({})  // pageTransformsRef.current[pageId] = {...} (Step 4b)
 
   // Default edit mode refs
   const editHoverRef = useRef(null)
@@ -129,6 +131,11 @@ function App() {
   const canvasWorldRef = useRef(null)    // the canvas-world div (receives transform)
   const [viewTransform, setViewTransform] = useState({ zoom: 1, panX: 0, panY: 0 })
   const [isPanning, setIsPanning] = useState(false)
+
+  // ── Page ID mapping ──────────────────────────────────────────────────────
+
+  const getPageId = (pageNum) =>
+    pageNum != null ? (pageIdMapRef.current[pageNum] ?? `page-${pageNum}`) : null
 
   // ── Page rendering ──────────────────────────────────────────────────────
 
@@ -196,6 +203,7 @@ function App() {
     setDrawMode(false); setReviewShape(null)
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
+    pageIdMapRef.current = {}; pageTransformsRef.current = {}
     drawVerticesRef.current = []; mousePosRef.current = null
     setCompassAngleDeg(null); setCompassCardinal(null)
     setCompassDraftAngle(0); setCompassPos({ x: null, y: null })
@@ -204,6 +212,7 @@ function App() {
     try {
       const arrayBuffer = await file.arrayBuffer()
       const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+      for (let i = 1; i <= pdfDoc.numPages; i++) pageIdMapRef.current[i] = `page-${i}`
       setPdf(pdfDoc); setPageCount(pdfDoc.numPages)
       await renderPage(pdfDoc, 1)
     } catch {
@@ -264,13 +273,13 @@ function App() {
     return Math.max(tMin, Math.min(tMax, tRaw))
   }
 
-  const snapToGrid = (pos, pageNum) => {
+  const snapToGrid = (pos, pageId) => {
     if (!snapDist) return pos
-    const scale = pageScalesRef.current[pageNum]
+    const scale = pageScalesRef.current[pageId]
     if (!scale) return pos
     const snapPx = scale.pxPerMeter * snapIncrementRef.current
     if (snapPx <= 0) return pos
-    const origin = pageGridOriginRef.current[pageNum] || { x: 0, y: 0 }
+    const origin = pageGridOriginRef.current[pageId] || { x: 0, y: 0 }
     return {
       x: origin.x + Math.round((pos.x - origin.x) / snapPx) * snapPx,
       y: origin.y + Math.round((pos.y - origin.y) / snapPx) * snapPx,
@@ -285,7 +294,7 @@ function App() {
     if (!c || !currentPage) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
-    drawLockedShapes(ctx, completedShapesRef.current, currentPage)
+    drawLockedShapes(ctx, completedShapesRef.current, getPageId(currentPage))
   }, [calibMode, drawMode, editMode, currentPage])
 
   // ── Calibration ──────────────────────────────────────────────────────────
@@ -329,11 +338,11 @@ function App() {
       if (realWorldMeters <= 0) { setScaleError('Enter a dimension greater than zero.'); return }
     }
     if (pixelDist < 5) { setScaleError('Reference line is too short.'); return }
-    pageScalesRef.current[currentPage] = {
+    pageScalesRef.current[currentPageId] = {
       pxPerMeter: pixelDist / realWorldMeters,
       displayUnit: scaleUnit === 'imperial' ? 'ft' : 'm',
     }
-    delete pageGridOriginRef.current[currentPage]
+    delete pageGridOriginRef.current[currentPageId]
     setShowScaleDialog(false); setCalibMode(false); setCalibPoints([]); setScaleError('')
   }
 
@@ -348,12 +357,12 @@ function App() {
 
   // Returns all vertices from currently visible geometry on the given page.
   // Written generically so it extends automatically when reference/ghost geometry is added.
-  const getVisibleVertices = (pageNum) =>
+  const getVisibleVertices = (pageId) =>
     completedShapesRef.current
-      .filter(s => s.pageNumber === pageNum)
+      .filter(s => s.pageId === pageId)
       .flatMap(s => s.vertices)
 
-  const applySnap = (rawPos, lastVertex, useAngle, useDist, pageNum) => {
+  const applySnap = (rawPos, lastVertex, useAngle, useDist, pageId) => {
     if (!lastVertex) return rawPos
     let x = rawPos.x, y = rawPos.y
     if (useAngle) {
@@ -367,11 +376,11 @@ function App() {
       }
     }
     if (useDist) {
-      const scale = pageScalesRef.current[pageNum]
+      const scale = pageScalesRef.current[pageId]
       if (scale) {
         const snapPx = scale.pxPerMeter * snapIncrementRef.current
         if (snapPx > 0) {
-          const origin = pageGridOriginRef.current[pageNum] || { x: 0, y: 0 }
+          const origin = pageGridOriginRef.current[pageId] || { x: 0, y: 0 }
           x = origin.x + Math.round((x - origin.x) / snapPx) * snapPx
           y = origin.y + Math.round((y - origin.y) / snapPx) * snapPx
         }
@@ -394,11 +403,11 @@ function App() {
     return { snappedPos: { x, y }, guides }
   }
 
-  const computeFinalSnapPos = (rawPos, vertices, useAngle, useDist, pageNum) => {
+  const computeFinalSnapPos = (rawPos, vertices, useAngle, useDist, pageId) => {
     const last = vertices.length > 0 ? vertices[vertices.length - 1] : null
     const { snappedPos: alignSnapped, guides } = getAlignmentSnap(rawPos, vertices)
-    if (guides.length > 0) return { pos: applySnap(alignSnapped, last, false, useDist, pageNum), guides }
-    return { pos: applySnap(rawPos, last, useAngle, useDist, pageNum), guides }
+    if (guides.length > 0) return { pos: applySnap(alignSnapped, last, false, useDist, pageId), guides }
+    return { pos: applySnap(rawPos, last, useAngle, useDist, pageId), guides }
   }
 
   // ── Edit canvas drawing ──────────────────────────────────────────────────
@@ -417,7 +426,7 @@ function App() {
       const moveHoverIdx = moveHoverIdxRef.current
       const drag = moveDragRef.current
       completedShapesRef.current.forEach((shape, idx) => {
-        if (shape.pageNumber !== currentPage) return
+        if (shape.pageId !== currentPageId) return
         ctx.save()
         const isDragged = drag && drag.shapeIdx === idx
         const verts = isDragged && drag.previewVerts ? drag.previewVerts : shape.vertices
@@ -433,7 +442,7 @@ function App() {
       const eligible = combineEligibleRef.current
       const sel = combineSelectRef.current
       completedShapesRef.current.forEach((shape, idx) => {
-        if (shape.pageNumber !== currentPage) return
+        if (shape.pageId !== currentPageId) return
         ctx.save()
         if (!eligible.has(idx)) ctx.globalAlpha = 0.2
         const style = sel.includes(idx) ? 'selected' : 'normal'
@@ -456,7 +465,7 @@ function App() {
     if (subMode === 'delete') {
       const hoverIdx = deleteHoverIdxRef.current
       completedShapesRef.current.forEach((shape, idx) => {
-        if (shape.pageNumber !== currentPage) return
+        if (shape.pageId !== currentPageId) return
         ctx.save()
         drawShapePoly(ctx, shape.vertices, idx === hoverIdx ? 'hover' : 'normal')
         ctx.restore()
@@ -469,7 +478,7 @@ function App() {
       const selIdx = splitSelectedRef.current
       const hoverIdx = splitHoverIdxRef.current
       completedShapesRef.current.forEach((shape, idx) => {
-        if (shape.pageNumber !== currentPage) return
+        if (shape.pageId !== currentPageId) return
         ctx.save()
         if (selIdx !== null && idx !== selIdx) ctx.globalAlpha = 0.2
         const style = idx === selIdx ? 'normal' : (selIdx === null && idx === hoverIdx ? 'hover' : 'normal')
@@ -495,7 +504,7 @@ function App() {
 
     // ── Default edit mode (vertex/segment drag, labels) ───────────────────
     completedShapesRef.current
-      .filter(s => s.pageNumber === currentPage)
+      .filter(s => s.pageId === currentPageId)
       .forEach((shape, shapeIdx) => {
         const verts = (previewOverride && previewOverride.shapeIdx === shapeIdx)
           ? previewOverride.vertices : shape.vertices
@@ -520,7 +529,7 @@ function App() {
 
           const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
           const lenPx = Math.hypot(b.x - a.x, b.y - a.y)
-          const label = pxToDisplayDist(lenPx, pageScalesRef.current, currentPage)
+          const label = pxToDisplayDist(lenPx, pageScalesRef.current, currentPageId)
           if (label) {
             ctx.font = '12px system-ui, sans-serif'
             const tw = ctx.measureText(label).width, pad = 3
@@ -566,7 +575,7 @@ function App() {
   const hitTestVertices = (pos) => {
     let best = null, bestDist = HIT_VERT_DIST
     completedShapesRef.current.forEach((shape, shapeIdx) => {
-      if (shape.pageNumber !== currentPage) return
+      if (shape.pageId !== currentPageId) return
       shape.vertices.forEach((v, vertIdx) => {
         const d = Math.hypot(pos.x - v.x, pos.y - v.y)
         if (d < bestDist) { bestDist = d; best = { shapeIdx, vertIdx } }
@@ -578,7 +587,7 @@ function App() {
   const hitTestSegments = (pos) => {
     let best = null, bestDist = HIT_SEG_DIST
     completedShapesRef.current.forEach((shape, shapeIdx) => {
-      if (shape.pageNumber !== currentPage) return
+      if (shape.pageId !== currentPageId) return
       const verts = shape.vertices
       for (let segIdx = 0; segIdx < verts.length; segIdx++) {
         const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
@@ -591,7 +600,7 @@ function App() {
   const hitTestShapeBody = (pos) => {
     const shapes = completedShapesRef.current
     for (let i = shapes.length - 1; i >= 0; i--) {
-      if (shapes[i].pageNumber === currentPage && pointInPolygon(pos, shapes[i].vertices)) return i
+      if (shapes[i].pageId === currentPageId && pointInPolygon(pos, shapes[i].vertices)) return i
     }
     return null
   }
@@ -618,7 +627,7 @@ function App() {
     completedShapesRef.current = prev
     setEditUndoCount(c => c - 1)
     if (editSubModeRef.current === 'combine') {
-      combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPage)
+      combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPageId)
       combineSelectRef.current = []; setCombineSelection([])
     }
     drawEditCanvas(editHoverRef.current)
@@ -633,7 +642,7 @@ function App() {
     completedShapesRef.current = next
     setEditRedoCount(c => c - 1)
     if (editSubModeRef.current === 'combine') {
-      combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPage)
+      combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPageId)
       combineSelectRef.current = []; setCombineSelection([])
     }
     drawEditCanvas(editHoverRef.current)
@@ -644,7 +653,7 @@ function App() {
   const commitLabelEdit = () => {
     if (!labelEditState) return
     const { shapeIdx, segIdx, value } = labelEditState
-    const scale = pageScalesRef.current[currentPage]
+    const scale = pageScalesRef.current[currentPageId]
     if (!scale) { setLabelEditState(null); return }
     const meters = parseDisplayDistInput(value, scale.displayUnit)
     if (!meters || meters <= 0) { setLabelEditState(null); drawEditCanvas(editHoverRef.current); return }
@@ -695,7 +704,7 @@ function App() {
   }
 
   const enterCombineMode = () => {
-    const eligible = getEligibleShapes(completedShapesRef.current, currentPage)
+    const eligible = getEligibleShapes(completedShapesRef.current, currentPageId)
     combineEligibleRef.current = eligible
     combineSelectRef.current = []; setCombineSelection([])
     editSubModeRef.current = 'combine'; setEditSubMode('combine')
@@ -715,7 +724,7 @@ function App() {
     const shapes = completedShapesRef.current
     for (let i = shapes.length - 1; i >= 0; i--) {
       const s = shapes[i]
-      if (s.pageNumber !== currentPage) continue
+      if (s.pageId !== currentPageId) continue
       if (!combineEligibleRef.current.has(i)) continue
       if (!pointInPolygon(pos, s.vertices)) continue
       const sel = combineSelectRef.current
@@ -749,7 +758,7 @@ function App() {
       .map((s, i) => i === idxA ? { ...s, vertices: merged } : s)
       .filter((_, i) => i !== idxB)
     completedShapesRef.current = newShapes
-    combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPage)
+    combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPageId)
     combineSelectRef.current = []; setCombineSelection([])
     drawEditCanvas()
   }
@@ -768,10 +777,10 @@ function App() {
     }
     const cut = splitCutRef.current
     if (cut.length < 2) {
-      let snapped = snapToGrid(pos, currentPage)
+      let snapped = snapToGrid(pos, currentPageId)
       // Axis snap second cut point relative to first (unless Shift held)
       if (cut.length === 1 && !shiftKey) {
-        snapped = snapToGrid(applyAxisSnap(pos, cut[0]), currentPage)
+        snapped = snapToGrid(applyAxisSnap(pos, cut[0]), currentPageId)
       }
       const newCut = [...cut, snapped]
       splitCutRef.current = newCut; setSplitCut([...newCut])
@@ -819,7 +828,7 @@ function App() {
 
   const snapPerp = (tRaw) => {
     if (!snapDist) return tRaw
-    const scale = pageScalesRef.current[currentPage]
+    const scale = pageScalesRef.current[currentPageId]
     if (!scale) return tRaw
     const snapPx = scale.pxPerMeter * snapIncrementRef.current
     return snapPx > 0 ? Math.round(tRaw / snapPx) * snapPx : tRaw
@@ -1011,7 +1020,7 @@ function App() {
       const pos = getCanvasPos(e)
       setCalibPoints(prev => {
         if (prev.length >= 2) return prev
-        const snapped = prev.length === 1 ? applySnap(pos, prev[0], true, false, currentPage) : pos
+        const snapped = prev.length === 1 ? applySnap(pos, prev[0], true, false, currentPageId) : pos
         const next = [...prev, snapped]
         drawCalibState(next)
         if (next.length === 2) setShowScaleDialog(true)
@@ -1024,9 +1033,9 @@ function App() {
         const first = verts[0]
         const dx = rawPos.x - first.x, dy = rawPos.y - first.y
         if (Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS) {
-          const shape = { vertices: verts, pageNumber: currentPage }
+          const shape = { vertices: verts, pageId: currentPageId }
           setReviewShape(shape); drawVerticesRef.current = []; setDrawVertexCount(0)
-          redrawReviewCanvas(shape, currentPage); return
+          redrawReviewCanvas(shape, currentPageId); return
         }
       }
       const useAngleNow = snapAngle && !e.shiftKey
@@ -1034,15 +1043,15 @@ function App() {
       if (verts.length === 0) {
         finalPos = (!e.shiftKey && drawStartSnapRef.current)
           ? { ...drawStartSnapRef.current }
-          : snapToGrid(rawPos, currentPage)
+          : snapToGrid(rawPos, currentPageId)
         drawStartSnapRef.current = null
       } else {
-        const { pos } = computeFinalSnapPos(rawPos, verts, useAngleNow, snapDist, currentPage)
+        const { pos } = computeFinalSnapPos(rawPos, verts, useAngleNow, snapDist, currentPageId)
         finalPos = pos
       }
       const next = [...verts, finalPos]
       drawVerticesRef.current = next; setDrawVertexCount(next.length)
-      redrawDrawCanvas(rawPos, next, useAngleNow, snapDist, currentPage)
+      redrawDrawCanvas(rawPos, next, useAngleNow, snapDist, currentPageId)
     }
   }
 
@@ -1061,7 +1070,7 @@ function App() {
           if (Math.hypot(dx, dy) > 3) {
             drag.isDragging = true
             drag.previewVerts = drag.origVerts.map(v =>
-              clampToCanvas(snapToGrid({ x: v.x + dx, y: v.y + dy }, currentPage))
+              clampToCanvas(snapToGrid({ x: v.x + dx, y: v.y + dy }, currentPageId))
             )
             drawEditCanvas()
           }
@@ -1081,7 +1090,7 @@ function App() {
         let found = null
         for (let i = completedShapesRef.current.length - 1; i >= 0; i--) {
           const s = completedShapesRef.current[i]
-          if (s.pageNumber === currentPage && eligible.has(i) && pointInPolygon(pos, s.vertices)) {
+          if (s.pageId === currentPageId && eligible.has(i) && pointInPolygon(pos, s.vertices)) {
             found = i; break
           }
         }
@@ -1138,11 +1147,11 @@ function App() {
           // For normal vertices origV is already on-grid (no-op). For inserted
           // vertices origV is an interpolated off-grid point — snapping it first
           // ensures 45° rays land precisely on grid points.
-          const origV = snapToGrid(ds.origVerts[ds.vertIdx], currentPage)
+          const origV = snapToGrid(ds.origVerts[ds.vertIdx], currentPageId)
           // Axis snap relative to (grid-aligned) original vertex position (unless Shift held)
           let snapTarget = pos
           if (!e.shiftKey) snapTarget = applyAxisSnap(pos, origV)
-          const snapped = clampToCanvas(snapToGrid(snapTarget, currentPage))
+          const snapped = clampToCanvas(snapToGrid(snapTarget, currentPageId))
           // Merge detection: check adjacent vertices (only if polygon has >3 verts)
           const N = ds.origVerts.length
           if (N > 3) {
@@ -1164,8 +1173,8 @@ function App() {
           ds.isDragging = true
           if (e.shiftKey) {
             // Shift: free-direction move of both segment endpoints, each grid-snapped
-            const newA = clampToCanvas(snapToGrid({ x: ds.origA.x + dx, y: ds.origA.y + dy }, currentPage))
-            const newB = clampToCanvas(snapToGrid({ x: ds.origB.x + dx, y: ds.origB.y + dy }, currentPage))
+            const newA = clampToCanvas(snapToGrid({ x: ds.origA.x + dx, y: ds.origA.y + dy }, currentPageId))
+            const newB = clampToCanvas(snapToGrid({ x: ds.origB.x + dx, y: ds.origB.y + dy }, currentPageId))
             const N = ds.origVerts.length
             ds.previewVerts = ds.origVerts.map((v, i) => {
               if (i === ds.segIdx) return newA
@@ -1206,13 +1215,13 @@ function App() {
     }
 
     if (calibMode && !showScaleDialog && calibPoints.length === 1) {
-      drawCalibState([calibPoints[0], applySnap(pos, calibPoints[0], true, false, currentPage)])
+      drawCalibState([calibPoints[0], applySnap(pos, calibPoints[0], true, false, currentPageId)])
     } else if (drawMode && !reviewShape) {
       mousePosRef.current = pos
       // Pre-first-vertex: detect snap target on visible geometry (Shift suppresses)
       if (drawVerticesRef.current.length === 0) {
         if (!e.shiftKey) {
-          const visVerts = getVisibleVertices(currentPage)
+          const visVerts = getVisibleVertices(currentPageId)
           let best = null, bestDist = HIT_VERT_DIST
           for (const v of visVerts) {
             const d = Math.hypot(pos.x - v.x, pos.y - v.y)
@@ -1223,18 +1232,18 @@ function App() {
           drawStartSnapRef.current = null
         }
       }
-      redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle && !e.shiftKey, snapDist, currentPage)
+      redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle && !e.shiftKey, snapDist, currentPageId)
     }
   }
 
   // ── Draw mode canvas render ──────────────────────────────────────────────
 
-  const redrawDrawCanvas = (mousePos, vertices, useAngle, useDist, pageNum) => {
+  const redrawDrawCanvas = (mousePos, vertices, useAngle, useDist, pageId) => {
     const c = measureRef.current
     if (!c) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
-    drawLockedShapes(ctx, completedShapesRef.current, pageNum)
+    drawLockedShapes(ctx, completedShapesRef.current, pageId)
 
     // Start-vertex snap highlight: pre-first-vertex window only
     if (vertices.length === 0 && mousePos && drawStartSnapRef.current) {
@@ -1270,7 +1279,7 @@ function App() {
         ctx.beginPath(); ctx.arc(first.x, first.y, 10, 0, Math.PI * 2)
         ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2.5; ctx.stroke()
       } else {
-        const { pos: snapped, guides } = computeFinalSnapPos(mousePos, vertices, useAngle, useDist, pageNum)
+        const { pos: snapped, guides } = computeFinalSnapPos(mousePos, vertices, useAngle, useDist, pageId)
         guides.forEach(g => drawAlignGuide(ctx, g, c.width, c.height))
         ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(snapped.x, snapped.y)
         ctx.strokeStyle = guides.length > 0 ? 'rgba(245,158,11,0.8)' : 'rgba(59,130,246,0.65)'
@@ -1278,7 +1287,7 @@ function App() {
         ctx.beginPath(); ctx.arc(snapped.x, snapped.y, 4, 0, Math.PI * 2)
         ctx.fillStyle = guides.length > 0 ? '#f59e0b' : '#3b82f6'; ctx.fill()
         const ddx = snapped.x - last.x, ddy = snapped.y - last.y
-        const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), pageScalesRef.current, pageNum)
+        const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), pageScalesRef.current, pageId)
         if (label) {
           const mx = (last.x + snapped.x) / 2, my = (last.y + snapped.y) / 2
           ctx.font = '12px system-ui, sans-serif'
@@ -1292,12 +1301,12 @@ function App() {
     }
   }
 
-  const redrawReviewCanvas = (shape, pageNum) => {
+  const redrawReviewCanvas = (shape, pageId) => {
     const c = measureRef.current
     if (!c) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
-    drawLockedShapes(ctx, completedShapesRef.current, pageNum)
+    drawLockedShapes(ctx, completedShapesRef.current, pageId)
     const verts = shape.vertices
     ctx.beginPath(); ctx.moveTo(verts[0].x, verts[0].y)
     for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
@@ -1315,13 +1324,13 @@ function App() {
     if (!reviewShape) return
     completedShapesRef.current = [
       ...completedShapesRef.current,
-      { vertices: reviewShape.vertices, pageNumber: currentPage, status: 'locked' },
+      { vertices: reviewShape.vertices, pageId: currentPageId, status: 'locked' },
     ]
     setReviewShape(null); drawVerticesRef.current = []; setDrawVertexCount(0)
     const c = measureRef.current
     if (c) {
       c.getContext('2d').clearRect(0, 0, c.width, c.height)
-      drawLockedShapes(c.getContext('2d'), completedShapesRef.current, currentPage)
+      drawLockedShapes(c.getContext('2d'), completedShapesRef.current, getPageId(currentPage))
     }
   }
 
@@ -1364,7 +1373,7 @@ function App() {
         if (verts.length === 0) return
         const next = verts.slice(0, -1)
         drawVerticesRef.current = next; setDrawVertexCount(next.length)
-        redrawDrawCanvas(mousePosRef.current, next, snapAngle, snapDist, currentPage)
+        redrawDrawCanvas(mousePosRef.current, next, snapAngle, snapDist, currentPageId)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -1558,13 +1567,14 @@ function App() {
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  const pageHasScale = currentPage && !!pageScalesRef.current[currentPage]
+  const currentPageId = getPageId(currentPage)
+  const pageHasScale = currentPageId && !!pageScalesRef.current[currentPageId]
   const lockedShapesOnPage = currentPage
-    ? completedShapesRef.current.filter(s => s.pageNumber === currentPage)
+    ? completedShapesRef.current.filter(s => s.pageId === currentPageId)
     : []
 
   const hasCombinableShapes = editMode
-    ? getEligibleShapes(completedShapesRef.current, currentPage).size >= 2
+    ? getEligibleShapes(completedShapesRef.current, currentPageId).size >= 2
     : false
 
   const canApplyCombine = combineSelection.length === 2 && (() => {
@@ -1581,7 +1591,7 @@ function App() {
   // Snap increment selector for Edit Shapes mode — reads/writes the same ref+state as Draw mode.
   // Changing it in edit mode takes effect on the next vertex drag/insert/move snap.
   const editSnapIncrementSelect = snapDist && pageHasScale ? (() => {
-    const isImperial = pageScalesRef.current[currentPage]?.displayUnit === 'ft'
+    const isImperial = pageScalesRef.current[currentPageId]?.displayUnit === 'ft'
     return (
       <select className="snap-increment-select" value={snapIncrement}
         onChange={e => { const v = parseFloat(e.target.value); snapIncrementRef.current = v; setSnapIncrement(v) }}
@@ -1655,7 +1665,7 @@ function App() {
             disabled={!pageHasScale}
             title={!pageHasScale ? 'Set scale first to enable drawing' : undefined}
             onClick={() => {
-              const unit = pageScalesRef.current[currentPage]?.displayUnit
+              const unit = pageScalesRef.current[currentPageId]?.displayUnit
               snapIncrementRef.current = unit === 'm' ? 0.15 : 0.1524
               setSnapIncrement(unit === 'm' ? 0.15 : 0.1524)
               clearMeasureCanvas(); setDrawMode(true)
@@ -1679,7 +1689,7 @@ function App() {
                   className={`snap-btn ${snapAngle ? 'snap-btn--on' : ''}`}
                   onClick={() => {
                     const next = !snapAngle; setSnapAngle(next)
-                    redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, next, snapDist, currentPage)
+                    redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, next, snapDist, currentPageId)
                   }}
                 >Axis Snap {snapAngle ? 'ON' : 'OFF'}</button>
                 <button
@@ -1687,17 +1697,17 @@ function App() {
                   onClick={() => {
                     if (!pageHasScale) return
                     const next = !snapDist; setSnapDist(next)
-                    redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, next, currentPage)
+                    redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, next, currentPageId)
                   }}
                 >Dist Snap {snapDist ? 'ON' : 'OFF'}</button>
                 {snapDist && pageHasScale && (() => {
-                  const isImperial = pageScalesRef.current[currentPage]?.displayUnit === 'ft'
+                  const isImperial = pageScalesRef.current[currentPageId]?.displayUnit === 'ft'
                   return (
                     <select className="snap-increment-select" value={snapIncrement}
                       onChange={e => {
                         const v = parseFloat(e.target.value)
                         snapIncrementRef.current = v; setSnapIncrement(v)
-                        redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, true, currentPage)
+                        redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, true, currentPageId)
                       }}
                     >
                       {isImperial
