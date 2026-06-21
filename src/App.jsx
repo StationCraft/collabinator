@@ -40,6 +40,21 @@ function CompassRoseSVG() {
   )
 }
 
+// ── Page categorization metadata ────────────────────────────────────────────
+const CATEGORY_OPTIONS = [
+  { key: 'site-plan',     label: 'Site Plan' },
+  { key: 'floor-plan',    label: 'Floor Plan' },
+  { key: 'elevation',     label: 'Elevation' },
+  { key: 'cross-section', label: 'Cross-Section' },
+  { key: 'detail',        label: 'Detail' },
+  { key: 'roof-plan',     label: 'Roof Plan' },
+]
+const FLOOR_SUBLABELS = ['Basement', 'Crawlspace', 'Main Floor', '2nd Floor', '3rd Floor', 'Other']
+// Categories whose sub-label is a simple optional free-text input
+const FREETEXT_SUBLABEL_CATEGORIES = ['site-plan', 'cross-section', 'detail', 'roof-plan']
+const ELEVATION_DIRS = ['North', 'South', 'East', 'West']
+const categoryLabel = (key) => CATEGORY_OPTIONS.find(o => o.key === key)?.label ?? key
+
 function App() {
   const [pdf, setPdf] = useState(null)
   const [pageCount, setPageCount] = useState(0)
@@ -87,6 +102,15 @@ function App() {
   const compassDragRef = useRef(null)   // { startClientX, startClientY, startPosX, startPosY }
   const compassRotDragRef = useRef(null) // { startClientX, startClientY, startAngle }
   const compassOverlayRef = useRef(null)
+
+  // ── Page categorization (Step 4b) ───────────────────────────────────────────
+  const [categorizeMode, setCategorizeMode] = useState(false)
+  const [pages, setPages] = useState([])  // [{pageId, pageNum, category, subLabel}]
+  const [catDraftCategory, setCatDraftCategory] = useState(null)
+  const [catDraftSubLabel, setCatDraftSubLabel] = useState('')
+  const [catDraftOther, setCatDraftOther] = useState('')  // floor-plan "Other" free text
+  const [recatPageNum, setRecatPageNum] = useState(null)  // page actively being (re)edited; null = none
+  const [catReentry, setCatReentry] = useState(false)     // true = entered via "+ Categorize more pages" (cycle uncategorized only)
 
   const canvasRef = useRef(null)
   const measureRef = useRef(null)
@@ -208,11 +232,18 @@ function App() {
     setCompassAngleDeg(null); setCompassCardinal(null)
     setCompassDraftAngle(0); setCompassPos({ x: null, y: null })
     setShowCompassOverlay(false)
+    setCategorizeMode(false); setPages([])
+    setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftOther(''); setRecatPageNum(null); setCatReentry(false)
     resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
       const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-      for (let i = 1; i <= pdfDoc.numPages; i++) pageIdMapRef.current[i] = `page-${i}`
+      const newPages = []
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        pageIdMapRef.current[i] = `page-${i}`
+        newPages.push({ pageId: `page-${i}`, pageNum: i, category: null, subLabel: null })
+      }
+      setPages(newPages)
       setPdf(pdfDoc); setPageCount(pdfDoc.numPages)
       await renderPage(pdfDoc, 1)
     } catch {
@@ -1405,7 +1436,11 @@ function App() {
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+    // Re-bind when the page renders or the app mode changes: the canvas-stack
+    // node can be re-created by reconciliation (e.g. when the categorization
+    // panel mounts/unmounts as a sibling), which would otherwise strand the
+    // once-attached listener on a detached node and silently break wheel zoom.
+  }, [currentPage, categorizeMode, calibMode, drawMode, editMode])
 
   // ── Window-level pan drag (handles mouse leaving canvas during drag) ──────
 
@@ -1478,12 +1513,98 @@ function App() {
     setCompassAngleDeg(compassDraftAngle)
     setCompassCardinal(angleToCardinal(compassDraftAngle))
     setShowCompassOverlay(false)
+    setCatReentry(false)
+    setCategorizeMode(true)
   }
 
   function skipCompass() {
     setCompassAngleDeg(0)
     setCompassCardinal('N')
     setShowCompassOverlay(false)
+    setCatReentry(false)
+    setCategorizeMode(true)
+  }
+
+  // ── Page categorization handlers (Step 4b) ─────────────────────────────────
+
+  const loadDraftFromEntry = (entry) => {
+    if (entry && entry.category) {
+      setCatDraftCategory(entry.category)
+      if (entry.category === 'floor-plan' && entry.subLabel && !FLOOR_SUBLABELS.includes(entry.subLabel)) {
+        setCatDraftSubLabel('Other'); setCatDraftOther(entry.subLabel)
+      } else {
+        setCatDraftSubLabel(entry.subLabel || ''); setCatDraftOther('')
+      }
+    } else {
+      setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftOther('')
+    }
+  }
+
+  // Load the current page's stored entry into the draft when entering the mode
+  // or navigating pages. Whether the editor or the compact summary shows is
+  // derived from recatPageNum + the page's category at render time — not from a
+  // separate flag — so an already-categorized page always shows its summary
+  // immediately on navigation, mid-categorization.
+  useEffect(() => {
+    if (!categorizeMode || !currentPage) return
+    loadDraftFromEntry(pages.find(p => p.pageNum === currentPage))
+  }, [categorizeMode, currentPage, pages])
+
+  const selectCatCategory = (key) => {
+    setCatDraftCategory(key); setCatDraftSubLabel(''); setCatDraftOther('')
+  }
+
+  const resolveSubLabel = () => {
+    if (!catDraftCategory) return null
+    if (catDraftCategory === 'floor-plan' && catDraftSubLabel === 'Other') {
+      return catDraftOther.trim() || 'Other'
+    }
+    const v = (catDraftSubLabel || '').trim()
+    return v || null
+  }
+
+  // Advance to the next page lacking a category (wraps; never re-navigates to self).
+  const advanceToNextUncategorized = (pagesList) => {
+    const total = pageCount
+    for (let step = 1; step <= total; step++) {
+      const pn = ((currentPage - 1 + step) % total) + 1
+      const entry = pagesList.find(p => p.pageNum === pn)
+      if ((!entry || !entry.category) && pn !== currentPage) { goToPage(pn); return }
+    }
+  }
+
+  const confirmCatPage = () => {
+    if (!catDraftCategory) return
+    const subLabel = resolveSubLabel()
+    const newPages = pages.map(p =>
+      p.pageNum === currentPage ? { ...p, category: catDraftCategory, subLabel } : p
+    )
+    setPages(newPages)
+    setRecatPageNum(null)
+    advanceToNextUncategorized(newPages)
+  }
+
+  const skipCatPage = () => {
+    const newPages = pages.map(p =>
+      p.pageNum === currentPage ? { ...p, category: null, subLabel: null } : p
+    )
+    setPages(newPages)
+    setRecatPageNum(null)
+    advanceToNextUncategorized(newPages)
+  }
+
+  const startRecategorize = () => {
+    loadDraftFromEntry(pages.find(p => p.pageNum === currentPage))
+    setRecatPageNum(currentPage)
+  }
+
+  // Re-enter categorization to work through what remains: cycle uncategorized
+  // pages only, jumping straight to the first one.
+  const enterCategorizeReentry = () => {
+    setCatReentry(true)
+    setCategorizeMode(true)
+    const first = pages.find(p => !p.category)
+    if (first && first.pageNum !== currentPage) goToPage(first.pageNum)
   }
 
   // Pointer handlers for dragging the compass overlay body
@@ -1568,6 +1689,35 @@ function App() {
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const currentPageId = getPageId(currentPage)
+  const currentPageEntry = pages.find(p => p.pageNum === currentPage) || null
+  const categorizedCount = pages.filter(p => p.category).length
+
+  // Page-arrow navigation. While categorizing, arrows cycle every page. After
+  // Done (not categorizing), arrows step through categorized pages only,
+  // skipping uncategorized ones. Falls back to sequential nav if nothing is
+  // categorized yet so the user is never stranded.
+  const categorizedPageNums = pages.filter(p => p.category).map(p => p.pageNum).sort((a, b) => a - b)
+  const uncategorizedPageNums = pages.filter(p => !p.category).map(p => p.pageNum).sort((a, b) => a - b)
+  // Which subset the arrows cycle through. Re-entry mode → uncategorized only;
+  // post-Done (not categorizing, some categorized) → categorized only;
+  // otherwise (initial/auto categorization) → null = sequential, all pages.
+  const navSet =
+    categorizeMode && catReentry ? uncategorizedPageNums
+    : !categorizeMode && categorizedPageNums.length > 0 ? categorizedPageNums
+    : null
+  const prevNavDisabled = renderingPage || (navSet
+    ? !navSet.some(pn => pn < currentPage)
+    : currentPage <= 1)
+  const nextNavDisabled = renderingPage || (navSet
+    ? !navSet.some(pn => pn > currentPage)
+    : currentPage >= pageCount)
+  const handlePageNav = (dir) => {
+    if (!navSet) { goToPage(currentPage + dir); return }
+    const target = dir > 0
+      ? navSet.find(pn => pn > currentPage)
+      : [...navSet].reverse().find(pn => pn < currentPage)
+    if (target != null) goToPage(target)
+  }
   const pageHasScale = currentPageId && !!pageScalesRef.current[currentPageId]
   const lockedShapesOnPage = currentPage
     ? completedShapesRef.current.filter(s => s.pageId === currentPageId)
@@ -1622,13 +1772,18 @@ function App() {
 
         {pageCount > 0 && (
           <div className="page-controls">
-            <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1 || renderingPage}>‹</button>
+            <button onClick={() => handlePageNav(-1)} disabled={prevNavDisabled}>‹</button>
             <span className="page-indicator">{renderingPage ? '…' : currentPage} / {pageCount}</span>
-            <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= pageCount || renderingPage}>›</button>
+            <button onClick={() => handlePageNav(1)} disabled={nextNavDisabled}>›</button>
+            {!categorizeMode && (
+              <button className="cat-more-link" onClick={enterCategorizeReentry}>
+                + Categorize more pages
+              </button>
+            )}
           </div>
         )}
 
-        {pdf && !calibMode && !drawMode && !editMode && (
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <button
             className={`compass-north-btn ${compassAngleDeg !== null ? 'compass-north-btn--done' : ''}`}
             onClick={openCompassOverlay}
@@ -1639,7 +1794,13 @@ function App() {
           </button>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && (
+        {pdf && currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
+          <button className="categorize-btn" onClick={() => { setCatReentry(false); setCategorizeMode(true) }}>
+            Categorize Pages
+          </button>
+        )}
+
+        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <button
             className={`calib-btn ${pageHasScale ? 'calib-btn--done' : ''}`}
             onClick={() => { setCalibMode(true); setCalibPoints([]); setScaleError(''); clearMeasureCanvas() }}
@@ -1659,7 +1820,7 @@ function App() {
           </div>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && (
+        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <button
             className="draw-btn"
             disabled={!pageHasScale}
@@ -1675,7 +1836,7 @@ function App() {
           </button>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && lockedShapesOnPage.length > 0 && (
+        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && lockedShapesOnPage.length > 0 && (
           <button className="edit-btn" onClick={() => { clearMeasureCanvas(); setEditMode(true) }}>
             Edit Shapes
           </button>
@@ -1839,6 +2000,85 @@ function App() {
           </div>
         )}
       </div>
+
+      {categorizeMode && currentPage && (
+        <div className="categorize-panel">
+          <div className="cat-panel-head">
+            <span className="cat-panel-title">Categorize Pages</span>
+            <span className="cat-panel-progress">{categorizedCount} of {pageCount} labelled</span>
+            <span className="cat-panel-hint">Page navigation stays active — jump to any page.</span>
+            <button className="btn-primary btn-sm" onClick={() => { setCategorizeMode(false); setCatReentry(false) }}>Done</button>
+          </div>
+
+          <div className="cat-panel-body">
+            {catReentry && uncategorizedPageNums.length === 0 ? (
+              <span className="cat-all-done">All pages are categorized. Click Done to finish.</span>
+            ) : (
+            <>
+            <span className="cat-page-label">Page {currentPage}</span>
+
+            {currentPageEntry?.category && recatPageNum !== currentPage ? (
+              <div className="cat-summary">
+                <span className="cat-summary-text">
+                  {categoryLabel(currentPageEntry.category)}
+                  {currentPageEntry.subLabel ? ` — ${currentPageEntry.subLabel}` : ''}
+                </span>
+                <button className="cat-recat-btn" onClick={startRecategorize}>Recategorize</button>
+              </div>
+            ) : (
+              <>
+                <div className="cat-category-row">
+                  {CATEGORY_OPTIONS.map(opt => (
+                    <button key={opt.key}
+                      className={`cat-cat-btn ${catDraftCategory === opt.key ? 'cat-cat-btn--active' : ''}`}
+                      onClick={() => selectCatCategory(opt.key)}>
+                      {opt.label}
+                    </button>
+                  ))}
+                  <button className="cat-cat-btn cat-cat-btn--skip" onClick={skipCatPage}>
+                    Skip this page
+                  </button>
+                </div>
+
+                {catDraftCategory && (
+                  <div className="cat-sublabel-row">
+                    {catDraftCategory === 'floor-plan' && (
+                      <>
+                        <select className="cat-sublabel-select" value={catDraftSubLabel}
+                          onChange={e => setCatDraftSubLabel(e.target.value)}>
+                          <option value="">— sub-label —</option>
+                          {FLOOR_SUBLABELS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        {catDraftSubLabel === 'Other' && (
+                          <input className="cat-sublabel-input" type="text" placeholder="Custom label"
+                            value={catDraftOther} onChange={e => setCatDraftOther(e.target.value)} />
+                        )}
+                      </>
+                    )}
+
+                    {catDraftCategory === 'elevation' && (
+                      <select className="cat-sublabel-select" value={catDraftSubLabel}
+                        onChange={e => setCatDraftSubLabel(e.target.value)}>
+                        <option value="">— direction —</option>
+                        {ELEVATION_DIRS.map(d => <option key={d} value={d}>{d} elevation</option>)}
+                      </select>
+                    )}
+
+                    {FREETEXT_SUBLABEL_CATEGORIES.includes(catDraftCategory) && (
+                      <input className="cat-sublabel-input" type="text" placeholder="Sub-label (optional)"
+                        value={catDraftSubLabel} onChange={e => setCatDraftSubLabel(e.target.value)} />
+                    )}
+
+                    <button className="btn-primary btn-sm" onClick={confirmCatPage}>Confirm this page</button>
+                  </div>
+                )}
+              </>
+            )}
+            </>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && <p className="error">{error}</p>}
 

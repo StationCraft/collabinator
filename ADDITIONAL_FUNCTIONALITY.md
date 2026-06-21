@@ -93,6 +93,29 @@ Phase 1 tracing. Interstitial space is a Phase 2 concern.
 
 ---
 
+### 5. Multi-classification per page + working area selection for elevations
+
+**Logged:** Session 5, during Step 4b testing.
+
+**Description:** A single PDF page may contain multiple drawing types (e.g.
+two floor plans and an elevation, or multiple elevations on one sheet). The
+current architecture assigns one category per page. Full solution requires:
+- Pages array allows multiple classification entries per pageId
+- A "Multiple elevations on this page" option in the elevation categorization
+  flow that prompts the user to specify which elevations are shown
+- Working area selection per classification on a multi-item page (drag a crop
+  box, grey out the rest)
+- Each classification creates an independent logical page entry in the sidebar
+
+**Why deferred:** Significant data model change affecting pages array, sidebar
+(4c), and all downstream readers. Dropped from scope mid-4b to avoid
+mid-build architectural risk. The pageId architecture accommodates this
+cleanly when prioritised.
+
+**Status:** Deferred. Build as a discrete step after 4c is committed.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

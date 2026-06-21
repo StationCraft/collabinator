@@ -151,9 +151,9 @@ as a short stray line. Cosmetically harmless, no geometry error. Logged in
 
 ---
 
-## SESSION 4 — Zoom/pan + architecture planning
+## SESSION 4 — Zoom/pan + architecture planning + compass rose + pageId migration
 
-**Branch:** main | **Commit:** de2603b
+**Branch:** main | **Commits:** de2603b, e75a99d, b56b043, c754c76
 
 ### 1. What was built
 
@@ -173,7 +173,43 @@ as a short stray line. Cosmetically harmless, no geometry error. Logged in
 - Full test checklist passed (anchor accuracy, hit-test accuracy at varied
   zoom/pan, all edit sub-modes, page nav reset, upload reset)
 
-### 2. Architecture decisions locked in planning chat
+**Compass rose alignment overlay**
+
+- Fixed overlay div (`z-index: 200`) layered above canvas-world — not on canvas
+- SVG compass rose (N/S/E/W arms, red N arm with arrowhead, intercardinal arms)
+- Drag overlay body to reposition; rotation handle (purple circle on N arm at ~60%
+  from center to tip) to rotate
+- Arrow key nudge: ±1° per press, ±0.1° with Shift; auto-focuses overlay div on open
+- Numeric angle input with its own local string state (no toFixed-on-keystroke bug)
+- Confirm stores `compassAngleDeg` + `compassCardinal` (rounded to nearest N/NE/E/SE/S/SW/W/NW)
+- Skip stores 0°/N and dismisses
+- "Set North" toolbar button re-opens overlay; shows confirmation state once set
+- Compass persists across page navigation and zoom/pan reset; clears on PDF upload
+- Transparent overlay background — PDF visible through it; controls have subtle semi-opaque backing
+- Instruction text above rose: "Move this panel over your plan's compass rose, then drag the handle on the N arm to rotate until it matches."
+
+**Step 4a — pageId migration (structural refactor, zero behavior change)**
+
+- `pageIdMapRef.current[pageNum] = pageId` populated at PDF load (`"page-1"`, `"page-2"`, etc.)
+- `getPageId(pageNum)` helper; `currentPageId = getPageId(currentPage)` derived value
+- `pageTransformsRef` added as placeholder for Step 4b
+- All page-keyed refs migrated: `pageScalesRef`, `pageGridOriginRef` now keyed by pageId string
+- All shape fields migrated: `pageNumber` → `pageId`; all filter/create sites updated
+- All internal function params renamed from `pageNum` to `pageId` where used as ref keys
+- Changes span `App.jsx`, `canvasRenderer.js`, `geometry.js`
+
+### 2. Bugs fixed this session
+
+- **Locked shapes invisible in view mode** — `useEffect` and `confirmShape` were passing
+  `currentPage` (number) to `drawLockedShapes` after shapes migrated to string `pageId`.
+  Fixed both call sites to use `getPageId(currentPage)`.
+- **Compass rotation handle position** — handle was outside the arrowhead tip (felt like
+  a target, not a control). Moved to `top: 15px` (~60% along the N arm from center).
+- **Compass numeric input controlled-input bug** — `toFixed()` on every keystroke caused
+  "180" to produce "1.1". Fixed with separate `compassInputVal` string state; only parsed
+  on blur/Enter; arrow keys inside input stop propagation.
+
+### 3. Architecture decisions locked in planning chat
 
 - **pageId as governing key**: all page-keyed state migrates from pageNum to
   pageId in Step 4. pageNum retained only for PDF.js rendering. pageId assigned
@@ -190,33 +226,37 @@ as a short stray line. Cosmetically harmless, no geometry error. Logged in
   flagged as future architecture problem — logged in ADDITIONAL_FUNCTIONALITY.md.
 - **Duplicate page** deferred — logged in ADDITIONAL_FUNCTIONALITY.md. pageId
   architecture designed to accommodate it cleanly when prioritized.
-- **Step 4 splits into 4a and 4b** — see BUILD_ROADMAP.md.
+- **Working area selection dropped from Step 4b scope** — zoom makes it redundant
+  for the current workflow; duplicate page handles mixed-page case when prioritized.
+- **Step 4 splits into 4a and 4b** — 4a complete; 4b is page categorization UI.
 
 ---
 
-## CURRENT DEFERRED ITEMS (post-Session 3)
+## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
 - **Parallel alignment guide tolerance:** too loose with small snap grids
 - **Redundant collinear vertex after complex Combine:** stray short segment, cosmetic
 - **Inherited geometry on all pages:** layer management deferred to Phase 2+
 - **No persistence:** memory only, lost on reload
+- **Working area selection:** dropped from Step 4b scope; zoom makes it redundant; revisit when duplicate page is prioritized
 - See `ADDITIONAL_FUNCTIONALITY.md` for larger deferred feature ideas
 
 ---
 
 ## FORWARD BUILD SEQUENCE
 
-Per `BUILD_ROADMAP.md` — infrastructure steps remaining:
-
 1. ~~Zoom/pan~~ — DONE
-2. **Compass rose alignment** <- **NEXT UP**
-3. **Page categorization + working area (Step 4a)**
-4. **Sidebar + navigation (Step 4b)**
+2. ~~Compass rose alignment~~ — DONE
+3. ~~Step 4a: pageId migration~~ — DONE
+4. **Step 4b (NEXT): Page categorization UI** — category + sub-label per page,
+   auto-starts after compass Confirm/Skip, stored in `projectState.pages`.
+   Working area removed from scope.
+5. **Step 4c: Sidebar + navigation**
 
 Then a fresh planning chat picks up at ground floor tracing onward (see
 `FUNCTIONALITY_SUMMARY.md`).
 
 ---
 
-## NEXT SESSION PROMPT — compass rose alignment
+## NEXT SESSION PROMPT — Step 4b: page categorization
