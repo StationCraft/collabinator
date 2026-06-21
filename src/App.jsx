@@ -77,6 +77,7 @@ function App() {
   const splitMouseRef = useRef(null)
   const deleteHoverIdxRef = useRef(null)
   const holdTimerRef = useRef(null)
+  const drawStartSnapRef = useRef(null)
 
   // ── Page rendering ──────────────────────────────────────────────────────
 
@@ -268,9 +269,16 @@ function App() {
   const exitDrawMode = () => {
     setDrawMode(false); setReviewShape(null)
     drawVerticesRef.current = []; setDrawVertexCount(0)
-    mousePosRef.current = null
+    mousePosRef.current = null; drawStartSnapRef.current = null
     snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
   }
+
+  // Returns all vertices from currently visible geometry on the given page.
+  // Written generically so it extends automatically when reference/ghost geometry is added.
+  const getVisibleVertices = (pageNum) =>
+    completedShapesRef.current
+      .filter(s => s.pageNumber === pageNum)
+      .flatMap(s => s.vertices)
 
   const applySnap = (rawPos, lastVertex, useAngle, useDist, pageNum) => {
     if (!lastVertex) return rawPos
@@ -928,7 +936,10 @@ function App() {
       const useAngleNow = snapAngle && !e.shiftKey
       let finalPos
       if (verts.length === 0) {
-        finalPos = snapToGrid(rawPos, currentPage)
+        finalPos = (!e.shiftKey && drawStartSnapRef.current)
+          ? { ...drawStartSnapRef.current }
+          : snapToGrid(rawPos, currentPage)
+        drawStartSnapRef.current = null
       } else {
         const { pos } = computeFinalSnapPos(rawPos, verts, useAngleNow, snapDist, currentPage)
         finalPos = pos
@@ -1100,6 +1111,20 @@ function App() {
       drawCalibState([calibPoints[0], applySnap(pos, calibPoints[0], true, false, currentPage)])
     } else if (drawMode && !reviewShape) {
       mousePosRef.current = pos
+      // Pre-first-vertex: detect snap target on visible geometry (Shift suppresses)
+      if (drawVerticesRef.current.length === 0) {
+        if (!e.shiftKey) {
+          const visVerts = getVisibleVertices(currentPage)
+          let best = null, bestDist = HIT_VERT_DIST
+          for (const v of visVerts) {
+            const d = Math.hypot(pos.x - v.x, pos.y - v.y)
+            if (d < bestDist) { bestDist = d; best = v }
+          }
+          drawStartSnapRef.current = best
+        } else {
+          drawStartSnapRef.current = null
+        }
+      }
       redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle && !e.shiftKey, snapDist, currentPage)
     }
   }
@@ -1112,6 +1137,14 @@ function App() {
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
     drawLockedShapes(ctx, completedShapesRef.current, pageNum)
+
+    // Start-vertex snap highlight: pre-first-vertex window only
+    if (vertices.length === 0 && mousePos && drawStartSnapRef.current) {
+      const sv = drawStartSnapRef.current
+      ctx.beginPath(); ctx.arc(sv.x, sv.y, 9, 0, Math.PI * 2)
+      ctx.fillStyle = '#dc2626'; ctx.fill()
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 2.5; ctx.stroke()
+    }
 
     if (vertices.length >= 2) {
       ctx.beginPath(); ctx.moveTo(vertices[0].x, vertices[0].y)
@@ -1262,6 +1295,23 @@ function App() {
     : null
   const canApplySplit = !!splitResult
 
+  // Snap increment selector for Edit Shapes mode — reads/writes the same ref+state as Draw mode.
+  // Changing it in edit mode takes effect on the next vertex drag/insert/move snap.
+  const editSnapIncrementSelect = snapDist && pageHasScale ? (() => {
+    const isImperial = pageScalesRef.current[currentPage]?.displayUnit === 'ft'
+    return (
+      <select className="snap-increment-select" value={snapIncrement}
+        onChange={e => { const v = parseFloat(e.target.value); snapIncrementRef.current = v; setSnapIncrement(v) }}
+      >
+        {isImperial
+          ? <><option value={0.0254}>1″</option><option value={0.0762}>3″</option>
+              <option value={0.1524}>6″</option><option value={0.3048}>12″</option></>
+          : <><option value={0.025}>2.5 cm</option><option value={0.075}>7.5 cm</option>
+              <option value={0.15}>15 cm</option><option value={0.30}>30 cm</option></>}
+      </select>
+    )
+  })() : null
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -1408,6 +1458,7 @@ function App() {
                   Delete Shape
                 </button>
                 <span className="edit-status">Drag corner · side · click label to edit · hold segment to insert vertex</span>
+                {editSnapIncrementSelect}
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitEditMode}>Done</button>
@@ -1418,6 +1469,7 @@ function App() {
               <>
                 <span className="submode-status submode-status--move">Move Shape</span>
                 <span className="edit-status">Click and drag a shape · Esc to cancel</span>
+                {editSnapIncrementSelect}
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
@@ -1437,6 +1489,7 @@ function App() {
                 {canApplyCombine && (
                   <button className="btn-primary btn-sm" onClick={applyMerge}>Apply Combine</button>
                 )}
+                {editSnapIncrementSelect}
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
@@ -1447,6 +1500,7 @@ function App() {
               <>
                 <span className="submode-status submode-status--delete">Delete Shape</span>
                 <span className="edit-status">Click a shape to delete it permanently</span>
+                {editSnapIncrementSelect}
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
@@ -1472,6 +1526,7 @@ function App() {
                     setSplitCut([]); drawEditCanvas()
                   }}>Reset Cut</button>
                 )}
+                {editSnapIncrementSelect}
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
