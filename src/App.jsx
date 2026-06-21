@@ -5,6 +5,7 @@ import {
   distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
   findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
+  FLOOR_ORDER,
 } from './geometry.js'
 import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide } from './canvasRenderer.js'
 
@@ -1707,7 +1708,7 @@ function App() {
       })
 
     const floor = orderBy(byCat('floor-plan'),
-      ['Basement', 'Crawlspace', 'Main Floor', '2nd Floor', '3rd Floor'],
+      FLOOR_ORDER,
       p => p.subLabel
     ).map(p => ({ pageNum: p.pageNum, label: p.subLabel || 'Floor Plan' }))
 

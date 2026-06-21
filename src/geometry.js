@@ -237,6 +237,41 @@ export function getEligibleShapes(shapes, pageId) {
   return eligible
 }
 
+// ── Plan View (floor plan) ordering ─────────────────────────────────────────
+// Canonical low-to-high order of known floor sub-labels. Single source of truth:
+// both the sidebar ordering and getAnchorFloor() read from this. Free-text /
+// "Other" sub-labels are NOT in this list and sort after all known labels.
+export const FLOOR_ORDER = ['Basement', 'Crawlspace', 'Main Floor', '2nd Floor', '3rd Floor']
+
+// True when subLabel is one of the canonical known floor labels.
+export function isKnownFloorLabel(subLabel) {
+  return FLOOR_ORDER.indexOf(subLabel) !== -1
+}
+
+// Identifies the anchor floor = the lowest-elevation Plan View with a known
+// sub-label. Read-only; does not mutate pages.
+//   pages: Array<{ pageId, pageNum, category, subLabel }>
+// Returns { determinable, anchorPageId }.
+//  - Only category === 'floor-plan' (Plan View) pages are considered.
+//  - Only pages whose subLabel is a known floor label participate; free-text
+//    Plan Views are ignored for this determination.
+//  - If one or more known-label Plan Views exist, the lowest per FLOOR_ORDER is
+//    the anchor (determinable true). Ties broken by pageNum.
+//  - If none qualify, determinable is false and anchorPageId is null — no
+//    guessing or fallback to page order.
+export function getAnchorFloor(pages) {
+  const known = (pages || []).filter(
+    p => p.category === 'floor-plan' && isKnownFloorLabel(p.subLabel)
+  )
+  if (known.length === 0) return { determinable: false, anchorPageId: null }
+  const anchor = known.reduce((lowest, p) => {
+    const ri = FLOOR_ORDER.indexOf(p.subLabel), rl = FLOOR_ORDER.indexOf(lowest.subLabel)
+    if (ri !== rl) return ri < rl ? p : lowest
+    return p.pageNum < lowest.pageNum ? p : lowest
+  })
+  return { determinable: true, anchorPageId: anchor.pageId }
+}
+
 export const CLOSE_SNAP_RADIUS = 16
 export const ALIGN_TOLERANCE = 10
 export const HIT_SEG_DIST = 8
