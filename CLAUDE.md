@@ -69,10 +69,11 @@ A React + Vite app with:
   * **Move Shape sub-mode:** click-drag a whole shape; each vertex independently
     snaps to the absolute page grid (prevents float drift from delta-snapping)
   * **Combine Shapes sub-mode:** collinear-overlap detection — two shapes are
-    eligible if they each have an edge on the same infinite line (anti-parallel)
-    with nonzero overlap length; merge inserts new vertices at the exact overlap
-    boundaries via linear interpolation (no rounding/snapping), then splices the
-    shared portion out; full-edge-match is a special case and still works
+    eligible if they each have an edge on the same infinite line (parallel OR
+    anti-parallel — both winding combinations work) with nonzero overlap length;
+    merge inserts new vertices at the exact overlap boundaries via linear
+    interpolation (no rounding/snapping), then splices the shared portion out;
+    full-edge-match is a special case and still works
   * **Split Shape sub-mode:** click a shape to select it, draw a two-point cut
     line; the line is extended infinitely to find two boundary intersections and
     produce two independent locked shapes; handles near-collinear and vertex-
@@ -88,6 +89,15 @@ A React + Vite app with:
     works if polygon has >3 vertices
   * **Button labels:** "Cancel" only appears where clicking reverts a confirmed
     change; mode-exit buttons say "Done", "Back", or "Exit" as appropriate
+  * **Snap grid selector in Edit Shapes:** the distance-snap increment
+    (1″/3″/6″/12″ or 2.5/7.5/15/30 cm) is exposed in all five Edit Shapes
+    toolbar contexts (default, Move, Combine, Split, Delete), reading/writing
+    the same underlying setting as Draw mode — stays in sync across modes
+- **Start-vertex snap:** before placing the first vertex of a new shape, hovering
+  within 9px (HIT_VERT_DIST) of any vertex on visible locked geometry shows a red
+  highlight; clicking places the new shape's first vertex exactly coincident.
+  Shift suppresses it for a free start point. Implemented via `getVisibleVertices()`
+  so it extends automatically to future reference/ghost geometry with no rework.
 - **PDF upload full-state reset:** uploading a new file clears all locked shapes,
   calibration/scale data, page grid origins, in-progress drawing trace, review
   state, and edit undo/redo history — new file always starts completely clean
@@ -96,7 +106,11 @@ A React + Vite app with:
 - Zoom & pan
 - Multi-floor coordination, compass rose, page categorization (Phase 1.5)
 
-**Deferred polish items:** none — all previously deferred items are complete.
+**Deferred polish items:**
+- **Redundant collinear vertex after Combine:** some complex merges leave a
+  zero-angle vertex where the splice points coincide exactly with existing
+  vertices — cosmetically harmless, no geometry error, but adds a redundant
+  node. Future polish pass to detect and remove collinear vertices post-merge.
 
 ## Data structures (current implementation)
 
@@ -141,6 +155,16 @@ All of the above are cleared on PDF upload.
   snapped). Non-axis-aligned shapes may still have adjacent segments that stretch
   unexpectedly during perpendicular drag — geometrically correct but may surprise.
 - **No persistence:** All geometry lives in memory only. Lost on page reload.
+
+## Source layout (current)
+
+- `src/geometry.js` — all pure geometry helpers and polygon algorithms
+  (distToSegment, applyAxisSnap, findCollinearOverlap, splitPolygon, etc.)
+  plus module-level constants (CLOSE_SNAP_RADIUS, HIT_VERT_DIST, etc.)
+- `src/canvasRenderer.js` — stateless drawing primitives that take explicit
+  data params (drawLockedShapes, drawShapePoly, drawAlignGuide, pxToDisplayDist)
+- `src/App.jsx` — all React state, refs, event handlers, stateful canvas
+  drawing (drawEditCanvas, redrawDrawCanvas), and JSX (~1560 lines)
 
 ## Working environment notes
 
