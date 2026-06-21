@@ -13,6 +13,33 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString()
 
+function CompassRoseSVG() {
+  // 120×120 viewBox, center at (60,60). N arm points up (negative Y).
+  return (
+    <svg className="compass-rose-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      {/* Cardinal arms */}
+      <line x1="60" y1="60" x2="60" y2="10"  stroke="#e53e3e" strokeWidth="3" strokeLinecap="round" />
+      <line x1="60" y1="60" x2="60" y2="110" stroke="#555"    strokeWidth="2" strokeLinecap="round" />
+      <line x1="60" y1="60" x2="10"  y2="60" stroke="#555"    strokeWidth="2" strokeLinecap="round" />
+      <line x1="60" y1="60" x2="110" y2="60" stroke="#555"    strokeWidth="2" strokeLinecap="round" />
+      {/* Intercardinal arms */}
+      <line x1="60" y1="60" x2="24"  y2="24"  stroke="#999" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="60" x2="96"  y2="24"  stroke="#999" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="60" x2="96"  y2="96"  stroke="#999" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="60" x2="24"  y2="96"  stroke="#999" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Center dot */}
+      <circle cx="60" cy="60" r="4" fill="#333" />
+      {/* Arrowhead on N arm */}
+      <polygon points="60,6 55,18 65,18" fill="#e53e3e" />
+      {/* Cardinal labels */}
+      <text x="60" y="8"   textAnchor="middle" dominantBaseline="auto"   fontSize="11" fontWeight="700" fill="#e53e3e">N</text>
+      <text x="60" y="118" textAnchor="middle" dominantBaseline="auto"   fontSize="10" fontWeight="600" fill="#555">S</text>
+      <text x="8"  y="64"  textAnchor="middle" dominantBaseline="middle" fontSize="10" fontWeight="600" fill="#555">W</text>
+      <text x="112" y="64" textAnchor="middle" dominantBaseline="middle" fontSize="10" fontWeight="600" fill="#555">E</text>
+    </svg>
+  )
+}
+
 function App() {
   const [pdf, setPdf] = useState(null)
   const [pageCount, setPageCount] = useState(0)
@@ -48,6 +75,18 @@ function App() {
   const [combineError, setCombineError] = useState('')
   const [splitSelected, setSplitSelected] = useState(null)
   const [splitCut, setSplitCut] = useState([])
+
+  // ── Compass rose ──────────────────────────────────────────────────────────
+  const [showCompassOverlay, setShowCompassOverlay] = useState(false)
+  const [compassAngleDeg, setCompassAngleDeg] = useState(null)   // null = not yet set
+  const [compassCardinal, setCompassCardinal] = useState(null)
+  const [compassDraftAngle, setCompassDraftAngle] = useState(0)  // working angle while overlay is open
+  const [compassInputVal, setCompassInputVal] = useState('0')    // raw string for the angle text input
+  const compassInputFocusedRef = useRef(false)
+  const [compassPos, setCompassPos] = useState({ x: null, y: null }) // null = centered on first open
+  const compassDragRef = useRef(null)   // { startClientX, startClientY, startPosX, startPosY }
+  const compassRotDragRef = useRef(null) // { startClientX, startClientY, startAngle }
+  const compassOverlayRef = useRef(null)
 
   const canvasRef = useRef(null)
   const measureRef = useRef(null)
@@ -158,6 +197,9 @@ function App() {
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
     drawVerticesRef.current = []; mousePosRef.current = null
+    setCompassAngleDeg(null); setCompassCardinal(null)
+    setCompassDraftAngle(0); setCompassPos({ x: null, y: null })
+    setShowCompassOverlay(false)
     resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
@@ -1390,6 +1432,130 @@ function App() {
     }
   }, [])
 
+  // ── Compass rose helpers ──────────────────────────────────────────────────
+
+  const CARDINALS = ['N','NE','E','SE','S','SW','W','NW']
+  function angleToCardinal(deg) {
+    const idx = Math.round(((deg % 360) + 360) % 360 / 45) % 8
+    return CARDINALS[idx]
+  }
+
+  // Auto-focus overlay div when opened so arrow keys work immediately
+  useEffect(() => {
+    if (showCompassOverlay && compassOverlayRef.current) {
+      compassOverlayRef.current.focus()
+    }
+  }, [showCompassOverlay])
+
+  // Sync input string when angle changes externally (drag, arrow keys) — not while user is typing
+  useEffect(() => {
+    if (!compassInputFocusedRef.current) {
+      setCompassInputVal(compassDraftAngle.toFixed(1))
+    }
+  }, [compassDraftAngle])
+
+  function openCompassOverlay() {
+    const angle = compassAngleDeg ?? 0
+    setCompassDraftAngle(angle)
+    setCompassInputVal(angle.toFixed(1))
+    // Default position: center of viewport
+    if (compassPos.x === null) {
+      setCompassPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+    }
+    setShowCompassOverlay(true)
+  }
+
+  function confirmCompass() {
+    setCompassAngleDeg(compassDraftAngle)
+    setCompassCardinal(angleToCardinal(compassDraftAngle))
+    setShowCompassOverlay(false)
+  }
+
+  function skipCompass() {
+    setCompassAngleDeg(0)
+    setCompassCardinal('N')
+    setShowCompassOverlay(false)
+  }
+
+  // Pointer handlers for dragging the compass overlay body
+  function onCompassBodyPointerDown(e) {
+    if (e.button !== 0) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    compassDragRef.current = {
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startPosX: compassPos.x,
+      startPosY: compassPos.y,
+    }
+    e.stopPropagation()
+  }
+
+  function onCompassBodyPointerMove(e) {
+    if (!compassDragRef.current) return
+    const dx = e.clientX - compassDragRef.current.startClientX
+    const dy = e.clientY - compassDragRef.current.startClientY
+    setCompassPos({
+      x: compassDragRef.current.startPosX + dx,
+      y: compassDragRef.current.startPosY + dy,
+    })
+    e.stopPropagation()
+  }
+
+  function onCompassBodyPointerUp(e) {
+    compassDragRef.current = null
+    e.stopPropagation()
+  }
+
+  // Pointer handlers for the rotation handle
+  function onRotHandlePointerDown(e) {
+    if (e.button !== 0) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    compassRotDragRef.current = {
+      centerX: compassPos.x,
+      centerY: compassPos.y,
+      startAngle: compassDraftAngle,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      // angle from center to pointer at drag start (for delta computation)
+      startPtrAngle: Math.atan2(e.clientY - compassPos.y, e.clientX - compassPos.x) * 180 / Math.PI,
+    }
+    e.stopPropagation()
+    e.preventDefault()
+  }
+
+  function onRotHandlePointerMove(e) {
+    if (!compassRotDragRef.current) return
+    const { centerX, centerY, startPtrAngle, startAngle } = compassRotDragRef.current
+    const currentPtrAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI
+    const delta = currentPtrAngle - startPtrAngle
+    // The rotation handle is at the top of the rose; dragging it clockwise increases angleDeg
+    setCompassDraftAngle(((startAngle + delta) % 360 + 360) % 360)
+    e.stopPropagation()
+  }
+
+  function onRotHandlePointerUp(e) {
+    compassRotDragRef.current = null
+    e.stopPropagation()
+  }
+
+  // Arrow key handler — attached to the overlay div
+  function onCompassKeyDown(e) {
+    if (!showCompassOverlay) return
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); e.stopPropagation()
+      const step = e.shiftKey ? 0.1 : 1
+      setCompassDraftAngle(prev => ((prev - step) % 360 + 360) % 360)
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault(); e.stopPropagation()
+      const step = e.shiftKey ? 0.1 : 1
+      setCompassDraftAngle(prev => ((prev + step) % 360 + 360) % 360)
+    } else if (e.key === 'Enter') {
+      e.preventDefault(); confirmCompass()
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation(); setShowCompassOverlay(false)
+    }
+  }
+
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const pageHasScale = currentPage && !!pageScalesRef.current[currentPage]
@@ -1450,6 +1616,17 @@ function App() {
             <span className="page-indicator">{renderingPage ? '…' : currentPage} / {pageCount}</span>
             <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= pageCount || renderingPage}>›</button>
           </div>
+        )}
+
+        {pdf && !calibMode && !drawMode && !editMode && (
+          <button
+            className={`compass-north-btn ${compassAngleDeg !== null ? 'compass-north-btn--done' : ''}`}
+            onClick={openCompassOverlay}
+          >
+            {compassAngleDeg !== null
+              ? `North set ✓  (${compassCardinal}${compassAngleDeg !== 0 ? ` ${compassAngleDeg.toFixed(1)}°` : ''})`
+              : 'Set North'}
+          </button>
         )}
 
         {currentPage && !calibMode && !drawMode && !editMode && (
@@ -1712,6 +1889,81 @@ function App() {
       {!pdf && !loading && (
         <div className="empty-state">
           <p>Upload a PDF architectural drawing set to begin</p>
+        </div>
+      )}
+
+      {showCompassOverlay && compassPos.x !== null && (
+        <div
+          ref={compassOverlayRef}
+          className="compass-overlay"
+          style={{ left: compassPos.x, top: compassPos.y }}
+          tabIndex={0}
+          onKeyDown={onCompassKeyDown}
+          onPointerDown={onCompassBodyPointerDown}
+          onPointerMove={e => { onCompassBodyPointerMove(e); onRotHandlePointerMove(e) }}
+          onPointerUp={e => { onCompassBodyPointerUp(e); onRotHandlePointerUp(e) }}
+        >
+          {/* SVG compass rose — rotated by compassDraftAngle */}
+          <div
+            className="compass-rose-wrap"
+            style={{ transform: `rotate(${compassDraftAngle}deg)` }}
+          >
+            <CompassRoseSVG />
+            {/* Rotation handle — a circle above the N tip; capture pointer here so move/up route correctly */}
+            <div
+              className="compass-rot-handle"
+              onPointerDown={e => { e.stopPropagation(); onRotHandlePointerDown(e) }}
+              onPointerMove={e => { e.stopPropagation(); onRotHandlePointerMove(e) }}
+              onPointerUp={e => { e.stopPropagation(); onRotHandlePointerUp(e) }}
+              title="Drag to rotate"
+            />
+          </div>
+          {/* Controls panel — not rotated */}
+          <div className="compass-controls" onPointerDown={e => e.stopPropagation()}>
+            <div className="compass-angle-row">
+              <span className="compass-angle-label">
+                {compassDraftAngle.toFixed(1)}° ({angleToCardinal(compassDraftAngle)})
+              </span>
+              <input
+                className="compass-angle-input"
+                type="number"
+                min={0} max={359.9} step={0.1}
+                value={compassInputVal}
+                onChange={e => setCompassInputVal(e.target.value)}
+                onFocus={() => { compassInputFocusedRef.current = true }}
+                onBlur={() => {
+                  compassInputFocusedRef.current = false
+                  const v = parseFloat(compassInputVal)
+                  if (!isNaN(v)) {
+                    const clamped = ((v % 360) + 360) % 360
+                    setCompassDraftAngle(clamped)
+                    setCompassInputVal(clamped.toFixed(1))
+                  } else {
+                    setCompassInputVal(compassDraftAngle.toFixed(1))
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const v = parseFloat(compassInputVal)
+                    if (!isNaN(v)) {
+                      const clamped = ((v % 360) + 360) % 360
+                      setCompassDraftAngle(clamped)
+                      setCompassInputVal(clamped.toFixed(1))
+                    }
+                    e.currentTarget.blur()
+                  }
+                  // Stop arrow keys from bubbling to the overlay's nudge handler while typing
+                  e.stopPropagation()
+                }}
+              />
+            </div>
+            <p className="compass-hint">Drag rose to move · drag handle to rotate · ← → to nudge 1° · Shift+← → for 0.1°</p>
+            <div className="compass-btn-row">
+              <button className="btn-primary btn-sm" onClick={confirmCompass}>Confirm North Alignment</button>
+              <button className="calib-cancel" onClick={skipCompass}>Skip (use default)</button>
+            </div>
+          </div>
         </div>
       )}
 

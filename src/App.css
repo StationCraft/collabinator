@@ -535,3 +535,137 @@ canvas {
   border-color: #d97706;
   box-shadow: 0 0 0 2px rgba(245,158,11,0.25), 0 2px 8px rgba(0,0,0,0.15);
 }
+
+/* ── Compass rose toolbar button ── */
+.compass-north-btn {
+  padding: 0.45rem 1rem;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.compass-north-btn:hover {
+  background: #6d28d9;
+}
+
+.compass-north-btn--done {
+  background: #ede9fe;
+  color: #4c1d95;
+}
+
+.compass-north-btn--done:hover {
+  background: #ddd6fe;
+}
+
+/* ── Compass rose overlay ── */
+.compass-overlay {
+  position: fixed;
+  z-index: 200;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d4d4d8;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+  user-select: none;
+  cursor: grab;
+  outline: none;
+}
+
+.compass-overlay:active {
+  cursor: grabbing;
+}
+
+.compass-rose-wrap {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+}
+
+.compass-rose-svg {
+  width: 120px;
+  height: 120px;
+  display: block;
+}
+
+/* Rotation handle — small circle at the top of the rose */
+.compass-rot-handle {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #7c3aed;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  cursor: crosshair;
+}
+
+.compass-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 220px;
+  cursor: default;
+}
+
+.compass-angle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.compass-angle-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  min-width: 90px;
+}
+
+.compass-angle-input {
+  width: 72px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.85rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.compass-angle-input:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px rgba(124,58,237,0.2);
+}
+
+.compass-hint {
+  font-size: 0.73rem;
+  color: #888;
+  text-align: center;
+  max-width: 220px;
+  line-height: 1.35;
+}
+
+.compass-btn-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
