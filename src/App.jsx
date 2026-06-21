@@ -79,6 +79,18 @@ function App() {
   const holdTimerRef = useRef(null)
   const drawStartSnapRef = useRef(null)
 
+  // ── Zoom / pan ────────────────────────────────────────────────────────────
+  const MIN_ZOOM = 0.1
+  const MAX_ZOOM = 10
+  const zoomRef = useRef(1)
+  const panRef = useRef({ x: 0, y: 0 })
+  const panDragRef = useRef(null)   // { startClientX, startClientY, startPanX, startPanY, active }
+  const panDidDragRef = useRef(false)
+  const canvasWrapperRef = useRef(null)  // the canvas-stack div (clipping viewport)
+  const canvasWorldRef = useRef(null)    // the canvas-world div (receives transform)
+  const [viewTransform, setViewTransform] = useState({ zoom: 1, panX: 0, panY: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+
   // ── Page rendering ──────────────────────────────────────────────────────
 
   const renderPage = useCallback(async (pdfDoc, pageNum) => {
@@ -106,6 +118,23 @@ function App() {
     }
   }, [])
 
+  const startPanDrag = (e) => {
+    panDragRef.current = {
+      startClientX: e.clientX, startClientY: e.clientY,
+      startPanX: panRef.current.x, startPanY: panRef.current.y,
+      active: false,
+    }
+  }
+
+  const resetZoomPan = () => {
+    zoomRef.current = 1
+    panRef.current = { x: 0, y: 0 }
+    panDragRef.current = null
+    panDidDragRef.current = false
+    setViewTransform({ zoom: 1, panX: 0, panY: 0 })
+    setIsPanning(false)
+  }
+
   const resetEditState = () => {
     setEditMode(false); setEditSubMode(null); setLabelEditState(null)
     setEditCursor('default'); setEditUndoCount(0); setEditRedoCount(0)
@@ -129,6 +158,7 @@ function App() {
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
     drawVerticesRef.current = []; mousePosRef.current = null
+    resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
       const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
@@ -146,6 +176,7 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     resetEditState()
+    resetZoomPan()
     drawVerticesRef.current = []; mousePosRef.current = null
     renderPage(pdf, pageNum)
   }
@@ -755,7 +786,19 @@ function App() {
   // ── Canvas mouse handlers ─────────────────────────────────────────────────
 
   const handleMeasureMouseDown = (e) => {
-    if (!editMode || labelEditState) return
+    // Middle mouse: always start pan drag
+    if (e.button === 1) { startPanDrag(e); e.preventDefault(); return }
+
+    if (e.button !== 0) return
+
+    // No tool active: left drag pans
+    if (!editMode && !drawMode && !calibMode) { startPanDrag(e); return }
+
+    // Draw/calib: mousedown has no tool action, left drag pans
+    if (drawMode || calibMode) { startPanDrag(e); return }
+
+    // Edit mode below
+    if (labelEditState) return
     const subMode = editSubModeRef.current
     if (subMode === 'combine' || subMode === 'split' || subMode === 'delete') return // handled by onClick
     if (subMode === 'move') {
@@ -768,6 +811,8 @@ function App() {
           previewVerts: null, isDragging: false,
         }
         setEditCursor('grabbing')
+      } else {
+        startPanDrag(e)  // empty space in move mode: pan
       }
       return
     }
@@ -793,9 +838,8 @@ function App() {
       const a = verts[segHit.segIdx], b = verts[(segHit.segIdx + 1) % verts.length]
       const geom = segmentGeom(a, b)
       if (!geom) return
-      // Hold timer: if mouse stays still for 350ms, arm vertex insertion instead of segment drag
       const capturedPos = { ...pos }
-      const holdTimer = setTimeout(() => { // 550ms hold to arm vertex insertion
+      const holdTimer = setTimeout(() => {
         if (!dragStateRef.current || dragStateRef.current.type !== 'segPending') return
         const t = projT(capturedPos, a, b)
         const insertPt = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) }
@@ -821,10 +865,18 @@ function App() {
         isDragging: false, previewVerts: null, holdTimer,
       }
       setEditCursor('grabbing')
+      return
     }
+    // No hit in default edit mode: pan
+    startPanDrag(e)
   }
 
   const handleMeasureMouseUp = (e) => {
+    // Pan cleanup: if pan is active, window listener handles it; just bail
+    if (panDragRef.current?.active) return
+    // Pending pan (never activated = it's a click): clear ref, fall through to tool handlers
+    if (panDragRef.current) panDragRef.current = null
+
     if (!editMode) return
     const subMode = editSubModeRef.current
 
@@ -857,12 +909,10 @@ function App() {
 
     if (ds.type === 'labelClick' && !ds.moved) {
       const lbl = ds.labelHit
-      const c = measureRef.current
-      const rect = c.getBoundingClientRect()
       setLabelEditState({
         shapeIdx: lbl.shapeIdx, segIdx: lbl.segIdx, value: lbl.label,
-        cssX: (lbl.mx / c.width) * rect.width,
-        cssY: (lbl.my / c.height) * rect.height,
+        canvasX: lbl.mx,  // canvas pixel coords — canvas-world layout space
+        canvasY: lbl.my,
       })
     } else if (ds.type === 'vertexDrag' && ds.isDragging) {
       if (ds.mergeTarget !== null && ds.mergeTarget !== undefined) {
@@ -895,6 +945,8 @@ function App() {
   }
 
   const handleMeasureClick = (e) => {
+    // Suppress click that followed a pan drag
+    if (panDidDragRef.current) { panDidDragRef.current = false; return }
     if (editMode) {
       const subMode = editSubModeRef.current
       if (subMode === 'combine') { handleCombineClick(getCanvasPos(e)); return }
@@ -953,6 +1005,8 @@ function App() {
   }
 
   const handleMeasureMouseMove = (e) => {
+    // While pan drag is active, window listener updates pan — skip all tool interactions
+    if (panDragRef.current?.active) return
     const pos = getCanvasPos(e)
 
     if (editMode) {
@@ -1275,6 +1329,67 @@ function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [calibMode, drawMode, reviewShape, snapAngle, snapDist, currentPage, editMode, labelEditState])
 
+  // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
+
+  useEffect(() => {
+    const el = canvasWrapperRef.current
+    if (!el) return
+    const onWheel = (e) => {
+      e.preventDefault()
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomRef.current * factor))
+      if (newZoom === zoomRef.current) return
+      const c = measureRef.current
+      if (!c) return
+      const rect = c.getBoundingClientRect()
+      // Canvas pixel under cursor stays fixed: worldX = (clientX - rect.left) / zoom
+      const worldX = (e.clientX - rect.left) / zoomRef.current
+      const worldY = (e.clientY - rect.top) / zoomRef.current
+      // New pan so worldX stays under cursor after zoom
+      const newPanX = panRef.current.x + worldX * (zoomRef.current - newZoom)
+      const newPanY = panRef.current.y + worldY * (zoomRef.current - newZoom)
+      zoomRef.current = newZoom
+      panRef.current = { x: newPanX, y: newPanY }
+      setViewTransform({ zoom: newZoom, panX: newPanX, panY: newPanY })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  // ── Window-level pan drag (handles mouse leaving canvas during drag) ──────
+
+  useEffect(() => {
+    const onMove = (e) => {
+      const drag = panDragRef.current
+      if (!drag) return
+      const dx = e.clientX - drag.startClientX
+      const dy = e.clientY - drag.startClientY
+      if (!drag.active && Math.hypot(dx, dy) > 3) {
+        drag.active = true
+        setIsPanning(true)
+        // Cancel any pending edit hold timer or drag state
+        if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null }
+        dragStateRef.current = null
+      }
+      if (drag.active) {
+        panRef.current = { x: drag.startPanX + dx, y: drag.startPanY + dy }
+        setViewTransform(prev => ({ ...prev, panX: panRef.current.x, panY: panRef.current.y }))
+      }
+    }
+    const onUp = () => {
+      const drag = panDragRef.current
+      if (!drag) return
+      if (drag.active) { panDidDragRef.current = true; setIsPanning(false) }
+      panDragRef.current = null
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [])
+
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const pageHasScale = currentPage && !!pageScalesRef.current[currentPage]
@@ -1541,35 +1656,56 @@ function App() {
       {error && <p className="error">{error}</p>}
 
       <div className={`canvas-wrapper ${currentPage ? 'visible' : ''}`}>
-        <div className="canvas-stack">
-          <canvas ref={canvasRef} />
-          <canvas
-            ref={measureRef}
-            className={`measure-canvas ${(calibMode || drawMode || editMode) ? 'measure-canvas--active' : ''}`}
-            style={editMode ? { cursor: editCursor } : undefined}
-            onMouseDown={handleMeasureMouseDown}
-            onMouseUp={handleMeasureMouseUp}
-            onClick={handleMeasureClick}
-            onMouseMove={handleMeasureMouseMove}
-          />
-          {editMode && labelEditState && (
-            <div className="label-edit-overlay"
-              style={{ left: labelEditState.cssX, top: labelEditState.cssY }}>
-              <input
-                type="text" className="label-edit-input"
-                value={labelEditState.value} autoFocus
-                onChange={e => setLabelEditState(prev => ({ ...prev, value: e.target.value }))}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') { e.preventDefault(); commitLabelEdit() }
-                  if (e.key === 'Escape') {
-                    e.stopPropagation()
-                    setLabelEditState(null); drawEditCanvas(editHoverRef.current)
-                  }
+        <div
+          className="canvas-stack"
+          ref={canvasWrapperRef}
+          style={{ cursor: isPanning ? 'grabbing' : (!drawMode && !calibMode && !editMode && currentPage ? 'grab' : undefined) }}
+        >
+          <div
+            ref={canvasWorldRef}
+            className="canvas-world"
+            style={{
+              transform: `translate(${viewTransform.panX}px,${viewTransform.panY}px) scale(${viewTransform.zoom})`,
+              transformOrigin: '0 0',
+            }}
+          >
+            <canvas ref={canvasRef} />
+            <canvas
+              ref={measureRef}
+              className="measure-canvas"
+              style={{ cursor: isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode) ? 'crosshair' : undefined }}
+              onMouseDown={handleMeasureMouseDown}
+              onMouseUp={handleMeasureMouseUp}
+              onClick={handleMeasureClick}
+              onMouseMove={handleMeasureMouseMove}
+            />
+            {editMode && labelEditState && (
+              <div
+                className="label-edit-overlay"
+                style={{
+                  left: labelEditState.canvasX,
+                  top: labelEditState.canvasY,
+                  transform: `translate(-50%, -100%) scale(${1 / viewTransform.zoom})`,
+                  transformOrigin: '50% 100%',
+                  marginTop: '-4px',
                 }}
-                onBlur={() => { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }}
-              />
-            </div>
-          )}
+              >
+                <input
+                  type="text" className="label-edit-input"
+                  value={labelEditState.value} autoFocus
+                  onChange={e => setLabelEditState(prev => ({ ...prev, value: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitLabelEdit() }
+                    if (e.key === 'Escape') {
+                      e.stopPropagation()
+                      setLabelEditState(null); drawEditCanvas(editHoverRef.current)
+                    }
+                  }}
+                  onBlur={() => { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
