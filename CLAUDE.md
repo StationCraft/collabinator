@@ -140,11 +140,20 @@ A React + Vite app with:
   * Navigation: while categorizing the arrows cycle all pages; after Done they
     cycle categorized pages only; re-entry via "+ Categorize more pages" jumps to
     and cycles uncategorized pages only ("All pages categorized" end state)
+- **Sidebar (Step 4c):** collapsible sidebar overlay for page navigation:
+  * Floats as an overlay (`position:absolute`, `z-index:100`, 240px open / 32px
+    closed) — does not push or resize the canvas area
+  * Semi-transparent background (`rgba(15,23,42,0.20)`) with `backdrop-filter`
+    blur, so the PDF stays visible through it
+  * Sections in order: Plan Views, Elevations, Roof Plans, Cross-Sections,
+    Details, Site Plans, Unused Pages
+  * Intra-section ordering: floor plans low-to-high (Basement → 3rd Floor → free
+    text), elevations N/S/E/W
+  * Active page: blue left border + blue text; hover: translucent white background
+  * Canvas area unaffected by sidebar state (true overlay, not a flex sibling)
 
 **Not yet built (next increments):**
-- **Step 4c: sidebar (NEXT)** — collapsible left panel listing categorized pages
-  by type, plus an "Unused Pages" section; click to navigate
-- Ground floor tracing + origin point
+- Ground floor tracing + origin point (NEXT)
 - Multi-floor reference and alignment
 - Roof plan, elevations, cross-sections, windows/doors
 
@@ -270,6 +279,9 @@ After A.0.1–A.0.3 cleanup, Phase 1.5 builds the foundational architecture for 
 
 - **Coordinate system:** X,Y from plan (per compass rose), Z from elevations (vertical).
   Origin point on ground floor anchors the project.
+- **Origin point is NOT a user-facing step:** the internal coordinate anchor is
+  derived automatically from the first vertex placed on the ground floor page; no
+  user action required.
 - **Compass rose:** Manual overlay alignment + rotation input. Defines all axis labels.
 - **Plans define structural envelope:** Floor plans + roof plan → outer shell geometry.
 - **Elevations show vertical section:** Align to plan edges; show floor heights, roof

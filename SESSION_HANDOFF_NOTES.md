@@ -259,6 +259,34 @@ handles mixed-page case when prioritised (logged in `ADDITIONAL_FUNCTIONALITY.md
 
 ---
 
+## SESSION 6 — Sidebar overlay + planning decisions
+
+**Branch:** main | **Commits:** b314eab, 23d66bc
+
+### What was built
+
+**Step 4c: Sidebar + navigation (commit b314eab)**
+- Collapsible sidebar floats as overlay over canvas (position:absolute, z-index:100)
+- 240px open / 32px closed, no width transition (avoids frozen mid-animation issue)
+- Semi-transparent background rgba(15,23,42,0.20) with backdrop-filter blur(2px)
+- Sections rendered in order: Plan Views, Elevations, Roof Plans, Cross-Sections, Details, Site Plans, Unused Pages
+- Intra-section ordering: floor plans Basement→3rd Floor then free-text; elevations N/S/E/W
+- Active page highlighted; clicking any entry calls goToPage(pageNum)
+- Canvas area always fills full window width — sidebar does not push content
+
+**Sidebar light-scheme hover/active fix (commit 23d66bc)**
+- Hover: rgba(255,255,255,0.25) background, #111 text
+- Active: rgba(29,78,216,0.20) background, #1d4ed8 text, 3px solid #1d4ed8 left border
+- Replaced dark-scheme colours that were illegible over transparent sidebar
+
+### Planning decisions made this session
+
+- **Origin point dropped as a user step** — internal coordinate anchor derived automatically from first vertex placed on ground floor; no user action, no UI needed. The coordinate system is self-contained: scale factor from calibration, per-page transforms from ghost alignment, Z from elevation calibration.
+
+- **Cantilever/multiple-reference-points question closed** — the ghost displays the full previous floor polygon; the user aligns on matching corners naturally. Cantilevers do not require multiple pinned reference points. The per-page transform captures the correct spatial relationship for the whole floor.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`

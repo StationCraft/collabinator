@@ -24,10 +24,11 @@ building."
 [x] Step 3 — Compass rose alignment — DONE, committed
 [x] Step 4a — pageId migration — DONE, committed
 [x] Step 4b — Page categorization UI — DONE, committed
-[ ] Step 4c — Sidebar + navigation  <-- YOU ARE HERE
+[x] Step 4c — Sidebar + navigation — DONE, committed (b314eab, 23d66bc)
+[ ] Ground floor tracing + origin point  <-- YOU ARE HERE
 ```
 
-**This chat's goal is complete when Step 4 is committed and tested.**
+**This chat's goal is complete. A fresh planning chat picks up at ground floor tracing.**
 
 ---
 

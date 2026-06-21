@@ -98,12 +98,10 @@ For each page:
 
 - Uses the existing, working scale-and-trace tool (calibration → draw → close →
   review/confirm), unchanged.
-- Once a polygon is locked, **every exterior corner automatically functions as a
-  potential reference/origin point** — no special pre-selection step is needed during
-  tracing itself.
-- User selects which corner is the project origin, **with confirmation, and the
-  ability to change it later.**
-- The origin point is the spatial anchor subsequent floors and elevations align to.
+- Origin point is handled internally — no user action required. The system
+  automatically uses the first vertex placed on the ground floor page as the
+  internal coordinate anchor. All subsequent floors and elevations relate to this
+  anchor via their stored per-page transforms.
 
 ---
 
@@ -173,11 +171,10 @@ traces). Elevations exist to:
 7. User traces the elevation outline as a single continuous polyline (not separate
    polygons per floor segment).
 
-**Open/unresolved at time of writing:** whether multiple alignment/reference points
-per floor are needed (vs. one), given that a corner may shift between floors due to
-cantilevers. Current direction: vertical reference lines rising from each ground-floor
-corner are likely sufficient without requiring multiple stored alignment points — this
-should be validated once elevation calibration is actually built and tested.
+**Cantilevers do not require multiple reference points.** The ghost displays the full
+previous floor polygon and the user aligns on matching portions naturally. The
+per-page transform captures the correct spatial relationship for the whole floor.
+This question is closed.
 
 ---
 
