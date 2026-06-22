@@ -426,19 +426,19 @@ function App() {
       .flatMap(s => s.vertices)
 
   // Returns the effective scale entry { pxPerMeter, displayUnit } for a page:
-  // its own calibration if set; else, if the page's align transform is CONFIRMED,
-  // the ghost-source page's calibration; else null.
+  // its own calibration if set; else, if confirmed, follows pageRefParentRef chain to
+  // the primary (the root of the reference tree, which has own calibration).
   const getEffectiveScale = (pageId, _visited) => {
     const own = pageScalesRef.current[pageId]
     if (own) return own
     const t = pageTransformsRef.current[pageId]
     if (!t || !t.confirmed) return null
-    const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
-    if (!ghostPageId) return null
+    const parentId = pageRefParentRef.current[pageId]  // written at confirm time
+    if (!parentId) return null
     const visited = _visited || new Set()
-    if (visited.has(ghostPageId)) return null  // cycle guard — should never happen
+    if (visited.has(parentId)) return null  // cycle guard — now real work (user-defined tree)
     visited.add(pageId)
-    return getEffectiveScale(ghostPageId, visited)
+    return getEffectiveScale(parentId, visited)
   }
 
   const applySnap = (rawPos, lastVertex, useAngle, useDist, pageId) => {
@@ -504,7 +504,7 @@ function App() {
     if (subMode === 'move') {
       // Ghost reference (floor below) — drawn BELOW locked shapes
       if (showGhost) {
-        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
         if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
       }
 
@@ -526,7 +526,7 @@ function App() {
     if (subMode === 'combine') {
       // Ghost reference (floor below) — drawn BELOW locked shapes
       if (showGhost) {
-        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
         if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
       }
 
@@ -556,7 +556,7 @@ function App() {
     if (subMode === 'delete') {
       // Ghost reference (floor below) — drawn BELOW locked shapes
       if (showGhost) {
-        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
         if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
       }
 
@@ -574,7 +574,7 @@ function App() {
     if (subMode === 'split') {
       // Ghost reference (floor below) — drawn BELOW locked shapes
       if (showGhost) {
-        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
         if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
       }
 
@@ -608,7 +608,7 @@ function App() {
     // ── Default edit mode (vertex/segment drag, labels) ───────────────────
     // Ghost reference (floor below) — drawn BELOW locked shapes
     if (showGhost) {
-      const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+      const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
       if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
@@ -961,7 +961,7 @@ function App() {
       const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
       const pos = getCanvasPos(e)
       // Compute ghost bbox corners for hit-test.
-      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
       const grabR = HANDLE_PX / zoomRef.current
       let hitCorner = null
       if (ghostPageId) {
@@ -1238,7 +1238,7 @@ function App() {
       if (!alignDragRef.current) {
         const pos = getCanvasPos(e)
         const pageId = getPageId(currentPage)
-        const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+        const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
         let overHandle = false
         if (ghostPageId) {
           const grabR = HANDLE_PX / zoomRef.current
@@ -1478,7 +1478,7 @@ function App() {
 
     // Ghost reference (floor below) — drawn BELOW locked shapes so working geometry stays on top
     if (showGhost) {
-      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
       if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
@@ -1548,7 +1548,7 @@ function App() {
 
     // Ghost reference (floor below) — drawn BELOW locked shapes
     if (showGhost) {
-      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
       if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
@@ -1641,7 +1641,7 @@ function App() {
 
     // Ghost reference (floor below) — drawn BELOW locked shapes
     if (showGhost) {
-      const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+      const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
       if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
@@ -2071,7 +2071,7 @@ function App() {
     if (target != null) goToPage(target)
   }
   const pageHasScale = currentPageId && !!getEffectiveScale(currentPageId)
-  const ghostSrc = currentPageId ? getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER) : null
+  const ghostSrc = currentPageId ? getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current) : null
   const isConfirmed = !!(pageTransformsRef.current[currentPageId]?.confirmed)
   const alignStarted = (() => { const t = pageTransformsRef.current[currentPageId]; return !!(t && (t.tx || t.ty || t.s !== 1)) })()
   const refLayerLabel = kindToLabel(REFERENCE_KIND_DEFAULT)
@@ -2164,7 +2164,7 @@ function App() {
         )}
 
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode &&
-         !getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER) && (
+         !getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current) && (
           <button
             className={`calib-btn ${pageHasScale ? 'calib-btn--done' : ''}`}
             onClick={() => { setCalibMode(true); setCalibPoints([]); setScaleError(''); clearMeasureCanvas() }}
@@ -2203,7 +2203,7 @@ function App() {
         )}
 
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (() => {
-          const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+          const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
           if (!ghostPageId) return null
           return (
             <>
@@ -2219,6 +2219,7 @@ function App() {
                   const pageId = getPageId(currentPage)
                   const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
                   pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                  if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
                   setAlignMode(false)
                   setAlignTick(t => t + 1)
                 }}>Confirm scale & alignment</button>
@@ -2271,7 +2272,7 @@ function App() {
                   )
                 })()}
                 {(() => {
-                  const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+                  const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
                   return ghostPageId ? (
                     <>
                       <button
@@ -2292,6 +2293,7 @@ function App() {
                           const pageId = getPageId(currentPage)
                           const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
                           pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                          if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
                           setAlignMode(false)
                           setAlignTick(t => t + 1)
                         }}>Confirm scale & alignment</button>
@@ -2343,7 +2345,7 @@ function App() {
                   Delete Shape
                 </button>
                 {(() => {
-                  const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+                  const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
                   return ghostPageId ? (
                     <>
                       <button
@@ -2365,6 +2367,7 @@ function App() {
                           const pageId = getPageId(currentPage)
                           const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
                           pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                          if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
                           setAlignMode(false)
                           setAlignTick(t => t + 1)
                         }}>Confirm scale & alignment</button>

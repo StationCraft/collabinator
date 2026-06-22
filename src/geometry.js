@@ -272,29 +272,37 @@ export function getAnchorFloor(pages) {
   return { determinable: true, anchorPageId: anchor.pageId }
 }
 
-// Returns the pageId of the floor-below to show as a ghost on the current page.
-// Returns null if: current page is not a Floor Plan, has no known floor level,
-// or no qualifying lower floor exists with locked shapes.
+// Returns the pageId to show as a ghost on the current page (the reference source).
+// Priority: stored referenceParentId (from pageRefParent map, written at confirm time)
+// → FLOOR_ORDER downward scan as default suggestion (pre-confirm or no stored parent).
+// Returns null if current page is not a categorized Floor Plan with a known floor level,
+// or if no qualifying reference with locked shapes is found.
 //   pages: Array<{ pageId, pageNum, category, subLabel, ... }>
 //   currentPageId: the page currently being viewed
 //   completedShapes: Array<{ pageId, vertices, ... }> (ref.current value)
 //   floorOrder: FLOOR_ORDER array for canonical ordering
-export function getGhostSourcePageId(pages, currentPageId, completedShapes, floorOrder) {
+//   pageRefParent: optional map { [pageId]: parentPageId } written at confirm time
+export function getGhostSourcePageId(pages, currentPageId, completedShapes, floorOrder, pageRefParent) {
   const currentPage = pages.find(p => p.pageId === currentPageId)
   if (!currentPage || currentPage.category !== 'floor-plan' || !currentPage.subLabel) return null
+
+  // If a confirmed parent is stored, use it directly (primary-reference tree).
+  const storedParent = pageRefParent && pageRefParent[currentPageId]
+  if (storedParent) {
+    const hasLocked = completedShapes.some(s => s.pageId === storedParent && s.status === 'locked')
+    if (hasLocked) return storedParent
+  }
 
   const currentFloorIdx = floorOrder.indexOf(currentPage.subLabel)
   if (currentFloorIdx === -1) return null // not a known floor label
 
-  // Scan downward from currentFloor - 1 to find the nearest lower floor with locked geometry
+  // Fallback: scan downward through FLOOR_ORDER to suggest the nearest lower floor.
   for (let i = currentFloorIdx - 1; i >= 0; i--) {
     const floorLabel = floorOrder[i]
     const lowerPage = pages.find(
       p => p.category === 'floor-plan' && p.subLabel === floorLabel
     )
     if (!lowerPage) continue
-
-    // Check if this floor page has at least one locked shape
     const hasLocked = completedShapes.some(s => s.pageId === lowerPage.pageId && s.status === 'locked')
     if (hasLocked) return lowerPage.pageId
   }
