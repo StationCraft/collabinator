@@ -293,6 +293,33 @@ This is the floor-specific instance of the general layer-visibility model (#8): 
 
 ---
 
+### 17. Universal reference-layer model (architectural — the endgame data model)
+
+**Logged:** Session 12, before sub-step 5 planning. This is the architectural spine that #8 (layer-visibility) and #16 (multi-select reference ghosts) are partial views of; both are subsumed by this. Recorded here so the principle drives data-model shape from sub-step 5 onward, even though it is built incrementally.
+
+**The model:** Every entity in the project lives in one shared 3D coordinate space on a universal snap grid. Any entity can be displayed as a **reference layer** on any working view. A reference layer is a **projection** of a 3D entity onto the current view's plane — e.g. on the roof view, the basement walls shown projected onto the roof's 2D plane (NOT a flat pixel copy of another page; a computed projection of real geometry). Each reference layer independently toggles (a) its visibility and (b) its control points/vertices as snap targets. Arbitrarily many reference layers stack at once. This is what lets a user trace one floor's joists against another floor's walls against another layer's electrical, simultaneously — every layer in the same coordinate space, on the same snap grid.
+
+**Reference relationship — final data shape (adopted in sub-step 5):**
+A reference is modeled as a typed, projected pointer, not a floor-specific one:
+- `sourceId` — the referenced entity (a pageId today; any entity id later).
+- `referenceKind` — what the source is, used to derive UI labels ("reference floor" / "reference wall" / "reference drawing"). Always `'plan'` today.
+- `projection` — how the source is projected onto the current viewing plane. Always `'plan'` (top-down onto XY) today; `'north-elevation'`, `'section-AA'`, etc. later.
+- Plus the scale/coordinate tree: project-level `primaryReferenceId` (root, defaulted to first-calibrated, reassignable) and per-page `referenceParentId` (which in-primary-space entity this one aligned/confirmed against).
+
+`referenceKind` and `projection` are constant-valued today and exist purely so the relationship structure is **final now and only extended later, never restructured**. Labels derive via a `kindToLabel(referenceKind)` lookup from day one — never a hardcoded "floor below."
+
+**Built incrementally — the today-vs-later line:**
+- **Sub-step 5 (now):** the reference-relationship data model in its final shape above; autosuggest-with-override reference picker; bottom-up → primary-reference-tree logic swap (#15). Tested against multi-floor plan-view PDFs where `referenceKind` and `projection` are constant `'plan'`.
+- **Downstream, each its own step, all gated on the pixels→real-world XYZ coordinate conversion (CLAUDE.md flags this as pending pre-Phase-2):** projection math (the collapse-onto-plane transform), per-reference-layer vertex-snap toggles, arbitrary multi-layer stacking UI, non-plan `referenceKind`/`projection` values and the entity types that carry them.
+
+**Why not build more now:** Projection and cross-entity referencing require the real-world 3D coordinate model that does not exist yet (everything is canvas pixels today). Building projection before that conversion is building on sand. The data shape anticipates it; the behavior waits for the foundation.
+
+**Relationship to #8, #15, #16:** #17 is the unifying model. #15 is its scale/coordinate-topology slice (primary tree, align parent) — built in sub-step 5. #8 is its full discipline-layer expression (Phase 2). #16 (multi-select reference ghosts by floor label) is an early display slice of #17 and should be built as the first concrete multi-layer step once projection exists. #8 and #16 remain as detail references; #17 is the governing architecture.
+
+**Status:** Architectural record. Sub-step 5 adopts the data shape; downstream behaviors deferred pending 3D coordinate conversion.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

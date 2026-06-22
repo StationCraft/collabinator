@@ -6,6 +6,7 @@ import {
   findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId,
+  REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
 
@@ -99,6 +100,10 @@ function App() {
 
   // ── Multi-floor ghost reference (Step 6) ─────────────────────────────────────
   const [showGhostByPageId, setShowGhostByPageId] = useState({})
+
+  // ── Reference-layer model (Step 6, sub-step 5) ──────────────────────────────
+  const primaryReferenceIdRef = useRef(null)   // pageId of first manually-calibrated page; set once, never overwritten
+  const pageRefParentRef = useRef({})          // pageId -> sourcePageId; written at confirm time (Piece B)
 
   // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
   const [alignMode, setAlignMode] = useState(false)
@@ -259,6 +264,7 @@ function App() {
     setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote(''); setRecatPageNum(null); setCatReentry(false)
     setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
     setAlignMode(false); alignDragRef.current = null
+    primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
     setShowGhostByPageId({})
     resetZoomPan()
     try {
@@ -398,6 +404,7 @@ function App() {
       pxPerMeter: pixelDist / realWorldMeters,
       displayUnit: scaleUnit === 'imperial' ? 'ft' : 'm',
     }
+    if (primaryReferenceIdRef.current === null) primaryReferenceIdRef.current = currentPageId
     delete pageGridOriginRef.current[currentPageId]
     setShowScaleDialog(false); setCalibMode(false); setCalibPoints([]); setScaleError('')
   }
@@ -2067,11 +2074,12 @@ function App() {
   const ghostSrc = currentPageId ? getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER) : null
   const isConfirmed = !!(pageTransformsRef.current[currentPageId]?.confirmed)
   const alignStarted = (() => { const t = pageTransformsRef.current[currentPageId]; return !!(t && (t.tx || t.ty || t.s !== 1)) })()
+  const refLayerLabel = kindToLabel(REFERENCE_KIND_DEFAULT)
   const drawDisabledHint = (() => {
     if (pageHasScale) return null
     if (ghostSrc) return alignStarted
       ? 'Confirm scale & alignment to enable drawing.'
-      : 'Confirm alignment to the floor below to enable drawing.'
+      : `Confirm alignment to the ${refLayerLabel} to enable drawing.`
     return 'Set scale to enable drawing.'
   })()
   const lockedShapesOnPage = currentPage
@@ -2205,7 +2213,7 @@ function App() {
                   if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                   else setAlignMode(false)
                 }}
-              >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : 'Align to floor below'}</button>
+              >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : `Align to ${refLayerLabel}`}</button>
               {alignMode && (
                 <button className="snap-btn" onClick={() => {
                   const pageId = getPageId(currentPage)
@@ -2271,14 +2279,14 @@ function App() {
                         onClick={() => {
                           setShowGhostByPageId(m => ({ ...m, [currentPageId]: !(m[currentPageId] ?? true) }))
                         }}
-                      >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
+                      >Show {refLayerLabel} {showGhost ? 'ON' : 'OFF'}</button>
                       <button
                         className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
                         onClick={() => {
                           if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                           else setAlignMode(false)
                         }}
-                      >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : 'Align to floor below'}</button>
+                      >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : `Align to ${refLayerLabel}`}</button>
                       {alignMode && (
                         <button className="snap-btn" onClick={() => {
                           const pageId = getPageId(currentPage)
@@ -2344,14 +2352,14 @@ function App() {
                           setShowGhostByPageId(m => ({ ...m, [currentPageId]: !(m[currentPageId] ?? true) }))
                           drawEditCanvas(editHoverRef.current)
                         }}
-                      >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
+                      >Show {refLayerLabel} {showGhost ? 'ON' : 'OFF'}</button>
                       <button
                         className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
                         onClick={() => {
                           if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                           else setAlignMode(false)
                         }}
-                      >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : 'Align to floor below'}</button>
+                      >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : `Align to ${refLayerLabel}`}</button>
                       {alignMode && (
                         <button className="snap-btn" onClick={() => {
                           const pageId = getPageId(currentPage)

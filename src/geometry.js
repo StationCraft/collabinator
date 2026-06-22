@@ -306,3 +306,13 @@ export const CLOSE_SNAP_RADIUS = 16
 export const ALIGN_TOLERANCE = 10
 export const HIT_SEG_DIST = 8
 export const HIT_VERT_DIST = 9
+
+// ── Reference-layer model (Step 6, sub-step 5) ──────────────────────────────
+// Constant today; extended (not restructured) as new entity/projection types arrive.
+export const REFERENCE_KIND_DEFAULT = 'plan'
+export const PROJECTION_DEFAULT = 'plan'
+
+export function kindToLabel(kind) {
+  if (kind === 'plan') return 'reference floor'
+  return 'reference drawing'
+}
