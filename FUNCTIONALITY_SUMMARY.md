@@ -155,8 +155,13 @@ geometry" approach is **not** being rebuilt.
 - **Known bug from the prior implementation (do not reintroduce):** scale appearing to
   reset after confirm, and the reference becoming undraggable. Root cause was the CSS
   transform being applied inconsistently between the PDF canvas and the
-  measurement/drawing canvas. Both must transform together as a single unit (apply
-  transform to the parent `.canvas-stack`, not to one child canvas).
+  measurement/drawing canvas. **Implementation fix:** both canvases transform together
+  via a new div nested INSIDE `.canvas-world` (not applied to `.canvas-stack`). This
+  keeps alignment transform correctly inside the zoom/pan coordinate space; `.canvas-stack`
+  stays as the untransformed clipping viewport; `.canvas-world` carries zoom/pan; the
+  alignment div nests inside and applies the per-page transform to both canvases
+  symmetrically. `getCanvasPos()` uses `getBoundingClientRect()` → auto-compensates for
+  all nested transforms (no coordinate mapping changes in existing handlers).
 
 ---
 

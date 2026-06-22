@@ -144,6 +144,44 @@ cleanly when prioritised.
 
 ---
 
+### 8. General layer-visibility model (discipline layers, reference toggles)
+
+**Logged:** Session 8, while implementing multi-floor ghost rendering.
+
+**Description:** The multi-floor ghost is the **first concrete instance of a layer-visibility system**: a toggleable reference layer that coexists with a single active working layer. The full vision: a discipline-layer architecture where (e.g.) structural walls, MEP routing, and finish layers all have independent visibility toggles, live on the same coordinate space, but only one is editable at a time. Multi-floor is just the first use case — same plumbing, same interaction pattern.
+
+The ghost rendering implementation (`getVisibleVertices` plumbing, `showGhost` toggle, redraw integration) is written generically to extend to future reference layers without rework.
+
+**Why deferred:** Phase 2+ layer-management architecture. Phase 1.5 is single-layer-per-page (the floor you're tracing). Building the full discipline-layer system now would over-architect before the demand is clear.
+
+**Status:** Deferred. Multi-floor ghost is the prototype. Full layer system scoped to Phase 2 architecture planning.
+
+---
+
+### 9. Scale matching from shared printed scale notation
+
+**Logged:** Session 8, multi-floor planning.
+
+**Description:** When a page displays the same printed scale notation (e.g. "1/4\" = 1'-0\"") as a page already calibrated, automatically apply the calibrated scale without requiring the user to re-measure. Requires PDF text recognition (OCR or embedded text extraction) to read the notation, then notation-matching logic to find prior pages with the same notation. The matched scale is a calibration-verified value copied from a previous measurement — more reliable than reading and applying the scale string directly.
+
+**Why deferred:** (1) Requires PDF text extraction or OCR, deliberately absent from Phase 1 (the tracing tool is hand-driven, not automated; scale reading by eye is intentional). (2) An accelerator on top of the manual ghost-alignment mechanic, never a replacement. (3) Notation-matching and scale-history tracking add data-model scope. (4) Most real plan sets already have the calibrated scale per-page written consistently (e.g. all floors printed at "1/4\" scale"), so manual-once-per-unique-scale is workable for Phase 1.
+
+**Status:** Deferred to Phase 2+ when PDF text tooling is available and multi-page scale normalization is prioritised as a workflow bottleneck.
+
+---
+
+### 10. Full-screen / maximum-width canvas layout
+
+**Logged:** Session 8, while tuning multi-floor ghost visibility against large PDFs.
+
+**Description:** The canvas area currently leaves large unused margins. UI/layout polish: expand the canvas to use the full browser width, and potentially the full height (hiding the toolbar into a collapsible header or side-drawer). This would make dense floor plans and large elevations more readable without constant zooming.
+
+**Why deferred:** Pure UI/layout polish, zero core functionality impact. Ghost rendering tested at current canvas size; margin reductions are a separate visual-design pass. Does not block any tracing workflows.
+
+**Status:** Deferred. Good candidate for a dedicated UI pass after Phase 1 toolkit is feature-complete.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

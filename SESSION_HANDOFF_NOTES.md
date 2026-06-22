@@ -399,3 +399,109 @@ in the sidebar and downstream elevation-tracing tools.
 
 After multi-floor: roof plan tracing → elevation calibration + tracing → cross-section
 reference geometry → windows/doors → Phase 2 threshold (see `FUNCTIONALITY_SUMMARY.md`).
+
+---
+
+## SESSION 8 — Multi-floor sub-step 1: read-only reference ghost rendering
+
+**Branch:** main | **Commit:** 996b5a7
+
+### What was built
+
+**Step 6, Sub-step 1 of 4: Ghost reference rendering (commit 996b5a7)**
+
+Multi-floor feature split into four focused sub-steps:
+1. **Read-only reference ghost (THIS SESSION)** — display floor-below geometry
+2. **Ghost alignment + per-page transform** — drag to align, lock transform
+3. **Confirm-scale lock** — make geometry-to-geometry snap permanent across pages
+4. **Cross-page persistence** — save/restore per-page transform and toggle state
+
+Built this session:
+
+- **`getGhostSourcePageId(pages, currentPageId, completedShapes, floorOrder)` helper in geometry.js:**
+  Scans downward through `FLOOR_ORDER` to find the nearest-lower categorized Floor Plan page
+  with at least one locked shape; returns its `pageId` or `null` if no qualifying floor exists.
+  Used by all redraw functions (draw, review, edit, front-face) to determine whether a ghost
+  should be rendered.
+
+- **`drawGhostShapes(ctx, completedShapes, ghostPageId)` stateless drawer in canvasRenderer.js:**
+  Renders locked shapes from the ghost-source page in muted purple (#a78bfa), 2px dashed line
+  at 0.85 opacity, no fill. Drawn as a background layer (below current page's locked shapes and
+  in-progress trace) so working geometry always reads on top. Never hit-tested, never editable,
+  never snapped to — purely visual reference.
+
+- **`showGhost` toggle state in App.jsx:**
+  Boolean state (default `true`), toggleable via "Show floor below ON/OFF" buttons in draw-mode
+  and edit-mode toolbars. Button only appears when `getGhostSourcePageId` returns non-null
+  (i.e., a ghost source exists). Toggling triggers immediate redraw; persists across zoom/pan
+  and page navigation; clears on PDF upload.
+
+- **Ghost integrated into all canvas redraw functions:**
+  `redrawDrawCanvas`, `redrawReviewCanvas`, `redrawFrontFaceLayer`, and `drawEditCanvas` (all
+  sub-modes). Ghost always drawn first (background), before locked shapes and working geometry.
+
+### Architecture decisions this session
+
+**Per-page alignment transform placement (forward-looking, not yet implemented):**
+
+The per-page transform required for Sub-step 2 (alignment) will be applied to a **new div
+nested INSIDE `.canvas-world`** (which is already inside `.canvas-stack` wrapping both canvases).
+
+**Why inside `.canvas-world`:**
+- `.canvas-stack` is the untransformed clipping viewport (zoom/pan origin)
+- `.canvas-world` already carries the CSS transform for zoom/pan
+- Both canvases are already shared children of `.canvas-world`
+- New align div nesting inside `.canvas-world` keeps the alignment transform correctly
+  nested within the zoom/pan coordinate space
+- `getCanvasPos()` uses `getBoundingClientRect()` → auto-compensates for all nested transforms
+  (no coordinate mapping changes needed in any existing handler)
+- **Structurally guarantees:** both canvases move as one unit under zoom/pan; alignment
+  transform applies symmetrically to both canvases; no inconsistency between PDF canvas
+  and measure canvas (the bug from the prior lost attempt)
+
+**This supersedes FUNCTIONALITY_SUMMARY.md Section 6's "apply to .canvas-stack" wording.**
+
+### Carried-forward item resolved
+
+**Step 5c (front-face designation) confirmed fully tested** this session: ghost rendering
+did not disturb it; front-face selection and visual marking still works correctly in all modes.
+
+### Known deferred items
+
+See `ADDITIONAL_FUNCTIONALITY.md` #8, #9, #10 (added this session) and prior entries.
+
+---
+
+## CURRENT DEFERRED ITEMS
+
+- **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
+- **Parallel alignment guide tolerance:** too loose with small snap grids
+- **Redundant collinear vertex after complex Combine:** stray short segment, cosmetic
+- **Inherited geometry on all pages:** layer management deferred to Phase 2+
+- **No persistence:** memory only, lost on reload
+- **Working area selection:** dropped from Step 4b scope; zoom makes it redundant; revisit when duplicate page is prioritized
+- **CAD-export datum (#6):** named point at computed coordinates for CAD export — not an origin, deferred to post-Phase 1.5
+- **Intra-floor Z / split-level (#7):** FLOOR_ORDER does not accommodate mid-flight levels; deferred to Phase 2
+- **Layer-visibility model (#8):** multi-floor ghost is the first instance; full discipline-layer system deferred to Phase 2
+- **Scale matching from shared notation (#9):** auto-apply calibrated scale if printed notation matches; deferred
+- **Full-screen canvas layout (#10):** UI polish, no core functionality; deferred
+- See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
+
+---
+
+## FORWARD BUILD SEQUENCE
+
+1. ~~Zoom/pan~~ — DONE
+2. ~~Compass rose alignment~~ — DONE
+3. ~~Step 4a: pageId migration~~ — DONE
+4. ~~Step 4b: Page categorization UI~~ — DONE
+5. ~~Step 4c: Sidebar + navigation~~ — DONE
+6. ~~Ground floor tracing~~ — DONE
+7. **Multi-floor reference & alignment (IN PROGRESS)**
+   - ~~Sub-step 1: ghost rendering~~ — DONE (996b5a7)
+   - **Sub-step 2: ghost alignment + per-page transform** — NEXT
+   - Sub-step 3: confirm-scale lock
+   - Sub-step 4: cross-page persistence/toggle
+
+After multi-floor sub-steps 2-4: roof plan tracing → elevation calibration + tracing →
+cross-section reference geometry → windows/doors → Phase 2 threshold.

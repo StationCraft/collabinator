@@ -179,9 +179,23 @@ A React + Vite app with:
   * Purpose: maps road-facing direction onto compass cardinal (N/S/E/W), enabling
     Front/Back/Left/Right elevation naming in sidebar and downstream tools
   * Cleared on PDF upload
+- **Multi-floor reference ghost (Step 6, sub-step 1 of 4):** read-only, toggleable
+  overlay of the floor-below geometry on current floor-plan pages (commit 996b5a7):
+  * `getGhostSourcePageId(pages, currentPageId, completedShapes, FLOOR_ORDER)` helper
+    in geometry.js: scans downward through FLOOR_ORDER to find nearest-lower categorized
+    Floor Plan page with locked shapes; returns its pageId or null
+  * `drawGhostShapes(ctx, completedShapes, ghostPageId)` stateless drawer in
+    canvasRenderer.js: renders locked shapes in muted purple (#a78bfa) 2px dashed lines
+    at 0.85 opacity, no fill; drawn as background layer below working geometry
+  * `showGhost` toggle in draw-mode and edit-mode toolbars, visible only when a ghost
+    source exists; toggles on/off without affecting geometry
+  * Ghost is purely visual: never hit-tested, never editable, never snapped to; no
+    transform applied yet (that is sub-step 2)
+  * Clears on PDF upload; persists across zoom/pan and page navigation
 
 **Not yet built (next increments):**
-- Multi-floor reference and alignment (NEXT)
+- Multi-floor reference and alignment (sub-steps 2-4): ghost alignment + per-page
+  transform, confirm-scale lock, cross-page persistence and per-page toggle state
 - Roof plan, elevations, cross-sections, windows/doors
 
 **Deferred polish items:**

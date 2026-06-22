@@ -32,12 +32,17 @@ building."
         reframing means there is no origin to capture (see FUNCTIONALITY_SUMMARY.md
         Section 1 & 5). Nothing replaces it.
     [x] Step 5c   — front-face designation — DONE & fully tested, committed (2d6021b)
-[ ] Multi-floor reference & alignment  <-- YOU ARE HERE (fresh planning chat)
+[ ] Multi-floor reference & alignment  <-- YOU ARE HERE
+    [x] Sub-step 1 — reference ghost rendering (read-only, toggleable overlay)
+        DONE, committed (996b5a7)
+    [ ] Sub-step 2 — ghost alignment + per-page transform (drag to align, lock)
+    [ ] Sub-step 3 — confirm-scale lock (geometry-to-geometry snap permanent)
+    [ ] Sub-step 4 — cross-page persistence & toggle state (save/restore)
 ```
 
-**Ground floor tracing is complete. All sub-steps done or dissolved. Next: multi-floor
-reference & alignment — begin with a fresh planning chat (this is the feature that was
-lost once already and deserves its own room).**
+**Ground floor tracing is complete (all sub-steps done or dissolved). Multi-floor
+feature is split into four focused sub-steps. Sub-step 1 (read-only reference ghost)
+is complete. Next: Sub-step 2 (alignment + per-page transform).**
 
 ---
 
