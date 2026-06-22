@@ -48,15 +48,15 @@ building."
         1a-fix: preserve confirmed on scale drag (e4cf8b6)
         1b: getEffectiveScale recursive borrow unlocks Draw (327e84d)
         1b-fix + 1c: recursive borrow for 3+ floor stacks; hide Set Scale on ghosted pages (d030a34)
-    [ ] Sub-step 4 — cross-page persistence & toggle state (save/restore)  <-- YOU ARE HERE
-    [ ] Sub-step 5 — directional decoupling / primary-reference model
-        (see ADDITIONAL_FUNCTIONALITY #15). Replaces bottom-up ghost/borrow with a
-        user-reassignable primary-reference tree; trace order no longer forced.
-        Z-stack + getAnchorFloor explicitly unchanged. Own pieces + cycle-guard testing.
+    [x] Sub-step 4 — cross-page persistence & toggle state — DONE (c7a45e0, d42296e, 196b0fa)
+    [x] Sub-step 5 — directional decoupling / primary-reference model — DONE (9ef06b1, b8dd9ce, 6f7f629)
+        A: REFERENCE_KIND_DEFAULT + kindToLabel + primaryReferenceIdRef + label rewires (9ef06b1)
+        B: getGhostSourcePageId checks pageRefParent first, FLOOR_ORDER fallback;
+           getEffectiveScale follows pageRefParentRef chain; confirm handlers write parent (b8dd9ce)
+        C: refCandidates + reference override picker in all 3 toolbar sites (6f7f629)
 ```
 
-**Sub-step 3 (confirm-scale lock) is complete. Next: Sub-step 4
-(cross-page persistence & toggle state — save/restore per-page transform and toggle).**
+**Multi-floor sub-step 5 is complete. Next: roof plan tracing.**
 
 ---
 

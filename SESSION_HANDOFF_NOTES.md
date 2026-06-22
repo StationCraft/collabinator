@@ -634,6 +634,56 @@ alignment; a reloaded tab starts clean.
 
 ---
 
+## SESSION 12 — Multi-floor sub-step 5: primary-reference model
+
+**Branch:** main | **Commits:** 9ef06b1 (Piece A), b8dd9ce (Piece B), 6f7f629 (Piece C)
+
+### What was built
+
+Sub-step 5 replaces the bottom-up FLOOR_ORDER scan with a user-configurable primary-reference tree. Three pieces:
+
+**Piece A (9ef06b1): Reference-layer data model + label derivation**
+- `REFERENCE_KIND_DEFAULT = 'plan'` and `PROJECTION_DEFAULT = 'plan'` constants in geometry.js — exist so the data shape is final now and only extended later, never restructured.
+- `kindToLabel(kind)` function: `'plan'` → `'reference floor'`; extensible for future entity types.
+- `primaryReferenceIdRef = useRef(null)` in App.jsx — set once on first manual calibration (set-once guard: `if (primaryReferenceIdRef.current === null)`), never overwritten. Project-level scale/coordinate root.
+- `pageRefParentRef = useRef({})` in App.jsx — per-page map `{ [pageId]: parentPageId }`, written at confirm time (Piece B).
+- All three toolbar sites (view/draw/edit): align button, ghost toggle, and Draw-disabled hint now read label from `kindToLabel(REFERENCE_KIND_DEFAULT)` — never hardcode "floor below." Result: "Align to reference floor", "Show reference floor", "Confirm alignment to the reference floor…"
+- Both refs cleared on PDF upload.
+
+**Piece B (b8dd9ce): Logic swap — primary-reference tree replaces bottom-up scan**
+- `getGhostSourcePageId` updated to accept optional `pageRefParent` map (5th arg): checks stored parent first, falls back to FLOOR_ORDER downward scan as pre-confirm suggestion. All 15 call sites in App.jsx updated to pass `pageRefParentRef.current`.
+- `getEffectiveScale` updated to follow `pageRefParentRef.current[pageId]` directly (not `getGhostSourcePageId`). Cycle guard (`visited` set) now does real work — the tree is user-defined, not structurally acyclic by FLOOR_ORDER.
+- All three confirm handlers write `pageRefParentRef.current[pageId] = ghostSrc` at confirm time — storing which reference page this page aligned against.
+- `getAnchorFloor` and the Z-stack left entirely unchanged.
+
+**Piece C (6f7f629): Reference override picker**
+- `refCandidates` derived at render scope: floor-plan pages (not current) with own calibration OR confirmed+parent. Re-evaluated on `alignTick` bumps.
+- When `alignMode && refCandidates.length > 1`: a `<select>` picker appears in all three toolbar sites (view/draw/edit). Changing the picker writes `pageRefParentRef.current[currentPageId]` immediately and bumps `alignTick` — ghost switches to the chosen reference without requiring confirm first.
+- Autosuggest (FLOOR_ORDER proximity → stored parent) is already implemented by Piece B's `getGhostSourcePageId` priority logic; Piece C is only the manual override UI.
+
+### Architecture decisions this session
+
+- **`REFERENCE_KIND_DEFAULT` / `PROJECTION_DEFAULT`** are constant-valued today and exist ONLY to lock in the final data shape so it extends (not restructures) when new entity/projection types arrive.
+- **`primaryReferenceIdRef` is set-once.** The primary is the coordinate root; it defaults to the first manually-calibrated page and can be reassigned later (not yet built — no user action required or built for reassignment today). All scale borrows eventually chain to it.
+- **Cycle guard is now real:** since the tree is user-defined (not structurally enforced by FLOOR_ORDER), the visited-set in `getEffectiveScale` is genuine insurance, not cosmetic.
+- **Design rationale for #17 (universal reference-layer model) logged in ADDITIONAL_FUNCTIONALITY.md** this session: `referenceKind`/`projection` constants exist so the reference relationship is final now; projection math and multi-entity referencing are gated on the pixels→real-world XYZ coordinate conversion.
+
+### Piece D — verify in your browser
+
+Test scenario to validate the logic swap (trace out-of-order):
+1. Upload 3+ page PDF with Basement, Main Floor, 2nd Floor categorized
+2. Calibrate Main Floor first → `primaryReferenceIdRef` set to Main Floor's pageId
+3. Go to 2nd Floor → ghost suggests Main Floor (FLOOR_ORDER fallback). Align + confirm → `pageRefParentRef["page-2nd"] = "page-main"`. Draw unlocks on 2nd Floor.
+4. Go to Basement → no ghost (nothing below Basement). Set scale normally.
+5. Return to 2nd Floor → Draw still unlocked, labels still correct. Navigate away and back — no flash.
+6. Add a page for 3rd Floor → ghost suggests 2nd Floor. Enter align mode → `refCandidates` should contain Main Floor + 2nd Floor → override picker appears. Picking Main Floor switches ghost immediately.
+7. Confirm against Main Floor → `pageRefParentRef["page-3rd"] = "page-main"`. Scale resolves correctly (3rd → Main, not 3rd → 2nd → Main).
+8. Cycle guard: not reachable with correct tree, but verify no crash on 3+ floor round-trips.
+
+Key visual checks: "Align to reference floor" / "Show reference floor ON/OFF" / hint text. No "floor below" anywhere. Picker only visible when alignMode + 2+ candidates.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -651,8 +701,9 @@ alignment; a reloaded tab starts clean.
 - **Page rotation (#12):** 90° viewer convenience + arbitrary alignment rotation; `angle` reserved in transform struct
 - **Ghost vertices as opt-in snap targets (#13):** deferred from sub-step 3; shared grid handles alignment for now
 - **Scale inheritance within drawing group (#14):** suppress Set Scale across a group once one page is calibrated; needs drawing-group concept
-- **Directional decoupling / primary-reference model (#15):** replace bottom-up ghost/borrow with user-reassignable primary-reference tree; trace order no longer forced; Z-stack unchanged
+- **Primary-reference reassignment UI (#15 — partial):** `primaryReferenceIdRef` set-once today; UI to reassign (relabel root; geometry doesn't move) deferred
 - **Multi-select reference ghosts by floor label (#16):** per-floor-label visibility picker for reference overlays; bridge between single ghost and #8 full layer system
+- **Universal reference-layer model (#17):** architectural record; sub-step 5 adopts data shape; projection math + multi-entity referencing gated on pixels→XYZ conversion
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
 
 ---
@@ -665,12 +716,13 @@ alignment; a reloaded tab starts clean.
 4. ~~Step 4b: Page categorization UI~~ — DONE
 5. ~~Step 4c: Sidebar + navigation~~ — DONE
 6. ~~Ground floor tracing~~ — DONE
-7. **Multi-floor reference & alignment (IN PROGRESS)**
+7. ~~Multi-floor reference & alignment~~ — DONE
    - ~~Sub-step 1: ghost rendering~~ — DONE (996b5a7)
    - ~~Sub-step 2: ghost alignment + per-page transform~~ — DONE (73f02f1, c2ed3ba, 122b077, 6e97f67, b210343, d5425d0)
    - ~~Sub-step 3: confirm-scale lock~~ — DONE (d49060d, e4cf8b6, 327e84d, d030a34)
    - ~~Sub-step 4: cross-page persistence/toggle~~ — DONE (c7a45e0, d42296e, 196b0fa)
-   - **Sub-step 5: directional decoupling / primary-reference model** — NEXT (see ADDITIONAL_FUNCTIONALITY #15)
+   - ~~Sub-step 5: directional decoupling / primary-reference model~~ — DONE (9ef06b1, b8dd9ce, 6f7f629)
+8. **Roof plan tracing — NEXT**
 
-After multi-floor sub-steps: roof plan tracing → elevation calibration + tracing →
-cross-section reference geometry → windows/doors → Phase 2 threshold.
+After roof: elevation calibration + tracing → cross-section reference geometry →
+windows/doors → Phase 2 threshold.

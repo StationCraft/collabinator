@@ -268,7 +268,7 @@ normalization are prioritized.
 
 **Why deferred:** Redefines sub-step 1 + 3 core logic in the feature that was lost once and carefully rebuilt; needs its own planning + pieces + testing (the cycle guard, currently cheap insurance, must be verified against the new tree). Not sub-step 4.
 
-**Status:** Defined next-step after sub-step 4. Likely its own sub-step/step with dedicated pieces.
+**Status:** Built in sub-step 5 (commits 9ef06b1, b8dd9ce, 6f7f629). Primary-reference reassignment UI (letting user change `primaryReferenceIdRef` after initial set) remains deferred — the tree works with first-calibrated as root; reassignment is a non-blocking enhancement.
 
 ---
 

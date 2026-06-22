@@ -318,9 +318,36 @@ A React + Vite app with:
   * Cross-page transform/ghost/handle restore verified clean on navigation round-trip
     (no repaint gap; persisted refs repaint on arrival without interaction).
 
+- **Multi-floor sub-step 5 (Step 6, sub-step 5 of 5):** primary-reference tree replaces
+  bottom-up scan (commits 9ef06b1, b8dd9ce, 6f7f629):
+  * **`REFERENCE_KIND_DEFAULT = 'plan'` / `PROJECTION_DEFAULT = 'plan'`** — constants in
+    geometry.js; constant-valued today so the data shape is final and only extended later.
+    `kindToLabel(kind)` maps `'plan'` → `'reference floor'`; all UI labels derive from it
+    (never hardcoded "floor below").
+  * **`primaryReferenceIdRef`** — project-level pageId of first manually-calibrated page;
+    set once (set-once guard) on calibration confirm; never overwritten. The scale/coordinate
+    root of the reference tree.
+  * **`pageRefParentRef`** — per-page map `{ [pageId]: parentPageId }`; written at confirm
+    time (`if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc`). Three confirm
+    handlers (view/draw/edit) all write this.
+  * **`getGhostSourcePageId` updated** — now accepts optional 5th arg `pageRefParent` map;
+    checks stored parent first (direct reference to stored parent), falls back to FLOOR_ORDER
+    downward scan as pre-confirm suggestion. All 15 call sites pass `pageRefParentRef.current`.
+  * **`getEffectiveScale` updated** — follows `pageRefParentRef.current[pageId]` directly
+    (not `getGhostSourcePageId`). Cycle guard (`visited` set) now does real work since the
+    tree is user-defined. Chains correctly for 3+ floor stacks.
+  * **Reference override picker** — when `alignMode && refCandidates.length > 1`, a compact
+    `<select>` appears in all three toolbar sites. `refCandidates` = floor-plan pages with own
+    calibration OR confirmed+parent (i.e. already in the primary space). Selecting overrides
+    `pageRefParentRef.current[currentPageId]` immediately (no confirm required) and bumps
+    `alignTick` to repaint ghost to new reference.
+  * **Autosuggest:** `getGhostSourcePageId` already implements proximity (FLOOR_ORDER fallback)
+    + last-used (stored parent takes priority). Picker is the override UI only.
+  * `getAnchorFloor` and the Z-stack are entirely unchanged.
+
 **Not yet built (next increments):**
-- Multi-floor sub-step 5 (directional decoupling / primary-reference model) — see ADDITIONAL_FUNCTIONALITY #15
 - Roof plan, elevations, cross-sections, windows/doors
+- Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
 
 **Deferred polish items:**
 - **Redundant collinear vertex after Combine:** some complex merges leave a
@@ -391,6 +418,17 @@ pageTransformsRef.current[pageId] = {
   angle: number,     // rotation in degrees (reserved; always 0 until sub-step 2 rotation built)
   confirmed?: boolean  // true once user clicks "Confirm scale & alignment"; enables scale-borrow
 }
+```
+
+**Primary-reference tree** (added sub-step 5):
+```
+primaryReferenceIdRef.current = string | null
+  // pageId of first manually-calibrated page; set once, never overwritten.
+  // Project-level scale/coordinate root.
+
+pageRefParentRef.current = { [pageId: string]: string }
+  // Maps each confirmed page to the reference page it aligned/confirmed against.
+  // Written at confirm time. getEffectiveScale follows this chain to the primary.
 ```
 
 All of the above are cleared on PDF upload.
