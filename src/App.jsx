@@ -420,14 +420,17 @@ function App() {
   // Returns the effective scale entry { pxPerMeter, displayUnit } for a page:
   // its own calibration if set; else, if the page's align transform is CONFIRMED,
   // the ghost-source page's calibration; else null.
-  const getEffectiveScale = (pageId) => {
+  const getEffectiveScale = (pageId, _visited) => {
     const own = pageScalesRef.current[pageId]
     if (own) return own
     const t = pageTransformsRef.current[pageId]
     if (!t || !t.confirmed) return null
     const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
     if (!ghostPageId) return null
-    return pageScalesRef.current[ghostPageId] || null
+    const visited = _visited || new Set()
+    if (visited.has(ghostPageId)) return null  // cycle guard — should never happen
+    visited.add(pageId)
+    return getEffectiveScale(ghostPageId, visited)
   }
 
   const applySnap = (rawPos, lastVertex, useAngle, useDist, pageId) => {
@@ -2134,7 +2137,8 @@ function App() {
           </button>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
+        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode &&
+         !getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER) && (
           <button
             className={`calib-btn ${pageHasScale ? 'calib-btn--done' : ''}`}
             onClick={() => { setCalibMode(true); setCalibPoints([]); setScaleError(''); clearMeasureCanvas() }}
