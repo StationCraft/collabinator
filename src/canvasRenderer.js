@@ -157,7 +157,7 @@ export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
 // do NOT move when the PDF body is dragged (Piece C). Size is constant on screen:
 // drawn at HANDLE_PX / zoom so they appear ~12px regardless of zoom level.
 // No drag behavior — purely visual targets (drag is Piece D2).
-const HANDLE_PX = 12
+export const HANDLE_PX = 12
 export function drawAlignHandles(ctx, completedShapes, ghostPageId, zoom) {
   const shapes = completedShapes.filter(s => s.pageId === ghostPageId && s.status === 'locked')
   if (shapes.length === 0) return

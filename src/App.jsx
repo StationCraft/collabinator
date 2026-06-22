@@ -7,7 +7,7 @@ import {
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId,
 } from './geometry.js'
-import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform } from './canvasRenderer.js'
+import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -104,6 +104,7 @@ function App() {
   const [alignMode, setAlignMode] = useState(false)
   const alignDragRef = useRef(null)  // { startClientX, startClientY, startTx, startTy, pageId }
   const [alignTick, setAlignTick] = useState(0)  // bump to re-read pageTransformsRef after writes
+  const [alignOverHandle, setAlignOverHandle] = useState(false)  // true when cursor hovers a scale handle
 
   // ── Compass rose ──────────────────────────────────────────────────────────
   const [showCompassOverlay, setShowCompassOverlay] = useState(false)
@@ -923,12 +924,50 @@ function App() {
   const handleMeasureMouseDown = (e) => {
     // Front-face pick mode: suppress all normal mousedown (pan/draw/edit) behavior.
     if (frontFacePromptOpen) return
-    // Align mode: left-drag moves the PDF layer; suppress everything else.
+    // Align mode: hit-test handles for scale-drag; else body-translate.
     if (alignMode) {
       if (e.button !== 0) return
       const pageId = getPageId(currentPage)
       const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+      const pos = getCanvasPos(e)
+      // Compute ghost bbox corners for hit-test.
+      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+      const grabR = HANDLE_PX / zoomRef.current
+      let hitCorner = null
+      if (ghostPageId) {
+        const ghostShapes = completedShapesRef.current.filter(s => s.pageId === ghostPageId && s.status === 'locked')
+        if (ghostShapes.length > 0) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+          for (const sh of ghostShapes) for (const v of sh.vertices) {
+            if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x
+            if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y
+          }
+          const corners = [
+            { x: minX, y: minY, ax: maxX, ay: maxY },  // TL → anchor BR
+            { x: maxX, y: minY, ax: minX, ay: maxY },  // TR → anchor BL
+            { x: maxX, y: maxY, ax: minX, ay: minY },  // BR → anchor TL
+            { x: minX, y: maxY, ax: maxX, ay: minY },  // BL → anchor TR
+          ]
+          for (const c of corners) {
+            if (Math.hypot(pos.x - c.x, pos.y - c.y) <= grabR) { hitCorner = c; break }
+          }
+        }
+      }
+      if (hitCorner) {
+        const d0 = Math.hypot(hitCorner.x - hitCorner.ax, hitCorner.y - hitCorner.ay)
+        if (d0 > 0) {
+          alignDragRef.current = {
+            mode: 'scale', pageId,
+            ax: hitCorner.ax, ay: hitCorner.ay,
+            startTx: cur.tx, startTy: cur.ty, startS: cur.s ?? 1,
+            d0,
+          }
+          return
+        }
+      }
+      // No handle hit — body-translate drag.
       alignDragRef.current = {
+        mode: 'translate',
         startClientX: e.clientX, startClientY: e.clientY,
         startTx: cur.tx, startTy: cur.ty, pageId,
       }
@@ -1165,12 +1204,45 @@ function App() {
   const handleMeasureMouseMove = (e) => {
     // Align mode: update pdf-align-layer transform during drag.
     if (alignMode) {
+      // Hover hit-test for handle cursor (only when not actively dragging).
+      if (!alignDragRef.current) {
+        const pos = getCanvasPos(e)
+        const pageId = getPageId(currentPage)
+        const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+        let overHandle = false
+        if (ghostPageId) {
+          const grabR = HANDLE_PX / zoomRef.current
+          const ghostShapes = completedShapesRef.current.filter(s => s.pageId === ghostPageId && s.status === 'locked')
+          if (ghostShapes.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+            for (const sh of ghostShapes) for (const v of sh.vertices) {
+              if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x
+              if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y
+            }
+            const corners = [{ x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY }]
+            overHandle = corners.some(c => Math.hypot(pos.x - c.x, pos.y - c.y) <= grabR)
+          }
+        }
+        if (overHandle !== alignOverHandle) setAlignOverHandle(overHandle)
+      }
       const drag = alignDragRef.current
       if (drag) {
-        const dx = (e.clientX - drag.startClientX) / zoomRef.current
-        const dy = (e.clientY - drag.startClientY) / zoomRef.current
-        const prev = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
-        pageTransformsRef.current[drag.pageId] = { ...prev, tx: drag.startTx + dx, ty: drag.startTy + dy }
+        if (drag.mode === 'scale') {
+          const pos = getCanvasPos(e)
+          const d1 = Math.hypot(pos.x - drag.ax, pos.y - drag.ay)
+          const rawS = drag.startS * (d1 / drag.d0)
+          const newS = Math.max(0.05, Math.min(20, rawS))
+          const ratio = newS / drag.startS
+          const tx1 = drag.ax - (drag.ax - drag.startTx) * ratio
+          const ty1 = drag.ay - (drag.ay - drag.startTy) * ratio
+          pageTransformsRef.current[drag.pageId] = { tx: tx1, ty: ty1, s: newS, angle: 0 }
+        } else {
+          // mode: 'translate'
+          const dx = (e.clientX - drag.startClientX) / zoomRef.current
+          const dy = (e.clientY - drag.startClientY) / zoomRef.current
+          const prev = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+          pageTransformsRef.current[drag.pageId] = { ...prev, tx: drag.startTx + dx, ty: drag.startTy + dy }
+        }
         setAlignTick(t => t + 1)
       }
       return
@@ -2450,7 +2522,7 @@ function App() {
             <canvas
               ref={measureRef}
               className="measure-canvas"
-              style={{ cursor: alignMode ? (alignDragRef.current ? 'grabbing' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode) ? 'crosshair' : undefined }}
+              style={{ cursor: alignMode ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode) ? 'crosshair' : undefined }}
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}
