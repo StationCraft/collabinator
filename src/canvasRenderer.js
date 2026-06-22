@@ -54,6 +54,29 @@ export function drawShapePoly(ctx, verts, style) {
   ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([])
 }
 
+// Highlight a single segment (a→b). variant: 'front' = confirmed front face,
+// 'hover' = candidate segment during front-face pick mode.
+export function drawSegmentHighlight(ctx, a, b, variant) {
+  ctx.save()
+  if (variant === 'hover') {
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 5; ctx.globalAlpha = 0.85
+  } else {
+    ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 4; ctx.globalAlpha = 0.95
+  }
+  ctx.lineCap = 'round'
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
+  if (variant !== 'hover') {
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
+    ctx.globalAlpha = 1
+    ctx.font = 'bold 11px system-ui, sans-serif'
+    ctx.fillStyle = '#dc2626'
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3
+    ctx.strokeText('FRONT', mx + 6, my - 6)
+    ctx.fillText('FRONT', mx + 6, my - 6)
+  }
+  ctx.restore()
+}
+
 export function drawAlignGuide(ctx, guide, cw, ch) {
   ctx.save()
   ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1; ctx.globalAlpha = 0.75; ctx.setLineDash([5, 5])

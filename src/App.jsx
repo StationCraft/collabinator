@@ -5,9 +5,9 @@ import {
   distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
   findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
-  FLOOR_ORDER,
+  FLOOR_ORDER, getAnchorFloor,
 } from './geometry.js'
-import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide } from './canvasRenderer.js'
+import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -117,6 +117,14 @@ function App() {
   const [catDraftNote, setCatDraftNote] = useState('')  // floor-plan optional extra descriptor (no level meaning)
   const [recatPageNum, setRecatPageNum] = useState(null)  // page actively being (re)edited; null = none
   const [catReentry, setCatReentry] = useState(false)     // true = entered via "+ Categorize more pages" (cycle uncategorized only)
+
+  // ── Front-face designation (Step 5c) ────────────────────────────────────────
+  // frontFace: project-level, one per building. Reference (indices) is
+  // authoritative so it survives shape edits; endpoints are a staleness check.
+  // { pageId, shapeIndex, segmentIndex, endpoints: [{x,y},{x,y}] }
+  const [frontFace, setFrontFace] = useState(null)
+  const [frontFacePromptOpen, setFrontFacePromptOpen] = useState(false)  // popup + canvas pick mode
+  const ffHoverRef = useRef(null)  // {shapeIdx, segIdx} hovered during pick
 
   const canvasRef = useRef(null)
   const measureRef = useRef(null)
@@ -240,6 +248,7 @@ function App() {
     setShowCompassOverlay(false)
     setCategorizeMode(false); setPages([])
     setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote(''); setRecatPageNum(null); setCatReentry(false)
+    setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
     resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
@@ -329,10 +338,8 @@ function App() {
     if (calibMode || drawMode || editMode) return
     const c = measureRef.current
     if (!c || !currentPage) return
-    const ctx = c.getContext('2d')
-    ctx.clearRect(0, 0, c.width, c.height)
-    drawLockedShapes(ctx, completedShapesRef.current, getPageId(currentPage))
-  }, [calibMode, drawMode, editMode, currentPage])
+    redrawFrontFaceLayer(null)
+  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -874,6 +881,8 @@ function App() {
   // ── Canvas mouse handlers ─────────────────────────────────────────────────
 
   const handleMeasureMouseDown = (e) => {
+    // Front-face pick mode: suppress all normal mousedown (pan/draw/edit) behavior.
+    if (frontFacePromptOpen) return
     // Middle mouse: always start pan drag
     if (e.button === 1) { startPanDrag(e); e.preventDefault(); return }
 
@@ -1033,6 +1042,12 @@ function App() {
   }
 
   const handleMeasureClick = (e) => {
+    // Front-face pick mode: a click on a perimeter segment selects the front face.
+    if (frontFacePromptOpen) {
+      const hit = hitTestFrontFaceSegment(getCanvasPos(e))
+      if (hit) selectFrontFace(hit.shapeIdx, hit.segIdx)
+      return
+    }
     // Suppress click that followed a pan drag
     if (panDidDragRef.current) { panDidDragRef.current = false; return }
     if (editMode) {
@@ -1093,6 +1108,16 @@ function App() {
   }
 
   const handleMeasureMouseMove = (e) => {
+    // Front-face pick mode: hover-highlight the candidate perimeter segment.
+    if (frontFacePromptOpen) {
+      const hit = hitTestFrontFaceSegment(getCanvasPos(e))
+      const prev = ffHoverRef.current
+      const changed = (!hit !== !prev) ||
+        (hit && prev && (hit.shapeIdx !== prev.shapeIdx || hit.segIdx !== prev.segIdx))
+      if (changed) { ffHoverRef.current = hit; redrawFrontFaceLayer(hit) }
+      setEditCursor(hit ? 'pointer' : 'default')
+      return
+    }
     // While pan drag is active, window listener updates pan — skip all tool interactions
     if (panDragRef.current?.active) return
     const pos = getCanvasPos(e)
@@ -1369,11 +1394,100 @@ function App() {
       c.getContext('2d').clearRect(0, 0, c.width, c.height)
       drawLockedShapes(c.getContext('2d'), completedShapesRef.current, getPageId(currentPage))
     }
+    maybePromptFrontFace()
   }
 
   const discardShape = () => {
     setReviewShape(null); setDrawMode(false)
     drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
+  }
+
+  // ── Front-face designation (Step 5c) ────────────────────────────────────────
+
+  // Derived trigger: prompt only when no front face is set yet, the anchor floor
+  // is determinable, and that anchor page has at least one locked polygon.
+  // Re-checked after a lock and after a categorization (which can move the anchor).
+  // Returns true if it opened the prompt (caller may then suppress navigation so
+  // the anchor page stays in view for picking).
+  const maybePromptFrontFace = (pagesOverride = null) => {
+    if (frontFace) return false
+    const { determinable, anchorPageId } = getAnchorFloor(pagesOverride || pages)
+    if (!determinable) return false
+    const hasLocked = completedShapesRef.current.some(
+      s => s.pageId === anchorPageId && s.status === 'locked'
+    )
+    if (hasLocked) { setFrontFacePromptOpen(true); return true }
+    return false
+  }
+
+  // Resolve the stored front-face reference to live segment endpoints, following
+  // any shape edits. Returns null if the reference is now stale (shape deleted or
+  // vertex count shrank past the segment).
+  const resolveFrontFaceSegment = (ff = frontFace) => {
+    if (!ff) return null
+    const shape = completedShapesRef.current[ff.shapeIndex]
+    if (!shape || shape.pageId !== ff.pageId) return null
+    const verts = shape.vertices
+    if (ff.segmentIndex >= verts.length) return null
+    return { a: verts[ff.segmentIndex], b: verts[(ff.segmentIndex + 1) % verts.length] }
+  }
+
+  // Outer-perimeter segments of locked shapes on the current page (which, when
+  // the prompt fires, is the anchor page). Returns {shapeIdx, segIdx} or null.
+  const hitTestFrontFaceSegment = (pos) => {
+    let best = null, bestDist = HIT_SEG_DIST
+    completedShapesRef.current.forEach((shape, shapeIdx) => {
+      if (shape.pageId !== currentPageId || shape.status !== 'locked') return
+      const verts = shape.vertices
+      for (let segIdx = 0; segIdx < verts.length; segIdx++) {
+        const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
+        if (d < bestDist) { bestDist = d; best = { shapeIdx, segIdx } }
+      }
+    })
+    return best
+  }
+
+  // Redraw the base measure layer plus the confirmed front face plus the pick
+  // hover highlight. Used by the base-layer effect and the pick-mode handlers.
+  const redrawFrontFaceLayer = (hoverSeg = ffHoverRef.current) => {
+    const c = measureRef.current
+    if (!c || !currentPage) return
+    const ctx = c.getContext('2d')
+    ctx.clearRect(0, 0, c.width, c.height)
+    drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
+    const seg = resolveFrontFaceSegment()
+    if (seg && frontFace && frontFace.pageId === currentPageId) {
+      drawSegmentHighlight(ctx, seg.a, seg.b, 'front')
+    }
+    if (frontFacePromptOpen && hoverSeg) {
+      const shape = completedShapesRef.current[hoverSeg.shapeIdx]
+      if (shape) {
+        const a = shape.vertices[hoverSeg.segIdx]
+        const b = shape.vertices[(hoverSeg.segIdx + 1) % shape.vertices.length]
+        drawSegmentHighlight(ctx, a, b, 'hover')
+      }
+    }
+  }
+
+  const selectFrontFace = (shapeIdx, segIdx) => {
+    const shape = completedShapesRef.current[shapeIdx]
+    if (!shape) return
+    const a = shape.vertices[segIdx]
+    const b = shape.vertices[(segIdx + 1) % shape.vertices.length]
+    setFrontFace({
+      pageId: shape.pageId,
+      shapeIndex: shapeIdx,
+      segmentIndex: segIdx,
+      endpoints: [{ x: a.x, y: a.y }, { x: b.x, y: b.y }],
+    })
+    setFrontFacePromptOpen(false)
+    ffHoverRef.current = null
+  }
+
+  const skipFrontFace = () => {
+    // Dismiss without setting — condition stays true so it can reappear later.
+    setFrontFacePromptOpen(false); ffHoverRef.current = null
+    redrawFrontFaceLayer(null)
   }
 
   // ── Keyboard ──────────────────────────────────────────────────────────────
@@ -1586,7 +1700,9 @@ function App() {
     )
     setPages(newPages)
     setRecatPageNum(null)
-    advanceToNextUncategorized(newPages)
+    // If the front-face prompt opens, stay on the anchor page so the user can
+    // pick the edge; otherwise advance to the next uncategorized page as usual.
+    if (!maybePromptFrontFace(newPages)) advanceToNextUncategorized(newPages)
   }
 
   const skipCatPage = () => {
@@ -2119,6 +2235,15 @@ function App() {
             </>
             )}
           </div>
+        </div>
+      )}
+
+      {frontFacePromptOpen && (
+        <div className="frontface-prompt">
+          <span className="frontface-prompt-text">
+            Click the road-facing exterior wall of your building to set the front face.
+          </span>
+          <button className="calib-cancel" onClick={skipFrontFace}>Skip for now</button>
         </div>
       )}
 

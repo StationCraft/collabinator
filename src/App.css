@@ -823,6 +823,20 @@ canvas {
   border-radius: 8px;
 }
 
+.frontface-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+  padding: 0.6rem 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+}
+.frontface-prompt-text { font-weight: 600; color: #b91c1c; }
+.frontface-prompt .calib-cancel { margin-left: auto; }
+
 .cat-panel-head {
   display: flex;
   align-items: center;
