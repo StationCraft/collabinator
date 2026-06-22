@@ -346,8 +346,44 @@ A React + Vite app with:
     + last-used (stored parent takes priority). Picker is the override UI only.
   * `getAnchorFloor` and the Z-stack are entirely unchanged.
 
+- **Roof-plan tracing (Step 7, Session 13):** 2D typed geometry on Roof Plan category pages
+  (commits a5c1b48, 8288a1d):
+  * **Section picker after polygon close on roof pages:** closed polygon enters a
+    flat/sloped type picker (instead of immediate confirm). Flat: parapet width entry
+    (stored in inches, always imperial regardless of display unit). Sloped: no parapet.
+    `roofType: 'flat'|'sloped'` and `parapetWidth: number|null` stored on shape object.
+    `lineRoles: {}` map also stored for per-edge role assignment.
+  * **`roofGraphRef` — connected-graph internal line tracer:** stores hip/valley/ridge
+    lines as a shared-vertex graph (NOT independent polylines). Two-clicks-per-segment
+    chain; first click must attach to existing geometry; second click on geometry ends
+    chain, on free space auto-continues. Snap targets: existing graph vertices, perimeter
+    corners, segment midpoints, perimeter/roof edges (edge-snap creates split vertex).
+    Axis snap active; Shift releases. Crosshair cursor in trace mode.
+  * **perimParent auto-split:** when a chain endpoint snaps to a perimeter edge
+    mid-span, a graph vertex is created with `perimParent: { shapeIdx, segIdx }` —
+    the perimeter polygon is NOT modified; the vertex records which segment it lies on.
+    Future slope inference traverses polygon + perimParent metadata to find the two
+    eave halves. perimCorner provenance recorded when snapping to a polygon corner.
+    roofEdgeParent provenance recorded when splitting an existing roof graph edge.
+  * **Vertex dedup:** coordinates grid-quantized to 0.5 canvas-pixel before keying a
+    dedupe Map. Two snaps within 0.5px produce the same vertex ID.
+  * **Z-undo + Undo button:** Z key and Undo button in trace toolbar both remove the
+    last edge and call `healAfterEdgeRemoval`. Heal logic: 0 connections on a
+    non-perimeter vertex → drop; 1 connection on a roofEdgeParent vertex → re-merge
+    with the removed edge's far endpoint; 2 connections on roofEdgeParent → full merge
+    of both halves (restores original pre-split edge); 3+ → leave intact.
+  * **Role assignment mode:** separate from Edit Shapes; classifies each edge.
+    Two vocabularies: perimeter edges (from polygon) → Eave or Rake; internal graph
+    edges → Hip, Valley, or Ridge. Click edge to select, pick role from toolbar.
+    Delete button removes a graph edge and runs the same heal logic.
+  * **Five role colors:** ridge #b91c1c, hip #fb923c, valley #2563eb, eave #16a34a,
+    rake #8b5cf6. Rendered on both internal graph edges (dashed) and perimeter segments
+    (solid, on top of default polygon fill).
+  * All roof graph state clears on PDF upload; chain state clears on page nav.
+
 **Not yet built (next increments):**
-- Roof plan, elevations, cross-sections, windows/doors
+- Elevations, cross-sections, windows/doors
+- Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
 
 **Deferred polish items:**
@@ -372,9 +408,13 @@ pageIdMapRef.current[pageNum] = `page-${pageNum}`   // e.g. 1 -> "page-1"
 completedShapesRef.current = Array<{
   vertices: [{x, y}],           // canvas-pixel coordinates
   status: 'reviewing' | 'locked',
-  pageId: string,               // e.g. "page-1" (migrated from pageNumber)
+  pageId: string,               // e.g. "page-1"
   floorLevel: string,
-  elevationZ: number
+  elevationZ: number,
+  // Roof-plan pages only:
+  roofType?: 'flat' | 'sloped' | null,
+  parapetWidth?: number | null,  // inches (always imperial); flat sections only
+  lineRoles?: { [segIdx: number]: 'eave' | 'rake' }  // perimeter-edge role map
 }>
 ```
 
@@ -432,6 +472,37 @@ pageRefParentRef.current = { [pageId: string]: string }
   // Written at confirm time. getEffectiveScale follows this chain to the primary.
 ```
 
+**Roof internal-line graph** (added Session 13 — roof-plan tracing):
+```
+roofGraphRef.current = {
+  verts: Array<{
+    id: string,              // e.g. "rv-0", "rv-1" — stable across re-renders
+    x: number, y: number,   // canvas-pixel coordinates
+    // Provenance (one of these present, or neither for a free interior vertex):
+    perimCorner?:  { shapeIdx: number, vertIdx: number },  // coincident with polygon corner
+    perimParent?:  { shapeIdx: number, segIdx: number },   // lies on a polygon edge mid-span
+    roofEdgeParent?: { edgeId: string },                   // created by splitting a roof edge
+  }>,
+  edges: Array<{
+    id: string,              // e.g. "re-0"
+    aId: string,             // vertex id
+    bId: string,             // vertex id (shared at junctions — not duplicated)
+    role: 'hip' | 'valley' | 'ridge'
+  }>
+}
+roofVertCounterRef.current  // monotonically increasing id counter
+roofEdgeCounterRef.current  // monotonically increasing id counter
+```
+
+Key graph invariants:
+- Junction vertices are **shared** — the same `id` appears in multiple edge `aId`/`bId` fields.
+- Dedup is by quantized key (`Math.round(x*2),Math.round(y*2)`) — two snaps within 0.5px
+  produce the same vertex.
+- When a chain endpoint snaps to an existing roof edge, `splitRoofEdge` replaces that edge
+  with two new edges sharing the new vertex. `healAfterEdgeRemoval` reverses this on undo/delete.
+- Perimeter polygons (`completedShapesRef`) are never modified by the graph; `perimParent`
+  vertices record the attachment without splitting the polygon.
+
 All of the above are cleared on PDF upload.
 
 ## Known issues
@@ -461,7 +532,7 @@ All of the above are cleared on PDF upload.
 - `src/canvasRenderer.js` — stateless drawing primitives that take explicit
   data params (drawLockedShapes, drawShapePoly, drawAlignGuide, pxToDisplayDist)
 - `src/App.jsx` — all React state, refs, event handlers, stateful canvas
-  drawing (drawEditCanvas, redrawDrawCanvas), and JSX (~1560 lines)
+  drawing (drawEditCanvas, redrawDrawCanvas), and JSX (~2800 lines)
 
 ## Working environment notes
 

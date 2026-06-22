@@ -684,6 +684,85 @@ Key visual checks: "Align to reference floor" / "Show reference floor ON/OFF" / 
 
 ---
 
+## SESSION 13 — Roof-plan tracing (2D typed geometry)
+
+**Branch:** main | **Commits:** a5c1b48 (Pieces A+B+C), 8288a1d (Pieces D-G)
+
+### What was built
+
+**Step 7: Roof-plan tracing — 2D typed geometry only (no elevation/slope/Z)**
+
+Two commits, seven pieces:
+
+**a5c1b48 — Pieces A+B+C: data model, section picker, parapet width**
+- `roofType: 'flat'|'sloped'` and `parapetWidth: number|null` (inches, always imperial)
+  stored on each locked shape on a Roof Plan page.
+- `lineRoles: {}` map stored on shape for per-segment role assignment.
+- After polygon close on a Roof Plan page, flow diverges: instead of immediate
+  Confirm/Discard, a flat/sloped picker appears. Flat sections show parapet width input.
+  "Confirm Section" locks the shape with type metadata.
+
+**8288a1d — Pieces D-G: connected-graph trace tool + roles + heal + colors**
+- `roofGraphRef = { verts, edges }` — connected graph replacing the earlier
+  open-polyline approach. Vertices have stable string IDs (`rv-N`); edges reference
+  vertex IDs (shared at junctions, not duplicated). Three provenance fields on vertices:
+  `perimCorner` (coincident polygon corner), `perimParent` (on polygon edge mid-span),
+  `roofEdgeParent` (created by splitting a roof edge).
+- **Two-clicks-per-segment chain:** first click must attach to existing geometry (vertex,
+  midpoint, or edge); second click on geometry ends chain; on free space auto-continues.
+  Escape abandons active chain without exiting mode.
+- **Snap priority:** graph vertex → perimeter corner → midpoint (perimeter + roof) →
+  perimeter edge → roof edge → axis-snapped free point. Snapping to a roof edge calls
+  `splitRoofEdge` to replace the original with two half-edges sharing the new vertex.
+- **perimParent auto-split:** snapping to a perimeter edge mid-span creates a graph
+  vertex with `perimParent: { shapeIdx, segIdx }`. The polygon itself is NOT modified.
+  Future slope inference uses polygon vertices + perimParent metadata to find the two
+  eave halves — no structural change needed before the slope step.
+- **Vertex dedup:** `Math.round(x*2),Math.round(y*2)` key → same snap = same vertex ID.
+- **healAfterEdgeRemoval:** called on both Z-undo and Delete. Checks both endpoints of
+  removed edge: 0 remaining edges + non-perimeter → drop vertex; 1 remaining edge +
+  roofEdgeParent → re-merge (removed edge's far endpoint + remaining half's far endpoint);
+  2 remaining edges + roofEdgeParent → full merge of both halves; 3+ → leave intact.
+- **Role assign mode:** perimeter edges → Eave/Rake (on `shape.lineRoles[segIdx]`);
+  internal graph edges → Hip/Valley/Ridge (on `edge.role`). Delete button in role mode
+  removes an edge and runs heal.
+- **Five role colors:** ridge #b91c1c (dark red), hip #fb923c (light orange),
+  valley #2563eb (blue), eave #16a34a (green), rake #8b5cf6 (violet). Applied to
+  graph edges (dashed) and perimeter segments with assigned roles (solid overlay).
+- **Crosshair cursor** in trace mode; grab cursor excluded.
+- **Dump graph button** (debug, temporary) in trace toolbar.
+
+### Key architectural decision: roofGraphRef over open polylines
+
+Mid-session, the initial open-polyline approach was scrapped after Ben correctly identified
+it as the wrong primitive. A CAD-style connected graph with shared vertex identity is
+required for a structurally coherent roof model. The graph model was designed and approved
+in that conversation; the open-polyline code was fully removed and replaced.
+
+### Two role vocabularies
+
+Perimeter edges (polygon sides) and internal graph edges have different structural roles:
+- **Perimeter:** Eave (horizontal overhang edge), Rake (sloped gable edge)
+- **Internal:** Hip (ridge sloping to corner), Valley (two planes meeting inward), Ridge (peak)
+These are stored in different places: `shape.lineRoles` for perimeter, `edge.role` for graph.
+
+### Deferred from this step
+
+- Slope rules, Z-derivation, peaked-eave inference — all deferred per #18. When a ridge
+  endpoint lands on a perimeter edge, the topology is recorded (perimParent vertex), but the
+  elevation consequence (eave rising to meet the ridge) requires the slope/Z model.
+  Logged in ADDITIONAL_FUNCTIONALITY.md #18 build-order.
+- Roof drainage, eavestrough/RWL, soffit/fascia — all in #18 build-order.
+- Primary-reference reassignment UI — still deferred from sub-step 5.
+
+### Browser-verified this session
+
+- perimParent auto-split confirmed by graph dump: ridge endpoints snapping to perimeter edges
+  produced `perimParent: {shapeIdx, segIdx}` vertices, referenced by shared ID in ridge edge.
+  No duplicate floating vertices. Topology genuinely connected.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -704,6 +783,8 @@ Key visual checks: "Align to reference floor" / "Show reference floor ON/OFF" / 
 - **Primary-reference reassignment UI (#15 — partial):** `primaryReferenceIdRef` set-once today; UI to reassign (relabel root; geometry doesn't move) deferred
 - **Multi-select reference ghosts by floor label (#16):** per-floor-label visibility picker for reference overlays; bridge between single ghost and #8 full layer system
 - **Universal reference-layer model (#17):** architectural record; sub-step 5 adopts data shape; projection math + multi-entity referencing gated on pixels→XYZ conversion
+- **Roof slope/Z-derivation + peaked-eave inference (#18):** ridge-to-perimeter junction topology built (perimParent vertex); the elevation consequence (eave rising to ridge, sloped surface) needs slope rules + XYZ model — see #18 build-order in ADDITIONAL_FUNCTIONALITY.md
+- **Dump graph button (debug):** temporary `console.log` button in trace toolbar — remove before production
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
 
 ---

@@ -338,7 +338,9 @@ A reference is modeled as a typed, projected pointer, not a floor-specific one:
 
 **Eavestrough / rainwater leader auto-prompt (deferred workflow feature):** When fascias are drawn level on elevations, auto-prompt the user for eavestrough and rainwater-leader input at those locations. Ties to the drainage payoff of slope-derived Z.
 
-**Build order:** (1) typed roof-line trace [now]; (2) slope rules + Z-derivation [needs slope model + XYZ]; (3) ceiling/soffit derivation [needs wall geometry]; (4) vault-line ceiling plan + wall coupling [needs walls + slope]; (5) elevation-set soffit/fascia heights [needs elevation drawings]; (6) eavestrough/RWL auto-prompt [needs fascia-on-elevation].
+**Ridge-to-perimeter junction / peaked eave (deferred):** When a ridge endpoint lands on a perimeter edge, the graph topology records the junction (perimParent vertex). The *elevation inference* from that junction — the eave rising to meet the ridge, the roof surface sloping — requires Z-derivation from slope rules and is deferred to step (2). Do NOT fake a visual peak without real Z behind it.
+
+**Build order:** (1) typed roof-line trace + graph topology (including perimParent junctions) [built Session 13]; (2) slope rules + Z-derivation [needs slope model + XYZ] — this step resolves the ridge-to-perimeter peaked-eave inference; (3) ceiling/soffit derivation [needs wall geometry]; (4) vault-line ceiling plan + wall coupling [needs walls + slope]; (5) elevation-set soffit/fascia heights [needs elevation drawings]; (6) eavestrough/RWL auto-prompt [needs fascia-on-elevation].
 
 **Status:** Deferred except step (1) typed roof-line trace, which is the current build step.
 

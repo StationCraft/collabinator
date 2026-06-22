@@ -56,7 +56,18 @@ building."
         C: refCandidates + reference override picker in all 3 toolbar sites (6f7f629)
 ```
 
-**Multi-floor sub-step 5 is complete. Next: roof plan tracing.**
+    [x] Sub-step 5 — directional decoupling / primary-reference model — DONE (see above)
+[x] Roof plan tracing — DONE (Session 13; commits a5c1b48, 8288a1d)
+    [x] Piece A+B+C: Roof Plan category, flat/sloped section picker, parapet width (a5c1b48)
+    [x] Piece D: Role assignment — Assign line roles mode, two vocabularies
+        (perimeter: eave/rake; internal: hip/valley/ridge), role colors (8288a1d)
+    [x] Piece E: Connected-graph trace tool (roofGraphRef) — shared-vertex junctions,
+        dedup, perimParent/perimCorner/roofEdgeParent provenance, axis snap, midpoint
+        snap, edge-split snap, auto-split on perimeter edge (8288a1d)
+    [x] Piece F: Heal-on-undo/delete — healAfterEdgeRemoval restores split edges (8288a1d)
+    [x] Piece G: Five role colors, Z-undo, Undo button in toolbar (8288a1d)
+[ ] Elevation calibration + tracing (next)
+**Roof plan tracing complete. Next: elevation calibration + tracing.**
 
 ---
 

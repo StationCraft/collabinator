@@ -183,13 +183,28 @@ geometry" approach is **not** being rebuilt.
 
 ## 7. Roof plan
 
-- Traced the same way as a floor plan (perimeter polygon, calibrated scale).
-- User selects **roof type: flat or pitched**.
-- If pitched, user draws **slope lines** in addition to the perimeter.
-- Ridge height and eave height are set later, during elevation work (see below).
-- **Eave projection** = horizontal distance between the roof plan's perimeter edge and
-  the top floor's wall perimeter edge, for a given elevation/side.
-- This data feeds roof plane area, angle, and exposure calculations.
+**What is built (Session 13):**
+- Perimeter polygon traced with the standard draw tool (same workflow as floor plans).
+- After polygon close on a Roof Plan page, user picks **flat or sloped** (replaces
+  immediate Confirm). Flat sections: parapet width entry (inches, always imperial).
+  Shape locked with `roofType`, `parapetWidth`, and `lineRoles` fields.
+- **Connected-graph internal-line tracer** (`roofGraphRef`): hip/valley/ridge lines
+  traced as a shared-vertex graph. Two-clicks-per-segment chain; first click must
+  attach to existing geometry; axis snap + midpoint snap + edge-split snap.
+  perimParent vertices record attachment points on perimeter edges (polygon untouched).
+- **Role assignment mode:** two vocabularies — perimeter edges (Eave/Rake) via
+  `shape.lineRoles`; internal lines (Hip/Valley/Ridge) via `edge.role`.
+- **Five role colors:** ridge dark-red, hip light-orange, valley blue, eave green, rake violet.
+- Undo (Z key + button) heals bisected edges. Delete in role mode applies same heal.
+
+**Still to build (deferred per #18):**
+- Slope rules + Z-derivation (ridge-to-perimeter junction topology exists; elevation
+  inference deferred — "eave rising to meet the ridge" needs slope model + XYZ).
+- Eave projection calculation (needs floor-plan and roof-plan perimeter alignment).
+- Roof drainage, eavestrough/RWL placement, soffit/fascia heights (see #18 build-order).
+- Ridge height and eave height set during elevation work (see Section 8).
+- **Eave projection** = horizontal distance between roof perimeter and top-floor wall
+  perimeter, per elevation side — feeds plane area, angle, exposure calculations.
 
 ---
 
