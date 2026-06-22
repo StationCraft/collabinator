@@ -2065,14 +2065,13 @@ function App() {
   }
   const pageHasScale = currentPageId && !!getEffectiveScale(currentPageId)
   const ghostSrc = currentPageId ? getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER) : null
+  const isConfirmed = !!(pageTransformsRef.current[currentPageId]?.confirmed)
+  const alignStarted = (() => { const t = pageTransformsRef.current[currentPageId]; return !!(t && (t.tx || t.ty || t.s !== 1)) })()
   const drawDisabledHint = (() => {
     if (pageHasScale) return null
-    if (ghostSrc) {
-      const t = pageTransformsRef.current[currentPageId]
-      return (t && (t.tx || t.ty || t.s !== 1))
-        ? 'Confirm scale & alignment to enable drawing.'
-        : 'Confirm alignment to the floor below to enable drawing.'
-    }
+    if (ghostSrc) return alignStarted
+      ? 'Confirm scale & alignment to enable drawing.'
+      : 'Confirm alignment to the floor below to enable drawing.'
     return 'Set scale to enable drawing.'
   })()
   const lockedShapesOnPage = currentPage
@@ -2198,7 +2197,6 @@ function App() {
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (() => {
           const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
           if (!ghostPageId) return null
-          const isConfirmed = !!(pageTransformsRef.current[getPageId(currentPage)]?.confirmed)
           return (
             <>
               <button
@@ -2207,7 +2205,7 @@ function App() {
                   if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                   else setAlignMode(false)
                 }}
-              >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : 'Align to floor below'}</button>
+              >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : 'Align to floor below'}</button>
               {alignMode && (
                 <button className="snap-btn" onClick={() => {
                   const pageId = getPageId(currentPage)
@@ -2280,7 +2278,7 @@ function App() {
                           if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                           else setAlignMode(false)
                         }}
-                      >{alignMode ? 'Exit align' : !!(pageTransformsRef.current[getPageId(currentPage)]?.confirmed) ? 'Realign' : 'Align to floor below'}</button>
+                      >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : 'Align to floor below'}</button>
                       {alignMode && (
                         <button className="snap-btn" onClick={() => {
                           const pageId = getPageId(currentPage)
@@ -2353,7 +2351,7 @@ function App() {
                           if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                           else setAlignMode(false)
                         }}
-                      >{alignMode ? 'Exit align' : !!(pageTransformsRef.current[getPageId(currentPage)]?.confirmed) ? 'Realign' : 'Align to floor below'}</button>
+                      >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : 'Align to floor below'}</button>
                       {alignMode && (
                         <button className="snap-btn" onClick={() => {
                           const pageId = getPageId(currentPage)
