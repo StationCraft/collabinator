@@ -99,6 +99,16 @@ function App() {
   const [splitSelected, setSplitSelected] = useState(null)
   const [splitCut, setSplitCut] = useState([])
 
+  // ── Roof role assignment + graph line tracing (Step 7, Pieces D+) ──────────
+  const [roofRoleMode, setRoofRoleMode] = useState(false)
+  // hover/selected: 'segment' → {type,shapeIdx,segIdx} | 'edge' → {type,edgeId}
+  const [roofRoleHover, setRoofRoleHover] = useState(null)
+  const [roofRoleSelected, setRoofRoleSelected] = useState(null)
+  // Connected-graph internal line tracing
+  const [roofLineMode, setRoofLineMode] = useState(false)
+  const [roofChainStartId, setRoofChainStartId] = useState(null) // vertId of active chain start
+  const [roofDefaultRole, setRoofDefaultRole] = useState('ridge')
+
   // ── Sidebar (Step 4c) ───────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -149,6 +159,9 @@ function App() {
   const pageScalesRef = useRef({})
   const drawVerticesRef = useRef([])
   const mousePosRef = useRef(null)
+  const roofGraphRef = useRef({ verts: [], edges: [] }) // connected graph: {verts:[{id,x,y,...}], edges:[{id,aId,bId,role}]}
+  const roofVertCounterRef = useRef(0)
+  const roofEdgeCounterRef = useRef(0)
   const completedShapesRef = useRef([])
   const snapIncrementRef = useRef(0.1524)
   const pageGridOriginRef = useRef({})
@@ -258,6 +271,9 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
+    setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
+    setRoofLineMode(false); setRoofChainStartId(null)
+    roofGraphRef.current = { verts: [], edges: [] }; roofVertCounterRef.current = 0; roofEdgeCounterRef.current = 0
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
     pageIdMapRef.current = {}; pageTransformsRef.current = {}
@@ -294,6 +310,8 @@ function App() {
     if (!pdf || renderingPage) return
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
+    setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
+    setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
     setAlignMode(false); alignDragRef.current = null
     resetZoomPan()
@@ -1175,6 +1193,62 @@ function App() {
   const handleMeasureClick = (e) => {
     // Align mode: drag is the gesture; suppress clicks.
     if (alignMode) return
+    // Roof graph trace mode: two-clicks-per-segment chain
+    if (roofLineMode) {
+      if (panDidDragRef.current) { panDidDragRef.current = false; return }
+      const rawPos = getCanvasPos(e)
+      let axisPos = rawPos
+      if (roofChainStartId) {
+        const startV = roofGraphRef.current.verts.find(v => v.id === roofChainStartId)
+        if (startV && snapAngle && !e.shiftKey) {
+          const { pos } = computeFinalSnapPos(rawPos, [startV], true, snapDist, currentPageId)
+          axisPos = pos
+        }
+      }
+      const snap = findRoofSnapTarget(axisPos)
+      const clickPos = snap ? { x: snap.x, y: snap.y } : axisPos
+      if (!roofChainStartId) {
+        if (!snap) return  // must start from existing geometry
+        const vertId = resolveSnapToVertId(snap)
+        setRoofChainStartId(vertId)
+        drawRoofGraphCanvas(null, null)
+      } else {
+        const startV = roofGraphRef.current.verts.find(v => v.id === roofChainStartId)
+        if (!startV) return
+        if (Math.hypot(clickPos.x - startV.x, clickPos.y - startV.y) < 2) return
+        const endIsGeometry = !!snap
+        const endVertId = snap ? resolveSnapToVertId(snap) : registerVertex(clickPos.x, clickPos.y)
+        roofGraphRef.current.edges.push({
+          id: `re-${roofEdgeCounterRef.current++}`, aId: roofChainStartId, bId: endVertId, role: roofDefaultRole,
+        })
+        setRoofChainStartId(endIsGeometry ? null : endVertId)
+        drawRoofGraphCanvas(null, null)
+      }
+      return
+    }
+    // Roof role mode: click selects a perimeter segment or graph edge
+    if (roofRoleMode) {
+      const pos = getCanvasPos(e)
+      let best = null, bestDist = HIT_SEG_DIST
+      completedShapesRef.current.forEach((shape, shapeIdx) => {
+        if (shape.pageId !== currentPageId || shape.roofType !== 'sloped') return
+        shape.vertices.forEach((_, segIdx) => {
+          const verts = shape.vertices
+          const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
+          if (d < bestDist) { bestDist = d; best = { type: 'segment', shapeIdx, segIdx } }
+        })
+      })
+      roofGraphRef.current.edges.forEach(edge => {
+        const a = roofGraphRef.current.verts.find(v => v.id === edge.aId)
+        const b = roofGraphRef.current.verts.find(v => v.id === edge.bId)
+        if (!a || !b) return
+        const d = distToSegment(pos, a, b)
+        if (d < bestDist) { bestDist = d; best = { type: 'edge', edgeId: edge.id } }
+      })
+      setRoofRoleSelected(best)
+      drawRoofRoleCanvas(roofRoleHover, best)
+      return
+    }
     // Front-face pick mode: a click on a perimeter segment selects the front face.
     if (frontFacePromptOpen) {
       const hit = hitTestFrontFaceSegment(getCanvasPos(e))
@@ -1478,6 +1552,42 @@ function App() {
         }
       }
       redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle && !e.shiftKey, snapDist, currentPageId)
+    } else if (roofLineMode) {
+      let axisPos = pos
+      if (roofChainStartId) {
+        const startV = roofGraphRef.current.verts.find(v => v.id === roofChainStartId)
+        if (startV && snapAngle && !e.shiftKey) {
+          const { pos: snapped } = computeFinalSnapPos(pos, [startV], true, snapDist, currentPageId)
+          axisPos = snapped
+        }
+      }
+      const snap = findRoofSnapTarget(axisPos)
+      const displayPos = snap ? { x: snap.x, y: snap.y } : axisPos
+      drawRoofGraphCanvas(displayPos, snap?.type || null)
+    } else if (roofRoleMode) {
+      const pos = getCanvasPos(e)
+      let best = null, bestDist = HIT_SEG_DIST
+      completedShapesRef.current.forEach((shape, shapeIdx) => {
+        if (shape.pageId !== currentPageId || shape.roofType !== 'sloped') return
+        shape.vertices.forEach((_, segIdx) => {
+          const verts = shape.vertices
+          const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
+          if (d < bestDist) { bestDist = d; best = { type: 'segment', shapeIdx, segIdx } }
+        })
+      })
+      roofGraphRef.current.edges.forEach(edge => {
+        const a = roofGraphRef.current.verts.find(v => v.id === edge.aId)
+        const b = roofGraphRef.current.verts.find(v => v.id === edge.bId)
+        if (!a || !b) return
+        const d = distToSegment(pos, a, b)
+        if (d < bestDist) { bestDist = d; best = { type: 'edge', edgeId: edge.id } }
+      })
+      const prev = roofRoleHover
+      const changed = JSON.stringify(best) !== JSON.stringify(prev)
+      if (changed) {
+        setRoofRoleHover(best)
+        drawRoofRoleCanvas(best, roofRoleSelected)
+      }
     }
   }
 
@@ -1623,6 +1733,258 @@ function App() {
     }
   }
 
+  // ── Roof graph helpers ────────────────────────────────────────────────────
+  // Five distinct role colors — ridge dark-red, hip light-orange, valley blue, eave green, rake violet
+  const ROOF_EDGE_COLORS = { ridge: '#b91c1c', hip: '#fb923c', valley: '#2563eb', eave: '#16a34a', rake: '#8b5cf6' }
+  const MIDPOINT_SNAP_PX = 12
+
+  const quantKey = (x, y) => `${Math.round(x * 2)},${Math.round(y * 2)}`
+
+  const getVertKeyMap = () => {
+    const map = new Map()
+    roofGraphRef.current.verts.forEach(v => map.set(quantKey(v.x, v.y), v.id))
+    return map
+  }
+
+  const registerVertex = (x, y, provenance = {}) => {
+    const km = getVertKeyMap()
+    const key = quantKey(x, y)
+    if (km.has(key)) return km.get(key)
+    const id = `rv-${roofVertCounterRef.current++}`
+    roofGraphRef.current.verts.push({ id, x, y, ...provenance })
+    return id
+  }
+
+  const splitRoofEdge = (edgeId, newVertId) => {
+    const graph = roofGraphRef.current
+    const idx = graph.edges.findIndex(e => e.id === edgeId)
+    if (idx === -1) return
+    const old = graph.edges[idx]
+    const e1 = { id: `re-${roofEdgeCounterRef.current++}`, aId: old.aId, bId: newVertId, role: old.role }
+    const e2 = { id: `re-${roofEdgeCounterRef.current++}`, aId: newVertId, bId: old.bId, role: old.role }
+    graph.edges.splice(idx, 1, e1, e2)
+  }
+
+  // After removing an edge, check both its endpoints and heal any split vertex that is now
+  // down to exactly 0 or 1 other connection (roofEdgeParent verts only — perimCorner/perimParent
+  // are polygon-owned and never removed by the graph).
+  const healAfterEdgeRemoval = (removedEdge) => {
+    const graph = roofGraphRef.current
+    for (const vertId of [removedEdge.aId, removedEdge.bId]) {
+      const vert = graph.verts.find(v => v.id === vertId)
+      if (!vert) continue
+      const connected = graph.edges.filter(e => e.aId === vertId || e.bId === vertId)
+      if (connected.length === 0) {
+        // Fully orphaned — remove if non-perimeter
+        if (!vert.perimCorner && !vert.perimParent) graph.verts = graph.verts.filter(v => v.id !== vertId)
+      } else if (vert.roofEdgeParent) {
+        if (connected.length === 1) {
+          // One half-edge remains; the other (removedEdge) spanned to the other side — re-merge
+          const halfEdge = connected[0]
+          const otherEndOfRemoved = removedEdge.aId === vertId ? removedEdge.bId : removedEdge.aId
+          const otherEndOfHalf = halfEdge.aId === vertId ? halfEdge.bId : halfEdge.aId
+          graph.edges = graph.edges.filter(e => e.id !== halfEdge.id)
+          graph.verts = graph.verts.filter(v => v.id !== vertId)
+          graph.edges.push({ id: `re-${roofEdgeCounterRef.current++}`, aId: otherEndOfRemoved, bId: otherEndOfHalf, role: halfEdge.role })
+        } else if (connected.length === 2) {
+          // Both halves remain (undo of a chain edge that landed on a split vertex) — full merge
+          const [e1, e2] = connected
+          const aId = e1.aId === vertId ? e1.bId : e1.aId
+          const bId = e2.aId === vertId ? e2.bId : e2.aId
+          graph.edges = graph.edges.filter(e => e.id !== e1.id && e.id !== e2.id)
+          graph.verts = graph.verts.filter(v => v.id !== vertId)
+          graph.edges.push({ id: `re-${roofEdgeCounterRef.current++}`, aId, bId, role: e1.role })
+        }
+        // 3+ connections: complex junction formed after split — leave intact
+      }
+    }
+  }
+
+  const resolveSnapToVertId = (snap) => {
+    if (!snap) return null
+    if (snap.type === 'vertex') {
+      return snap.vertId != null ? snap.vertId : registerVertex(snap.x, snap.y, snap.provenance || {})
+    }
+    const prov = snap.edgeType === 'perimeter'
+      ? { perimParent: { shapeIdx: snap.shapeIdx, segIdx: snap.segIdx } }
+      : { roofEdgeParent: { edgeId: snap.edgeId } }
+    const id = registerVertex(snap.x, snap.y, prov)
+    if (snap.edgeType === 'roof' && snap.edgeId) splitRoofEdge(snap.edgeId, id)
+    return id
+  }
+
+  const findRoofSnapTarget = (pos) => {
+    const pageShapes = completedShapesRef.current.filter(s => s.pageId === currentPageId && s.status === 'locked')
+    const graph = roofGraphRef.current
+    let best = null, bestDist = Infinity
+
+    // 1. Existing graph vertices
+    for (const v of graph.verts) {
+      const d = Math.hypot(pos.x - v.x, pos.y - v.y)
+      if (d < HIT_VERT_DIST && d < bestDist) { bestDist = d; best = { type: 'vertex', x: v.x, y: v.y, vertId: v.id } }
+    }
+    // 2. Perimeter corner vertices
+    for (const shape of pageShapes) {
+      const shapeIdx = completedShapesRef.current.indexOf(shape)
+      for (let i = 0; i < shape.vertices.length; i++) {
+        const v = shape.vertices[i]
+        const d = Math.hypot(pos.x - v.x, pos.y - v.y)
+        if (d < HIT_VERT_DIST && d < bestDist) {
+          bestDist = d
+          best = { type: 'vertex', x: v.x, y: v.y, vertId: null, provenance: { perimCorner: { shapeIdx, vertIdx: i } } }
+        }
+      }
+    }
+    if (best) return best
+
+    // 3. Midpoints — perimeter edges
+    for (const shape of pageShapes) {
+      const shapeIdx = completedShapesRef.current.indexOf(shape)
+      for (let i = 0; i < shape.vertices.length; i++) {
+        const a = shape.vertices[i], b = shape.vertices[(i + 1) % shape.vertices.length]
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
+        const d = Math.hypot(pos.x - mx, pos.y - my)
+        if (d < MIDPOINT_SNAP_PX && d < bestDist) {
+          bestDist = d; best = { type: 'midpoint', x: mx, y: my, edgeType: 'perimeter', shapeIdx, segIdx: i }
+        }
+      }
+    }
+    // 4. Midpoints — roof edges
+    for (const edge of graph.edges) {
+      const a = graph.verts.find(v => v.id === edge.aId), b = graph.verts.find(v => v.id === edge.bId)
+      if (!a || !b) continue
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
+      const d = Math.hypot(pos.x - mx, pos.y - my)
+      if (d < MIDPOINT_SNAP_PX && d < bestDist) {
+        bestDist = d; best = { type: 'midpoint', x: mx, y: my, edgeType: 'roof', edgeId: edge.id }
+      }
+    }
+    if (best) return best
+
+    // 5. Perimeter edges
+    for (const shape of pageShapes) {
+      const shapeIdx = completedShapesRef.current.indexOf(shape)
+      for (let i = 0; i < shape.vertices.length; i++) {
+        const a = shape.vertices[i], b = shape.vertices[(i + 1) % shape.vertices.length]
+        const d = distToSegment(pos, a, b)
+        if (d < HIT_SEG_DIST && d < bestDist) {
+          bestDist = d
+          const t = projT(pos, a, b)
+          best = { type: 'edge', x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y), edgeType: 'perimeter', shapeIdx, segIdx: i, t }
+        }
+      }
+    }
+    // 6. Roof edges
+    for (const edge of graph.edges) {
+      const a = graph.verts.find(v => v.id === edge.aId), b = graph.verts.find(v => v.id === edge.bId)
+      if (!a || !b) continue
+      const d = distToSegment(pos, a, b)
+      if (d < HIT_SEG_DIST && d < bestDist) {
+        bestDist = d
+        const t = projT(pos, a, b)
+        best = { type: 'edge', x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y), edgeType: 'roof', edgeId: edge.id, t }
+      }
+    }
+    return best
+  }
+
+  const drawPerimRoles = (ctx) => {
+    completedShapesRef.current.forEach(shape => {
+      if (shape.pageId !== currentPageId || shape.status !== 'locked') return
+      const roles = shape.lineRoles || {}
+      const verts = shape.vertices
+      for (let i = 0; i < verts.length; i++) {
+        const role = roles[i]; if (!role) continue
+        const a = verts[i], b = verts[(i + 1) % verts.length]
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
+        ctx.strokeStyle = ROOF_EDGE_COLORS[role] || '#6b7280'
+        ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.setLineDash([]); ctx.stroke()
+      }
+    })
+  }
+
+  const drawRoofGraphCanvas = (snapPos, snapType) => {
+    const c = measureRef.current; if (!c) return
+    const ctx = c.getContext('2d')
+    ctx.clearRect(0, 0, c.width, c.height)
+    drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
+    drawPerimRoles(ctx)
+    const graph = roofGraphRef.current
+    graph.edges.forEach(edge => {
+      const a = graph.verts.find(v => v.id === edge.aId), b = graph.verts.find(v => v.id === edge.bId)
+      if (!a || !b) return
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
+      ctx.strokeStyle = ROOF_EDGE_COLORS[edge.role] || '#6b7280'
+      ctx.lineWidth = 2.5; ctx.setLineDash([6, 3]); ctx.stroke(); ctx.setLineDash([])
+    })
+    graph.verts.forEach(v => {
+      ctx.beginPath(); ctx.arc(v.x, v.y, 3, 0, Math.PI * 2)
+      ctx.fillStyle = '#f59e0b'; ctx.fill()
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.stroke()
+    })
+    if (roofChainStartId && snapPos) {
+      const startV = graph.verts.find(v => v.id === roofChainStartId)
+      if (startV) {
+        ctx.beginPath(); ctx.moveTo(startV.x, startV.y); ctx.lineTo(snapPos.x, snapPos.y)
+        ctx.strokeStyle = 'rgba(37,99,235,0.6)'; ctx.lineWidth = 1.5
+        ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([])
+      }
+    }
+    if (snapPos) {
+      if (snapType === 'vertex') {
+        ctx.beginPath(); ctx.arc(snapPos.x, snapPos.y, 8, 0, Math.PI * 2)
+        ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2; ctx.stroke()
+      } else if (snapType === 'midpoint') {
+        ctx.beginPath(); ctx.arc(snapPos.x, snapPos.y, 6, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(22,163,74,0.25)'; ctx.fill()
+        ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 1.5; ctx.stroke()
+      } else if (snapType === 'edge') {
+        ctx.beginPath(); ctx.arc(snapPos.x, snapPos.y, 5, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(37,99,235,0.25)'; ctx.fill()
+        ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5; ctx.stroke()
+      }
+    }
+  }
+
+  const drawRoofRoleCanvas = (hover, selected) => {
+    const c = measureRef.current; if (!c) return
+    const ctx = c.getContext('2d')
+    ctx.clearRect(0, 0, c.width, c.height)
+    drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
+    drawPerimRoles(ctx)
+    const graph = roofGraphRef.current
+    graph.edges.forEach(edge => {
+      const a = graph.verts.find(v => v.id === edge.aId), b = graph.verts.find(v => v.id === edge.bId)
+      if (!a || !b) return
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
+      ctx.strokeStyle = ROOF_EDGE_COLORS[edge.role] || '#6b7280'
+      ctx.lineWidth = 2.5; ctx.setLineDash([6, 3]); ctx.stroke(); ctx.setLineDash([])
+    })
+    const highlightSeg = (shapeIdx, segIdx, color, lw) => {
+      const verts = completedShapesRef.current[shapeIdx]?.vertices; if (!verts) return
+      const a = verts[segIdx], b = verts[(segIdx + 1) % verts.length]
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.setLineDash([]); ctx.stroke()
+    }
+    const highlightEdge = (edgeId, color, lw) => {
+      const edge = graph.edges.find(e => e.id === edgeId); if (!edge) return
+      const a = graph.verts.find(v => v.id === edge.aId), b = graph.verts.find(v => v.id === edge.bId)
+      if (!a || !b) return
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.setLineDash([]); ctx.stroke()
+    }
+    const sameHit = (a, b) => a && b && a.type === b.type &&
+      (a.type === 'segment' ? a.shapeIdx === b.shapeIdx && a.segIdx === b.segIdx : a.edgeId === b.edgeId)
+    if (hover && !sameHit(hover, selected)) {
+      if (hover.type === 'segment') highlightSeg(hover.shapeIdx, hover.segIdx, 'rgba(245,158,11,0.7)', 5)
+      else highlightEdge(hover.edgeId, 'rgba(245,158,11,0.7)', 5)
+    }
+    if (selected) {
+      if (selected.type === 'segment') highlightSeg(selected.shapeIdx, selected.segIdx, '#f59e0b', 6)
+      else highlightEdge(selected.edgeId, '#f59e0b', 6)
+    }
+  }
+
   // ── Front-face designation (Step 5c) ────────────────────────────────────────
 
   // Derived trigger: prompt only when no front face is set yet, the anchor floor
@@ -1725,6 +2087,11 @@ function App() {
       if (e.key === 'Escape') {
         if (calibMode) exitCalibMode()
         else if (reviewShape || roofShapeDraft) discardShape()
+        else if (roofLineMode) {
+          if (roofChainStartId) { setRoofChainStartId(null); drawRoofGraphCanvas(null, null) }
+          else setRoofLineMode(false)
+        }
+        else if (roofRoleMode) { setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null) }
         else if (drawMode) exitDrawMode()
         else if (editMode) {
           if (labelEditState) { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }
@@ -1754,10 +2121,25 @@ function App() {
         drawVerticesRef.current = next; setDrawVertexCount(next.length)
         redrawDrawCanvas(mousePosRef.current, next, snapAngle, snapDist, currentPageId)
       }
+      if (roofLineMode && roofChainStartId && (e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
+        const graph = roofGraphRef.current
+        let lastEdgeIdx = -1
+        for (let i = graph.edges.length - 1; i >= 0; i--) {
+          if (graph.edges[i].bId === roofChainStartId) { lastEdgeIdx = i; break }
+        }
+        if (lastEdgeIdx === -1) {
+          setRoofChainStartId(null)
+        } else {
+          const removed = graph.edges.splice(lastEdgeIdx, 1)[0]
+          healAfterEdgeRemoval(removed)
+          setRoofChainStartId(removed.aId)
+        }
+        drawRoofGraphCanvas(null, null)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, roofShapeDraft, snapAngle, snapDist, currentPage, editMode, labelEditState])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -2132,6 +2514,8 @@ function App() {
     ? completedShapesRef.current.filter(s => s.pageId === currentPageId)
     : []
 
+  const hasSlopedOnPage = lockedShapesOnPage.some(s => s.roofType === 'sloped')
+
   const hasCombinableShapes = editMode
     ? getEligibleShapes(completedShapesRef.current, currentPageId).size >= 2
     : false
@@ -2288,10 +2672,125 @@ function App() {
           )
         })()}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && lockedShapesOnPage.length > 0 && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !categorizeMode && lockedShapesOnPage.length > 0 && (
           <button className="edit-btn" onClick={() => { clearMeasureCanvas(); setEditMode(true) }}>
             Edit Shapes
           </button>
+        )}
+
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && hasSlopedOnPage && (
+          <>
+            <button className="edit-btn" onClick={() => {
+              clearMeasureCanvas()
+              setRoofRoleMode(true); setRoofRoleHover(null); setRoofRoleSelected(null)
+              drawRoofRoleCanvas(null, null)
+            }}>
+              Assign line roles
+            </button>
+            <button className="edit-btn" onClick={() => {
+              clearMeasureCanvas()
+              setRoofChainStartId(null)
+              setRoofLineMode(true)
+              drawRoofGraphCanvas(null, null)
+            }}>
+              Trace line
+            </button>
+          </>
+        )}
+
+        {roofLineMode && (
+          <div className="draw-toolbar">
+            <span className="review-status">
+              {roofChainStartId ? 'Click to end segment · Esc abandons chain' : 'Click existing geometry to start · Esc to exit'}
+            </span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
+              New edge:&nbsp;
+              <select value={roofDefaultRole} onChange={e => setRoofDefaultRole(e.target.value)}
+                style={{ fontSize: 12, padding: '1px 4px' }}>
+                <option value="hip">Hip</option>
+                <option value="valley">Valley</option>
+                <option value="ridge">Ridge</option>
+              </select>
+            </label>
+            <button className="btn-secondary"
+              disabled={!roofChainStartId}
+              onClick={() => {
+                const graph = roofGraphRef.current
+                let lastEdgeIdx = -1
+                for (let i = graph.edges.length - 1; i >= 0; i--) {
+                  if (graph.edges[i].bId === roofChainStartId) { lastEdgeIdx = i; break }
+                }
+                if (lastEdgeIdx === -1) {
+                  setRoofChainStartId(null)
+                } else {
+                  const removed = graph.edges.splice(lastEdgeIdx, 1)[0]
+                  healAfterEdgeRemoval(removed)
+                  setRoofChainStartId(removed.aId)
+                }
+                drawRoofGraphCanvas(null, null)
+              }}
+            >Undo</button>
+            <button className="calib-cancel" onClick={() => { setRoofLineMode(false); setRoofChainStartId(null) }}>Done</button>
+            <button className="btn-secondary" onClick={() => {
+              console.log('roofGraph:', JSON.stringify(roofGraphRef.current, null, 2))
+            }}>Dump graph</button>
+          </div>
+        )}
+
+        {roofRoleMode && (
+          <div className="draw-toolbar">
+            {roofRoleSelected ? (() => {
+              const isEdge = roofRoleSelected.type === 'edge'
+              const options = isEdge ? ['Hip', 'Valley', 'Ridge'] : ['Eave', 'Rake']
+              const currentRole = isEdge
+                ? (roofGraphRef.current.edges.find(e => e.id === roofRoleSelected.edgeId)?.role || 'ridge')
+                : (completedShapesRef.current[roofRoleSelected.shapeIdx]?.lineRoles?.[roofRoleSelected.segIdx] || 'eave')
+              return (
+                <>
+                  <span className="review-status">{isEdge ? 'Internal line role:' : 'Perimeter segment role:'}</span>
+                  {options.map(role => (
+                    <button key={role}
+                      className={`snap-btn ${currentRole === role.toLowerCase() ? 'snap-btn--on' : ''}`}
+                      onClick={() => {
+                        if (isEdge) {
+                          const edge = roofGraphRef.current.edges.find(e => e.id === roofRoleSelected.edgeId)
+                          if (edge) edge.role = role.toLowerCase()
+                        } else {
+                          const shape = completedShapesRef.current[roofRoleSelected.shapeIdx]
+                          if (shape) shape.lineRoles = { ...shape.lineRoles, [roofRoleSelected.segIdx]: role.toLowerCase() }
+                        }
+                        setRoofRoleSelected(null)
+                        drawRoofRoleCanvas(roofRoleHover, null)
+                      }}
+                    >{role}</button>
+                  ))}
+                  {isEdge && (
+                    <button className="submode-btn submode-btn--danger" onClick={() => {
+                      const graph = roofGraphRef.current
+                      const eid = roofRoleSelected.edgeId
+                      const removedEdge = graph.edges.find(e => e.id === eid)
+                      if (removedEdge) {
+                        graph.edges = graph.edges.filter(e => e.id !== eid)
+                        healAfterEdgeRemoval(removedEdge)
+                      }
+                      setRoofRoleSelected(null)
+                      drawRoofRoleCanvas(roofRoleHover, null)
+                    }}>Delete</button>
+                  )}
+                  <button className="btn-secondary" onClick={() => { setRoofRoleSelected(null); drawRoofRoleCanvas(roofRoleHover, null) }}>
+                    Cancel
+                  </button>
+                </>
+              )
+            })() : (
+              <>
+                <span className="review-status">Click a perimeter edge (Eave/Rake) or internal line (Hip/Valley/Ridge)</span>
+                <button className="calib-cancel" onClick={() => { setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null) }}>
+                  Done
+                </button>
+              </>
+            )}
+          </div>
         )}
 
         {drawMode && (
@@ -2693,7 +3192,7 @@ function App() {
         <div
           className="canvas-stack"
           ref={canvasWrapperRef}
-          style={{ cursor: isPanning ? 'grabbing' : (!drawMode && !calibMode && !editMode && currentPage ? 'grab' : undefined) }}
+          style={{ cursor: isPanning ? 'grabbing' : (!drawMode && !calibMode && !editMode && !roofLineMode && currentPage ? 'grab' : undefined) }}
         >
           <div
             ref={canvasWorldRef}
@@ -2716,7 +3215,7 @@ function App() {
             <canvas
               ref={measureRef}
               className="measure-canvas"
-              style={{ cursor: alignMode ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode) ? 'crosshair' : undefined }}
+              style={{ cursor: alignMode ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode) ? 'crosshair' : undefined }}
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}
