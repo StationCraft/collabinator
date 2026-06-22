@@ -49,6 +49,10 @@ building."
         1b: getEffectiveScale recursive borrow unlocks Draw (327e84d)
         1b-fix + 1c: recursive borrow for 3+ floor stacks; hide Set Scale on ghosted pages (d030a34)
     [ ] Sub-step 4 — cross-page persistence & toggle state (save/restore)  <-- YOU ARE HERE
+    [ ] Sub-step 5 — directional decoupling / primary-reference model
+        (see ADDITIONAL_FUNCTIONALITY #15). Replaces bottom-up ghost/borrow with a
+        user-reassignable primary-reference tree; trace order no longer forced.
+        Z-stack + getAnchorFloor explicitly unchanged. Own pieces + cycle-guard testing.
 ```
 
 **Sub-step 3 (confirm-scale lock) is complete. Next: Sub-step 4

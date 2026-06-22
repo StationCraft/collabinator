@@ -252,6 +252,47 @@ normalization are prioritized.
 
 ---
 
+### 15. Directional decoupling: primary-reference model (replaces bottom-up ghost/borrow)
+
+**Logged:** Session 11, mid sub-step 4.
+
+**Description:** Today the ghost reference and scale-borrow are strictly bottom-up — `getGhostSourcePageId` scans *downward* through `FLOOR_ORDER`; `getEffectiveScale` borrows toward the lowest calibrated floor. This forces tracing the lowest floor first. Replace with a **primary-reference tree**:
+- One project-level `primaryReferencePageId` — the scale-and-coordinate root. **Defaulted to the first page calibrated**, but **user-reassignable** (relabel the root; geometry doesn't move, since all confirmed pages already share the primary's space).
+- Per-page stored `referenceParentPageId` — which already-in-primary-space page *this* page was aligned/confirmed against (stored at confirm time, not computed by floor order). A confirmed page is itself a valid reference for the next, so alignment is direction-agnostic (up/down/skip).
+- `getEffectiveScale` follows the stored parent pointer to the primary (direct chain, not a `FLOOR_ORDER` scan) — simpler, and structurally acyclic (tree rooted at primary; every confirm adds a leaf pointing at an existing node).
+- Ghost source becomes "nearest confirmed reference" (or user-picked), not "nearest lower floor." Open UI question: auto-pick adjacent confirmed page vs. let user choose the reference.
+
+**Explicitly unchanged:** `getAnchorFloor` and the relative-offset **Z-stack** stay bottom-up — the physical floor stack (base = lowest, Z accrues upward) is a building fact, fully separate from the reference/scale/trace-order axis. Primary-reference (coordinate-space root) and anchor-floor (Z-stack base) are two distinct concepts and must stay separate.
+
+**UI copy impact:** "floor below" → "reference floor"/"reference plan" across align button, Draw-disabled hint, ghost toggle.
+
+**Why deferred:** Redefines sub-step 1 + 3 core logic in the feature that was lost once and carefully rebuilt; needs its own planning + pieces + testing (the cycle guard, currently cheap insurance, must be verified against the new tree). Not sub-step 4.
+
+**Status:** Defined next-step after sub-step 4. Likely its own sub-step/step with dedicated pieces.
+
+---
+
+### 16. Multi-select reference ghosts by floor label
+
+**Logged:** Session 11, end of sub-step 4.
+
+**Description:** Today exactly one reference ghost shows — the single nearest source page (sub-step 1–3), and entry #15 makes *which one you align against* user-pickable. This is different: let the user choose **which floors are shown as reference ghosts, multi-select by floor label**, displaying several reference plans at once (e.g. while tracing 2nd Floor, show both Main Floor and Basement as overlays). Visibility is independent of which floor is the alignment parent (#15) — a floor can be shown as reference without being the thing you align/borrow scale from.
+
+This is the floor-specific instance of the general layer-visibility model (#8): a per-floor-label visibility picker (checklist of categorized Floor Plan pages → toggle each on/off as a reference overlay). Same plumbing as the existing single ghost (`getVisibleVertices`, `showGhostByPageId`, `drawGhostShapes`), generalized from one source to a selected set. The per-page toggle built in sub-step 4 (Piece 1, `showGhostByPageId`) is the seed pattern this extends.
+
+**Open questions when built:**
+- Visual disambiguation when multiple ghosts overlap (per-floor colour/opacity, or label tags on each ghost).
+- Interaction with the alignment-parent ghost: is the align reference always shown, or independently toggleable too?
+- Whether selection is by floor label specifically, or any categorized page.
+
+**Relationship to #8 and #15:** #8 is the full discipline-layer system (Phase 2). #15 is reference/scale *topology* (which floor is primary, which is the align parent). This (#16) is reference *display* — which floors are visible as ghosts — and is the natural bridge between today's single ghost and #8's full multi-layer visibility.
+
+**Why deferred:** Display/visibility feature on top of the reference system; not needed to finish multi-floor alignment. Best built after #15 settles the reference topology, and shares design with #8.
+
+**Status:** Deferred. Build alongside or after #15; design with #8.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

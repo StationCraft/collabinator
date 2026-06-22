@@ -269,8 +269,30 @@ A React + Vite app with:
     ghosted pages comes from confirm-and-borrow; manual calibration returns only if
     the page is reclassified out of the ghost chain.
 
+- **Multi-floor sub-step 4 (Step 6, sub-step 4 of 4):** cross-page persistence
+  & per-page toggle state (commits c7a45e0, d42296e, 196b0fa):
+  * **Per-page ghost toggle** — global `showGhost` boolean replaced by
+    `showGhostByPageId` map keyed by pageId, default-on via `?? true`. Each page
+    remembers its own ghost on/off; persists across navigation, clears on PDF upload.
+    Derived `showGhost = showGhostByPageId[currentPageId] ?? true` keeps all existing
+    draw guards unchanged.
+  * **Draw-mode passive repaint useEffect** added (mirroring view/edit mode) so ghost
+    and snap toggles repaint immediately instead of on next mouse move; stale imperative
+    redrawDrawCanvas call removed from the toggle onClick (was reading pre-update state).
+  * **Context-aware Draw-disabled hint** — inline hint (`cat-panel-hint` style) next to a
+    disabled Draw button. Ghosted pages read "Confirm alignment to the floor below…" /
+    "Confirm scale & alignment…" per align state; anchor floors read "Set scale…".
+    Replaces the misleading title-tooltip. Gate logic unchanged (getEffectiveScale
+    already returns null until confirmed).
+  * **Three-way align button label** — `isConfirmed` and `alignStarted` factored into
+    shared render-scope derived values (consumed by both the hint and the button).
+    Label resolves: "Align to floor below" (not started) / "Resume align" (started, not
+    confirmed) / "Realign" (confirmed), unified across view/draw/edit toolbars.
+  * Cross-page transform/ghost/handle restore verified clean on navigation round-trip
+    (no repaint gap; persisted refs repaint on arrival without interaction).
+
 **Not yet built (next increments):**
-- Multi-floor alignment sub-step 4: cross-page persistence and per-page toggle state
+- Multi-floor sub-step 5 (directional decoupling / primary-reference model) — see ADDITIONAL_FUNCTIONALITY #15
 - Roof plan, elevations, cross-sections, windows/doors
 
 **Deferred polish items:**

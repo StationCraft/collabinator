@@ -589,6 +589,51 @@ masked the gate in early testing until a fresh start proved it.
 
 ---
 
+## SESSION 11 — Multi-floor sub-step 4: cross-page persistence & per-page toggle
+
+**Branch:** main | **Commits:** c7a45e0 (Piece 1), d42296e (Piece 2), 196b0fa (Piece 3)
+
+### What was built
+
+Sub-step 4 in three commits + a verification piece:
+
+- **Piece 1 (c7a45e0):** Per-page ghost toggle. `showGhost` boolean → `showGhostByPageId`
+  map (default-on `?? true`); per-page state persists across nav, clears on upload. Added
+  draw-mode passive repaint useEffect so toggles repaint immediately; removed stale
+  imperative redrawDrawCanvas from toggle onClick (was reading pre-update state — the
+  "doesn't toggle until mouse moves" bug).
+- **Piece 2 (d42296e):** Context-aware inline Draw-disabled hint replacing the misleading
+  "Set scale first" tooltip. Ghosted pages tell the user to confirm alignment; anchor
+  floors keep set-scale. Gate logic unchanged.
+- **Piece 3 (196b0fa):** "Resume align" cue. Factored shared isConfirmed/alignStarted
+  consts; three-way align label (Align to floor below / Resume align / Realign) unified
+  across all three toolbars.
+- **Piece 4 (verification, no commit):** Cross-page restore verified clean — PDF transform,
+  ghost, handles, and per-page toggle all repaint correctly on navigation round-trip with
+  no interaction needed and no flash of unaligned state.
+
+### Planning decision this session — directional decoupling (deferred to sub-step 5)
+
+Mid-session, identified that the bottom-up assumption (ghost/borrow scan downward through
+FLOOR_ORDER, lowest floor must be traced first) is an arbitrary constraint for the
+*reference* purpose. Designed a replacement: a **primary-reference tree** — one project-level
+`primaryReferencePageId` (defaulted to first-calibrated, user-reassignable), per-page stored
+`referenceParentPageId` (the in-primary-space page each floor confirmed against, stored at
+confirm time), `getEffectiveScale` following the parent pointer (acyclic tree rooted at
+primary). Any confirmed floor is a valid reference for the next, so trace order is free
+(up/down/skip). **getAnchorFloor and the Z-stack stay bottom-up, explicitly unchanged** —
+physical floor stack is a building fact, separate from reference/scale topology. Logged as
+ADDITIONAL_FUNCTIONALITY #15 and BUILD_ROADMAP sub-step 5. Also logged #16 (multi-select
+reference ghosts by floor label) as the display-side bridge to #8.
+
+### In-memory-state-loss reminder
+
+No persistence — all state in memory, lost on reload. Sub-step 4 testing (per-page toggle
+round-trips, transform restore) requires one un-reloaded tab built up from PDF upload through
+alignment; a reloaded tab starts clean.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -606,6 +651,8 @@ masked the gate in early testing until a fresh start proved it.
 - **Page rotation (#12):** 90° viewer convenience + arbitrary alignment rotation; `angle` reserved in transform struct
 - **Ghost vertices as opt-in snap targets (#13):** deferred from sub-step 3; shared grid handles alignment for now
 - **Scale inheritance within drawing group (#14):** suppress Set Scale across a group once one page is calibrated; needs drawing-group concept
+- **Directional decoupling / primary-reference model (#15):** replace bottom-up ghost/borrow with user-reassignable primary-reference tree; trace order no longer forced; Z-stack unchanged
+- **Multi-select reference ghosts by floor label (#16):** per-floor-label visibility picker for reference overlays; bridge between single ghost and #8 full layer system
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
 
 ---
@@ -622,7 +669,8 @@ masked the gate in early testing until a fresh start proved it.
    - ~~Sub-step 1: ghost rendering~~ — DONE (996b5a7)
    - ~~Sub-step 2: ghost alignment + per-page transform~~ — DONE (73f02f1, c2ed3ba, 122b077, 6e97f67, b210343, d5425d0)
    - ~~Sub-step 3: confirm-scale lock~~ — DONE (d49060d, e4cf8b6, 327e84d, d030a34)
-   - **Sub-step 4: cross-page persistence/toggle** — NEXT
+   - ~~Sub-step 4: cross-page persistence/toggle~~ — DONE (c7a45e0, d42296e, 196b0fa)
+   - **Sub-step 5: directional decoupling / primary-reference model** — NEXT (see ADDITIONAL_FUNCTIONALITY #15)
 
-After multi-floor sub-steps 4: roof plan tracing → elevation calibration + tracing →
+After multi-floor sub-steps: roof plan tracing → elevation calibration + tracing →
 cross-section reference geometry → windows/doors → Phase 2 threshold.
