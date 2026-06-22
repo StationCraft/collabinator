@@ -85,3 +85,26 @@ export function drawAlignGuide(ctx, guide, cw, ch) {
   else { ctx.moveTo(guide.vertex.x, 0); ctx.lineTo(guide.vertex.x, ch) }
   ctx.stroke(); ctx.restore()
 }
+
+// Draw locked shapes from a ghost source page (floor below) as read-only reference.
+// Distinct visual style: muted purple dashed stroke, high opacity, no fill.
+// Ghost is drawn BELOW working geometry, so current-page traces read on top.
+export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
+  completedShapes
+    .filter(s => s.pageId === ghostPageId && s.status === 'locked')
+    .forEach(shape => {
+      const verts = shape.vertices
+      if (verts.length < 3) return
+      ctx.beginPath()
+      ctx.moveTo(verts[0].x, verts[0].y)
+      for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
+      ctx.closePath()
+      ctx.strokeStyle = '#a78bfa'
+      ctx.lineWidth = 2
+      ctx.globalAlpha = 0.85
+      ctx.setLineDash([4, 3])
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.globalAlpha = 1
+    })
+}

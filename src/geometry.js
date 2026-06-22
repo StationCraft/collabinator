@@ -272,6 +272,36 @@ export function getAnchorFloor(pages) {
   return { determinable: true, anchorPageId: anchor.pageId }
 }
 
+// Returns the pageId of the floor-below to show as a ghost on the current page.
+// Returns null if: current page is not a Floor Plan, has no known floor level,
+// or no qualifying lower floor exists with locked shapes.
+//   pages: Array<{ pageId, pageNum, category, subLabel, ... }>
+//   currentPageId: the page currently being viewed
+//   completedShapes: Array<{ pageId, vertices, ... }> (ref.current value)
+//   floorOrder: FLOOR_ORDER array for canonical ordering
+export function getGhostSourcePageId(pages, currentPageId, completedShapes, floorOrder) {
+  const currentPage = pages.find(p => p.pageId === currentPageId)
+  if (!currentPage || currentPage.category !== 'floor-plan' || !currentPage.subLabel) return null
+
+  const currentFloorIdx = floorOrder.indexOf(currentPage.subLabel)
+  if (currentFloorIdx === -1) return null // not a known floor label
+
+  // Scan downward from currentFloor - 1 to find the nearest lower floor with locked geometry
+  for (let i = currentFloorIdx - 1; i >= 0; i--) {
+    const floorLabel = floorOrder[i]
+    const lowerPage = pages.find(
+      p => p.category === 'floor-plan' && p.subLabel === floorLabel
+    )
+    if (!lowerPage) continue
+
+    // Check if this floor page has at least one locked shape
+    const hasLocked = completedShapes.some(s => s.pageId === lowerPage.pageId && s.status === 'locked')
+    if (hasLocked) return lowerPage.pageId
+  }
+
+  return null
+}
+
 export const CLOSE_SNAP_RADIUS = 16
 export const ALIGN_TOLERANCE = 10
 export const HIT_SEG_DIST = 8

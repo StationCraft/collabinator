@@ -5,9 +5,9 @@ import {
   distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
   findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
-  FLOOR_ORDER, getAnchorFloor,
+  FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId,
 } from './geometry.js'
-import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight } from './canvasRenderer.js'
+import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -96,6 +96,9 @@ function App() {
 
   // ── Sidebar (Step 4c) ───────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // ── Multi-floor ghost reference (Step 6) ─────────────────────────────────────
+  const [showGhost, setShowGhost] = useState(true)
 
   // ── Compass rose ──────────────────────────────────────────────────────────
   const [showCompassOverlay, setShowCompassOverlay] = useState(false)
@@ -467,6 +470,12 @@ function App() {
 
     // ── Move sub-mode ─────────────────────────────────────────────────────
     if (subMode === 'move') {
+      // Ghost reference (floor below) — drawn BELOW locked shapes
+      if (showGhost) {
+        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+        if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+      }
+
       const moveHoverIdx = moveHoverIdxRef.current
       const drag = moveDragRef.current
       completedShapesRef.current.forEach((shape, idx) => {
@@ -483,6 +492,12 @@ function App() {
 
     // ── Combine sub-mode ──────────────────────────────────────────────────
     if (subMode === 'combine') {
+      // Ghost reference (floor below) — drawn BELOW locked shapes
+      if (showGhost) {
+        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+        if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+      }
+
       const eligible = combineEligibleRef.current
       const sel = combineSelectRef.current
       completedShapesRef.current.forEach((shape, idx) => {
@@ -507,6 +522,12 @@ function App() {
 
     // ── Delete sub-mode ───────────────────────────────────────────────────
     if (subMode === 'delete') {
+      // Ghost reference (floor below) — drawn BELOW locked shapes
+      if (showGhost) {
+        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+        if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+      }
+
       const hoverIdx = deleteHoverIdxRef.current
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
@@ -519,6 +540,12 @@ function App() {
 
     // ── Split sub-mode ────────────────────────────────────────────────────
     if (subMode === 'split') {
+      // Ghost reference (floor below) — drawn BELOW locked shapes
+      if (showGhost) {
+        const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+        if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+      }
+
       const selIdx = splitSelectedRef.current
       const hoverIdx = splitHoverIdxRef.current
       completedShapesRef.current.forEach((shape, idx) => {
@@ -547,6 +574,12 @@ function App() {
     }
 
     // ── Default edit mode (vertex/segment drag, labels) ───────────────────
+    // Ghost reference (floor below) — drawn BELOW locked shapes
+    if (showGhost) {
+      const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+      if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+    }
+
     completedShapesRef.current
       .filter(s => s.pageId === currentPageId)
       .forEach((shape, shapeIdx) => {
@@ -1305,6 +1338,13 @@ function App() {
     if (!c) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
+
+    // Ghost reference (floor below) — drawn BELOW locked shapes so working geometry stays on top
+    if (showGhost) {
+      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+      if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+    }
+
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
 
     // Start-vertex snap highlight: pre-first-vertex window only
@@ -1368,6 +1408,13 @@ function App() {
     if (!c) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
+
+    // Ghost reference (floor below) — drawn BELOW locked shapes
+    if (showGhost) {
+      const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+      if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+    }
+
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
     const verts = shape.vertices
     ctx.beginPath(); ctx.moveTo(verts[0].x, verts[0].y)
@@ -1454,6 +1501,13 @@ function App() {
     if (!c || !currentPage) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
+
+    // Ghost reference (floor below) — drawn BELOW locked shapes
+    if (showGhost) {
+      const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+      if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+    }
+
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
     const seg = resolveFrontFaceSegment()
     if (seg && frontFace && frontFace.pageId === currentPageId) {
@@ -2038,6 +2092,18 @@ function App() {
                     </select>
                   )
                 })()}
+                {(() => {
+                  const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+                  return ghostPageId ? (
+                    <button
+                      className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
+                      onClick={() => {
+                        const next = !showGhost; setShowGhost(next)
+                        redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
+                      }}
+                    >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
+                  ) : null
+                })()}
                 <span className="draw-status">
                   {drawVertexCount === 0 ? 'Click to start tracing'
                     : drawVertexCount < 3 ? 'Click to continue · Z to undo · Esc to cancel'
@@ -2081,6 +2147,18 @@ function App() {
                 <button className="submode-btn submode-btn--danger" onClick={enterDeleteMode} title="Click a shape to delete it">
                   Delete Shape
                 </button>
+                {(() => {
+                  const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+                  return ghostPageId ? (
+                    <button
+                      className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
+                      onClick={() => {
+                        const next = !showGhost; setShowGhost(next)
+                        drawEditCanvas(editHoverRef.current)
+                      }}
+                    >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
+                  ) : null
+                })()}
                 <span className="edit-status">Drag corner · side · click label to edit · hold segment to insert vertex</span>
                 {editSnapIncrementSelect}
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
