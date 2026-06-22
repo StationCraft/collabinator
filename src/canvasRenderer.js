@@ -87,7 +87,7 @@ export function drawAlignGuide(ctx, guide, cw, ch) {
 }
 
 // Draw locked shapes from a ghost source page (floor below) as read-only reference.
-// Distinct visual style: muted purple dashed stroke, high opacity, no fill.
+// Visual style: amber dashed outline + flat 10% fill + 45° hatch at 25% opacity.
 // Ghost is drawn BELOW working geometry, so current-page traces read on top.
 export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
   completedShapes
@@ -95,15 +95,58 @@ export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
     .forEach(shape => {
       const verts = shape.vertices
       if (verts.length < 3) return
+
+      // Build the polygon path once — reused for clip, fill, and stroke.
+      const buildPath = () => {
+        ctx.beginPath()
+        ctx.moveTo(verts[0].x, verts[0].y)
+        for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
+        ctx.closePath()
+      }
+
+      // Bounding box for hatch coverage.
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const v of verts) {
+        if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x
+        if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y
+      }
+
+      // ── Clipped interior: flat fill + 45° hatch ─────────────────────────
+      ctx.save()
+      buildPath()
+      ctx.clip()
+
+      // Flat background fill at 10% opacity.
+      buildPath()
+      ctx.fillStyle = '#f59e0b'
+      ctx.globalAlpha = 0.10
+      ctx.fill()
+
+      // 45° diagonal hatch at 25% opacity, spaced 10px.
+      ctx.globalAlpha = 0.25
+      ctx.strokeStyle = '#f59e0b'
+      ctx.lineWidth = 1
+      ctx.setLineDash([])
+      const w = maxX - minX, h = maxY - minY
       ctx.beginPath()
-      ctx.moveTo(verts[0].x, verts[0].y)
-      for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
-      ctx.closePath()
-      ctx.strokeStyle = '#a78bfa'
-      ctx.lineWidth = 2
+      // 45° lines (slope -1): x + y = const. Sweep the constant across the bbox.
+      for (let d = 0; d <= w + h; d += 10) {
+        ctx.moveTo(minX, minY + d)
+        ctx.lineTo(minX + d, minY)
+      }
+      ctx.stroke()
+
+      ctx.restore()  // removes clip, resets transform; does NOT reset globalAlpha/styles
+
+      // ── Dashed outline on top ────────────────────────────────────────────
+      buildPath()
+      ctx.strokeStyle = '#f59e0b'
+      ctx.lineWidth = 3.5
       ctx.globalAlpha = 0.85
       ctx.setLineDash([4, 3])
       ctx.stroke()
+
+      // Clean up.
       ctx.setLineDash([])
       ctx.globalAlpha = 1
     })
