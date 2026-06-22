@@ -1235,7 +1235,8 @@ function App() {
           const ratio = newS / drag.startS
           const tx1 = drag.ax - (drag.ax - drag.startTx) * ratio
           const ty1 = drag.ay - (drag.ay - drag.startTy) * ratio
-          pageTransformsRef.current[drag.pageId] = { tx: tx1, ty: ty1, s: newS, angle: 0 }
+          const prevScale = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+          pageTransformsRef.current[drag.pageId] = { ...prevScale, tx: tx1, ty: ty1, s: newS, angle: 0 }
         } else {
           // mode: 'translate'
           const dx = (e.clientX - drag.startClientX) / zoomRef.current
