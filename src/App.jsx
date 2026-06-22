@@ -332,7 +332,7 @@ function App() {
 
   const snapToGrid = (pos, pageId) => {
     if (!snapDist) return pos
-    const scale = pageScalesRef.current[pageId]
+    const scale = getEffectiveScale(pageId)
     if (!scale) return pos
     const snapPx = scale.pxPerMeter * snapIncrementRef.current
     if (snapPx <= 0) return pos
@@ -417,6 +417,19 @@ function App() {
       .filter(s => s.pageId === pageId)
       .flatMap(s => s.vertices)
 
+  // Returns the effective scale entry { pxPerMeter, displayUnit } for a page:
+  // its own calibration if set; else, if the page's align transform is CONFIRMED,
+  // the ghost-source page's calibration; else null.
+  const getEffectiveScale = (pageId) => {
+    const own = pageScalesRef.current[pageId]
+    if (own) return own
+    const t = pageTransformsRef.current[pageId]
+    if (!t || !t.confirmed) return null
+    const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
+    if (!ghostPageId) return null
+    return pageScalesRef.current[ghostPageId] || null
+  }
+
   const applySnap = (rawPos, lastVertex, useAngle, useDist, pageId) => {
     if (!lastVertex) return rawPos
     let x = rawPos.x, y = rawPos.y
@@ -431,7 +444,7 @@ function App() {
       }
     }
     if (useDist) {
-      const scale = pageScalesRef.current[pageId]
+      const scale = getEffectiveScale(pageId)
       if (scale) {
         const snapPx = scale.pxPerMeter * snapIncrementRef.current
         if (snapPx > 0) {
@@ -614,7 +627,7 @@ function App() {
 
           const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
           const lenPx = Math.hypot(b.x - a.x, b.y - a.y)
-          const label = pxToDisplayDist(lenPx, pageScalesRef.current, currentPageId)
+          const label = pxToDisplayDist(lenPx, { [currentPageId]: getEffectiveScale(currentPageId) }, currentPageId)
           if (label) {
             ctx.font = '12px system-ui, sans-serif'
             const tw = ctx.measureText(label).width, pad = 3
@@ -738,7 +751,7 @@ function App() {
   const commitLabelEdit = () => {
     if (!labelEditState) return
     const { shapeIdx, segIdx, value } = labelEditState
-    const scale = pageScalesRef.current[currentPageId]
+    const scale = getEffectiveScale(currentPageId)
     if (!scale) { setLabelEditState(null); return }
     const meters = parseDisplayDistInput(value, scale.displayUnit)
     if (!meters || meters <= 0) { setLabelEditState(null); drawEditCanvas(editHoverRef.current); return }
@@ -913,7 +926,7 @@ function App() {
 
   const snapPerp = (tRaw) => {
     if (!snapDist) return tRaw
-    const scale = pageScalesRef.current[currentPageId]
+    const scale = getEffectiveScale(currentPageId)
     if (!scale) return tRaw
     const snapPx = scale.pxPerMeter * snapIncrementRef.current
     return snapPx > 0 ? Math.round(tRaw / snapPx) * snapPx : tRaw
@@ -1496,7 +1509,7 @@ function App() {
         ctx.beginPath(); ctx.arc(snapped.x, snapped.y, 4, 0, Math.PI * 2)
         ctx.fillStyle = guides.length > 0 ? '#f59e0b' : '#3b82f6'; ctx.fill()
         const ddx = snapped.x - last.x, ddy = snapped.y - last.y
-        const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), pageScalesRef.current, pageId)
+        const label = pxToDisplayDist(Math.sqrt(ddx * ddx + ddy * ddy), { [pageId]: getEffectiveScale(pageId) }, pageId)
         if (label) {
           const mx = (last.x + snapped.x) / 2, my = (last.y + snapped.y) / 2
           ctx.font = '12px system-ui, sans-serif'
@@ -2039,7 +2052,7 @@ function App() {
       : [...navSet].reverse().find(pn => pn < currentPage)
     if (target != null) goToPage(target)
   }
-  const pageHasScale = currentPageId && !!pageScalesRef.current[currentPageId]
+  const pageHasScale = currentPageId && !!getEffectiveScale(currentPageId)
   const lockedShapesOnPage = currentPage
     ? completedShapesRef.current.filter(s => s.pageId === currentPageId)
     : []
@@ -2062,7 +2075,7 @@ function App() {
   // Snap increment selector for Edit Shapes mode — reads/writes the same ref+state as Draw mode.
   // Changing it in edit mode takes effect on the next vertex drag/insert/move snap.
   const editSnapIncrementSelect = snapDist && pageHasScale ? (() => {
-    const isImperial = pageScalesRef.current[currentPageId]?.displayUnit === 'ft'
+    const isImperial = getEffectiveScale(currentPageId)?.displayUnit === 'ft'
     return (
       <select className="snap-increment-select" value={snapIncrement}
         onChange={e => { const v = parseFloat(e.target.value); snapIncrementRef.current = v; setSnapIncrement(v) }}
@@ -2147,7 +2160,7 @@ function App() {
             disabled={!pageHasScale}
             title={!pageHasScale ? 'Set scale first to enable drawing' : undefined}
             onClick={() => {
-              const unit = pageScalesRef.current[currentPageId]?.displayUnit
+              const unit = getEffectiveScale(currentPageId)?.displayUnit
               snapIncrementRef.current = unit === 'm' ? 0.15 : 0.1524
               setSnapIncrement(unit === 'm' ? 0.15 : 0.1524)
               clearMeasureCanvas(); setDrawMode(true)
@@ -2209,7 +2222,7 @@ function App() {
                   }}
                 >Dist Snap {snapDist ? 'ON' : 'OFF'}</button>
                 {snapDist && pageHasScale && (() => {
-                  const isImperial = pageScalesRef.current[currentPageId]?.displayUnit === 'ft'
+                  const isImperial = getEffectiveScale(currentPageId)?.displayUnit === 'ft'
                   return (
                     <select className="snap-increment-select" value={snapIncrement}
                       onChange={e => {
