@@ -7,7 +7,7 @@ import {
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId,
 } from './geometry.js'
-import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes } from './canvasRenderer.js'
+import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, getCSSTransform } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -2371,7 +2371,15 @@ function App() {
               transformOrigin: '0 0',
             }}
           >
-            <canvas ref={canvasRef} />
+            <div
+              className="pdf-align-layer"
+              style={{
+                transform: getCSSTransform(pageTransformsRef.current[getPageId(currentPage)]),
+                transformOrigin: '0 0',
+              }}
+            >
+              <canvas ref={canvasRef} />
+            </div>
             <canvas
               ref={measureRef}
               className="measure-canvas"

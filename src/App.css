@@ -243,6 +243,11 @@ canvas {
   line-height: 0;
 }
 
+.pdf-align-layer {
+  display: block;
+  line-height: 0;
+}
+
 .measure-canvas {
   position: absolute;
   top: 0;
