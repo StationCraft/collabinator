@@ -4,6 +4,33 @@ This file is read automatically by Claude Code at the start of every session in 
 project folder. It exists so a new session understands the project without the user
 re-explaining context every time.
 
+## How to work in this project (process discipline)
+
+This project is built by Ben (solo, first-time builder, construction-domain expert) in tightly-scoped increments. Follow this working discipline every session. The goal is to build autonomously and surface to Ben ONLY genuine decisions — not to narrate or seek approval for obvious steps.
+
+**Consequential vs. mechanical — the core distinction:**
+- CONSEQUENTIAL (STOP, explain the fork briefly, wait for Ben): anything Ben sees or interacts with (UI/UX, labels, behavior); anything that changes workflow; real architectural forks with genuine trade-offs; interpreting ambiguous test results; scope-drift judgment calls. Lay out the alternatives concisely and wait. This is where his input matters.
+- MECHANICAL (just do it, report in a sentence, do NOT ask permission): one-line fixes, reverts, log removal, commit grouping, dependency-array wiring, choosing among options with one engineering-correct answer, the next logically-forced step in an already-agreed sequence. Pick the right thing and proceed. Ben can veto anything; he does not pre-approve the obvious.
+
+**Batching:** Chain logically-forced mechanical steps freely (recon -> build -> self-check in one pass where safe). Do NOT make Ben affirm every micro-step. The only thing to avoid is dumping a large number of UNRELATED items at once. Keep each surfaced message digestible. Reserve true "stop and wait" for consequential forks.
+
+**Default to brevity.** Expand explanation only for a genuine fork, a UI/UX call, or a test result to interpret. Cut justification for engineering-obvious steps. If explaining why an obvious step is done a certain way, delete it.
+
+**Build loop:**
+- Plan a step into small, committable pieces before writing code. State which piece/sub-step each change belongs to.
+- One clearly-scoped change at a time, committed and pushed before the next where practical.
+- Commit and push are separate actions; confirm pushes reach origin (GitHub is the safety net).
+- After a code change that affects visuals or interaction, do a runtime check before trusting it. When runtime behavior contradicts a static "looks fine" read, TRUST THE RUNTIME — add a console.log and verify rather than reasoning from the file. (This caught a real 3-floor recursion bug and a repaint-lag bug in prior sessions.)
+- NOTE: the console tool reads the preview, not Ben's dev-server tab. For visual/interaction verification Ben eyeballs his own browser (npm run dev, port 5173 or 5174 — preview takes one; confirm the port). Ask him to look, don't assume the preview reflects his tab.
+
+**Scope discipline (critical — Ben has a known tendency to expand scope mid-build):**
+- If a new idea surfaces mid-step, judge it: a small in-scope refinement gets folded in with a one-line note. Genuine scope drift gets FLAGGED proactively (don't wait to be asked), and offered for logging in ADDITIONAL_FUNCTIONALITY.md, then redirect to finishing the current step.
+- Architectural ideas that reshape the data model get a planning discussion BEFORE code. Capture them in ADDITIONAL_FUNCTIONALITY.md so they aren't lost to session history.
+
+**Session close-out (every session, unprompted):** When a step is committed and pushed, run a close-out: update the five live docs (CLAUDE.md, SESSION_HANDOFF_NOTES.md, BUILD_ROADMAP.md, FUNCTIONALITY_SUMMARY.md, ADDITIONAL_FUNCTIONALITY.md) to match what was built, commit and push the doc update. The five docs are the source of truth for the next session — keep them current.
+
+**Environment:** Project at C:\Users\ben\Collabinator\pdf-viewer (Code can default to a stale G: path — always confirm the folder at session start). State is in-memory only, lost on reload — build test state in one un-reloaded tab. The .claude/settings.local.json file is gitignored, recreate on a fresh clone.
+
 ## What this is
 
 This is **Phase 1** of Collabinator — a web-based pre-construction design and
