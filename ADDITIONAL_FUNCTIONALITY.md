@@ -320,6 +320,30 @@ A reference is modeled as a typed, projected pointer, not a floor-specific one:
 
 ---
 
+### 18. Roof system model (architectural — slope-derived geometry, deferred build)
+
+**Logged:** Session 13, before roof-plan-trace step. Records the full roof model so the minimal trace-only step does not foreclose it. Most of this is deferred to dependencies (wall geometry, elevation drawings, slope model, pixels→real-world XYZ conversion); only typed 2D roof-line tracing is built now.
+
+**Core principle — Z is derived, never hand-placed:** The roof plan is the only thing traced directly. Elevation (Z) anywhere on the roof is COMPUTED from traced lines + an applied slope rule, not entered per-vertex. Pitched roof: hip/valley/ridge lines + slope value compute elevation across the surface. Flat roof: drain points + slope rule do the same. This same data later drives roof drainage planning (eavestrough / rainwater leader locations).
+
+**What is traced (and built now, trace-only):** Roof plan outline at the eaves, plus internal hip / valley / ridge / eave lines, as TYPED 2D geometry. Line type (eave / hip / valley / ridge) is tagged at trace time — every downstream behavior (slope rules, Z-derivation, drainage, elevation referencing) attaches to line type, so typing is mandatory even though slope/Z are deferred. No slope, no Z, no 3D this step.
+
+**Derived (not traced), deferred to wall geometry:**
+- **Ceiling** = region inside the walls, offset by wall thickness. Ceiling height understood from wall heights.
+- **Soffit** = region outside the walls (wall line to eave); modeled as an adjustment for the outside-of-wall surfaces.
+
+**Ceiling plan with vault lines (separate drawing type, deferred):** A distinct drawing where vault lines are traced, slope applied, and 3D geometry derived. Key coupling: a sloped ceiling line MODIFIES the intersecting exterior wall — the wall rises to a peak as the thermal boundary, increasing room volume. This is a real geometry coupling between ceiling and wall, not annotation.
+
+**Elevation-stage interactions (deferred to elevation drawings + #17 reference layers):** The roof plan is referenced on elevation drawings; soffit and fascia heights are SET there (fascia can have variable height), which then characterizes roof finish geometry. Fascia drawn level on an elevation is the trigger for the drainage feature below.
+
+**Eavestrough / rainwater leader auto-prompt (deferred workflow feature):** When fascias are drawn level on elevations, auto-prompt the user for eavestrough and rainwater-leader input at those locations. Ties to the drainage payoff of slope-derived Z.
+
+**Build order:** (1) typed roof-line trace [now]; (2) slope rules + Z-derivation [needs slope model + XYZ]; (3) ceiling/soffit derivation [needs wall geometry]; (4) vault-line ceiling plan + wall coupling [needs walls + slope]; (5) elevation-set soffit/fascia heights [needs elevation drawings]; (6) eavestrough/RWL auto-prompt [needs fascia-on-elevation].
+
+**Status:** Deferred except step (1) typed roof-line trace, which is the current build step.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass
