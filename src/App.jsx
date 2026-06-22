@@ -5,7 +5,7 @@ import {
   distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
   findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
-  FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId,
+  FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
@@ -167,6 +167,7 @@ function App() {
   const pageGridOriginRef = useRef({})
   const pageIdMapRef = useRef({})       // pageIdMapRef.current[pageNum] = pageId
   const pageTransformsRef = useRef({})  // pageTransformsRef.current[pageId] = {...} (Step 4b)
+  const floorHeightsRef = useRef({})    // floorHeightsRef.current[floorLevel] = { floorToCeiling, floorSystemAbove }
 
   // Default edit mode refs
   const editHoverRef = useRef(null)
@@ -205,6 +206,12 @@ function App() {
 
   const getPageId = (pageNum) =>
     pageNum != null ? (pageIdMapRef.current[pageNum] ?? `page-${pageNum}`) : null
+
+  // Returns a page's floor-level string (one of FLOOR_ORDER) if it is a known level, else null.
+  const getFloorLevel = (pageId) => {
+    const page = pages.find(p => p.pageId === pageId)
+    return (page && isKnownFloorLabel(page.subLabel)) ? page.subLabel : null
+  }
 
   // ── Page rendering ──────────────────────────────────────────────────────
 
@@ -276,7 +283,7 @@ function App() {
     roofGraphRef.current = { verts: [], edges: [] }; roofVertCounterRef.current = 0; roofEdgeCounterRef.current = 0
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
-    pageIdMapRef.current = {}; pageTransformsRef.current = {}
+    pageIdMapRef.current = {}; pageTransformsRef.current = {}; floorHeightsRef.current = {}
     drawVerticesRef.current = []; mousePosRef.current = null
     setCompassAngleDeg(null); setCompassCardinal(null)
     setCompassDraftAngle(0); setCompassPos({ x: null, y: null })

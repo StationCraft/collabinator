@@ -310,6 +310,32 @@ export function getGhostSourcePageId(pages, currentPageId, completedShapes, floo
   return null
 }
 
+// ── Floor-height Z-stack accumulator ────────────────────────────────────────
+// Pure function. No refs, no React, no side effects.
+// floorHeights: { [floorLevel]: { floorToCeiling: number|null, floorSystemAbove: number|null } }
+// presentLevels: string[] — which floor levels are actually in the project (any order)
+// Returns ordered array base→top:
+//   { level, floorZ, ceilingZ, floorToCeiling, floorSystemAbove }
+// null values are preserved in output; accumulation treats null as 0.
+export function accumulateZ(floorHeights, presentLevels, floorOrder) {
+  const ordered = floorOrder.filter(l => presentLevels.includes(l))
+  const result = []
+  let z = 0
+  for (let i = 0; i < ordered.length; i++) {
+    const level = ordered[i]
+    const entry = floorHeights[level] || {}
+    const floorToCeiling = entry.floorToCeiling ?? null
+    const floorSystemAbove = entry.floorSystemAbove ?? null
+    const ftcVal = floorToCeiling ?? 0
+    const fsaVal = floorSystemAbove ?? 0
+    const floorZ = z
+    const ceilingZ = floorZ + ftcVal
+    result.push({ level, floorZ, ceilingZ, floorToCeiling, floorSystemAbove })
+    if (i < ordered.length - 1) z = ceilingZ + fsaVal
+  }
+  return result
+}
+
 export const CLOSE_SNAP_RADIUS = 16
 export const ALIGN_TOLERANCE = 10
 export const HIT_SEG_DIST = 8
