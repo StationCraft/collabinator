@@ -287,6 +287,87 @@ handles mixed-page case when prioritised (logged in `ADDITIONAL_FUNCTIONALITY.md
 
 ---
 
+---
+
+## SESSION 7 — Ground floor tracing (Steps 5a, 5a-ii, 5c) + coordinate-model reframing
+
+**Branch:** main | **Commits:** 9266bdc, ef09039, ad50e3b, 2d6021b
+
+### What was built
+
+**Step 5a — getAnchorFloor helper + FLOOR_ORDER (commit 9266bdc)**
+
+Extracted `FLOOR_ORDER` array (`['Basement', 'Crawlspace', 'Main Floor', '2nd Floor',
+'3rd Floor']`) as the single source of truth for floor-level ordering. Added
+`getAnchorFloor(pages, FLOOR_ORDER)` helper in `geometry.js`: scans all categorized
+floor-plan pages, returns the lowest known floor level present per `FLOOR_ORDER`, or
+`null` if no floor-plan pages are categorized yet. Used to drive the front-face
+designation trigger (Step 5c) and will drive multi-floor Z-stack logic in Phase 1.5.
+
+**Step 5a-ii — Known floor level required in categorization (commit ef09039)**
+
+Floor Plan pages now require a known level (one of the `FLOOR_ORDER` values) before
+Confirm is enabled. The old "Other + free text" option in the floor sub-label dropdown
+was removed. Free-text demoted to an optional `subLabelNote` field — visible as a
+secondary input once a known level is selected, purely for notes (e.g., "split level",
+"mezzanine"). This ensures `getAnchorFloor` always has reliable, comparable level data.
+
+**Coordinate-model reframing (commit ad50e3b — docs only, no code change)**
+
+The earlier decision that "the first vertex placed on the ground floor becomes the
+internal coordinate anchor" was identified as conceptually confused and reversed. The
+new model:
+- The coordinate origin (0,0,0) is a **fixed, arbitrary zero** — not a building
+  feature. Nothing "is" the origin.
+- All geometric relationships are computed **geometry-to-geometry**, never by
+  measuring against the origin.
+- Floor levels (Z) are a **relative-offset stack**: each floor stores its offset from
+  the floor below; absolute Z accumulates upward. Changing a lower floor's height
+  shifts every floor above it — physically correct behavior.
+- `getAnchorFloor` identifies the **base of the floor stack** — a building fact only,
+  not a coordinate anchor.
+- **Step 5b (origin capture) was CANCELLED / DISSOLVED** by this reframing. There is
+  no origin to capture. Nothing replaces it.
+
+The reframing is documented in CLAUDE.md Design notes and FUNCTIONALITY_SUMMARY.md
+Section 1 and 5.
+
+**Step 5c — Front-face designation (commit 2d6021b) — FULLY TESTED**
+
+After the first polygon is locked on the anchor-floor page, the app prompts the user
+to click the road-facing exterior wall segment. Stored as:
+
+```
+frontFace = { pageId, shapeIndex, segmentIndex, endpointA: {x,y}, endpointB: {x,y} }
+```
+
+The segment indices are authoritative; `endpointA/B` are staleness sanity-check
+snapshots (stale if the polygon has since been edited without re-picking). Pick-mode
+hover-highlights all outer-perimeter segments of locked shapes on the anchor page.
+"Skip for now" dismisses without setting `frontFace`. Selected segment visually marked
+across all redraws. Normal draw/edit interactions suppressed while pick mode is active.
+Trigger is re-checked after every polygon lock and after every categorization change;
+never re-prompts once set. Verified: survives all Edit Shapes sub-modes (segment drag,
+vertex drag, vertex insertion, vertex deletion, Move, Combine, Split, Delete). Cleared
+on PDF upload.
+
+**Purpose of frontFace:** maps the road-facing direction onto the compass cardinal
+(N/S/E/W already set by compass rose), enabling Front/Back/Left/Right elevation naming
+in the sidebar and downstream elevation-tracing tools.
+
+### New deferred-register entries this session
+
+- **#6 — CAD-export datum:** named control/reference point stored at its computed
+  coordinates within the space (e.g., a surveyed corner), used as the datum for CAD
+  export. Not an origin — just a known coordinate within the model. Deferred to Phase 2
+  or post-Phase 1.5.
+- **#7 — Intra-floor Z / split-level:** buildings with split-level or mid-flight floors
+  create floors that sit between the canonical FLOOR_ORDER levels. The relative-offset
+  Z stack can accommodate this (additional named levels inserted between existing ones)
+  but the categorization UI and Z-stack logic do not yet handle it. Deferred to Phase 2.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -295,6 +376,8 @@ handles mixed-page case when prioritised (logged in `ADDITIONAL_FUNCTIONALITY.md
 - **Inherited geometry on all pages:** layer management deferred to Phase 2+
 - **No persistence:** memory only, lost on reload
 - **Working area selection:** dropped from Step 4b scope; zoom makes it redundant; revisit when duplicate page is prioritized
+- **CAD-export datum (#6):** named point at computed coordinates for CAD export — not an origin, deferred to post-Phase 1.5
+- **Intra-floor Z / split-level (#7):** FLOOR_ORDER does not accommodate mid-flight levels; deferred to Phase 2
 - See `ADDITIONAL_FUNCTIONALITY.md` for larger deferred feature ideas
 
 ---
@@ -305,14 +388,14 @@ handles mixed-page case when prioritised (logged in `ADDITIONAL_FUNCTIONALITY.md
 2. ~~Compass rose alignment~~ — DONE
 3. ~~Step 4a: pageId migration~~ — DONE
 4. ~~Step 4b: Page categorization UI~~ — DONE
-5. **Step 4c (NEXT): Sidebar + navigation** — collapsible (default open), left
-   panel, shows categorized pages organized by type (Floor Plans low-to-high,
-   Elevations, Cross-Sections, Details, Roof Plans) + an "Unused Pages" section
-   for uncategorized. Clicking a sidebar entry navigates to that page.
+5. ~~Step 4c: Sidebar + navigation~~ — DONE
+6. ~~Ground floor tracing~~ — DONE
+   - ~~5a: getAnchorFloor + FLOOR_ORDER~~ — DONE (9266bdc)
+   - ~~5a-ii: known-level required in categorization~~ — DONE (ef09039)
+   - ~~5b: origin capture~~ — CANCELLED / DISSOLVED by coordinate-model reframing
+   - ~~5c: front-face designation~~ — DONE & fully tested (2d6021b)
+7. **Multi-floor reference & alignment (NEXT)** — fresh planning chat; this is the
+   feature that was lost once already and deserves its own room to think.
 
-After Step 4c: a fresh planning chat picks up at ground floor tracing onward
-(see `FUNCTIONALITY_SUMMARY.md`).
-
----
-
-## NEXT SESSION PROMPT — Step 4b: page categorization
+After multi-floor: roof plan tracing → elevation calibration + tracing → cross-section
+reference geometry → windows/doors → Phase 2 threshold (see `FUNCTIONALITY_SUMMARY.md`).

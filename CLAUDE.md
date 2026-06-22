@@ -135,8 +135,16 @@ A React + Vite app with:
   * Compact summary + Recategorize button shows immediately for any already-
     categorized page mid-categorization; recategorize is non-destructive (no
     geometry/scale loss)
-  * Stored in `pages` array (`{pageId, pageNum, category, subLabel}`), cleared on
-    PDF upload
+  * Sub-labels per category: Floor Plan known-level dropdown (Basement /
+    Crawlspace / Main Floor / 2nd Floor / 3rd Floor — no "Other"; free-text
+    `subLabelNote` optional but the known level is required to confirm); Elevation
+    dropdown (North / South / East / West); Site Plan / Cross-Section / Detail /
+    Roof Plan optional free text
+  * Stored in `pages` array (`{pageId, pageNum, category, subLabel, subLabelNote}`),
+    cleared on PDF upload
+  * `getAnchorFloor(pages, FLOOR_ORDER)` helper: scans categorized floor-plan pages,
+    returns the lowest known floor level present (per `FLOOR_ORDER` array = Basement →
+    Crawlspace → Main Floor → 2nd Floor → 3rd Floor), or `null` if none
   * Navigation: while categorizing the arrows cycle all pages; after Done they
     cycle categorized pages only; re-entry via "+ Categorize more pages" jumps to
     and cycles uncategorized pages only ("All pages categorized" end state)
@@ -151,10 +159,29 @@ A React + Vite app with:
     text), elevations N/S/E/W
   * Active page: blue left border + blue text; hover: translucent white background
   * Canvas area unaffected by sidebar state (true overlay, not a flex sibling)
+- **Front-face designation (Step 5c):** one-per-building property identifying the
+  road-facing exterior segment of the anchor-floor polygon:
+  * Stored as `frontFace: { pageId, shapeIndex, segmentIndex, endpointA: {x,y}, endpointB: {x,y} }`
+    where `endpointA/B` are staleness sanity-check snapshots (the segment indices are
+    authoritative; the stored coordinates flag if the polygon has since been edited)
+  * Derived trigger: prompts automatically when `frontFace` is `null` AND the anchor
+    floor is determinable (via `getAnchorFloor`) AND the anchor page has at least one
+    locked polygon; re-checked after every polygon lock and after every categorization
+    change; never re-prompts once `frontFace` is set, even if the anchor floor later
+    changes
+  * Pick-mode interaction: while active, hover-highlights outer-perimeter segments of
+    all locked shapes on the anchor page; click selects and stores `frontFace`; normal
+    draw and edit interactions are suppressed; "Skip for now" dismisses the prompt
+    without setting `frontFace`
+  * Selected front-face edge visually marked (distinct color) across all redraws
+  * Verified to survive shape edits (edit-mode segment/vertex drag does not clear
+    `frontFace`; stale-check coordinates update on next pick if shape was modified)
+  * Purpose: maps road-facing direction onto compass cardinal (N/S/E/W), enabling
+    Front/Back/Left/Right elevation naming in sidebar and downstream tools
+  * Cleared on PDF upload
 
 **Not yet built (next increments):**
-- Ground floor tracing + origin point (NEXT)
-- Multi-floor reference and alignment
+- Multi-floor reference and alignment (NEXT)
 - Roof plan, elevations, cross-sections, windows/doors
 
 **Deferred polish items:**
@@ -197,7 +224,24 @@ pageGridOriginRef.current[pageId] = { x, y }
 
 **Page categorization:**
 ```
-pages = Array<{ pageId: string, pageNum: number, category: string|null, subLabel: string|null }>
+pages = Array<{
+  pageId: string,
+  pageNum: number,
+  category: string|null,
+  subLabel: string|null,       // known floor level or compass direction (required for Floor Plan / Elevation confirm)
+  subLabelNote: string|null    // optional free-text note (demoted from primary sub-label for Floor Plans)
+}>
+```
+
+**Front-face designation:**
+```
+frontFace = {
+  pageId: string,              // anchor-floor page
+  shapeIndex: number,          // index into completedShapesRef on that page
+  segmentIndex: number,        // edge index within the shape's vertices array
+  endpointA: { x: number, y: number },  // staleness sanity-check snapshot
+  endpointB: { x: number, y: number }   // authoritative refs are the indices above
+} | null
 ```
 
 All of the above are cleared on PDF upload.

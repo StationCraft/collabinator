@@ -122,6 +122,12 @@ For each page:
   not the coordinate origin.
 - All floors and elevations relate to each other geometry-to-geometry and via the
   relative-offset Z stack, not through the origin.
+- **Front-face designation** happens in this step. After the first polygon is locked
+  on the anchor floor, the user clicks the road-facing exterior wall segment to
+  designate it as the "front face." This is stored as a one-per-building property
+  (`frontFace`) and is used later to map Front/Back/Left/Right elevation naming onto
+  the compass N/S/E/W directions established by the compass rose. The user may skip
+  this and return to it later.
 
 ---
 
