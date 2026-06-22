@@ -98,7 +98,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   // ── Multi-floor ghost reference (Step 6) ─────────────────────────────────────
-  const [showGhost, setShowGhost] = useState(true)
+  const [showGhostByPageId, setShowGhostByPageId] = useState({})
 
   // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
   const [alignMode, setAlignMode] = useState(false)
@@ -259,6 +259,7 @@ function App() {
     setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote(''); setRecatPageNum(null); setCatReentry(false)
     setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
     setAlignMode(false); alignDragRef.current = null
+    setShowGhostByPageId({})
     resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
@@ -350,7 +351,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhost, alignTick])
+  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -660,7 +661,13 @@ function App() {
 
   useEffect(() => {
     if (editMode && currentPage) drawEditCanvas(editHoverRef.current)
-  }, [editMode, currentPage, alignMode, showGhost, alignTick])
+  }, [editMode, currentPage, alignMode, showGhostByPageId, alignTick])
+
+  useEffect(() => {
+    if (!drawMode || !currentPage) return
+    redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
+  }, [drawMode, currentPage, alignMode, showGhostByPageId, alignTick, snapAngle, snapDist])
+
 
   // ── Edit hit tests ───────────────────────────────────────────────────────
 
@@ -1987,6 +1994,7 @@ function App() {
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const currentPageId = getPageId(currentPage)
+  const showGhost = showGhostByPageId[currentPageId] ?? true
   const currentPageEntry = pages.find(p => p.pageNum === currentPage) || null
   const categorizedCount = pages.filter(p => p.category).length
 
@@ -2183,7 +2191,7 @@ function App() {
               <button
                 className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
                 onClick={() => {
-                  if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
+                  if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                   else setAlignMode(false)
                 }}
               >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : 'Align to floor below'}</button>
@@ -2250,14 +2258,13 @@ function App() {
                       <button
                         className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
                         onClick={() => {
-                          const next = !showGhost; setShowGhost(next)
-                          redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
+                          setShowGhostByPageId(m => ({ ...m, [currentPageId]: !(m[currentPageId] ?? true) }))
                         }}
                       >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
                       <button
                         className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
                         onClick={() => {
-                          if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
+                          if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                           else setAlignMode(false)
                         }}
                       >{alignMode ? 'Exit align' : !!(pageTransformsRef.current[getPageId(currentPage)]?.confirmed) ? 'Realign' : 'Align to floor below'}</button>
@@ -2323,14 +2330,14 @@ function App() {
                       <button
                         className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
                         onClick={() => {
-                          const next = !showGhost; setShowGhost(next)
+                          setShowGhostByPageId(m => ({ ...m, [currentPageId]: !(m[currentPageId] ?? true) }))
                           drawEditCanvas(editHoverRef.current)
                         }}
                       >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
                       <button
                         className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
                         onClick={() => {
-                          if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
+                          if (!alignMode) { setShowGhostByPageId(m => ({ ...m, [currentPageId]: true })); setAlignMode(true) }
                           else setAlignMode(false)
                         }}
                       >{alignMode ? 'Exit align' : !!(pageTransformsRef.current[getPageId(currentPage)]?.confirmed) ? 'Realign' : 'Align to floor below'}</button>
