@@ -83,6 +83,10 @@ function App() {
   const [snapIncrement, setSnapIncrement] = useState(0.1524)
   const [drawVertexCount, setDrawVertexCount] = useState(0)
   const [reviewShape, setReviewShape] = useState(null)
+  // ── Roof-plan tracing (Step 7) ───────────────────────────────────────────────
+  const [roofShapeDraft, setRoofShapeDraft] = useState(null)  // {vertices, pageId} closed on roof page, pending type pick
+  const [roofTypeDraft, setRoofTypeDraft] = useState(null)    // 'flat' | 'sloped'
+  const [parapetWidthDraft, setParapetWidthDraft] = useState('')
 
   const [editMode, setEditMode] = useState(false)
   const [editSubMode, setEditSubMode] = useState(null) // 'move'|'combine'|'split'|null
@@ -253,6 +257,7 @@ function App() {
     setPdf(null); setCurrentPage(null); setPageCount(0); setFileName(file.name)
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
+    setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
     pageIdMapRef.current = {}; pageTransformsRef.current = {}
@@ -672,8 +677,12 @@ function App() {
 
   useEffect(() => {
     if (!drawMode || !currentPage) return
-    redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
-  }, [drawMode, currentPage, alignMode, showGhostByPageId, alignTick, snapAngle, snapDist])
+    if (roofShapeDraft) {
+      redrawReviewCanvas(roofShapeDraft, currentPageId)
+    } else {
+      redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
+    }
+  }, [drawMode, currentPage, alignMode, showGhostByPageId, alignTick, snapAngle, snapDist, roofShapeDraft])
 
 
   // ── Edit hit tests ───────────────────────────────────────────────────────
@@ -1210,6 +1219,10 @@ function App() {
         const dx = rawPos.x - first.x, dy = rawPos.y - first.y
         if (Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS) {
           const shape = { vertices: verts, pageId: currentPageId }
+          if (pages.find(p => p.pageId === currentPageId)?.category === 'roof-plan') {
+            setRoofShapeDraft(shape); drawVerticesRef.current = []; setDrawVertexCount(0)
+            redrawReviewCanvas(shape, currentPageId); return
+          }
           setReviewShape(shape); drawVerticesRef.current = []; setDrawVertexCount(0)
           redrawReviewCanvas(shape, currentPageId); return
         }
@@ -1448,7 +1461,7 @@ function App() {
 
     if (calibMode && !showScaleDialog && calibPoints.length === 1) {
       drawCalibState([calibPoints[0], applySnap(pos, calibPoints[0], true, false, currentPageId)])
-    } else if (drawMode && !reviewShape) {
+    } else if (drawMode && !reviewShape && !roofShapeDraft) {
       mousePosRef.current = pos
       // Pre-first-vertex: detect snap target on visible geometry (Shift suppresses)
       if (drawVerticesRef.current.length === 0) {
@@ -1582,8 +1595,32 @@ function App() {
   }
 
   const discardShape = () => {
-    setReviewShape(null); setDrawMode(false)
+    setReviewShape(null); setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
+    setDrawMode(false)
     drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
+  }
+
+  const confirmRoofShape = () => {
+    if (!roofShapeDraft || !roofTypeDraft) return
+    const parapet = roofTypeDraft === 'flat' ? (parseFloat(parapetWidthDraft) || 0) : null
+    completedShapesRef.current = [
+      ...completedShapesRef.current,
+      {
+        vertices: roofShapeDraft.vertices,
+        pageId: currentPageId,
+        status: 'locked',
+        roofType: roofTypeDraft,
+        parapetWidth: parapet,
+        lineRoles: {},
+      },
+    ]
+    setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
+    drawVerticesRef.current = []; setDrawVertexCount(0)
+    const c = measureRef.current
+    if (c) {
+      c.getContext('2d').clearRect(0, 0, c.width, c.height)
+      drawLockedShapes(c.getContext('2d'), completedShapesRef.current, getPageId(currentPage))
+    }
   }
 
   // ── Front-face designation (Step 5c) ────────────────────────────────────────
@@ -1687,7 +1724,7 @@ function App() {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         if (calibMode) exitCalibMode()
-        else if (reviewShape) discardShape()
+        else if (reviewShape || roofShapeDraft) discardShape()
         else if (drawMode) exitDrawMode()
         else if (editMode) {
           if (labelEditState) { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }
@@ -1720,7 +1757,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, snapAngle, snapDist, currentPage, editMode, labelEditState])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, snapAngle, snapDist, currentPage, editMode, labelEditState])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -2259,7 +2296,7 @@ function App() {
 
         {drawMode && (
           <div className="draw-toolbar">
-            {!reviewShape ? (
+            {!reviewShape && !roofShapeDraft ? (
               <>
                 <button
                   className={`snap-btn ${snapAngle ? 'snap-btn--on' : ''}`}
@@ -2352,6 +2389,34 @@ function App() {
                   }}>Edit Shapes</button>
                 )}
                 <button className="calib-cancel" onClick={exitDrawMode}>Done</button>
+              </>
+            ) : roofShapeDraft ? (
+              <>
+                <span className="review-status">Roof section — choose type</span>
+                <button
+                  className={`snap-btn ${roofTypeDraft === 'flat' ? 'snap-btn--on' : ''}`}
+                  onClick={() => setRoofTypeDraft('flat')}
+                >Flat</button>
+                <button
+                  className={`snap-btn ${roofTypeDraft === 'sloped' ? 'snap-btn--on' : ''}`}
+                  onClick={() => setRoofTypeDraft('sloped')}
+                >Sloped</button>
+                {roofTypeDraft === 'flat' && (
+                  <label className="roof-parapet-label">
+                    Parapet width:&nbsp;
+                    <input
+                      className="calib-input"
+                      type="number" min="0" step="any"
+                      style={{ width: 56 }}
+                      value={parapetWidthDraft}
+                      onChange={e => setParapetWidthDraft(e.target.value)}
+                      placeholder="0"
+                    />
+                    &nbsp;in
+                  </label>
+                )}
+                <button className="btn-primary" onClick={confirmRoofShape} disabled={!roofTypeDraft}>Confirm Section</button>
+                <button className="btn-secondary" onClick={discardShape}>Discard</button>
               </>
             ) : (
               <>
