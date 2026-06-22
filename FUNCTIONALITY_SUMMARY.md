@@ -138,15 +138,21 @@ geometry" approach is **not** being rebuilt.
 
 - When the user opens a new floor-plan page, the previous floor's locked geometry
   shows as a **read-only, toggleable reference ghost** — never directly editable.
-- User aligns the ghost to the new page's PDF and scales it to match (drag/corner-drag
-  to scale, similar to the original 8c corner-drag mechanic).
-- User clicks **"Confirm scale"** — this locks the per-page PDF transform
-  (`{tx, ty, s, angle}`) and applies it to the actual PDF backdrop, not just the
-  ghost.
+  The ghost is the **fixed reference**; the PDF backdrop moves to align with it.
+- User enters "Align to floor below" mode (toolbar button, gated on ghost source
+  existing). In align mode:
+  - **Body-drag** translates the PDF backdrop (`tx`, `ty`).
+  - **Corner handles** (four amber squares at the ghost's bounding box corners) scale
+    the PDF uniformly. Grabbing a corner scales around the **diagonally-opposite ghost
+    bbox corner** as the fixed anchor — `tx/ty` are recomputed as scale changes to
+    keep that anchor's canvas position fixed. Aspect-locked, no rotation.
+  - Handles are anchored to the **ghost** (fixed reference geometry), not the PDF.
+    They do not move when the PDF is body-dragged.
+- User clicks **"Confirm scale"** (sub-step 3, not yet built) — this locks the
+  per-page PDF transform and makes it permanent.
 - Once confirmed, **new polygons drawn on this page align directly to the previous
   floor's geometry** (geometry-to-geometry, via the shared snap grid) — alignment is
-  automatic, not something the user manages by hand. Floors are positioned relative to
-  each other, never relative to the coordinate origin.
+  automatic, not something the user manages by hand.
 - Vertically, each floor relates to the one below it through the **relative-offset Z
   stack** (Section 1): its Z offset is set later in the Section 8 elevation work, and
   absolute Z accumulates up the stack from the base floor.
@@ -155,13 +161,15 @@ geometry" approach is **not** being rebuilt.
 - **Known bug from the prior implementation (do not reintroduce):** scale appearing to
   reset after confirm, and the reference becoming undraggable. Root cause was the CSS
   transform being applied inconsistently between the PDF canvas and the
-  measurement/drawing canvas. **Implementation fix:** both canvases transform together
-  via a new div nested INSIDE `.canvas-world` (not applied to `.canvas-stack`). This
-  keeps alignment transform correctly inside the zoom/pan coordinate space; `.canvas-stack`
-  stays as the untransformed clipping viewport; `.canvas-world` carries zoom/pan; the
-  alignment div nests inside and applies the per-page transform to both canvases
-  symmetrically. `getCanvasPos()` uses `getBoundingClientRect()` → auto-compensates for
-  all nested transforms (no coordinate mapping changes in existing handlers).
+  measurement/drawing canvas. **Implementation fix:** a `.pdf-align-layer` div wraps
+  ONLY the PDF `<canvas>` inside `.canvas-world` and carries the per-page transform.
+  The measurement/drawing canvas (`measureRef`) remains a direct sibling inside
+  `.canvas-world` and is NOT inside `.pdf-align-layer` — so only the PDF backdrop
+  moves; the ghost and drawn geometry are the fixed reference layer.
+  `.canvas-stack` stays as the untransformed clipping viewport; `.canvas-world` carries
+  zoom/pan; `.pdf-align-layer` nests inside and applies the per-page transform to the
+  PDF only. `getCanvasPos()` uses `getBoundingClientRect()` → auto-compensates for all
+  nested transforms (no coordinate mapping changes in existing handlers).
 
 ---
 

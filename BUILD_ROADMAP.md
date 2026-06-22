@@ -32,17 +32,24 @@ building."
         reframing means there is no origin to capture (see FUNCTIONALITY_SUMMARY.md
         Section 1 & 5). Nothing replaces it.
     [x] Step 5c   — front-face designation — DONE & fully tested, committed (2d6021b)
-[ ] Multi-floor reference & alignment  <-- YOU ARE HERE
+[ ] Multi-floor reference & alignment
     [x] Sub-step 1 — reference ghost rendering (read-only, toggleable overlay)
         DONE, committed (996b5a7)
-    [ ] Sub-step 2 — ghost alignment + per-page transform (drag to align, lock)
-    [ ] Sub-step 3 — confirm-scale lock (geometry-to-geometry snap permanent)
+    [x] Sub-step 2 — ghost alignment + per-page transform (drag to align, scale)
+        DONE, built as five pieces (A, B, C, D1, D2):
+        A: getCSSTransform pure helper (73f02f1)
+        B: .pdf-align-layer div + identity wiring (c2ed3ba)
+        C: translate-only body-drag (122b077)
+        Ghost visibility upgrade: amber+hatch (6e97f67)
+        D1: four scale handles at ghost bbox corners (b210343)
+        D2: handle-grab uniform scale, anchor-preserving tx/ty (d5425d0)
+    [ ] Sub-step 3 — confirm-scale lock  <-- YOU ARE HERE
     [ ] Sub-step 4 — cross-page persistence & toggle state (save/restore)
 ```
 
-**Ground floor tracing is complete (all sub-steps done or dissolved). Multi-floor
-feature is split into four focused sub-steps. Sub-step 1 (read-only reference ghost)
-is complete. Next: Sub-step 2 (alignment + per-page transform).**
+**Sub-step 2 (ghost alignment + per-page transform) is complete. D was split into
+D1 (visual handles) and D2 (scale drag) for testability. Next: Sub-step 3
+(confirm-scale lock — make the alignment permanent).**
 
 ---
 

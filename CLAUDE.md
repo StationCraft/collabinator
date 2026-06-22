@@ -121,7 +121,7 @@ A React + Vite app with:
   (`pageIdMapRef.current[pageNum] = "page-N"`); `getPageId(pageNum)` helper; all
   page-keyed refs (`pageScalesRef`, `pageGridOriginRef`, etc.) are keyed by
   `pageId`, and shapes carry a `pageId` field (not `pageNumber`). `pageNum` is
-  retained only for PDF.js rendering. `pageTransformsRef` placeholder reserved.
+  retained only for PDF.js rendering. `pageTransformsRef` populated by sub-step 2.
 - **Page categorization:** distinct app mode that auto-triggers after compass
   Confirm/Skip (also re-enterable any time):
   * Categories: Site Plan / Floor Plan / Elevation / Cross-Section / Detail /
@@ -185,17 +185,53 @@ A React + Vite app with:
     in geometry.js: scans downward through FLOOR_ORDER to find nearest-lower categorized
     Floor Plan page with locked shapes; returns its pageId or null
   * `drawGhostShapes(ctx, completedShapes, ghostPageId)` stateless drawer in
-    canvasRenderer.js: renders locked shapes in muted purple (#a78bfa) 2px dashed lines
-    at 0.85 opacity, no fill; drawn as background layer below working geometry
-  * `showGhost` toggle in draw-mode and edit-mode toolbars, visible only when a ghost
-    source exists; toggles on/off without affecting geometry
-  * Ghost is purely visual: never hit-tested, never editable, never snapped to; no
-    transform applied yet (that is sub-step 2)
+    canvasRenderer.js: renders locked shapes in amber (#f59e0b), 3.5px dashed stroke
+    at 0.85 opacity, 10% amber fill, 25% 45° hatch pattern clipped to polygon; drawn
+    as background layer below working geometry
+  * `showGhost` toggle in view/draw/edit toolbars, visible only when a ghost source
+    exists; toggles on/off without affecting geometry
+  * Ghost is purely visual: never hit-tested, never editable, never snapped to
   * Clears on PDF upload; persists across zoom/pan and page navigation
+- **Multi-floor ghost alignment + per-page transform (Step 6, sub-step 2 of 4):**
+  PDF-layer translate + uniform scale to align current floor's PDF to floor-below ghost
+  (commits 73f02f1, c2ed3ba, 122b077, 6e97f67, b210343, d5425d0):
+  * `pageTransformsRef.current[pageId] = {tx, ty, s, angle}` — now populated during
+    align interaction (was a reserved placeholder). `angle` reserved in struct but not
+    wired (deferred, ADDITIONAL_FUNCTIONALITY #12).
+  * `getCSSTransform(t)` pure helper in canvasRenderer.js: builds CSS string
+    `translate(tx px, ty px) rotate(angle deg) scale(s)` from a transform struct;
+    returns `'none'` for null/identity. Used with `transformOrigin: '0 0'`.
+  * `.pdf-align-layer` div wraps ONLY the PDF `<canvas ref={canvasRef} />` inside
+    `.canvas-world`; carries the per-page CSS transform. `measureRef` (drawing/overlay
+    canvas) remains a direct child of `.canvas-world` and is NOT inside this div —
+    the ghost and drawn geometry are the fixed reference; only the PDF backdrop moves.
+  * `drawAlignHandles(ctx, completedShapes, ghostPageId, zoom)` stateless drawer in
+    canvasRenderer.js: draws four amber square handles (`HANDLE_PX = 12`, exported
+    constant) at the ghost bbox corners TL/TR/BR/BL; constant screen size via
+    `HANDLE_PX / zoom`; visible only when `alignMode` is true.
+  * **"Align to floor below" toolbar button** (view/draw/edit toolbars, same
+    `getGhostSourcePageId` gate as Show floor below): enters `alignMode`. If ghost was
+    hidden, turns it on automatically. "Exit align" dismisses.
+  * **In `alignMode`:** body-drag (canvas, no handle) writes `{tx, ty}` via
+    `(clientDelta / zoom)` → `pageTransformsRef`; four scale handles at ghost bbox
+    corners — grabbing a handle scales uniformly around the diagonally-opposite ghost
+    bbox corner as fixed anchor; `tx/ty` recomputed to keep anchor's canvas point fixed
+    as scale changes: `tx1 = ax - (ax - startTx) * (newS / startS)`. `d0` computed
+    from grabbed bbox corner to anchor (not cursor), preventing first-move scale jump.
+    Scale clamped 0.05–20×. `angle` untouched (stays 0).
+  * `alignTick` state bumps on every drag write to force React re-read of
+    `pageTransformsRef` for `.pdf-align-layer` style.
+  * Resize cursor (`nwse-resize`) shown when hovering a scale handle; grab cursor
+    during active drag.
+  * `alignMode`, `showGhost`, `alignTick` added to passive-redraw `useEffect` deps for
+    `redrawFrontFaceLayer` (view mode) and `drawEditCanvas` (edit mode) so handles and
+    ghost repaint live on toggle/drag.
+  * `alignMode` resets to `false` on page navigation and PDF upload; `{tx,ty,s,angle}`
+    in `pageTransformsRef` persists across page navigation, cleared only on PDF upload.
 
 **Not yet built (next increments):**
-- Multi-floor reference and alignment (sub-steps 2-4): ghost alignment + per-page
-  transform, confirm-scale lock, cross-page persistence and per-page toggle state
+- Multi-floor alignment sub-step 3: confirm-scale lock (make alignment permanent)
+- Multi-floor alignment sub-step 4: cross-page persistence and per-page toggle state
 - Roof plan, elevations, cross-sections, windows/doors
 
 **Deferred polish items:**
@@ -256,6 +292,16 @@ frontFace = {
   endpointA: { x: number, y: number },  // staleness sanity-check snapshot
   endpointB: { x: number, y: number }   // authoritative refs are the indices above
 } | null
+```
+
+**Per-page PDF alignment transforms** (written by sub-step 2 align interaction):
+```
+pageTransformsRef.current[pageId] = {
+  tx: number,    // horizontal translate in canvas pixels
+  ty: number,    // vertical translate in canvas pixels
+  s: number,     // uniform scale multiplier (1 = no scale)
+  angle: number  // rotation in degrees (reserved; always 0 until sub-step 2 rotation built)
+}
 ```
 
 All of the above are cleared on PDF upload.

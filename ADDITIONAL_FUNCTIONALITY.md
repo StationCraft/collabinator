@@ -182,6 +182,32 @@ The ghost rendering implementation (`getVisibleVertices` plumbing, `showGhost` t
 
 ---
 
+### 11. Sidebar auto-hide
+
+**Logged:** Session 9, during multi-floor sub-step 2 (alignment) testing.
+
+**Description:** The page-navigation sidebar overlay should auto-hide (collapse) when not in use — e.g. collapse after a selection, or when the user begins interacting with the canvas — rather than staying open and occupying screen space over the drawing. Currently it stays in whatever open/closed state the user last set.
+
+**Why deferred:** Pure UI/layout behavior, no impact on the alignment mechanic or any core geometry. Surfaced mid-Piece-C; logged rather than worked in to keep the alignment commit clean. Related to entry #10 (full-screen / max-width canvas layout) — both are canvas-real-estate polish and could be tackled together.
+
+**Status:** Deferred. Candidate for the same UI pass as #10 once the Phase 1 toolkit is feature-complete.
+
+---
+
+### 12. Page rotation (90° viewer rotation + arbitrary alignment rotation)
+
+**Logged:** Session 9, during multi-floor sub-step 2 Piece D (scale alignment) planning.
+
+**Description:** Two related but distinct rotation capabilities, both deferred:
+- **90° page rotation** — a viewer convenience to rotate the whole PDF page in 90° increments when a sheet was scanned/exported sideways. Applies to the page display generally, independent of floor alignment.
+- **Arbitrary alignment rotation** — rotating a floor-plan PDF by a free angle to align its geometry to the floor-below ghost when the sheet came in skewed. This is the `angle` field already present in the per-page transform struct `{tx,ty,s,angle}`; the field exists so this can be added later without a data-model refactor, but the rotation *interaction* (handle, anchor, compose with scale/translate) is not built.
+
+**Why deferred:** Stacked residential floor plans are almost always drawn at the same orientation on their sheets, so alignment needs only translate (Piece C) + scale (Piece D); rotation is an edge case for skewed scans. Adding it to Piece D would double the corner-handle interaction complexity for a case that may not arise. The transform struct already reserves `angle`, so adding it later is non-destructive.
+
+**Status:** Deferred. Pull off this list and build as its own piece if a real skewed/sideways plan set appears in testing.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass
