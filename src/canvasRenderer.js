@@ -108,3 +108,15 @@ export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
       ctx.globalAlpha = 1
     })
 }
+
+// Build a CSS transform string for a per-page PDF alignment transform.
+// t = { tx, ty, s, angle } where tx,ty are canvas pixels, s is a unitless
+// scale multiplier, angle is degrees. Order: translate -> rotate -> scale.
+// Pair with transformOrigin: '0 0' on the element (matches zoom/pan convention).
+// Returns 'none' for a null/identity transform so it can be assigned directly.
+export function getCSSTransform(t) {
+  if (!t) return 'none'
+  const { tx = 0, ty = 0, s = 1, angle = 0 } = t
+  if (tx === 0 && ty === 0 && s === 1 && angle === 0) return 'none'
+  return `translate(${tx}px, ${ty}px) rotate(${angle}deg) scale(${s})`
+}
