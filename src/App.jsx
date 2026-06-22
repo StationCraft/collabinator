@@ -7,7 +7,7 @@ import {
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId,
 } from './geometry.js'
-import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, getCSSTransform } from './canvasRenderer.js'
+import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -349,7 +349,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen])
+  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhost, alignTick])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -480,7 +480,7 @@ function App() {
       // Ghost reference (floor below) — drawn BELOW locked shapes
       if (showGhost) {
         const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
-        if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+        if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
       }
 
       const moveHoverIdx = moveHoverIdxRef.current
@@ -502,7 +502,7 @@ function App() {
       // Ghost reference (floor below) — drawn BELOW locked shapes
       if (showGhost) {
         const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
-        if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+        if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
       }
 
       const eligible = combineEligibleRef.current
@@ -532,7 +532,7 @@ function App() {
       // Ghost reference (floor below) — drawn BELOW locked shapes
       if (showGhost) {
         const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
-        if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+        if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
       }
 
       const hoverIdx = deleteHoverIdxRef.current
@@ -550,7 +550,7 @@ function App() {
       // Ghost reference (floor below) — drawn BELOW locked shapes
       if (showGhost) {
         const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
-        if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+        if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
       }
 
       const selIdx = splitSelectedRef.current
@@ -584,7 +584,7 @@ function App() {
     // Ghost reference (floor below) — drawn BELOW locked shapes
     if (showGhost) {
       const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
-      if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+      if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
     completedShapesRef.current
@@ -643,7 +643,7 @@ function App() {
 
   useEffect(() => {
     if (editMode && currentPage) drawEditCanvas(editHoverRef.current)
-  }, [editMode, currentPage])
+  }, [editMode, currentPage, alignMode, showGhost, alignTick])
 
   // ── Edit hit tests ───────────────────────────────────────────────────────
 
@@ -1376,7 +1376,7 @@ function App() {
     // Ghost reference (floor below) — drawn BELOW locked shapes so working geometry stays on top
     if (showGhost) {
       const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
-      if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+      if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
@@ -1446,7 +1446,7 @@ function App() {
     // Ghost reference (floor below) — drawn BELOW locked shapes
     if (showGhost) {
       const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER)
-      if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+      if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
@@ -1539,7 +1539,7 @@ function App() {
     // Ghost reference (floor below) — drawn BELOW locked shapes
     if (showGhost) {
       const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
-      if (ghostPageId) drawGhostShapes(ctx, completedShapesRef.current, ghostPageId)
+      if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)

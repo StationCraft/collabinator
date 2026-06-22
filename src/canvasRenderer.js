@@ -152,6 +152,43 @@ export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
     })
 }
 
+// Draw scale handles at the four corners of the combined bounding box of all
+// ghost polygons. Handles are fixed to the ghost (floor-below reference) and
+// do NOT move when the PDF body is dragged (Piece C). Size is constant on screen:
+// drawn at HANDLE_PX / zoom so they appear ~12px regardless of zoom level.
+// No drag behavior — purely visual targets (drag is Piece D2).
+const HANDLE_PX = 12
+export function drawAlignHandles(ctx, completedShapes, ghostPageId, zoom) {
+  const shapes = completedShapes.filter(s => s.pageId === ghostPageId && s.status === 'locked')
+  if (shapes.length === 0) return
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const shape of shapes) {
+    for (const v of shape.vertices) {
+      if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x
+      if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y
+    }
+  }
+  const half = (HANDLE_PX / 2) / zoom
+  const corners = [
+    { x: minX, y: minY },  // TL
+    { x: maxX, y: minY },  // TR
+    { x: maxX, y: maxY },  // BR
+    { x: minX, y: maxY },  // BL
+  ]
+  ctx.save()
+  for (const { x, y } of corners) {
+    // White border
+    ctx.fillStyle = '#ffffff'
+    ctx.globalAlpha = 0.9
+    ctx.fillRect(x - half - 1 / zoom, y - half - 1 / zoom, HANDLE_PX / zoom + 2 / zoom, HANDLE_PX / zoom + 2 / zoom)
+    // Amber fill
+    ctx.fillStyle = '#f59e0b'
+    ctx.globalAlpha = 1
+    ctx.fillRect(x - half, y - half, HANDLE_PX / zoom, HANDLE_PX / zoom)
+  }
+  ctx.restore()
+}
+
 // Build a CSS transform string for a per-page PDF alignment transform.
 // t = { tx, ty, s, angle } where tx,ty are canvas pixels, s is a unitless
 // scale multiplier, angle is degrees. Order: translate -> rotate -> scale.
