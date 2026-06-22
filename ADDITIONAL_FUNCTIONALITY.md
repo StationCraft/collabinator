@@ -208,6 +208,50 @@ The ghost rendering implementation (`getVisibleVertices` plumbing, `showGhost` t
 
 ---
 
+### 13. Ghost vertices as opt-in snap targets
+
+**Logged:** Session 10, during multi-floor sub-step 3 planning (scoped in but deliberately not built).
+
+**Description:** While tracing on a confirmed upper-floor page, allow the user to snap to
+vertices of the ghost (floor-below) geometry — not just the shared measure-space grid. This
+would let a user place a wall corner exactly coincident with the corner below it by hovering
+near the ghost vertex. Vertices only (no ghost edge/segment snap, no dwell mechanics, no
+priority rework over axis snap or grid snap).
+
+**Why deferred:** The existing axis snap + shared measure-space grid already handles
+geometry-to-geometry alignment for standard wall tracing. Ghost-vertex snap is a nicety for
+corner-exact coincidence, not a blocker. Adding it mid-sub-step-3 would have grown the scope
+beyond the confirm-gate goal. The `getVisibleVertices` plumbing is written generically and
+could include ghost vertices with a small addition when this is prioritized.
+
+**Status:** Deferred. Low complexity to add when sub-step 4 is done and the ghost-chain
+architecture is stable.
+
+---
+
+### 14. Scale inheritance within a drawing group
+
+**Logged:** Session 10, during multi-floor sub-step 3 planning.
+
+**Description:** On plan sets where multiple pages share the same printed scale (e.g. all
+floor plans at 1/4" = 1'-0"), automatically suppress the "Set Scale" prompt across sibling
+pages once one page in the group has been manually calibrated. The calibrated scale would be
+inherited by uncalibrated siblings without requiring alignment confirmation. This is a sibling
+to entry #9 (scale matching from shared notation) — but rather than reading notation, it would
+work within a user-defined "drawing group" concept where a designated scale-source page shares
+its `pxPerMeter` with the rest of the group.
+
+**Why deferred:** Requires two things that don't exist yet: (1) a drawing-group concept (pages
+grouped by shared-scale intent, separate from floor-level categorization), and (2) a designated
+scale-source page within that group. Neither is in the current data model. The sub-step-3 confirm-
+and-borrow mechanism handles the floor-stack case cleanly; sibling-group inheritance is a distinct
+workflow that deserves its own design.
+
+**Status:** Deferred. Design alongside entry #9 when PDF text tooling and multi-page scale
+normalization are prioritized.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

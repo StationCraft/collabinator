@@ -148,8 +148,16 @@ geometry" approach is **not** being rebuilt.
     keep that anchor's canvas position fixed. Aspect-locked, no rotation.
   - Handles are anchored to the **ghost** (fixed reference geometry), not the PDF.
     They do not move when the PDF is body-dragged.
-- User clicks **"Confirm scale"** (sub-step 3, not yet built) — this locks the
-  per-page PDF transform and makes it permanent.
+- User clicks **"Confirm scale & alignment"** (sub-step 3, BUILT — commits d49060d,
+  e4cf8b6, 327e84d, d030a34) — this sets `confirmed: true` on the per-page transform
+  and exits align mode. The button then reads "Realign" and re-enters on the existing
+  transform without reset. Once confirmed, `getEffectiveScale` borrows the ghost
+  source's calibrated `pxPerMeter` (recursing down `FLOOR_ORDER` to the first
+  calibrated floor for 3+ floor stacks), unlocking Draw and snap-grid labels without
+  re-calibration. The align `s` factor does NOT re-scale the grid — geometry is drawn
+  in the shared measure space at the ghost's calibrated scale (verified empirically:
+  wall labels read true). The "Set Scale" button is hidden on any page with a ghost
+  source; scale on ghosted pages comes exclusively from confirm-and-borrow.
 - Once confirmed, **new polygons drawn on this page align directly to the previous
   floor's geometry** (geometry-to-geometry, via the shared snap grid) — alignment is
   automatic, not something the user manages by hand.

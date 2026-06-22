@@ -228,9 +228,48 @@ A React + Vite app with:
     ghost repaint live on toggle/drag.
   * `alignMode` resets to `false` on page navigation and PDF upload; `{tx,ty,s,angle}`
     in `pageTransformsRef` persists across page navigation, cleared only on PDF upload.
+  * **Scale-drag field preservation:** the scale-drag branch spreads existing transform
+    fields (including `confirmed`) before writing new values — matching the translate
+    branch — so confirming then re-aligning via scale drag does not silently wipe the
+    confirmed flag.
+- **Multi-floor confirm-scale lock (Step 6, sub-step 3 of 4):**
+  Readiness gate that makes the PDF alignment permanent and unlocks Draw on ghosted
+  pages (commits d49060d, e4cf8b6, 327e84d, d030a34):
+  * **`confirmed` flag** — `pageTransformsRef.current[pageId]` now carries an optional
+    `confirmed: boolean`. Written `true` by the "Confirm scale & alignment" button;
+    persists across page navigation; cleared on PDF upload with the rest of the ref.
+  * **"Confirm scale & alignment" button** — rendered only while `alignMode` is true,
+    alongside "Exit align", at all three toolbar sites (view/draw/edit). On click:
+    reads the current transform, writes it back with `confirmed: true`, calls
+    `setAlignMode(false)`, and bumps `alignTick` to force a toolbar re-read.
+  * **"Realign" re-entry** — once `confirmed` is true the align button reads "Realign"
+    instead of "Align to floor below". Clicking it re-enters `alignMode` on the
+    **existing** `{tx, ty, s, angle, confirmed}` — the transform is never reset.
+    The user can nudge and re-confirm freely.
+  * **`getEffectiveScale(pageId, _visited)` resolver** — inside the App component,
+    near `getVisibleVertices`. Returns: the page's own calibration if set; else, if
+    the page's align transform is `confirmed`, recurses to `getEffectiveScale` on the
+    ghost source page (walking down `FLOOR_ORDER` to the first calibrated floor); else
+    `null`. A visited-set cycle guard (`_visited`) is threaded through the recursion as
+    cheap insurance (the chain strictly descends `FLOOR_ORDER` today so cannot cycle).
+    This means a 3+ floor stack where middle floors have no own calibration still
+    resolves correctly — the recursion bottoms out at the first floor with real
+    calibration. Ghost source's `s` (PDF scale factor) does NOT enter the borrowed
+    scale; geometry is drawn in measure space at the ghost's calibrated `pxPerMeter`.
+  * **Scale-borrow unlocks Draw** — all current-page scale reads are routed through
+    `getEffectiveScale`: `snapToGrid`, `applySnap`, `snapPerp`, `commitLabelEdit`,
+    `pageHasScale`, both `pxToDisplayDist` call sites (synthetic single-entry map),
+    both snap-increment `isImperial` reads, and the Draw button's default increment
+    init. A confirmed ghosted page with no own calibration now passes `pageHasScale`,
+    enabling Draw and showing correct wall-length labels without re-calibration.
+    Verified empirically: labels read true because the shared measure-space grid is the
+    geometry-to-geometry alignment mechanism — `s` only moves the PDF backdrop.
+  * **"Set Scale" button hidden on ghosted pages** — the Set Scale / Re-calibrate
+    button is suppressed whenever `getGhostSourcePageId` returns non-null. Scale on
+    ghosted pages comes from confirm-and-borrow; manual calibration returns only if
+    the page is reclassified out of the ghost chain.
 
 **Not yet built (next increments):**
-- Multi-floor alignment sub-step 3: confirm-scale lock (make alignment permanent)
 - Multi-floor alignment sub-step 4: cross-page persistence and per-page toggle state
 - Roof plan, elevations, cross-sections, windows/doors
 
@@ -294,13 +333,14 @@ frontFace = {
 } | null
 ```
 
-**Per-page PDF alignment transforms** (written by sub-step 2 align interaction):
+**Per-page PDF alignment transforms** (written by sub-step 2 align interaction; `confirmed` added by sub-step 3):
 ```
 pageTransformsRef.current[pageId] = {
-  tx: number,    // horizontal translate in canvas pixels
-  ty: number,    // vertical translate in canvas pixels
-  s: number,     // uniform scale multiplier (1 = no scale)
-  angle: number  // rotation in degrees (reserved; always 0 until sub-step 2 rotation built)
+  tx: number,        // horizontal translate in canvas pixels
+  ty: number,        // vertical translate in canvas pixels
+  s: number,         // uniform scale multiplier (1 = no scale)
+  angle: number,     // rotation in degrees (reserved; always 0 until sub-step 2 rotation built)
+  confirmed?: boolean  // true once user clicks "Confirm scale & alignment"; enables scale-borrow
 }
 ```
 

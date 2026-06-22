@@ -43,13 +43,16 @@ building."
         Ghost visibility upgrade: amber+hatch (6e97f67)
         D1: four scale handles at ghost bbox corners (b210343)
         D2: handle-grab uniform scale, anchor-preserving tx/ty (d5425d0)
-    [ ] Sub-step 3 — confirm-scale lock  <-- YOU ARE HERE
-    [ ] Sub-step 4 — cross-page persistence & toggle state (save/restore)
+    [x] Sub-step 3 — confirm-scale lock  DONE (d49060d, e4cf8b6, 327e84d, d030a34)
+        1a: confirmed flag + Confirm button + Realign re-entry (d49060d)
+        1a-fix: preserve confirmed on scale drag (e4cf8b6)
+        1b: getEffectiveScale recursive borrow unlocks Draw (327e84d)
+        1b-fix + 1c: recursive borrow for 3+ floor stacks; hide Set Scale on ghosted pages (d030a34)
+    [ ] Sub-step 4 — cross-page persistence & toggle state (save/restore)  <-- YOU ARE HERE
 ```
 
-**Sub-step 2 (ghost alignment + per-page transform) is complete. D was split into
-D1 (visual handles) and D2 (scale drag) for testability. Next: Sub-step 3
-(confirm-scale lock — make the alignment permanent).**
+**Sub-step 3 (confirm-scale lock) is complete. Next: Sub-step 4
+(cross-page persistence & toggle state — save/restore per-page transform and toggle).**
 
 ---
 

@@ -509,6 +509,86 @@ No persistence — all geometry and transforms live in memory. Full in-flight te
 
 ---
 
+## SESSION 10 — Multi-floor sub-step 3: confirm-scale lock
+
+**Branch:** main | **Commits:** d49060d, e4cf8b6, 327e84d, d030a34
+
+### What was built
+
+Sub-step 3 completed in four pieces (1a, 1a-fix, 1b, 1b-fix+1c):
+
+- **Piece 1a (d49060d):** Confirm gate + Realign re-entry UI. Added `confirmed` field to
+  `pageTransformsRef[pageId]`. "Confirm scale & alignment" button (align mode only,
+  `snap-btn` class, no `snap-btn--on`) writes `confirmed: true` and exits align mode.
+  Align button reads "Realign" once confirmed; re-entering does NOT reset the transform.
+  All three toolbar sites (view/draw/edit) updated. `alignTick` bumped on confirm to
+  force toolbar re-read. State/UI only — no scale-borrow, no calibration changes.
+
+- **Piece 1a-fix (e4cf8b6):** The scale-drag branch in the align `mousemove` handler
+  was writing `{tx, ty, s, angle}` without spreading prior fields, silently dropping
+  `confirmed` on any scale drag during Realign. Fix: read `prevScale = pageTransformsRef
+  .current[drag.pageId] || {…}` and spread it before writing new values — matching the
+  translate branch. Scale math unchanged.
+
+- **Piece 1b (327e84d):** Ghost scale-borrow unlocks Draw on confirmed pages. Added
+  `getEffectiveScale(pageId, _visited)` resolver inside the App component (near
+  `getVisibleVertices`): returns own calibration if set; else if `confirmed`, recurses
+  to `getEffectiveScale(ghostPageId, visited)` walking down `FLOOR_ORDER`; else `null`.
+  Visited-set cycle guard threaded through recursion. Routed all 9 scale-read sites
+  through it: `snapToGrid`, `applySnap`, `snapPerp`, `commitLabelEdit`, `pageHasScale`,
+  both `pxToDisplayDist` synthetic-map call sites, two `isImperial` snap-increment reads,
+  Draw `onClick` unit init. `pageGridOriginRef` untouched — borrowed pages keep the
+  default `{0,0}` grid, sharing the ghost's coordinate space. `canvasRenderer.js` not
+  touched (synthetic map `{ [id]: getEffectiveScale(id) }` passed to `pxToDisplayDist`).
+
+- **Piece 1b-fix + 1c (d030a34):** Two changes in one commit:
+  - **1b-fix:** `getEffectiveScale` originally did `pageScalesRef.current[ghostPageId]
+    || null` — a non-recursive lookup. On 3+ floor stacks, a middle floor is itself a
+    borrower with no own scale; the lookup returned `null` while that floor's effective
+    scale resolved fine via the floor below it. Console-log instrumentation (diagnostic
+    only, never committed) revealed the branch: "page-5 BORROW from page-4 = null".
+    Fixed by recursing (`return getEffectiveScale(ghostPageId, visited)`) so the walk
+    continues until a floor with real calibration is found.
+  - **1c:** "Set Scale" / "Re-calibrate" button hidden whenever `getGhostSourcePageId`
+    returns non-null. Single render-gate condition change; button className/onClick/label
+    unchanged.
+
+### Key conceptual resolution
+
+**The borrow uses `pxPerMeter` only — `s` does not enter the grid.** The align `s`
+factor is a CSS transform on the PDF backdrop div (`.pdf-align-layer`). The measurement
+canvas (`measureRef`) and all geometry live in a fixed measure space where the ghost's
+calibrated `pxPerMeter` applies directly. Geometry-to-geometry snap works because all
+floors share this same measure-space grid — the PDF backdrop moves to match, not the
+grid. This was verified empirically: wall labels read true on a confirmed upper floor
+borrowing from the ground floor's calibration.
+
+### Bug discovery story
+
+The recursion bug (#1b-fix) would not have been caught by static review: it requires
+at least three categorized floor-plan pages with locked shapes, a calibrated bottom
+floor, a confirmed-but-uncalibrated middle floor, and a confirmed upper floor. Only a
+real multi-floor PDF with three stacked floors exposes it. The console-log diagnostic
+caught the exact branch (`"page-5 BORROW from page-4 = null"`) in one test.
+
+### In-memory-state-loss reminder
+
+No persistence — all geometry and transforms live in memory. A tab reload loses
+everything. In-session testing of the confirm gate requires that the tab stays alive
+from ghost rendering through alignment through confirmation — a reloaded tab starts
+clean and the gate appears not to work until confirmed in the fresh session. This
+masked the gate in early testing until a fresh start proved it.
+
+### New deferred entries this session
+
+- **#13 — Ghost vertices as opt-in snap targets:** deliberately not built in sub-step 3.
+  Existing axis snap + shared grid handle alignment; reference-vertex snap is a future
+  nicety. See `ADDITIONAL_FUNCTIONALITY.md`.
+- **#14 — Scale inheritance within a drawing group:** suppress Set Scale across a
+  group's pages once one is calibrated. See `ADDITIONAL_FUNCTIONALITY.md`.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -524,6 +604,8 @@ No persistence — all geometry and transforms live in memory. Full in-flight te
 - **Full-screen canvas layout (#10):** UI polish, no core functionality; deferred
 - **Sidebar auto-hide (#11):** collapse on canvas interaction; candidate for same UI pass as #10
 - **Page rotation (#12):** 90° viewer convenience + arbitrary alignment rotation; `angle` reserved in transform struct
+- **Ghost vertices as opt-in snap targets (#13):** deferred from sub-step 3; shared grid handles alignment for now
+- **Scale inheritance within drawing group (#14):** suppress Set Scale across a group once one page is calibrated; needs drawing-group concept
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
 
 ---
@@ -539,8 +621,8 @@ No persistence — all geometry and transforms live in memory. Full in-flight te
 7. **Multi-floor reference & alignment (IN PROGRESS)**
    - ~~Sub-step 1: ghost rendering~~ — DONE (996b5a7)
    - ~~Sub-step 2: ghost alignment + per-page transform~~ — DONE (73f02f1, c2ed3ba, 122b077, 6e97f67, b210343, d5425d0)
-   - **Sub-step 3: confirm-scale lock** — NEXT
-   - Sub-step 4: cross-page persistence/toggle
+   - ~~Sub-step 3: confirm-scale lock~~ — DONE (d49060d, e4cf8b6, 327e84d, d030a34)
+   - **Sub-step 4: cross-page persistence/toggle** — NEXT
 
-After multi-floor sub-steps 3-4: roof plan tracing → elevation calibration + tracing →
+After multi-floor sub-steps 4: roof plan tracing → elevation calibration + tracing →
 cross-section reference geometry → windows/doors → Phase 2 threshold.
