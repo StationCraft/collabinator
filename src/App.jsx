@@ -2064,6 +2064,17 @@ function App() {
     if (target != null) goToPage(target)
   }
   const pageHasScale = currentPageId && !!getEffectiveScale(currentPageId)
+  const ghostSrc = currentPageId ? getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER) : null
+  const drawDisabledHint = (() => {
+    if (pageHasScale) return null
+    if (ghostSrc) {
+      const t = pageTransformsRef.current[currentPageId]
+      return (t && (t.tx || t.ty || t.s !== 1))
+        ? 'Confirm scale & alignment to enable drawing.'
+        : 'Confirm alignment to the floor below to enable drawing.'
+    }
+    return 'Set scale to enable drawing.'
+  })()
   const lockedShapesOnPage = currentPage
     ? completedShapesRef.current.filter(s => s.pageId === currentPageId)
     : []
@@ -2167,19 +2178,21 @@ function App() {
         )}
 
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
-          <button
-            className="draw-btn"
-            disabled={!pageHasScale}
-            title={!pageHasScale ? 'Set scale first to enable drawing' : undefined}
-            onClick={() => {
-              const unit = getEffectiveScale(currentPageId)?.displayUnit
-              snapIncrementRef.current = unit === 'm' ? 0.15 : 0.1524
-              setSnapIncrement(unit === 'm' ? 0.15 : 0.1524)
-              clearMeasureCanvas(); setDrawMode(true)
-            }}
-          >
-            Draw
-          </button>
+          <>
+            <button
+              className="draw-btn"
+              disabled={!pageHasScale}
+              onClick={() => {
+                const unit = getEffectiveScale(currentPageId)?.displayUnit
+                snapIncrementRef.current = unit === 'm' ? 0.15 : 0.1524
+                setSnapIncrement(unit === 'm' ? 0.15 : 0.1524)
+                clearMeasureCanvas(); setDrawMode(true)
+              }}
+            >
+              Draw
+            </button>
+            {drawDisabledHint && <span className="cat-panel-hint">{drawDisabledHint}</span>}
+          </>
         )}
 
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (() => {
