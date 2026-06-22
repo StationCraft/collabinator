@@ -21,6 +21,7 @@ This project is built by Ben (solo, first-time builder, construction-domain expe
 - One clearly-scoped change at a time, committed and pushed before the next where practical.
 - Commit and push are separate actions; confirm pushes reach origin (GitHub is the safety net).
 - After a code change that affects visuals or interaction, do a runtime check before trusting it. When runtime behavior contradicts a static "looks fine" read, TRUST THE RUNTIME — add a console.log and verify rather than reasoning from the file. (This caught a real 3-floor recursion bug and a repaint-lag bug in prior sessions.)
+- A piece that needs runtime verification is NOT complete until the runtime result exists. If verification requires Ben's browser (visual/interaction in his dev-server tab), PAUSE and wait for his eyeball BEFORE committing that piece as done and BEFORE session close-out. Do not commit a runtime-dependent piece and hand Ben a test plan as homework, and never declare a step done or name the next step on the strength of a static "looks correct" read. The cycle-guard / out-of-order test in sub-step 5 is the canonical example: it had to be run, not reasoned about.
 - NOTE: the console tool reads the preview, not Ben's dev-server tab. For visual/interaction verification Ben eyeballs his own browser (npm run dev, port 5173 or 5174 — preview takes one; confirm the port). Ask him to look, don't assume the preview reflects his tab.
 
 **Scope discipline (critical — Ben has a known tendency to expand scope mid-build):**
