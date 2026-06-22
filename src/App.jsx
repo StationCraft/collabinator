@@ -2082,6 +2082,15 @@ function App() {
       : `Confirm alignment to the ${refLayerLabel} to enable drawing.`
     return 'Set scale to enable drawing.'
   })()
+  // Pages that can serve as reference for alignment: own calibration OR confirmed+parent.
+  // Used for the reference override picker (Piece C). Reads refs; re-evaluated on alignTick.
+  const refCandidates = ghostSrc ? pages.filter(p =>
+    p.pageId !== currentPageId &&
+    p.category === 'floor-plan' &&
+    (pageScalesRef.current[p.pageId] ||
+     (pageTransformsRef.current[p.pageId]?.confirmed && pageRefParentRef.current[p.pageId] != null))
+  ) : []
+
   const lockedShapesOnPage = currentPage
     ? completedShapesRef.current.filter(s => s.pageId === currentPageId)
     : []
@@ -2214,6 +2223,20 @@ function App() {
                   else setAlignMode(false)
                 }}
               >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : `Align to ${refLayerLabel}`}</button>
+              {alignMode && refCandidates.length > 1 && (
+                <select className="snap-increment-select"
+                  value={ghostSrc || ''}
+                  onChange={e => {
+                    const v = e.target.value
+                    if (v) { pageRefParentRef.current[currentPageId] = v; setAlignTick(t => t + 1) }
+                  }}
+                >
+                  <option value="">— reference —</option>
+                  {refCandidates.map(p => (
+                    <option key={p.pageId} value={p.pageId}>{p.subLabel || `Page ${p.pageNum}`}</option>
+                  ))}
+                </select>
+              )}
               {alignMode && (
                 <button className="snap-btn" onClick={() => {
                   const pageId = getPageId(currentPage)
@@ -2288,6 +2311,20 @@ function App() {
                           else setAlignMode(false)
                         }}
                       >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : `Align to ${refLayerLabel}`}</button>
+                      {alignMode && refCandidates.length > 1 && (
+                        <select className="snap-increment-select"
+                          value={ghostSrc || ''}
+                          onChange={e => {
+                            const v = e.target.value
+                            if (v) { pageRefParentRef.current[currentPageId] = v; setAlignTick(t => t + 1) }
+                          }}
+                        >
+                          <option value="">— reference —</option>
+                          {refCandidates.map(p => (
+                            <option key={p.pageId} value={p.pageId}>{p.subLabel || `Page ${p.pageNum}`}</option>
+                          ))}
+                        </select>
+                      )}
                       {alignMode && (
                         <button className="snap-btn" onClick={() => {
                           const pageId = getPageId(currentPage)
@@ -2362,6 +2399,20 @@ function App() {
                           else setAlignMode(false)
                         }}
                       >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : alignStarted ? 'Resume align' : `Align to ${refLayerLabel}`}</button>
+                      {alignMode && refCandidates.length > 1 && (
+                        <select className="snap-increment-select"
+                          value={ghostSrc || ''}
+                          onChange={e => {
+                            const v = e.target.value
+                            if (v) { pageRefParentRef.current[currentPageId] = v; setAlignTick(t => t + 1) }
+                          }}
+                        >
+                          <option value="">— reference —</option>
+                          {refCandidates.map(p => (
+                            <option key={p.pageId} value={p.pageId}>{p.subLabel || `Page ${p.pageNum}`}</option>
+                          ))}
+                        </select>
+                      )}
                       {alignMode && (
                         <button className="snap-btn" onClick={() => {
                           const pageId = getPageId(currentPage)
