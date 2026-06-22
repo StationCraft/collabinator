@@ -2158,15 +2158,28 @@ function App() {
 
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (() => {
           const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
-          return ghostPageId ? (
-            <button
-              className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
-              onClick={() => {
-                if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
-                else setAlignMode(false)
-              }}
-            >{alignMode ? 'Exit align' : 'Align to floor below'}</button>
-          ) : null
+          if (!ghostPageId) return null
+          const isConfirmed = !!(pageTransformsRef.current[getPageId(currentPage)]?.confirmed)
+          return (
+            <>
+              <button
+                className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
+                onClick={() => {
+                  if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
+                  else setAlignMode(false)
+                }}
+              >{alignMode ? 'Exit align' : isConfirmed ? 'Realign' : 'Align to floor below'}</button>
+              {alignMode && (
+                <button className="snap-btn" onClick={() => {
+                  const pageId = getPageId(currentPage)
+                  const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+                  pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                  setAlignMode(false)
+                  setAlignTick(t => t + 1)
+                }}>Confirm scale & alignment</button>
+              )}
+            </>
+          )
         })()}
 
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && lockedShapesOnPage.length > 0 && (
@@ -2229,7 +2242,16 @@ function App() {
                           if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
                           else setAlignMode(false)
                         }}
-                      >{alignMode ? 'Exit align' : 'Align to floor below'}</button>
+                      >{alignMode ? 'Exit align' : !!(pageTransformsRef.current[getPageId(currentPage)]?.confirmed) ? 'Realign' : 'Align to floor below'}</button>
+                      {alignMode && (
+                        <button className="snap-btn" onClick={() => {
+                          const pageId = getPageId(currentPage)
+                          const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+                          pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                          setAlignMode(false)
+                          setAlignTick(t => t + 1)
+                        }}>Confirm scale & alignment</button>
+                      )}
                     </>
                   ) : null
                 })()}
@@ -2293,7 +2315,16 @@ function App() {
                           if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
                           else setAlignMode(false)
                         }}
-                      >{alignMode ? 'Exit align' : 'Align to floor below'}</button>
+                      >{alignMode ? 'Exit align' : !!(pageTransformsRef.current[getPageId(currentPage)]?.confirmed) ? 'Realign' : 'Align to floor below'}</button>
+                      {alignMode && (
+                        <button className="snap-btn" onClick={() => {
+                          const pageId = getPageId(currentPage)
+                          const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+                          pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                          setAlignMode(false)
+                          setAlignTick(t => t + 1)
+                        }}>Confirm scale & alignment</button>
+                      )}
                     </>
                   ) : null
                 })()}
