@@ -100,6 +100,11 @@ function App() {
   // ── Multi-floor ghost reference (Step 6) ─────────────────────────────────────
   const [showGhost, setShowGhost] = useState(true)
 
+  // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
+  const [alignMode, setAlignMode] = useState(false)
+  const alignDragRef = useRef(null)  // { startClientX, startClientY, startTx, startTy, pageId }
+  const [alignTick, setAlignTick] = useState(0)  // bump to re-read pageTransformsRef after writes
+
   // ── Compass rose ──────────────────────────────────────────────────────────
   const [showCompassOverlay, setShowCompassOverlay] = useState(false)
   const [compassAngleDeg, setCompassAngleDeg] = useState(null)   // null = not yet set
@@ -252,6 +257,7 @@ function App() {
     setCategorizeMode(false); setPages([])
     setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote(''); setRecatPageNum(null); setCatReentry(false)
     setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
+    setAlignMode(false); alignDragRef.current = null
     resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
@@ -276,6 +282,7 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     resetEditState()
+    setAlignMode(false); alignDragRef.current = null
     resetZoomPan()
     drawVerticesRef.current = []; mousePosRef.current = null
     renderPage(pdf, pageNum)
@@ -916,6 +923,17 @@ function App() {
   const handleMeasureMouseDown = (e) => {
     // Front-face pick mode: suppress all normal mousedown (pan/draw/edit) behavior.
     if (frontFacePromptOpen) return
+    // Align mode: left-drag moves the PDF layer; suppress everything else.
+    if (alignMode) {
+      if (e.button !== 0) return
+      const pageId = getPageId(currentPage)
+      const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+      alignDragRef.current = {
+        startClientX: e.clientX, startClientY: e.clientY,
+        startTx: cur.tx, startTy: cur.ty, pageId,
+      }
+      return
+    }
     // Middle mouse: always start pan drag
     if (e.button === 1) { startPanDrag(e); e.preventDefault(); return }
 
@@ -1002,6 +1020,8 @@ function App() {
   }
 
   const handleMeasureMouseUp = (e) => {
+    // Align mode: end drag.
+    if (alignMode) { alignDragRef.current = null; return }
     // Pan cleanup: if pan is active, window listener handles it; just bail
     if (panDragRef.current?.active) return
     // Pending pan (never activated = it's a click): clear ref, fall through to tool handlers
@@ -1075,6 +1095,8 @@ function App() {
   }
 
   const handleMeasureClick = (e) => {
+    // Align mode: drag is the gesture; suppress clicks.
+    if (alignMode) return
     // Front-face pick mode: a click on a perimeter segment selects the front face.
     if (frontFacePromptOpen) {
       const hit = hitTestFrontFaceSegment(getCanvasPos(e))
@@ -1141,6 +1163,18 @@ function App() {
   }
 
   const handleMeasureMouseMove = (e) => {
+    // Align mode: update pdf-align-layer transform during drag.
+    if (alignMode) {
+      const drag = alignDragRef.current
+      if (drag) {
+        const dx = (e.clientX - drag.startClientX) / zoomRef.current
+        const dy = (e.clientY - drag.startClientY) / zoomRef.current
+        const prev = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+        pageTransformsRef.current[drag.pageId] = { ...prev, tx: drag.startTx + dx, ty: drag.startTy + dy }
+        setAlignTick(t => t + 1)
+      }
+      return
+    }
     // Front-face pick mode: hover-highlight the candidate perimeter segment.
     if (frontFacePromptOpen) {
       const hit = hitTestFrontFaceSegment(getCanvasPos(e))
@@ -1867,6 +1901,7 @@ function App() {
   const currentPageEntry = pages.find(p => p.pageNum === currentPage) || null
   const categorizedCount = pages.filter(p => p.category).length
 
+
   // ── Sidebar sections ───────────────────────────────────────────────────────
   // category is stored as a key ('floor-plan', 'elevation', …), not a label.
   const sidebarSections = (() => {
@@ -2049,6 +2084,19 @@ function App() {
           </button>
         )}
 
+        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (() => {
+          const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
+          return ghostPageId ? (
+            <button
+              className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
+              onClick={() => {
+                if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
+                else setAlignMode(false)
+              }}
+            >{alignMode ? 'Exit align' : 'Align to floor below'}</button>
+          ) : null
+        })()}
+
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && lockedShapesOnPage.length > 0 && (
           <button className="edit-btn" onClick={() => { clearMeasureCanvas(); setEditMode(true) }}>
             Edit Shapes
@@ -2095,13 +2143,22 @@ function App() {
                 {(() => {
                   const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
                   return ghostPageId ? (
-                    <button
-                      className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
-                      onClick={() => {
-                        const next = !showGhost; setShowGhost(next)
-                        redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
-                      }}
-                    >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
+                    <>
+                      <button
+                        className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
+                        onClick={() => {
+                          const next = !showGhost; setShowGhost(next)
+                          redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
+                        }}
+                      >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
+                      <button
+                        className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
+                        onClick={() => {
+                          if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
+                          else setAlignMode(false)
+                        }}
+                      >{alignMode ? 'Exit align' : 'Align to floor below'}</button>
+                    </>
                   ) : null
                 })()}
                 <span className="draw-status">
@@ -2150,13 +2207,22 @@ function App() {
                 {(() => {
                   const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER)
                   return ghostPageId ? (
-                    <button
-                      className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
-                      onClick={() => {
-                        const next = !showGhost; setShowGhost(next)
-                        drawEditCanvas(editHoverRef.current)
-                      }}
-                    >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
+                    <>
+                      <button
+                        className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
+                        onClick={() => {
+                          const next = !showGhost; setShowGhost(next)
+                          drawEditCanvas(editHoverRef.current)
+                        }}
+                      >Show floor below {showGhost ? 'ON' : 'OFF'}</button>
+                      <button
+                        className={`snap-btn ${alignMode ? 'snap-btn--on' : ''}`}
+                        onClick={() => {
+                          if (!alignMode) { if (!showGhost) setShowGhost(true); setAlignMode(true) }
+                          else setAlignMode(false)
+                        }}
+                      >{alignMode ? 'Exit align' : 'Align to floor below'}</button>
+                    </>
                   ) : null
                 })()}
                 <span className="edit-status">Drag corner · side · click label to edit · hold segment to insert vertex</span>
@@ -2374,7 +2440,8 @@ function App() {
             <div
               className="pdf-align-layer"
               style={{
-                transform: getCSSTransform(pageTransformsRef.current[getPageId(currentPage)]),
+                // alignTick read here forces React to re-evaluate after each drag write
+                transform: alignTick >= 0 ? getCSSTransform(pageTransformsRef.current[getPageId(currentPage)]) : 'none',
                 transformOrigin: '0 0',
               }}
             >
@@ -2383,7 +2450,7 @@ function App() {
             <canvas
               ref={measureRef}
               className="measure-canvas"
-              style={{ cursor: isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode) ? 'crosshair' : undefined }}
+              style={{ cursor: alignMode ? (alignDragRef.current ? 'grabbing' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode) ? 'crosshair' : undefined }}
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}
