@@ -459,8 +459,32 @@ A React + Vite app with:
     they share calibration scale and ghost-align visually — no explicit geometry composition needed at R2.
     Composing the pageRefParent chain onto stored coordinates is R3 (explicitly NOT built at R2).
 
+- **Elevation PDF spatial work — Pieces 1+2 (Step 8 spatial, Session 19; commits 89b7ba2, current):**
+  Two-piece interaction for aligning elevation PDFs to floor-plan geometry.
+  * **Piece 1 — "Set elevation edge" mode (commit 89b7ba2):** Elevation pages get a "Set elevation
+    edge" button. Mode shows the floor-plan ghost; user clicks any ghost edge to designate it as the
+    horizontal reference. Stored as `elevationEdgeRef.current[elevPageId]` (authoritative shapeIndex +
+    segmentIndex indices; endpointA/B are staleness-check snapshots — same pattern as `frontFace`).
+    Purple edge highlight. Multiple floor-plan candidates shown in a selector. Gated to Elevation pages.
+  * **Piece 2 — "Align elevation" mode (current session):** Visible on Elevation pages that have a
+    stored edge (disabled with title hint otherwise). Entering the mode draws a temporary padded bbox
+    around the two edge endpoints, with four amber corner handles. Body-drag translates; corner-drag
+    scales uniformly around the diagonally-opposite corner — identical math to floor-reference align
+    (`newS = startS * (d1/d0)`, anchor-preserving tx/ty). Zoom/pan active during align.
+    "Confirm alignment" stores the elevation's OWN `pageScalesRef` entry: pxPerMeter derived from
+    `elevPixelLen / realLenMeters` (both measured in the shared canvas coordinate space). Does NOT
+    set `pageRefParentRef` — the elevation is a calibrated peer, independent on later recalibration
+    of the source plan (#22 honored). "Exit" dismisses without writing scale. Resets on nav/upload.
+  * **Key coordinate-space invariant:** The PDF's `{tx,ty,s}` transform is VISUAL ONLY — it repositions
+    the backdrop image and does not affect the canvas coordinate space where geometry is drawn. After
+    correct alignment both the ghost and the elevation PDF's features are co-registered in the same
+    canvas-world coordinate space, so `pxPerMeter` equals the source plan's `pxPerMeter`. See also the
+    Design notes coordinate note below.
+
 **Not yet built (next increments):**
-- Elevations, cross-sections, windows/doors
+- Elevation Piece 3: floor/ceiling reference lines on the aligned elevation
+- Elevation Piece 4: trace elevation outline as open polyline
+- Cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
 
@@ -527,6 +551,19 @@ frontFace = {
   endpointA: { x: number, y: number },  // staleness sanity-check snapshot
   endpointB: { x: number, y: number }   // authoritative refs are the indices above
 } | null
+```
+
+**Elevation edge reference** (added Session 19, Piece 1 — per Elevation page):
+```
+elevationEdgeRef.current[elevPageId] = {
+  sourcePageId: string,        // floor-plan page the edge comes from
+  shapeIndex: number,          // index into completedShapesRef on sourcePageId (authoritative)
+  segmentIndex: number,        // edge index within shape's vertices array (authoritative)
+  endpointA: { x, y },        // staleness sanity-check snapshot
+  endpointB: { x, y }
+}
+// Resolved live via resolveElevEdge(pageId) before any use.
+// Cleared on PDF upload.
 ```
 
 **Per-page PDF alignment transforms** (written by sub-step 2 align interaction; `confirmed` added by sub-step 3):
@@ -607,6 +644,12 @@ All of the above are cleared on PDF upload.
 - **feet+inches carry-over (low priority):** Display shows `2' 12.0"` instead of `3' 0.0"`
 - **Parallel alignment guide tolerance:** Too loose with small snap grids; guides show
   green but snapped endpoint can be off-axis. Defer to post-Phase 1 optimization.
+- **Front-face select interaction vanishes until next page:** The selected front-face edge
+  highlight/interaction may not persist correctly across redraws — log to fix in a focused
+  polish session.
+- **Categorize-input button color scheme not documented:** Current button highlight logic
+  follows "next logical step" but the exact color-state rules are not written down.
+  Document and potentially improve in a UI polish session.
 
 ### Design gaps (deferred to Phase 2):
 - **Inherited geometry displays on all pages:** Locked polygons from page N show on
@@ -693,6 +736,12 @@ After A.0.1–A.0.3 cleanup, Phase 1.5 builds the foundational architecture for 
 - **Elevations show vertical section:** Align to plan edges; show floor heights, roof
   pitch, eave projections; walls/openings traced on top.
 - **Cross-sections are reference-only:** Vertical slices aligned to plan reference lines.
+- **PDF transform is VISUAL ONLY — canvas coordinate space is shared and unaffected:**
+  All geometry — including elevations — is traced on the shared `measureRef` canvas in canvas-world
+  coordinates. The PDF `{tx,ty,s}` transform is VISUAL ONLY: it repositions the backdrop image, never
+  the coordinate system geometry is drawn in. Therefore 1 meter is always `srcPxPerMeter` pixels
+  regardless of the PDF's original drawing scale; after correct alignment the elevation's `pxPerMeter`
+  equals the source plan's. Do not assume the PDF transform feeds into px/m — it does not.
 - **Real-world coordinate system — Path 3 / 3-minimal (R2 foundation — DONE, Session 18):**
   Geometry is STORED IN PIXELS. Meters are a READ-TIME PROJECTION through the named conversion seam
   (`pxToMeters` / `metersToPx` in canvasRenderer.js). Refs hold pixels; no frozen conversion ratio
@@ -719,4 +768,6 @@ The user has a separate Claude.ai Project called "Collabinator" containing:
 - **Design gaps and known limitations are documented; they're not bugs to fix mid-build
   unless they block the current increment's workflow.** Prioritize core functionality
   over edge-case polish.
+- **Prefer self-contained Code prompts** that complete a whole piece and report once.
+  Minimise checkpoint count without merging pieces that need independent browser verification.
 

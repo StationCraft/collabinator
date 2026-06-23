@@ -221,7 +221,7 @@ geometry" approach is **not** being rebuilt.
 
 ## 8. Elevation calibration & tracing
 
-**Build status (Session 14):** Partially built.
+**Build status (Sessions 14 + 19):** Partially built.
 - **Piece 1 (2942e0e):** `floorHeightsRef` data structure, `accumulateZ` helper, `getFloorLevel` helper. No UI.
 - **Piece 2 (e780b88):** Floor-heights entry panel — worklist + Z-stack rows, ft+in ceiling height
   entry, inch-native floor-system presets + custom input. Browser-verified.
@@ -232,6 +232,16 @@ geometry" approach is **not** being rebuilt.
   constant. Shared `validateCeiling` guard (ceiling strictly > 0 AND > fsa) called by both paths;
   rejects with inline `fhError` on failure without writing. F2f input absent on top-of-stack;
   disabled-with-hint until floor-system set.
+- **Elevation spatial Piece 1 (89b7ba2):** "Set elevation edge" mode on Elevation pages. Floor-plan
+  ghost shown; user clicks an edge to designate it as the horizontal reference for this elevation.
+  Stored in `elevationEdgeRef.current[elevPageId]` (authoritative indices + endpoint snapshots).
+  Purple edge highlight. Selector for multiple floor-plan candidates.
+- **Elevation spatial Piece 2 (current session):** "Align elevation" mode. Temporary bounding box
+  with four amber corner handles around the picked edge. Body-drag translates; corner-drag scales
+  uniformly (same math as floor-reference align). Zoom/pan active during align. "Confirm alignment"
+  stores the elevation's OWN `pageScalesRef` entry — pxPerMeter = `elevPixelLen / realLenMeters` where
+  both measurements are in the shared canvas-world coordinate space. Does NOT use `pageRefParentRef`:
+  the elevation is a calibrated peer, independent if the source plan is recalibrated (#22 honored).
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
 

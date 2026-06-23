@@ -1110,6 +1110,74 @@ information available; Path 3 emerged from seeing the actual consumer sites duri
 
 ---
 
+## SESSION 19 — Elevation spatial Pieces 1+2: edge-pick + align + own-scale confirm
+
+**Branch:** main | **Commits:** 89b7ba2 (Piece 1), current (Piece 2)
+
+### What was built
+
+**Elevation spatial Piece 1 (89b7ba2): "Set elevation edge" mode**
+- Toolbar button on Elevation pages opens pick mode.
+- Floor-plan ghost drawn on elevation canvas; user clicks any ghost perimeter segment.
+- Stored as `elevationEdgeRef.current[elevPageId] = {sourcePageId, shapeIndex, segmentIndex,
+  endpointA, endpointB}` — authoritative-indices pattern (same as frontFace).
+- Purple edge highlight via `drawSegmentHighlight(ctx, a, b, 'elev-edge')` variant.
+- Selector shown when >1 floor-plan candidates with locked shapes.
+- Helpers: `hitTestElevEdgeSegment`, `selectElevEdge`.
+
+**Elevation spatial Piece 2 (current): "Align elevation" mode**
+- "Align elevation" button: visible on Elevation pages with stored edge; disabled (with title hint)
+  when no edge is set or source has no scale.
+- Mode: temporary bounding box padded by `ELEV_EDGE_PAD = 24` world pixels around the two
+  edge endpoints, four amber corner handles.
+- Body-drag → translate; corner-drag → uniform scale, anchor at diagonally-opposite corner.
+  Identical math to floor-reference align: `newS = startS * (d1/d0)`, `tx1 = ax - (ax - startTx) * ratio`.
+- Drag uses existing `alignDragRef` / `alignTick` / `alignOverHandle` refs — no new drag state.
+- Zoom/pan remain active during align.
+- Prompt bar: "Drag to translate · drag a corner to scale · then Confirm."
+- "Confirm alignment": computes `elevPixelLen = hypot(B-A)` in shared canvas space;
+  `realLenMeters = elevPixelLen / srcPxPerMeter`; `elevPxPerMeter = elevPixelLen / realLenMeters`.
+  Stores `pageScalesRef.current[elevPageId] = { pxPerMeter: elevPxPerMeter, displayUnit }`.
+  Does NOT set `pageRefParentRef` — elevation is a calibrated peer, not a scale child.
+  After correct alignment `elevPxPerMeter = srcPxPerMeter` (canvas coordinate space is shared).
+- "Exit" dismisses without writing scale.
+- Both modes reset on page navigation and PDF upload.
+
+### Key architectural insight confirmed this session (coordinate-system invariant)
+
+The PDF `{tx,ty,s}` transform in `pageTransformsRef` is VISUAL ONLY: it repositions the
+`.pdf-align-layer` backdrop div, not the measurement canvas (`measureRef`) or the canvas-world
+coordinate system where geometry is drawn. After correct alignment, ghost and elevation PDF
+features are co-registered in the same canvas-world space, so the elevation's `pxPerMeter`
+numerically equals the source plan's `pxPerMeter`. This is correct behavior — both pages
+share one coordinate space. This invariant is now documented in CLAUDE.md Design notes.
+
+### Architecture decisions
+
+- Elevation stores its OWN `pageScalesRef` entry, NOT via `pageRefParentRef` borrow.
+  Rationale: own calibration honors #22 (recalibration-independence): if the source floor
+  plan is recalibrated, the elevation's stored scale stays fixed. The value equals srcPxPerMeter
+  because the coordinate space is shared — but it is stored independently as a calibrated peer.
+- `resolveElevEdge(pageId)` helper: always resolves endpoints live from authoritative
+  indices (shapeIndex/segmentIndex) rather than from the endpointA/B snapshots.
+- `getElevEdgeBbox(A, B)` helper: pads by 24px on all sides so handles are always
+  grabbable even for near-degenerate (very short or axis-aligned) edges.
+
+### New deferred-register entries this session
+
+- **#23 — Isometric multi-reference elevation alignment:** Z-driven display of floor-plan
+  references projected isometrically onto elevation view. Deferred pending R3/Phase-2
+  coordinate model (#7, #17, #19). See ADDITIONAL_FUNCTIONALITY.md.
+
+### Bug / improvement items logged (not built)
+
+- **Front-face select vanishes until next page:** the edge highlight/interaction may not
+  persist correctly across all redraws — needs a focused fix session.
+- **Categorize-input button color scheme not documented:** "next logical step" highlighting
+  logic exists but the color-state rules are not written down; UI polish candidate.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -1156,10 +1224,13 @@ information available; Path 3 emerged from seeing the actual consumer sites duri
    - ~~Sub-step 5: directional decoupling / primary-reference model~~ — DONE (9ef06b1, b8dd9ce, 6f7f629)
 8. ~~Roof plan tracing~~ — DONE (a5c1b48, 8288a1d)
 9. ~~Pixels→real-world coordinate foundation (R2)~~ — DONE (Path 3; 040e371, 71e01ca)
-10. **Elevation calibration + tracing (NEXT — resume from Session 16 pause, now on R2 foundation)**
+10. **Elevation calibration + tracing (IN PROGRESS)**
     - ~~Piece 1: floorHeightsRef + accumulateZ + getFloorLevel~~ — DONE (2942e0e)
     - ~~Piece 2: Floor-heights entry panel~~ — DONE (e780b88)
     - ~~Piece 3: Floor-to-floor back-solve entry + ceilingSource + validateCeiling~~ — DONE (4e06de0)
-    - **Elevation PDF alignment + reference lines (NEXT)**
+    - ~~Elevation spatial Piece 1: "Set elevation edge" mode~~ — DONE (89b7ba2)
+    - ~~Elevation spatial Piece 2: "Align elevation" mode — own-scale confirm~~ — DONE (current)
+    - **Elevation spatial Piece 3: floor/ceiling reference lines (NEXT)**
+    - Elevation spatial Piece 4: trace elevation outline as open polyline
 
 After elevation: cross-section reference geometry → windows/doors → Phase 2 threshold.

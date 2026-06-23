@@ -70,7 +70,13 @@ building."
     [x] Piece 1 — floorHeightsRef data structure + accumulateZ + getFloorLevel (2942e0e)
     [x] Piece 2 — Floor-heights entry panel UI (e780b88)
     [x] Piece 3 — Floor-to-floor back-solve entry, ceilingSource, validateCeiling (4e06de0)
-    [~] Elevation PDF alignment + reference lines — PAUSED (forks resolved; rebuild on real units after coordinate conversion; see SESSION_HANDOFF_NOTES Session 16)
+    [x] Elevation spatial Piece 1 — "Set elevation edge" mode (89b7ba2): pick a floor-plan edge as
+        horizontal reference; stored in elevationEdgeRef[elevPageId]
+    [x] Elevation spatial Piece 2 — "Align elevation" mode (current): bbox + corner handles,
+        uniform-scale drag, Confirm stores elevation's OWN pageScalesRef entry (peer calibration,
+        not borrow; #22 honored)
+    [ ] Elevation spatial Piece 3 — floor/ceiling reference lines on the aligned elevation
+    [ ] Elevation spatial Piece 4 — trace elevation outline as open polyline
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
     Approach: Path 3 / 3-minimal (supersedes the 4a/store-meters-natively scope from Session 17).
     Geometry stays stored in pixels; meters are a read-time projection through named helpers.
@@ -79,7 +85,7 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: resume elevation spatial work (paused Session 16), now buildable on the R2 foundation.**
+**Next: Elevation spatial Piece 3 — floor/ceiling reference lines on the aligned elevation.**
 
 ---
 

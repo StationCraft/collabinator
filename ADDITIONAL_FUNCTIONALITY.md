@@ -428,6 +428,26 @@ steps (R3 per-element Z, Phase 2 assembly attributes) must be designed to honor 
 
 ---
 
+### 23. Isometric multi-reference elevation alignment (Z-driven display)
+
+**Logged:** Session 19, elevation Piece 2 close-out.
+
+**Description:** Show one or more floor-plan references isometrically alongside the picked edge,
+with the selected edge highlighted and a bounding box around the whole projected image. Each
+reference's display is driven by its Z value (floor height), enabling the user to visually verify
+vertical positioning relative to multiple floors simultaneously. Supports one or more reference
+geometries whose Z values drive the projection.
+
+**Why deferred:** Requires per-reference Z values (R3/Phase 2 — gated by #7 intra-floor Z and
+#19 element-identity model) and the universal reference-layer model (#17) to project floor-plan
+geometry isometrically onto the elevation view. The current two-piece mechanic (edge pick +
+uniform-scale align) is the non-Z foundation this extends.
+
+**Status:** Deferred. Held until post-Phase-2 review once the 3D coordinate model and reference-layer
+projection exist.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

@@ -175,6 +175,10 @@ function App() {
   const elevEdgeHoverRef = useRef(null)
   const elevationEdgeRef = useRef({})  // pageId -> {sourcePageId, shapeIndex, segmentIndex, endpointA, endpointB}
 
+  // ── Elevation align (Step 8, Piece 2) ────────────────────────────────────────
+  // Reuses alignDragRef / alignTick / alignOverHandle for drag machinery.
+  const [elevAlignMode, setElevAlignMode] = useState(false)
+
   const canvasRef = useRef(null)
   const measureRef = useRef(null)
   const pageScalesRef = useRef({})
@@ -314,6 +318,7 @@ function App() {
     setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
     setElevEdgeMode(false); elevEdgeHoverRef.current = null; setElevEdgeSourcePageId(null)
     elevationEdgeRef.current = {}
+    setElevAlignMode(false)
     setAlignMode(false); alignDragRef.current = null
     primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
     setShowGhostByPageId({})
@@ -345,6 +350,7 @@ function App() {
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
+    setElevAlignMode(false)
     setAlignMode(false); alignDragRef.current = null
     resetZoomPan()
     drawVerticesRef.current = []; mousePosRef.current = null
@@ -412,7 +418,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId])
+  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -1015,6 +1021,47 @@ function App() {
     if (frontFacePromptOpen) return
     // Elevation edge pick mode: suppress normal mousedown.
     if (elevEdgeMode) return
+    // Elevation align mode: hit-test edge-bbox handles; else body-translate.
+    if (elevAlignMode) {
+      if (e.button !== 0) return
+      const pageId = getPageId(currentPage)
+      const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+      const pos = getCanvasPos(e)
+      const edgeData = resolveElevEdge(pageId)
+      const grabR = HANDLE_PX / zoomRef.current
+      let hitCorner = null
+      if (edgeData) {
+        const { bx1, bx2, by1, by2 } = getElevEdgeBbox(edgeData.A, edgeData.B)
+        const corners = [
+          { x: bx1, y: by1, ax: bx2, ay: by2 },
+          { x: bx2, y: by1, ax: bx1, ay: by2 },
+          { x: bx2, y: by2, ax: bx1, ay: by1 },
+          { x: bx1, y: by2, ax: bx2, ay: by1 },
+        ]
+        for (const c of corners) {
+          if (Math.hypot(pos.x - c.x, pos.y - c.y) <= grabR) { hitCorner = c; break }
+        }
+      }
+      if (hitCorner) {
+        const d0 = Math.hypot(hitCorner.x - hitCorner.ax, hitCorner.y - hitCorner.ay)
+        if (d0 > 0) {
+          alignDragRef.current = {
+            mode: 'scale', pageId,
+            ax: hitCorner.ax, ay: hitCorner.ay,
+            startTx: cur.tx, startTy: cur.ty, startS: cur.s ?? 1,
+            d0,
+          }
+          return
+        }
+      }
+      // No handle hit — body-translate drag.
+      alignDragRef.current = {
+        mode: 'translate',
+        startClientX: e.clientX, startClientY: e.clientY,
+        startTx: cur.tx, startTy: cur.ty, pageId,
+      }
+      return
+    }
     // Align mode: hit-test handles for scale-drag; else body-translate.
     if (alignMode) {
       if (e.button !== 0) return
@@ -1150,6 +1197,8 @@ function App() {
   }
 
   const handleMeasureMouseUp = (e) => {
+    // Elevation align mode: end drag.
+    if (elevAlignMode) { alignDragRef.current = null; return }
     // Align mode: end drag.
     if (alignMode) { alignDragRef.current = null; return }
     // Pan cleanup: if pan is active, window listener handles it; just bail
@@ -1289,6 +1338,8 @@ function App() {
       if (hit) selectFrontFace(hit.shapeIdx, hit.segIdx)
       return
     }
+    // Elevation align mode: clicks handled by mousedown/up; suppress click handler.
+    if (elevAlignMode) return
     // Elevation edge pick mode: a click on a ghost perimeter segment stores it.
     if (elevEdgeMode && elevEdgeSourcePageId) {
       const hit = hitTestElevEdgeSegment(getCanvasPos(e), elevEdgeSourcePageId)
@@ -1359,6 +1410,42 @@ function App() {
   }
 
   const handleMeasureMouseMove = (e) => {
+    // Elevation align mode: hover cursor + drag — same transform math as alignMode.
+    if (elevAlignMode) {
+      if (!alignDragRef.current) {
+        const pos = getCanvasPos(e)
+        const edgeData = resolveElevEdge(getPageId(currentPage))
+        let overHandle = false
+        if (edgeData) {
+          const grabR = HANDLE_PX / zoomRef.current
+          const { bx1, bx2, by1, by2 } = getElevEdgeBbox(edgeData.A, edgeData.B)
+          const corners = [{ x: bx1, y: by1 }, { x: bx2, y: by1 }, { x: bx2, y: by2 }, { x: bx1, y: by2 }]
+          overHandle = corners.some(c => Math.hypot(pos.x - c.x, pos.y - c.y) <= grabR)
+        }
+        if (overHandle !== alignOverHandle) setAlignOverHandle(overHandle)
+      }
+      const drag = alignDragRef.current
+      if (drag) {
+        if (drag.mode === 'scale') {
+          const pos = getCanvasPos(e)
+          const d1 = Math.hypot(pos.x - drag.ax, pos.y - drag.ay)
+          const rawS = drag.startS * (d1 / drag.d0)
+          const newS = Math.max(0.05, Math.min(20, rawS))
+          const ratio = newS / drag.startS
+          const tx1 = drag.ax - (drag.ax - drag.startTx) * ratio
+          const ty1 = drag.ay - (drag.ay - drag.startTy) * ratio
+          const prev = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+          pageTransformsRef.current[drag.pageId] = { ...prev, tx: tx1, ty: ty1, s: newS, angle: 0 }
+        } else {
+          const dx = (e.clientX - drag.startClientX) / zoomRef.current
+          const dy = (e.clientY - drag.startClientY) / zoomRef.current
+          const prev = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+          pageTransformsRef.current[drag.pageId] = { ...prev, tx: drag.startTx + dx, ty: drag.startTy + dy }
+        }
+        setAlignTick(t => t + 1)
+      }
+      return
+    }
     // Align mode: update pdf-align-layer transform during drag.
     if (alignMode) {
       // Hover hit-test for handle cursor (only when not actively dragging).
@@ -2095,6 +2182,46 @@ function App() {
     return best
   }
 
+  // Resolve live edge endpoints from authoritative stored indices.
+  // Returns {A, B, sourcePageId} or null if stale/missing.
+  const resolveElevEdge = (pageId) => {
+    const stored = elevationEdgeRef.current[pageId]
+    if (!stored) return null
+    const srcShape = completedShapesRef.current[stored.shapeIndex]
+    if (!srcShape || stored.segmentIndex >= srcShape.vertices.length) return null
+    const A = srcShape.vertices[stored.segmentIndex]
+    const B = srcShape.vertices[(stored.segmentIndex + 1) % srcShape.vertices.length]
+    return { A, B, sourcePageId: stored.sourcePageId }
+  }
+
+  // Returns a padded bbox around the two edge endpoints so handles always have area.
+  const ELEV_EDGE_PAD = 24  // world pixels
+  const getElevEdgeBbox = (A, B) => ({
+    bx1: Math.min(A.x, B.x) - ELEV_EDGE_PAD,
+    bx2: Math.max(A.x, B.x) + ELEV_EDGE_PAD,
+    by1: Math.min(A.y, B.y) - ELEV_EDGE_PAD,
+    by2: Math.max(A.y, B.y) + ELEV_EDGE_PAD,
+  })
+
+  const confirmElevAlign = () => {
+    const elevPageId = currentPageId
+    const edgeData = resolveElevEdge(elevPageId)
+    if (!edgeData) return
+    const srcScale = getEffectiveScale(edgeData.sourcePageId)
+    if (!srcScale) return
+    // Elevation-space pixel length of the edge (same canvas coordinate system as the ghost).
+    const elevPixelLen = Math.hypot(edgeData.B.x - edgeData.A.x, edgeData.B.y - edgeData.A.y)
+    if (elevPixelLen < 1) return  // degenerate edge — shouldn't happen
+    // Real-world length of the edge in meters, derived from the source floor-plan calibration.
+    const realLenMeters = elevPixelLen / srcScale.pxPerMeter
+    // Elevation's own independent pxPerMeter — not borrowed, not a child of the source.
+    const elevPxPerMeter = elevPixelLen / realLenMeters
+    pageScalesRef.current[elevPageId] = { pxPerMeter: elevPxPerMeter, displayUnit: srcScale.displayUnit }
+    setElevAlignMode(false)
+    alignDragRef.current = null
+    setAlignTick(t => t + 1)
+  }
+
   const selectElevEdge = (sourcePageId, shapeIdx, segIdx) => {
     const shape = completedShapesRef.current[shapeIdx]
     if (!shape) return
@@ -2170,6 +2297,33 @@ function App() {
         const ea = srcShape.vertices[storedElevEdge.segmentIndex]
         const eb = srcShape.vertices[(storedElevEdge.segmentIndex + 1) % srcShape.vertices.length]
         drawSegmentHighlight(ctx, ea, eb, 'elev-edge')
+      }
+    }
+
+    // Elevation align mode: ghost + bbox outline + corner handles.
+    if (elevAlignMode) {
+      const edgeData = resolveElevEdge(currentPageId)
+      if (edgeData) {
+        drawGhostShapes(ctx, completedShapesRef.current, edgeData.sourcePageId)
+        drawSegmentHighlight(ctx, edgeData.A, edgeData.B, 'elev-edge')
+        const { bx1, bx2, by1, by2 } = getElevEdgeBbox(edgeData.A, edgeData.B)
+        ctx.save()
+        ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1 / zoomRef.current
+        ctx.globalAlpha = 0.6
+        ctx.setLineDash([4 / zoomRef.current, 3 / zoomRef.current])
+        ctx.strokeRect(bx1, by1, bx2 - bx1, by2 - by1)
+        ctx.setLineDash([]); ctx.restore()
+        const zoom = zoomRef.current
+        const half = (HANDLE_PX / 2) / zoom
+        const corners = [{ x: bx1, y: by1 }, { x: bx2, y: by1 }, { x: bx2, y: by2 }, { x: bx1, y: by2 }]
+        ctx.save()
+        for (const { x, y } of corners) {
+          ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 0.9
+          ctx.fillRect(x - half - 1 / zoom, y - half - 1 / zoom, HANDLE_PX / zoom + 2 / zoom, HANDLE_PX / zoom + 2 / zoom)
+          ctx.fillStyle = '#f59e0b'; ctx.globalAlpha = 1
+          ctx.fillRect(x - half, y - half, HANDLE_PX / zoom, HANDLE_PX / zoom)
+        }
+        ctx.restore()
       }
     }
   }
@@ -2916,7 +3070,7 @@ function App() {
           </>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && isElevationPage && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && (
           <button
             className="snap-btn"
             onClick={() => {
@@ -2928,6 +3082,20 @@ function App() {
             Set elevation edge
           </button>
         )}
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && (() => {
+          const edgeData = resolveElevEdge(currentPageId)
+          const srcScale = edgeData ? getEffectiveScale(edgeData.sourcePageId) : null
+          return (
+            <button
+              className="snap-btn"
+              disabled={!edgeData || !srcScale}
+              title={!edgeData ? 'Set an elevation edge first' : !srcScale ? 'Floor-plan page has no scale' : ''}
+              onClick={() => setElevAlignMode(true)}
+            >
+              Align elevation
+            </button>
+          )
+        })()}
 
         {roofLineMode && (
           <div className="draw-toolbar">
@@ -3419,6 +3587,24 @@ function App() {
         </div>
       )}
 
+      {elevAlignMode && (
+        <div className="frontface-prompt">
+          <span className="frontface-prompt-text">
+            Drag to translate · drag a corner to scale · then Confirm.
+          </span>
+          <button
+            className="btn-primary btn-sm"
+            onClick={confirmElevAlign}
+          >
+            Confirm alignment
+          </button>
+          <button className="calib-cancel" onClick={() => {
+            setElevAlignMode(false); alignDragRef.current = null
+            setEditCursor('default'); redrawFrontFaceLayer(null)
+          }}>Exit</button>
+        </div>
+      )}
+
       {error && <p className="error">{error}</p>}
 
       <div className="canvas-area">
@@ -3720,7 +3906,7 @@ function App() {
             <canvas
               ref={measureRef}
               className="measure-canvas"
-              style={{ cursor: alignMode ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode) ? 'crosshair' : undefined }}
+              style={{ cursor: (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode) ? 'crosshair' : undefined }}
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}
