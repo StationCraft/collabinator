@@ -418,7 +418,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode])
+  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -2238,6 +2238,48 @@ function App() {
     redrawFrontFaceLayer(null)
   }
 
+  // Draws horizontal floor/ceiling reference lines on aligned Elevation pages.
+  // Reads from closure: currentPageId, pageScalesRef, resolveElevEdge, fhZStack, zoomRef, measureRef.
+  const drawElevRefLines = (ctx) => {
+    const elevScale = pageScalesRef.current[currentPageId]
+    if (!elevScale?.pxPerMeter) return
+    const edgeData = resolveElevEdge(currentPageId)
+    if (!edgeData) return
+    if (!fhZStack.length) return
+    const c = measureRef.current
+    if (!c) return
+
+    const anchorY = (edgeData.A.y + edgeData.B.y) / 2
+    const { pxPerMeter } = elevScale
+    const zoom = zoomRef.current
+    const canvasW = c.width
+    // Anchor: lowest present level's floorZ sits at anchorY (provisional).
+    const lowestFloorZ = fhZStack[0].floorZ ?? 0
+
+    ctx.save()
+    ctx.font = `${11 / zoom}px sans-serif`
+    ctx.textBaseline = 'bottom'
+    for (const row of fhZStack) {
+      if (row.floorZ != null) {
+        const y = anchorY - (row.floorZ - lowestFloorZ) * 0.3048 * pxPerMeter
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasW, y)
+        ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 1.5 / zoom
+        ctx.globalAlpha = 0.85; ctx.setLineDash([]); ctx.stroke()
+        ctx.fillStyle = '#0d9488'; ctx.globalAlpha = 1
+        ctx.fillText(row.level, 6 / zoom, y - 2 / zoom)
+      }
+      if (row.ceilingZ != null) {
+        const y = anchorY - (row.ceilingZ - lowestFloorZ) * 0.3048 * pxPerMeter
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasW, y)
+        ctx.strokeStyle = '#d97706'; ctx.lineWidth = 1 / zoom
+        ctx.globalAlpha = 0.7; ctx.setLineDash([6 / zoom, 4 / zoom]); ctx.stroke()
+        ctx.fillStyle = '#d97706'; ctx.globalAlpha = 0.9
+        ctx.fillText(row.level + ' ceiling', 6 / zoom, y - 2 / zoom)
+      }
+    }
+    ctx.setLineDash([]); ctx.restore()
+  }
+
   // Redraw the base measure layer plus the confirmed front face plus the pick
   // hover highlight. Used by the base-layer effect and the pick-mode handlers.
   const redrawFrontFaceLayer = (hoverSeg = ffHoverRef.current) => {
@@ -2326,6 +2368,9 @@ function App() {
         ctx.restore()
       }
     }
+
+    // Elevation floor/ceiling reference lines (read-only; only when confirmed scale exists).
+    drawElevRefLines(ctx)
   }
 
   const selectFrontFace = (shapeIdx, segIdx) => {
