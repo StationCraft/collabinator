@@ -380,6 +380,54 @@ A reference is modeled as a typed, projected pointer, not a floor-specific one:
 
 ---
 
+### 21. Planes/edges as rule-imposing boundaries (surface semantics / barrier-on-crossing)
+
+**Logged:** Session 18, during R2 close-out.
+
+**Description:** An ELEMENT-LAYER architectural requirement. An edge in the model is not merely
+a line connecting two vertices — it is a **boundary with rules**. When geometry (a line, a path,
+a service run) crosses a plane defined by an edge, that plane imposes rules: a wall plane blocks
+or constrains what crosses it; a floor plane separates the level above from the level below. The
+edge's semantic identity (wall face, floor surface, roof plane) determines what crossing it means.
+This is distinct from — and must not be collapsed into — the coordinate coincidence that marks
+coplanar elements (#19): two elements at the same Z share a datum, but they are separate entities
+with separate rule sets.
+
+**Relationship to other entries:** Governs the element-identity model (#7, #19). Ties directly to
+the Phase 2 assembly model (Section 12, FUNCTIONALITY_SUMMARY): an assembly is a stack of planes
+each with its own rule-set. The universal reference-layer model (#17) is the display/reference
+architecture; this is the semantic/rules architecture. Both must be coherent.
+
+**Why deferred:** Requires the per-element identity layer (ELEMENT layer, R3/Phase 2) that does
+not exist yet. Per-element Z and assembly identity (#7, Phase 2) are the near-term prerequisites.
+Designing the rule model before those exist would produce abstractions without concrete anchors.
+
+**Status:** Architectural record. Constrains R3/element-layer and Phase 2 assembly design. Do NOT
+build now; flag if any R3 design choice forecloses this.
+
+---
+
+### 22. Recalibration-independence invariant (architectural guard)
+
+**Logged:** Session 18, as the explicit rationale for choosing Path 3 over 4a.
+
+**Description:** Geometry must remain **scale-independent in storage** — no conversion ratio is
+ever frozen into stored coordinates. If the px↔meter ratio for a page changes (recalibration, or
+a parent page in the borrow chain being recalibrated), stored geometry must remain correct without
+migration. This invariant is what Path 3 protects: pixels stored, meters projected at read time via
+`pxToMeters`/`metersToPx`. The alternative (4a: store meters natively) would freeze the
+`pxPerMeter` value at write time; a recalibration event would orphan the stored meters, silently
+corrupting all downstream geometry and labels.
+
+**Why logged:** To make this property visible so no future step reintroduces a frozen conversion
+ratio in storage. Any proposal to "store real-world values" or "pre-compute coordinates at write
+time" must be checked against this invariant before proceeding.
+
+**Status:** Architectural invariant — active, not deferred. Path 3 already honors it. Future
+steps (R3 per-element Z, Phase 2 assembly attributes) must be designed to honor it too.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

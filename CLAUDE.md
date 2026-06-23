@@ -438,6 +438,27 @@ A React + Vite app with:
   * **Imperial-only (explicit):** Metric dimension-entry in this panel deferred to a dedicated
     session (see ADDITIONAL_FUNCTIONALITY.md #20). Do not trust the panel for metric projects.
 
+- **R2 coordinate foundation — Path 3 / named seam + vertex factory (Session 18; commits 040e371, 71e01ca):**
+  Geometry STAYS STORED IN PIXELS. Meters are a read-time projection through named conversion helpers.
+  No coordinate migration, no stored meters, no behavior change — pure refactor establishing the seam R3 will extend.
+  * **`pxToMeters(px, pageScales, pageId)` / `metersToPx(m, pageScales, pageId)`** — exported from
+    `canvasRenderer.js`; same `(value, pageScales, pageId)` signature as `pxToDisplayDist`. All
+    inline px↔meter arithmetic in `pxToDisplayDist`, `snapToGrid`, `applySnap`, `snapPerp`, and
+    `commitLabelEdit` now routes through these helpers. `snapIncrementRef` is stored in meters
+    (confirmed); `metersToPx` produces the correct snap-pitch in pixels.
+  * **`makeVertex(x, y)`** — exported from `geometry.js`; returns exactly `{ x, y }` today, z absent
+    (not null). All stored-polygon-vertex construction in App.jsx and geometry.js routes through it:
+    `snapToGrid`, `applySnap`, `getAlignmentSnap`, `clampToCanvas`, `insertPt`, `applySegmentMove`,
+    `findCollinearOverlap` (P_start/P_end), `linePolyIntersect` (both crossing paths), and all six
+    vertex constructions in `splitPolygon`. When R3 adds z, it adds it here and ONLY here.
+  * **Path 3 rationale (supersedes 4a/store-meters-natively from Session 17 docs):** Storing meters
+    natively would freeze the conversion ratio at storage time; recalibrating a page (or its borrow-
+    chain parent) would orphan the stored meters — a data-corruption path that does not exist today.
+    Pixels-stored keeps geometry SCALE-INDEPENDENT, which is what makes recalibration robust. Path 3
+    is also strictly less machinery. The "operational shared frame" is real: pages share a frame because
+    they share calibration scale and ghost-align visually — no explicit geometry composition needed at R2.
+    Composing the pageRefParent chain onto stored coordinates is R3 (explicitly NOT built at R2).
+
 **Not yet built (next increments):**
 - Elevations, cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
@@ -672,21 +693,17 @@ After A.0.1–A.0.3 cleanup, Phase 1.5 builds the foundational architecture for 
 - **Elevations show vertical section:** Align to plan edges; show floor heights, roof
   pitch, eave projections; walls/openings traced on top.
 - **Cross-sections are reference-only:** Vertical slices aligned to plan reference lines.
-- **Real-world coordinate system:** NEXT ACTIVE STEP (scoped Session 17 — target R2).
-  Currently all coords are canvas pixels; this refactor converts geometry to a single
-  shared real-world XY frame stored in **meters** (canonical unit; imperial ft+in
-  remains the display/entry convention, untouched — see #20). Target model: the
-  **primary-reference page** (`primaryReferenceId`) defines the frame; every other
-  page is placed into it by composing the existing `pageTransformsRef` align
-  transforms down the `pageRefParent` chain. A **fixed arbitrary origin** (coincident
-  with the primary page's zero), all relationships computed **geometry-to-geometry**,
-  floor levels as a **relative-offset Z stack** (datum layer — `floorHeightsRef` —
-  unchanged by this step). Geometry is stored in meters natively (conversion isolated
-  to two seams: input events and render); built to **R3-readiness** — vertices carry
-  an optional-Z-ready shape and per-element identity is preserved (no coordinate-
-  coincidence merging, per #19) — so the future per-element-Z layer (ELEMENT layer,
-  R3, #7/#19) extends this without rework. Named control/reference points (e.g. the
-  CAD-export datum, #6) stored as data at their computed coordinates within the space.
+- **Real-world coordinate system — Path 3 / 3-minimal (R2 foundation — DONE, Session 18):**
+  Geometry is STORED IN PIXELS. Meters are a READ-TIME PROJECTION through the named conversion seam
+  (`pxToMeters` / `metersToPx` in canvasRenderer.js). Refs hold pixels; no frozen conversion ratio
+  is ever stored — recalibrating a page or its borrow-chain parent is safe at any time (see #22,
+  recalibration-independence invariant). The "shared real-world frame" is OPERATIONAL, not stored:
+  pages share a frame because they share calibration scale and ghost-align visually. Composing the
+  `pageRefParent` chain onto actual geometry coordinates is R3 — deliberately not built at R2.
+  Vertex shape is **R3-ready** via `makeVertex(x, y)` factory in geometry.js: returns `{ x, y }` today
+  (z absent); R3 adds z here and only here. Per-element identity is preserved (#19 — no coordinate-
+  coincidence merging). Floor levels remain a **relative-offset Z stack** (datum layer,
+  `floorHeightsRef`, unchanged). Imperial display and entry untouched (see #20).
 
 ## Reference documents (not in this folder)
 

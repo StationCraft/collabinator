@@ -33,6 +33,17 @@ describe what should be built instead, the first time, correctly.
   (drag floor/ceiling lines, or type inter-level distances). Floor-system thickness is
   just the offset between a ceiling plane and the next floor plane above it.
 
+**R2 coordinate foundation (built Session 18 — Path 3 / 3-minimal):**
+- Geometry is **stored in pixels**. Meters are a **read-time projection** via the named
+  conversion seam (`pxToMeters` / `metersToPx` in canvasRenderer.js). No frozen conversion
+  ratio is stored — recalibration is safe at any time (recalibration-independence invariant, #22).
+- The **shared real-world frame is operational, not stored**: pages share a frame because they
+  share calibration scale and ghost-align visually via the existing `pageTransformsRef` machinery.
+  Composing the `pageRefParent` chain onto explicit stored coordinates is R3 (not built at R2).
+- Vertex shape is **R3-ready**: all stored polygon vertices are constructed via `makeVertex(x, y)`
+  factory in geometry.js, returning `{ x, y }` today with z absent. R3 adds z in one place only.
+- Per-element identity preserved: no coordinate-coincidence merging (#19).
+
 ---
 
 ## 2. Build order (confirmed sequence)

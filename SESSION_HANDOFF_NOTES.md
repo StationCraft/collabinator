@@ -1043,6 +1043,67 @@ the scope-drift protocol, tuned to this seam.)
   isolated to the two seams; R3-ready vertex shape in place; #19 identity preserved;
   verified against a multi-page real PDF.
 
+## SESSION 18 — R2 coordinate foundation (Path 3 / named seam + vertex factory)
+
+**Branch:** main | **Commits:** 040e371 (Piece 1), 71e01ca (Piece 2)
+
+### What was built
+
+**Pixels→real-world coordinate foundation — Path 3 / 3-minimal (behavior-neutral refactor)**
+
+Two pure refactor commits, zero behavior change. Geometry stays stored in pixels.
+
+**Piece 1 (040e371): Named px↔meter conversion seam**
+- `pxToMeters(px, pageScales, pageId)` and `metersToPx(m, pageScales, pageId)` added to
+  `canvasRenderer.js` — same `(value, pageScales, pageId)` signature as `pxToDisplayDist`.
+- `pxToDisplayDist`'s internal `px / scale.pxPerMeter` now routes through `pxToMeters`.
+- `snapToGrid`, `applySnap`, `snapPerp` (all three used `scale.pxPerMeter * snapIncrementRef.current`)
+  and `commitLabelEdit` (`meters * scale.pxPerMeter`) now route through `metersToPx`/`pxToMeters`.
+- Confirmed: `snapIncrementRef.current` is stored in meters (e.g. `0.1524` = 6 inches). Math
+  identical. `pxToMeters` available in App.jsx for R3 call sites that need px→m.
+
+**Piece 2 (71e01ca): makeVertex factory + R3-ready vertex shape**
+- `makeVertex(x, y)` exported from `geometry.js`: returns exactly `{ x, y }`. z is ABSENT (not null).
+- All stored-polygon-vertex construction routes through it:
+  - App.jsx: `snapToGrid` return, `applySnap` return, `getAlignmentSnap` snappedPos, `clampToCanvas`
+    return, `insertPt`, `applySegmentMove` (both moved verts — this site not listed in recon but clearly
+    stored vertices, added for completeness)
+  - geometry.js: `findCollinearOverlap` P_start/P_end; `linePolyIntersect` interior + vertex crossing
+    points; all six vertex constructions in `splitPolygon`
+- Spreads of makeVertex results (`{ ...makeVertexResult }`) are left as-is — spread copies all own
+  enumerable properties, correctly propagating z when R3 adds it. Not routed: `getCanvasPos` (input
+  seam, not stored), roofGraphRef nodes (graph topology, not polygon vertices), transient mid-calc
+  `{x,y}` literals that never reach completedShapesRef.
+
+### The Path 3 decision (supersedes Session 17's 4a scope)
+
+Session 17 resolved sub-fork 4 as "4a / store meters natively." That was SUPERSEDED after a
+code-recon pass confirmed that:
+
+1. **4a creates a recalibration trap:** storing meters freezes the `pxPerMeter` ratio at write time.
+   If a page (or its borrow-chain parent) is recalibrated, stored meters are silently orphaned —
+   a data-corruption path that does not exist in the pixel-stored model.
+2. **Path 3 is strictly less machinery for the same R2 outcome:** geometry sharing a real-world
+   frame is achieved operationally through shared calibration scale + ghost alignment, not by
+   composing coordinates into a single stored representation. Composing the `pageRefParent` chain
+   onto actual geometry coordinates is R3 work, not R2.
+3. **R2 acceptance criteria fully met:** (a) R3-ready vertex shape via makeVertex — verified by
+   static review (returns `{x,y}`, z absent, spreads propagate correctly); (b) no coordinate-
+   coincidence merging (#19 honored, coplanar elements stay distinct).
+
+The Session 17 planning docs described 4a. Those docs now reflect Path 3. Historical note:
+Session 17's fork-4 resolution (4a) is superseded — it was the right analysis given the
+information available; Path 3 emerged from seeing the actual consumer sites during recon.
+
+### New deferred-register entries this session
+
+- **#21 — Planes/edges as rule-imposing boundaries:** ELEMENT-LAYER requirement; edges are
+  boundaries with rules, not just point-pairs. Architectural record, constrains R3/Phase 2 design.
+- **#22 — Recalibration-independence invariant:** geometry must stay scale-independent in storage;
+  no frozen conversion ratio. Active invariant (not deferred) — Path 3 honors it; future steps must too.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -1062,10 +1123,12 @@ the scope-drift protocol, tuned to this seam.)
 - **Scale inheritance within drawing group (#14):** suppress Set Scale across a group once one page is calibrated; needs drawing-group concept
 - **Primary-reference reassignment UI (#15 — partial):** `primaryReferenceIdRef` set-once today; UI to reassign (relabel root; geometry doesn't move) deferred
 - **Multi-select reference ghosts by floor label (#16):** per-floor-label visibility picker for reference overlays; bridge between single ghost and #8 full layer system
-- **Universal reference-layer model (#17):** architectural record; sub-step 5 adopts data shape; projection math + multi-entity referencing gated on pixels→XYZ conversion
-- **Roof slope/Z-derivation + peaked-eave inference (#18):** ridge-to-perimeter junction topology built (perimParent vertex); the elevation consequence (eave rising to ridge, sloped surface) needs slope rules + XYZ model — see #18 build-order in ADDITIONAL_FUNCTIONALITY.md
+- **Universal reference-layer model (#17):** architectural record; sub-step 5 adopts data shape; projection math + multi-entity referencing gated on R3 coordinate composition
+- **Roof slope/Z-derivation + peaked-eave inference (#18):** ridge-to-perimeter junction topology built (perimParent vertex); elevation consequence needs slope rules + XYZ model
 - **Coplanar-distinctness principle (#19):** architectural record — datum vs. element layer; per-element Z deferred to Phase 2
 - **Metric dimension-entry rework (#20):** floor-heights panel imperial-only; unified rework deferred to dedicated session
+- **Planes/edges as rule-imposing boundaries (#21):** ELEMENT-LAYER architectural record; constrains R3/Phase 2 design
+- **Recalibration-independence invariant (#22):** active invariant — geometry must stay scale-independent in storage; Path 3 honors it
 - **Dump graph button (debug):** temporary `console.log` button in trace toolbar — remove before production
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
 
@@ -1086,10 +1149,11 @@ the scope-drift protocol, tuned to this seam.)
    - ~~Sub-step 4: cross-page persistence/toggle~~ — DONE (c7a45e0, d42296e, 196b0fa)
    - ~~Sub-step 5: directional decoupling / primary-reference model~~ — DONE (9ef06b1, b8dd9ce, 6f7f629)
 8. ~~Roof plan tracing~~ — DONE (a5c1b48, 8288a1d)
-9. **Elevation calibration + tracing (IN PROGRESS)**
-   - ~~Piece 1: floorHeightsRef + accumulateZ + getFloorLevel~~ — DONE (2942e0e)
-   - ~~Piece 2: Floor-heights entry panel~~ — DONE (e780b88)
-   - ~~Piece 3: Floor-to-floor back-solve entry + ceilingSource + validateCeiling~~ — DONE (4e06de0)
-   - **Elevation PDF alignment + reference lines (NEXT)**
+9. ~~Pixels→real-world coordinate foundation (R2)~~ — DONE (Path 3; 040e371, 71e01ca)
+10. **Elevation calibration + tracing (NEXT — resume from Session 16 pause, now on R2 foundation)**
+    - ~~Piece 1: floorHeightsRef + accumulateZ + getFloorLevel~~ — DONE (2942e0e)
+    - ~~Piece 2: Floor-heights entry panel~~ — DONE (e780b88)
+    - ~~Piece 3: Floor-to-floor back-solve entry + ceilingSource + validateCeiling~~ — DONE (4e06de0)
+    - **Elevation PDF alignment + reference lines (NEXT)**
 
 After elevation: cross-section reference geometry → windows/doors → Phase 2 threshold.
