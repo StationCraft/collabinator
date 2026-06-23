@@ -381,10 +381,11 @@ A React + Vite app with:
     (solid, on top of default polygon fill).
   * All roof graph state clears on PDF upload; chain state clears on page nav.
 
-- **Floor-height Z-stack data structure (Step 8, Session 14 — Pieces 1-2):**
-  Datum-layer height capture for all known floor levels (Piece 1: `2942e0e`; Piece 2: `e780b88`):
+- **Floor-height Z-stack data structure (Step 8, Sessions 14-15 — Pieces 1-3):**
+  Datum-layer height capture for all known floor levels (Piece 1: `2942e0e`; Piece 2: `e780b88`; Piece 3: `4e06de0`):
   * **`floorHeightsRef`** — `useRef({})` keyed by FLOOR_ORDER level string (e.g. `'Main Floor'`);
-    value `{ floorToCeiling: number|null, floorSystemAbove: number|null }`. Storage in feet.
+    value `{ floorToCeiling: number|null, floorSystemAbove: number|null, ceilingSource: 'direct'|'solved' }`.
+    Storage in feet. `ceilingSource` missing/undefined treated as `'direct'` everywhere — no migration.
     First floor-level-keyed ref in codebase (all others are pageId-keyed). Cleared on PDF upload.
   * **`accumulateZ(floorHeights, presentLevels, floorOrder)`** — pure function in geometry.js;
     returns ordered `[{level, floorZ, ceilingZ, floorToCeiling, floorSystemAbove}]` base→top.
@@ -393,6 +394,12 @@ A React + Vite app with:
     if it is a known FLOOR_ORDER level, else null. Bridges the ref/state boundary.
   * **`floorHeightsTick`** — state integer bumped on every `floorHeightsRef` write (same pattern
     as `alignTick`) to force React re-render.
+  * **`setFloorHeightFields(level, fieldsObj)`** — merges multiple fields into `floorHeightsRef.current[level]`
+    in one write + one tick bump. Used for atomic multi-field updates (e.g. writing `floorToCeiling` +
+    `ceilingSource` together).
+  * **`validateCeiling(ftc, fsa)`** — shared guard; returns null or error string. `ftc` must be
+    strictly > 0 AND strictly > `fsa` (equal/zero rejected). Called by both the floor-to-floor
+    entry handler and the Fork-1 re-solve path — never duplicated.
   * **Floor-heights panel (Piece 2)** — right-side overlay (`.fh-panel`), 300px, absolute-positioned,
     dark semi-transparent background. "Floor Heights" toolbar button (teal) toggles it; only shown
     when PDF is loaded and no active mode (draw/edit/calibrate/categorize). Panel contains:
@@ -402,6 +409,26 @@ A React + Vite app with:
       floor-system-above control with inch-native presets (2×10 through 24″ truss) + custom
       inches input with optional `+1⅜″ sheathing` checkbox, derived Z readouts (floorZ, ceilingZ)
     - Topmost level shows "— (top of stack)" in place of floor-system control
+  * **Floor-to-floor back-solve entry (Piece 3)** — optional ft+in input per non-top row that
+    derives ceiling = floorToFloor − floorSystemAbove and stores the result:
+    - ABSENT on the top-of-stack level (no floorSystemAbove above it)
+    - DISABLED with inline hint when `floorSystemAbove` is not yet set for that level
+    - ENABLED otherwise; onChange runs `validateCeiling`, rejects with `fhError` on failure,
+      else writes `{ floorToCeiling: derived, ceilingSource: 'solved' }` and syncs ceiling
+      draft inputs (`fhFtVals`/`fhInVals`) via direct `setState` (no onChange loop — ceiling
+      inputs are controlled, so setState updates display without firing ceiling onChange)
+    - **Last-edited-wins (`ceilingSource`):** editing the ceiling field directly writes
+      `ceilingSource: 'direct'`; entering floor-to-floor writes `'solved'`. One flag, two entry paths.
+    - **Fork-1 stickiness:** when `ceilingSource === 'solved'`, applying a floor-system preset or
+      custom value re-solves the ceiling to hold floor-to-floor constant (`newFtc = f2f − newFsa`),
+      runs `validateCeiling` (rejects the floor-system write on failure, keeps prior value), and
+      writes `{ floorSystemAbove: newFsa, floorToCeiling: newFtc }` atomically. When
+      `ceilingSource === 'direct'`, floor-system writes proceed unchanged.
+    - `fhError` state (`{ level, msg } | null`): cleared on next valid entry and on focus-switch
+      between levels (onFocus of any fh input clears error if `fhError.level !== this level`).
+    - `fhF2fFtVals` / `fhF2fInVals` draft maps persist the typed floor-to-floor value; the
+      floor-to-floor input does NOT recompute when Fork-1 re-solves the ceiling (sticky draft).
+    - `.fh-error` CSS class added to App.css (red, 0.76rem).
   * **3a scope boundary:** this step captures topology/offsets only — NO pixels→real-world XYZ
     coordinate conversion. `floorHeightsRef` stores heights in feet (display unit); coordinate-space
     conversion is deferred to Phase 2.
@@ -412,7 +439,6 @@ A React + Vite app with:
     session (see ADDITIONAL_FUNCTIONALITY.md #20). Do not trust the panel for metric projects.
 
 **Not yet built (next increments):**
-- Floor-heights panel Piece 3 (display/read-back; validation; integration with elevation tracing)
 - Elevations, cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
@@ -504,11 +530,12 @@ pageRefParentRef.current = { [pageId: string]: string }
   // Written at confirm time. getEffectiveScale follows this chain to the primary.
 ```
 
-**Floor-height Z-stack** (added Session 14 — datum layer only; ELEMENT Z is Phase 2):
+**Floor-height Z-stack** (added Sessions 14-15 — datum layer only; ELEMENT Z is Phase 2):
 ```
 floorHeightsRef.current[floorLevel] = {
-  floorToCeiling: number | null,   // feet (e.g. 9 = 9 ft); null until entered
-  floorSystemAbove: number | null  // feet (e.g. 0.885 ≈ 10⅝"); null until entered
+  floorToCeiling: number | null,          // feet (e.g. 9 = 9 ft); null until entered
+  floorSystemAbove: number | null,        // feet (e.g. 0.885 ≈ 10⅝"); null until entered
+  ceilingSource: 'direct' | 'solved'      // missing/undefined treated as 'direct'; not in accumulateZ output
 }
 // floorLevel is a FLOOR_ORDER string ('Basement', 'Main Floor', etc.)
 // Only present for levels in FLOOR_ORDER — free-text subLabels excluded.

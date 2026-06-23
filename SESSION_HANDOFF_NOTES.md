@@ -846,6 +846,70 @@ informed by Phase 1 experience; rebuild is an explicitly anticipated possible ou
 
 ---
 
+## SESSION 15 — Floor-heights panel Piece 3: floor-to-floor back-solve
+
+**Branch:** main | **Commit:** 4e06de0
+
+### What was built
+
+**Step 8 Piece 3: optional floor-to-floor entry that back-solves ceiling height**
+
+The floor-to-floor input lets the user enter an inter-floor measurement and derives
+`ceiling = floorToFloor − floorSystemAbove`, storing the result in `floorToCeiling`.
+This is a UI-only addition; `accumulateZ` in geometry.js is unchanged.
+
+**Four agreed fork resolutions (designed before build):**
+
+1. **Stickiness via `ceilingSource` (Fork 1):** New field `ceilingSource: 'direct'|'solved'`
+   on `floorHeightsRef.current[level]`. When `'solved'`, editing `floorSystemAbove`
+   (via preset or custom) re-solves the ceiling to hold floor-to-floor constant — writes
+   `{floorSystemAbove: newFsa, floorToCeiling: newFtc}` atomically via `setFloorHeightFields`.
+   Reject (keep prior floor-system value) if validation fails.
+2. **Last-edited-wins (Fork 2):** Editing the ceiling ft/in fields directly writes
+   `ceilingSource: 'direct'` (via `setFloorHeightFields`). Entering floor-to-floor writes
+   `'solved'`. One flag, two entry paths; no priority hierarchy.
+3. **Disabled-hint + absent-on-top (Fork 3):** Floor-to-floor input is ABSENT entirely
+   on the top-of-stack row; shows inline `cat-panel-hint`-style text ("Set floor system
+   above first") when `floorSystemAbove` is null; enabled otherwise.
+4. **Reject negative AND zero (Fork 4):** `validateCeiling(ftc, fsa)` — the ONE shared
+   guard — rejects if `ftc ≤ 0` (zero ceiling invalid) OR `ftc ≤ fsa` (equal also
+   rejected, as zero remaining clearance is not valid). Called by BOTH the floor-to-floor
+   entry onChange AND the Fork-1 re-solve inside `applyFhPreset`/`applyFhCustom`. On
+   failure: sets `fhError({level, msg})`, returns without writing anything.
+
+**Shared-guard design:** `validateCeiling` is defined once in App.jsx render scope and
+called from both entry points — no duplicated logic. The Fork-1 path reads the sticky
+`f2f = floorToCeiling + floorSystemAbove` from the ref before computing `newFtc`,
+so the stuck floor-to-floor is always held correctly even when the user re-picks presets
+multiple times.
+
+**Controlled-input loop-guard confirmation:** Ceiling inputs are controlled
+(`value={fhFtVals[row.level] ?? ''}`). The floor-to-floor onChange back-syncs the
+ceiling display by calling `setFhFtVals`/`setFhInVals` directly — this updates the
+displayed values WITHOUT firing the ceiling onChange handler (controlled inputs don't
+fire onChange on external setState). Loop guard confirmed before build; no workaround needed.
+
+**`fhF2fFtVals` / `fhF2fInVals` draft maps:** The typed floor-to-floor stays visible
+in its own inputs after entry and does NOT recompute when Fork-1 re-solves the ceiling.
+The f2f input is sticky; only the ceiling display syncs.
+
+**`fhError` state:** `{level, msg}|null`. Clears on next valid entry and on focus-switch
+between levels (onFocus clears if `fhError.level !== current level`).
+
+**`.fh-error` CSS:** added to App.css (red `#f87171`, 0.76rem, `width:100%`).
+
+**Runtime probes run (browser-verified before commit):**
+- Back-solve: enter f2f → ceiling inputs update, derived readouts correct, upstack
+  accumulated-Z ripple verified on 3-level stack.
+- Both-direction source-flag round-trip: `'solved'` → edit ceiling → `'direct'` → change
+  floor-system preset → ceiling NOT re-solved (correct). `'solved'` → change floor-system
+  preset → ceiling RE-solved (correct).
+- Fork-1 rejection: increase floor-system on a `'solved'` level past the f2f value →
+  red error shown, floor-system not written, prior value retained.
+- Absent/disabled states: top level has no f2f row; level with null floor-system shows hint.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -892,6 +956,7 @@ informed by Phase 1 experience; rebuild is an explicitly anticipated possible ou
 9. **Elevation calibration + tracing (IN PROGRESS)**
    - ~~Piece 1: floorHeightsRef + accumulateZ + getFloorLevel~~ — DONE (2942e0e)
    - ~~Piece 2: Floor-heights entry panel~~ — DONE (e780b88)
-   - **Piece 3: Display/read-back, cross-validation, elevation PDF alignment (NEXT)**
+   - ~~Piece 3: Floor-to-floor back-solve entry + ceilingSource + validateCeiling~~ — DONE (4e06de0)
+   - **Elevation PDF alignment + reference lines (NEXT)**
 
 After elevation: cross-section reference geometry → windows/doors → Phase 2 threshold.

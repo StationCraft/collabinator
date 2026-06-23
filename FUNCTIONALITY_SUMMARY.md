@@ -214,9 +214,15 @@ geometry" approach is **not** being rebuilt.
 - **Piece 1 (2942e0e):** `floorHeightsRef` data structure, `accumulateZ` helper, `getFloorLevel` helper. No UI.
 - **Piece 2 (e780b88):** Floor-heights entry panel — worklist + Z-stack rows, ft+in ceiling height
   entry, inch-native floor-system presets + custom input. Browser-verified.
+- **Piece 3 (4e06de0):** Optional floor-to-floor back-solve entry per non-top row. Derives
+  `ceiling = floorToFloor − floorSystemAbove`. `ceilingSource: 'direct'|'solved'` field tracks which
+  entry path was last used. Last-edited-wins: direct ceiling edit → `'direct'`; f2f entry → `'solved'`.
+  Fork-1 stickiness: editing `floorSystemAbove` on a `'solved'` level re-solves ceiling to hold f2f
+  constant. Shared `validateCeiling` guard (ceiling strictly > 0 AND > fsa) called by both paths;
+  rejects with inline `fhError` on failure without writing. F2f input absent on top-of-stack;
+  disabled-with-hint until floor-system set.
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
-- **Piece 3 (NEXT):** Display/read-back, cross-validation, integration with elevation PDF alignment.
 
 **Imperial-only assumption (explicit, Session 14):** The floor-heights panel stores and displays
 values in ft/in only. Metric rework deferred to ADDITIONAL_FUNCTIONALITY.md #20.

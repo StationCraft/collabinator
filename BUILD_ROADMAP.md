@@ -69,8 +69,9 @@ building."
 [ ] Elevation calibration + tracing
     [x] Piece 1 — floorHeightsRef data structure + accumulateZ + getFloorLevel (2942e0e)
     [x] Piece 2 — Floor-heights entry panel UI (e780b88)
-    [ ] Piece 3 — Display/read-back, cross-validation, integration with elevation tracing (NEXT)
-**Floor-heights Pieces 1-2 done (Session 14). Next: Piece 3 and/or elevation PDF alignment + reference lines.**
+    [x] Piece 3 — Floor-to-floor back-solve entry, ceilingSource, validateCeiling (4e06de0)
+    [ ] Elevation PDF alignment + reference lines (NEXT)
+**Floor-heights Pieces 1-3 done (Sessions 14-15). Next: elevation PDF alignment + reference lines.**
 
 ---
 
