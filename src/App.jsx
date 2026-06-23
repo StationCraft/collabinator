@@ -174,6 +174,7 @@ function App() {
   const [elevEdgeSourcePageId, setElevEdgeSourcePageId] = useState(null)
   const elevEdgeHoverRef = useRef(null)
   const elevationEdgeRef = useRef({})  // pageId -> {sourcePageId, shapeIndex, segmentIndex, endpointA, endpointB}
+  const elevBaseYRef = useRef({})      // pageId -> anchorY (canvas px) after user drags base line into place
 
   // ── Elevation align (Step 8, Piece 2) ────────────────────────────────────────
   // Reuses alignDragRef / alignTick / alignOverHandle for drag machinery.
@@ -318,6 +319,7 @@ function App() {
     setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
     setElevEdgeMode(false); elevEdgeHoverRef.current = null; setElevEdgeSourcePageId(null)
     elevationEdgeRef.current = {}
+    elevBaseYRef.current = {}
     setElevAlignMode(false)
     setAlignMode(false); alignDragRef.current = null
     primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
@@ -1116,8 +1118,20 @@ function App() {
 
     if (e.button !== 0) return
 
-    // No tool active: left drag pans
-    if (!editMode && !drawMode && !calibMode) { startPanDrag(e); return }
+    // No tool active: check for elevation base-line grab before falling through to pan.
+    if (!editMode && !drawMode && !calibMode) {
+      const elevScale = pageScalesRef.current[currentPageId]
+      const edgeData = resolveElevEdge(currentPageId)
+      if (elevScale?.pxPerMeter && edgeData && fhZStack.length > 0) {
+        const pos = getCanvasPos(e)
+        const baseLineY = elevBaseYRef.current[currentPageId] ?? (edgeData.A.y + edgeData.B.y) / 2
+        if (Math.abs(pos.y - baseLineY) <= 8 / zoomRef.current) {
+          alignDragRef.current = { mode: 'elevBase', startClientY: e.clientY, startBaseY: baseLineY, pageId: currentPageId }
+          return
+        }
+      }
+      startPanDrag(e); return
+    }
 
     // Draw/calib: mousedown has no tool action, left drag pans
     if (drawMode || calibMode) { startPanDrag(e); return }
@@ -1205,6 +1219,9 @@ function App() {
     if (panDragRef.current?.active) return
     // Pending pan (never activated = it's a click): clear ref, fall through to tool handlers
     if (panDragRef.current) panDragRef.current = null
+
+    // Elevation base-line drag end: clear drag ref, stack position already stored in ref.
+    if (alignDragRef.current?.mode === 'elevBase') { alignDragRef.current = null; return }
 
     if (!editMode) return
     const subMode = editSubModeRef.current
@@ -1490,6 +1507,14 @@ function App() {
         }
         setAlignTick(t => t + 1)
       }
+      return
+    }
+    // Elevation base-line drag: vertical-only, whole stack rides along.
+    if (alignDragRef.current?.mode === 'elevBase') {
+      const drag = alignDragRef.current
+      const dy = (e.clientY - drag.startClientY) / zoomRef.current
+      elevBaseYRef.current[drag.pageId] = drag.startBaseY + dy
+      redrawFrontFaceLayer(null)
       return
     }
     // Front-face pick mode: hover-highlight the candidate perimeter segment.
@@ -2249,7 +2274,7 @@ function App() {
     const c = measureRef.current
     if (!c) return
 
-    const anchorY = (edgeData.A.y + edgeData.B.y) / 2
+    const anchorY = elevBaseYRef.current[currentPageId] ?? (edgeData.A.y + edgeData.B.y) / 2
     const { pxPerMeter } = elevScale
     const zoom = zoomRef.current
     const canvasW = c.width
