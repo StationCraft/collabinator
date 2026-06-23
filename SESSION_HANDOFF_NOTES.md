@@ -1022,6 +1022,8 @@ the scope-drift protocol, tuned to this seam.)
   (ft+in), UNTOUCHED by this refactor. This refactor changes STORAGE only. The unified
   metric/imperial ENTRY rework (#20) stays deferred — NOT part of this work. Boundary:
   storage metric, entry/display imperial.
+  *(HISTORICAL RECORD — Session 17 planning. **SUPERSEDED by Path 3 in Session 18:** geometry
+  stays stored in PIXELS; meters are a read-time projection. See Session 18 entry.)*
 - **3 (conversion source) — via `getEffectiveScale`:** own-calibration pages use their
   `pxPerMeter`; confirmed-ghost/borrowed-scale pages use the borrowed
   `getEffectiveScale` value; uncalibrated pages cannot convert and stay excluded /
@@ -1035,13 +1037,17 @@ the scope-drift protocol, tuned to this seam.)
   once, = sub-fork 5) but is the least-bug-prone ARCHITECTURE and is neutral-to-cheaper
   at runtime (convert twice per interaction at seams vs. on every read). Ben accepted
   the upfront-work-for-correctness trade explicitly.
+  *(HISTORICAL RECORD — Session 17 planning. **SUPERSEDED by Path 3 in Session 18:** pixels
+  stored, meters projected at read time via pxToMeters/metersToPx. 4a creates a
+  recalibration trap (frozen conversion ratio); Path 3 avoids it. See Session 18 entry.)*
 - **5 (consumer inventory + done-state) — the build itself:** every snap, label,
   hit-test, transform consumer, and the draw/edit/calibration handlers that currently
   assume pixels get converted to read meters. This is the bulk of the work and the
-  first build step of the next session. **Done-state:** all geometry lives in the
-  shared real-world XY frame in meters; every consumer reads meters; pixel conversion
-  isolated to the two seams; R3-ready vertex shape in place; #19 identity preserved;
-  verified against a multi-page real PDF.
+  first build step of the next session. **Done-state (as planned in Session 17, superseded):**
+  all geometry in the shared real-world XY frame in meters; every consumer reads meters; pixel
+  conversion isolated to the two seams; R3-ready vertex shape in place; #19 identity preserved.
+  *(HISTORICAL RECORD — Session 17 planned done-state. **SUPERSEDED:** actual done-state per
+  Path 3 = geometry stays in pixels, named seam installed, makeVertex factory in place. See Session 18.)*
 
 ## SESSION 18 — R2 coordinate foundation (Path 3 / named seam + vertex factory)
 
