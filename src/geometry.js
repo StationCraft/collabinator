@@ -1,5 +1,9 @@
 // ── Pure geometry helpers and polygon algorithms ───────────────────────────
 
+export function makeVertex(x, y) {
+  return { x, y }
+}
+
 export function distToSegment(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y
   const len2 = dx * dx + dy * dy
@@ -100,8 +104,8 @@ export function findCollinearOverlap(vertsA, vertsB) {
       return {
         segA: i, segB: j, dir, dirX, dirY, a1, a2, lenA, b1, b2, lenB,
         t_b1, t_b2, t_ov_start, t_ov_end,
-        P_start: { x: a1.x + t_ov_start * dirX, y: a1.y + t_ov_start * dirY },
-        P_end:   { x: a1.x + t_ov_end   * dirX, y: a1.y + t_ov_end   * dirY },
+        P_start: makeVertex(a1.x + t_ov_start * dirX, a1.y + t_ov_start * dirY),
+        P_end:   makeVertex(a1.x + t_ov_end   * dirX, a1.y + t_ov_end   * dirY),
       }
     }
   }
@@ -170,7 +174,7 @@ export function linePolyIntersect(p1, p2, verts) {
     results.push({
       edgeIdx: i, edgeT: u,
       lineT: ((px - p1.x) * dx + (py - p1.y) * dy) / lineLen2,
-      point: { x: px, y: py }
+      point: makeVertex(px, py)
     })
   }
 
@@ -195,7 +199,7 @@ export function linePolyIntersect(p1, p2, verts) {
     results.push({
       edgeIdx: i, edgeT: 0,
       lineT: ((verts[i].x - p1.x) * dx + (verts[i].y - p1.y) * dy) / lineLen2,
-      point: { ...verts[i] }
+      point: makeVertex(verts[i].x, verts[i].y)
     })
   }
 
@@ -210,15 +214,15 @@ export function splitPolygon(verts, cutP1, cutP2) {
   const p0 = h0.point, p1 = h1.point
   const N = verts.length
 
-  const polyA = [{ ...p0 }]
+  const polyA = [makeVertex(p0.x, p0.y)]
   let cur = (i0 + 1) % N, stop1 = (i1 + 1) % N, guard = N + 2
-  while (cur !== stop1 && guard-- > 0) { polyA.push({ ...verts[cur] }); cur = (cur + 1) % N }
-  polyA.push({ ...p1 })
+  while (cur !== stop1 && guard-- > 0) { polyA.push(makeVertex(verts[cur].x, verts[cur].y)); cur = (cur + 1) % N }
+  polyA.push(makeVertex(p1.x, p1.y))
 
-  const polyB = [{ ...p1 }]
+  const polyB = [makeVertex(p1.x, p1.y)]
   cur = (i1 + 1) % N; let stop2 = (i0 + 1) % N; guard = N + 2
-  while (cur !== stop2 && guard-- > 0) { polyB.push({ ...verts[cur] }); cur = (cur + 1) % N }
-  polyB.push({ ...p0 })
+  while (cur !== stop2 && guard-- > 0) { polyB.push(makeVertex(verts[cur].x, verts[cur].y)); cur = (cur + 1) % N }
+  polyB.push(makeVertex(p0.x, p0.y))
 
   if (polyA.length < 3 || polyB.length < 3) return null
   return [polyA, polyB]

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import './App.css'
 import {
-  distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
+  makeVertex, distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
   findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
@@ -363,7 +363,7 @@ function App() {
   const clampToCanvas = (v) => {
     const c = measureRef.current
     if (!c) return v
-    return { x: Math.max(0, Math.min(c.width, v.x)), y: Math.max(0, Math.min(c.height, v.y)) }
+    return makeVertex(Math.max(0, Math.min(c.width, v.x)), Math.max(0, Math.min(c.height, v.y)))
   }
 
   const clampT = (origA, origB, tRaw, perpDir) => {
@@ -391,10 +391,10 @@ function App() {
     const snapPx = metersToPx(snapIncrementRef.current, { [pageId]: scale }, pageId)
     if (!snapPx || snapPx <= 0) return pos
     const origin = pageGridOriginRef.current[pageId] || { x: 0, y: 0 }
-    return {
-      x: origin.x + Math.round((pos.x - origin.x) / snapPx) * snapPx,
-      y: origin.y + Math.round((pos.y - origin.y) / snapPx) * snapPx,
-    }
+    return makeVertex(
+      origin.x + Math.round((pos.x - origin.x) / snapPx) * snapPx,
+      origin.y + Math.round((pos.y - origin.y) / snapPx) * snapPx,
+    )
   }
 
   // ── Draw locked shapes (base layer) ─────────────────────────────────────
@@ -512,7 +512,7 @@ function App() {
         }
       }
     }
-    return { x, y }
+    return makeVertex(x, y)
   }
 
   const getAlignmentSnap = (mousePos, vertices) => {
@@ -526,7 +526,7 @@ function App() {
     }
     if (bestH) { y = bestH.vertex.y; guides.push({ axis: 'h', vertex: bestH.vertex }) }
     if (bestV) { x = bestV.vertex.x; guides.push({ axis: 'v', vertex: bestV.vertex }) }
-    return { snappedPos: { x, y }, guides }
+    return { snappedPos: makeVertex(x, y), guides }
   }
 
   const computeFinalSnapPos = (rawPos, vertices, useAngle, useDist, pageId) => {
@@ -987,8 +987,8 @@ function App() {
     const N = vertices.length
     const newVerts = vertices.map(v => ({ ...v }))
     const iA = segIdx, iB = (segIdx + 1) % N
-    newVerts[iA] = { x: vertices[iA].x + tPx * perpDir.x, y: vertices[iA].y + tPx * perpDir.y }
-    newVerts[iB] = { x: vertices[iB].x + tPx * perpDir.x, y: vertices[iB].y + tPx * perpDir.y }
+    newVerts[iA] = makeVertex(vertices[iA].x + tPx * perpDir.x, vertices[iA].y + tPx * perpDir.y)
+    newVerts[iB] = makeVertex(vertices[iB].x + tPx * perpDir.x, vertices[iB].y + tPx * perpDir.y)
     return newVerts
   }
 
@@ -1110,7 +1110,7 @@ function App() {
       const holdTimer = setTimeout(() => {
         if (!dragStateRef.current || dragStateRef.current.type !== 'segPending') return
         const t = projT(capturedPos, a, b)
-        const insertPt = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) }
+        const insertPt = makeVertex(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y))
         const newVerts = [...verts.map(v => ({ ...v }))]
         newVerts.splice(segHit.segIdx + 1, 0, { ...insertPt })
         dragStateRef.current = {
@@ -2691,7 +2691,7 @@ function App() {
           </button>
         )}
 
-        {pdf && currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
+{pdf && currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <button className="categorize-btn" onClick={() => { setCatReentry(false); setCategorizeMode(true) }}>
             Categorize Pages
           </button>
