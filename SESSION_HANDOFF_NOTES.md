@@ -969,6 +969,80 @@ Decision made this session:
   the uniform scale) → trace outline as single open polyline. Edge-select comes
   FIRST because the edge IS the align ghost.
 
+---
+
+## SESSION 17 — Coordinate conversion (R2) fully scoped
+
+**Branch:** main | **Commits:** none (planning only — no code written this session)
+
+### What happened
+
+Planning session that scoped the pixels→real-world coordinate conversion pulled
+forward in Session 16. No code written. Every design fork is now resolved; the next
+session is the build, starting with the consumer inventory (sub-fork 5).
+
+### Target: R2 — single shared real-world XY frame
+
+Of three candidate scopes — R1 (per-page real units, no shared frame), R2 (single
+shared real-world XY frame, Z stays datum-layer), R3 (full XYZ, per-vertex Z) — the
+target is **R2**. R1 is too shallow (no shared frame ⇒ the next Z-step hurts again).
+R3 is the ELEMENT layer (#7, #19) and stays SEQUENCED BEHIND the conversion. R2 is
+the foundation that makes R3 cheap to add later.
+
+**R2 is built to R3-readiness as a HARD ACCEPTANCE CRITERION, not a nice-to-have:**
+1. **Z-ready vertex shape** — vertices stored in a structure designed to carry an
+   optional Z from day one (absent/null now), so R3 adds Z as an extension, not a
+   hunt-and-patch retrofit.
+2. **No coordinate-coincidence merging (#19)** — R2 must NOT merge or dedupe elements
+   on the basis of shared XY. Two coplanar elements at the same XY remain distinct
+   (slab-vs-wood-frame case). Per-element identity is preserved even though R2 only
+   models XY.
+
+### Standing rule for the whole refactor (R2/R3 boundary discipline)
+
+We are building the FOUNDATION (R2). Anything needing per-vertex Z, per-element
+offsets, or assembly identity is R3 — it gets logged and sequenced, never folded in.
+When a build piece *feels* like it wants Z, that feeling is the signal we've hit the
+R2/R3 seam: STOP and check, do not build through it. (Ben flagged he may need
+reminding of this as build depth increases; Claude surfaces it proactively, same as
+the scope-drift protocol, tuned to this seam.)
+
+### Five sub-forks — RESOLVED
+
+- **1 (origin/frame) — 1a:** the primary-reference page (`primaryReferenceId`, first
+  calibrated) defines the shared frame; its calibrated space converted to real units
+  IS the frame. Every other page's geometry is placed into it by walking the
+  `pageRefParent` chain and composing the existing `pageTransformsRef` align
+  transforms. "Fixed arbitrary origin" coincides operationally with the primary
+  page's zero — everything still computed geometry-to-geometry. Reuses the multi-floor
+  sub-step-5 machinery as-is; no synthetic-frame layer (1b rejected — buys nothing
+  until R3).
+- **2 (canonical unit) — meters, stored:** all geometry stored in meters (one
+  canonical unit; `pxPerMeter` is the natural pivot). DISPLAY/ENTRY stays imperial
+  (ft+in), UNTOUCHED by this refactor. This refactor changes STORAGE only. The unified
+  metric/imperial ENTRY rework (#20) stays deferred — NOT part of this work. Boundary:
+  storage metric, entry/display imperial.
+- **3 (conversion source) — via `getEffectiveScale`:** own-calibration pages use their
+  `pxPerMeter`; confirmed-ghost/borrowed-scale pages use the borrowed
+  `getEffectiveScale` value; uncalibrated pages cannot convert and stay excluded /
+  pixel-only. Forced by existing machinery.
+- **4 (migration model) — 4a, store meters natively:** geometry is stored in meters
+  the moment it's created; pixel↔meter conversion happens ONLY at two well-defined
+  seams — input events (mouse=pixels in) and render (canvas=pixels out). Refs hold
+  meters, period. Rejected 4b (keep pixels, convert-on-read): 4b formalizes the
+  pixel/units split into every consumer forever — the exact friction being removed —
+  and does NOT lay the foundation. 4a is more upfront work (every consumer changes
+  once, = sub-fork 5) but is the least-bug-prone ARCHITECTURE and is neutral-to-cheaper
+  at runtime (convert twice per interaction at seams vs. on every read). Ben accepted
+  the upfront-work-for-correctness trade explicitly.
+- **5 (consumer inventory + done-state) — the build itself:** every snap, label,
+  hit-test, transform consumer, and the draw/edit/calibration handlers that currently
+  assume pixels get converted to read meters. This is the bulk of the work and the
+  first build step of the next session. **Done-state:** all geometry lives in the
+  shared real-world XY frame in meters; every consumer reads meters; pixel conversion
+  isolated to the two seams; R3-ready vertex shape in place; #19 identity preserved;
+  verified against a multi-page real PDF.
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`

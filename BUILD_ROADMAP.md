@@ -71,11 +71,15 @@ building."
     [x] Piece 2 — Floor-heights entry panel UI (e780b88)
     [x] Piece 3 — Floor-to-floor back-solve entry, ceilingSource, validateCeiling (4e06de0)
     [~] Elevation PDF alignment + reference lines — PAUSED (forks resolved; rebuild on real units after coordinate conversion; see SESSION_HANDOFF_NOTES Session 16)
-[ ] Pixels→real-world coordinate conversion (FOUNDATION) — NEXT
-    Gating prerequisite for the elevation spatial step and for per-element Z.
-    Currently all geometry is canvas pixels; convert to real-world units before
-    Z-aware work continues. Per-element 3D identity (#7, #19 ELEMENT layer) is
-    sequenced AFTER this conversion. Deserves its own planning chat (own context).
+[ ] Pixels→real-world coordinate conversion (FOUNDATION) — SCOPED (R2); ready to build
+    Target R2: single shared real-world XY frame, fixed arbitrary origin, Z stays
+    datum-layer, built to R3-readiness (Z-ready vertex shape + no coordinate-
+    coincidence merging — both hard acceptance criteria). Sub-forks resolved:
+    1a primary-ref page defines frame; meters canonical (imperial display untouched,
+    #20 deferred); getEffectiveScale feeds conversion; 4a store-meters-natively
+    (convert only at input + render seams). FIRST BUILD STEP = sub-fork 5 consumer
+    inventory. Per-element Z (R3 / #7 / #19) sequenced AFTER. Full scope in
+    SESSION_HANDOFF_NOTES Session 17.
 **Floor-heights Pieces 1-3 done (Sessions 14-15). Next: pixels→real-world coordinate conversion (foundation), then resume elevation spatial work on real units.**
 
 ---

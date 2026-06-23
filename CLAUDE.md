@@ -672,12 +672,21 @@ After A.0.1–A.0.3 cleanup, Phase 1.5 builds the foundational architecture for 
 - **Elevations show vertical section:** Align to plan edges; show floor heights, roof
   pitch, eave projections; walls/openings traced on top.
 - **Cross-sections are reference-only:** Vertical slices aligned to plan reference lines.
-- **Real-world coordinate system:** Post-Phase 1.5 refactor; currently all coords are
-  canvas pixels. Will convert to feet/meters before Phase 2. Target model: a **fixed
-  arbitrary origin**, all relationships computed **geometry-to-geometry**, floor levels
-  as a **relative-offset stack** (absolute Z accumulated from the base floor), and named
-  control/reference points (e.g. the CAD-export datum) stored as data at their computed
-  coordinates within the space.
+- **Real-world coordinate system:** NEXT ACTIVE STEP (scoped Session 17 — target R2).
+  Currently all coords are canvas pixels; this refactor converts geometry to a single
+  shared real-world XY frame stored in **meters** (canonical unit; imperial ft+in
+  remains the display/entry convention, untouched — see #20). Target model: the
+  **primary-reference page** (`primaryReferenceId`) defines the frame; every other
+  page is placed into it by composing the existing `pageTransformsRef` align
+  transforms down the `pageRefParent` chain. A **fixed arbitrary origin** (coincident
+  with the primary page's zero), all relationships computed **geometry-to-geometry**,
+  floor levels as a **relative-offset Z stack** (datum layer — `floorHeightsRef` —
+  unchanged by this step). Geometry is stored in meters natively (conversion isolated
+  to two seams: input events and render); built to **R3-readiness** — vertices carry
+  an optional-Z-ready shape and per-element identity is preserved (no coordinate-
+  coincidence merging, per #19) — so the future per-element-Z layer (ELEMENT layer,
+  R3, #7/#19) extends this without rework. Named control/reference points (e.g. the
+  CAD-export datum, #6) stored as data at their computed coordinates within the space.
 
 ## Reference documents (not in this folder)
 
