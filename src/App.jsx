@@ -8,7 +8,7 @@ import {
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
-import { pxToDisplayDist, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -388,8 +388,8 @@ function App() {
     if (!snapDist) return pos
     const scale = getEffectiveScale(pageId)
     if (!scale) return pos
-    const snapPx = scale.pxPerMeter * snapIncrementRef.current
-    if (snapPx <= 0) return pos
+    const snapPx = metersToPx(snapIncrementRef.current, { [pageId]: scale }, pageId)
+    if (!snapPx || snapPx <= 0) return pos
     const origin = pageGridOriginRef.current[pageId] || { x: 0, y: 0 }
     return {
       x: origin.x + Math.round((pos.x - origin.x) / snapPx) * snapPx,
@@ -504,8 +504,8 @@ function App() {
     if (useDist) {
       const scale = getEffectiveScale(pageId)
       if (scale) {
-        const snapPx = scale.pxPerMeter * snapIncrementRef.current
-        if (snapPx > 0) {
+        const snapPx = metersToPx(snapIncrementRef.current, { [pageId]: scale }, pageId)
+        if (snapPx && snapPx > 0) {
           const origin = pageGridOriginRef.current[pageId] || { x: 0, y: 0 }
           x = origin.x + Math.round((x - origin.x) / snapPx) * snapPx
           y = origin.y + Math.round((y - origin.y) / snapPx) * snapPx
@@ -828,7 +828,7 @@ function App() {
     const a = verts[segIdx], b = verts[(segIdx + 1) % N]
     const geom = segmentGeom(a, b)
     if (!geom) { setLabelEditState(null); return }
-    const newLenPx = meters * scale.pxPerMeter
+    const newLenPx = metersToPx(meters, { [currentPageId]: scale }, currentPageId)
     const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2
     const half = newLenPx / 2
     const newA = clampToCanvas({ x: midX - geom.dir.x * half, y: midY - geom.dir.y * half })
@@ -996,8 +996,8 @@ function App() {
     if (!snapDist) return tRaw
     const scale = getEffectiveScale(currentPageId)
     if (!scale) return tRaw
-    const snapPx = scale.pxPerMeter * snapIncrementRef.current
-    return snapPx > 0 ? Math.round(tRaw / snapPx) * snapPx : tRaw
+    const snapPx = metersToPx(snapIncrementRef.current, { [currentPageId]: scale }, currentPageId)
+    return (snapPx && snapPx > 0) ? Math.round(tRaw / snapPx) * snapPx : tRaw
   }
 
   // ── Canvas mouse handlers ─────────────────────────────────────────────────

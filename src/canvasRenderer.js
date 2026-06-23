@@ -1,10 +1,22 @@
 // ── Stateless canvas drawing primitives ───────────────────────────────────
 // All functions take explicit data parameters — no closure over App state.
 
+export function pxToMeters(px, pageScales, pageId) {
+  const scale = pageScales[pageId]
+  if (!scale || !scale.pxPerMeter) return null
+  return px / scale.pxPerMeter
+}
+
+export function metersToPx(m, pageScales, pageId) {
+  const scale = pageScales[pageId]
+  if (!scale || !scale.pxPerMeter) return null
+  return m * scale.pxPerMeter
+}
+
 export function pxToDisplayDist(px, pageScales, pageId) {
   const scale = pageScales[pageId]
   if (!scale || px <= 0) return null
-  const meters = px / scale.pxPerMeter
+  const meters = pxToMeters(px, pageScales, pageId)
   if (scale.displayUnit === 'ft') {
     const totalInches = meters / 0.0254
     const feet = Math.floor(totalInches / 12)
