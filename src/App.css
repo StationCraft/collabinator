@@ -1164,3 +1164,9 @@ canvas {
   font-size: 0.74rem;
   color: #64748b;
 }
+.fh-error {
+  font-size: 0.76rem;
+  color: #f87171;
+  margin-top: 2px;
+  width: 100%;
+}

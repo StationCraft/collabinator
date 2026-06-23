@@ -123,6 +123,9 @@ function App() {
   // Maps keyed by floor-level string so each row keeps its own draft independently.
   const [fhFtVals, setFhFtVals] = useState({})   // { [level]: string }
   const [fhInVals, setFhInVals] = useState({})   // { [level]: string }
+  const [fhF2fFtVals, setFhF2fFtVals] = useState({})  // floor-to-floor draft ft { [level]: string }
+  const [fhF2fInVals, setFhF2fInVals] = useState({})  // floor-to-floor draft in { [level]: string }
+  const [fhError, setFhError] = useState(null)         // { level, msg } | null
 
   // ── Multi-floor ghost reference (Step 6) ─────────────────────────────────────
   const [showGhostByPageId, setShowGhostByPageId] = useState({})
@@ -2516,15 +2519,47 @@ function App() {
     floorHeightsRef.current[level] = { ...cur, [field]: value }
     setFloorHeightsTick(t => t + 1)
   }
+  const setFloorHeightFields = (level, fieldsObj) => {
+    const cur = floorHeightsRef.current[level] || { floorToCeiling: null, floorSystemAbove: null }
+    floorHeightsRef.current[level] = { ...cur, ...fieldsObj }
+    setFloorHeightsTick(t => t + 1)
+  }
+  const validateCeiling = (ftc, fsa) => {
+    if (ftc == null || ftc <= 0) return 'Ceiling height must be greater than 0.'
+    if (fsa != null && ftc <= fsa) return `Ceiling (${ftc.toFixed(2)} ft) must exceed floor system (${fsa.toFixed(2)} ft).`
+    return null
+  }
   const applyFhPreset = (level, inches) => {
-    setFloorHeight(level, 'floorSystemAbove', inchesToFhUnit(inches))
+    const newFsa = inchesToFhUnit(inches)
+    const entry = floorHeightsRef.current[level] || {}
+    if (entry.ceilingSource === 'solved') {
+      const f2f = (entry.floorToCeiling ?? 0) + (entry.floorSystemAbove ?? 0)
+      const newFtc = f2f - newFsa
+      const err = validateCeiling(newFtc, newFsa)
+      if (err) { setFhError({ level, msg: err }); return }
+      setFhError(null)
+      setFloorHeightFields(level, { floorSystemAbove: newFsa, floorToCeiling: newFtc })
+    } else {
+      setFloorHeightFields(level, { floorSystemAbove: newFsa })
+    }
     setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false)
   }
   const applyFhCustom = (level) => {
     const rawInches = parseFloat(fhCustomVal)
     if (isNaN(rawInches)) return
     const totalInches = fhCustomSheathing ? rawInches + SHEATHING_INCHES : rawInches
-    setFloorHeight(level, 'floorSystemAbove', inchesToFhUnit(totalInches))
+    const newFsa = inchesToFhUnit(totalInches)
+    const entry = floorHeightsRef.current[level] || {}
+    if (entry.ceilingSource === 'solved') {
+      const f2f = (entry.floorToCeiling ?? 0) + (entry.floorSystemAbove ?? 0)
+      const newFtc = f2f - newFsa
+      const err = validateCeiling(newFtc, newFsa)
+      if (err) { setFhError({ level, msg: err }); return }
+      setFhError(null)
+      setFloorHeightFields(level, { floorSystemAbove: newFsa, floorToCeiling: newFtc })
+    } else {
+      setFloorHeightFields(level, { floorSystemAbove: newFsa })
+    }
     setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false)
   }
   const openFhExpand = (level) => {
@@ -3317,13 +3352,15 @@ function App() {
                               min="0"
                               placeholder="0"
                               value={fhFtVals[row.level] ?? ''}
+                              onFocus={() => { if (fhError && fhError.level !== row.level) setFhError(null) }}
                               onChange={e => {
                                 const ftStr = e.target.value
                                 setFhFtVals(prev => ({ ...prev, [row.level]: ftStr }))
                                 const ft = parseFloat(ftStr) || 0
                                 const inches = parseFloat(fhInVals[row.level]) || 0
                                 const val = ft + inches / 12
-                                setFloorHeight(row.level, 'floorToCeiling', (ft === 0 && inches === 0 && ftStr === '' && (fhInVals[row.level] ?? '') === '') ? null : val)
+                                const isEmpty = ft === 0 && inches === 0 && ftStr === '' && (fhInVals[row.level] ?? '') === ''
+                                setFloorHeightFields(row.level, { floorToCeiling: isEmpty ? null : val, ceilingSource: 'direct' })
                               }}
                             />
                             <span className="fh-unit">ft</span>
@@ -3334,13 +3371,15 @@ function App() {
                               min="0"
                               placeholder="0"
                               value={fhInVals[row.level] ?? ''}
+                              onFocus={() => { if (fhError && fhError.level !== row.level) setFhError(null) }}
                               onChange={e => {
                                 const inStr = e.target.value
                                 setFhInVals(prev => ({ ...prev, [row.level]: inStr }))
                                 const ft = parseFloat(fhFtVals[row.level]) || 0
                                 const inches = parseFloat(inStr) || 0
                                 const val = ft + inches / 12
-                                setFloorHeight(row.level, 'floorToCeiling', (ft === 0 && inches === 0 && (fhFtVals[row.level] ?? '') === '' && inStr === '') ? null : val)
+                                const isEmpty = ft === 0 && inches === 0 && (fhFtVals[row.level] ?? '') === '' && inStr === ''
+                                setFloorHeightFields(row.level, { floorToCeiling: isEmpty ? null : val, ceilingSource: 'direct' })
                               }}
                             />
                             <span className="fh-unit">in</span>
@@ -3411,6 +3450,76 @@ function App() {
                                   </div>
                                 )}
                               </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Floor-to-floor entry (absent on top-of-stack) */}
+                        {!isTop && (
+                          <div className="fh-field-row">
+                            <span className="fh-field-label">Floor to floor</span>
+                            {entry.floorSystemAbove == null ? (
+                              <span className="cat-panel-hint">Set floor system above first</span>
+                            ) : (
+                              <div className="fh-input-group">
+                                <input
+                                  type="number"
+                                  className="fh-input fh-input--sm"
+                                  step="1"
+                                  min="0"
+                                  placeholder="0"
+                                  value={fhF2fFtVals[row.level] ?? ''}
+                                  onFocus={() => { if (fhError && fhError.level !== row.level) setFhError(null) }}
+                                  onChange={e => {
+                                    const ftStr = e.target.value
+                                    setFhF2fFtVals(prev => ({ ...prev, [row.level]: ftStr }))
+                                    const ft = parseFloat(ftStr) || 0
+                                    const inches = parseFloat(fhF2fInVals[row.level]) || 0
+                                    const f2f = ft + inches / 12
+                                    const fsa = entry.floorSystemAbove
+                                    const ftc = f2f - fsa
+                                    const err = validateCeiling(ftc, fsa)
+                                    if (err) { setFhError({ level: row.level, msg: err }); return }
+                                    setFhError(null)
+                                    setFloorHeightFields(row.level, { floorToCeiling: ftc, ceilingSource: 'solved' })
+                                    const ceilFt = Math.floor(ftc)
+                                    const ceilIn = (ftc - ceilFt) * 12
+                                    setFhFtVals(prev => ({ ...prev, [row.level]: String(ceilFt) }))
+                                    setFhInVals(prev => ({ ...prev, [row.level]: ceilIn.toFixed(1) }))
+                                  }}
+                                />
+                                <span className="fh-unit">ft</span>
+                                <input
+                                  type="number"
+                                  className="fh-input fh-input--sm"
+                                  step="0.5"
+                                  min="0"
+                                  placeholder="0"
+                                  value={fhF2fInVals[row.level] ?? ''}
+                                  onFocus={() => { if (fhError && fhError.level !== row.level) setFhError(null) }}
+                                  onChange={e => {
+                                    const inStr = e.target.value
+                                    setFhF2fInVals(prev => ({ ...prev, [row.level]: inStr }))
+                                    const ft = parseFloat(fhF2fFtVals[row.level]) || 0
+                                    const inches = parseFloat(inStr) || 0
+                                    const f2f = ft + inches / 12
+                                    const fsa = entry.floorSystemAbove
+                                    const ftc = f2f - fsa
+                                    const err = validateCeiling(ftc, fsa)
+                                    if (err) { setFhError({ level: row.level, msg: err }); return }
+                                    setFhError(null)
+                                    setFloorHeightFields(row.level, { floorToCeiling: ftc, ceilingSource: 'solved' })
+                                    const ceilFt = Math.floor(ftc)
+                                    const ceilIn = (ftc - ceilFt) * 12
+                                    setFhFtVals(prev => ({ ...prev, [row.level]: String(ceilFt) }))
+                                    setFhInVals(prev => ({ ...prev, [row.level]: ceilIn.toFixed(1) }))
+                                  }}
+                                />
+                                <span className="fh-unit">in</span>
+                              </div>
+                            )}
+                            {fhError && fhError.level === row.level && (
+                              <div className="fh-error">{fhError.msg}</div>
                             )}
                           </div>
                         )}
