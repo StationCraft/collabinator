@@ -346,6 +346,40 @@ A reference is modeled as a typed, projected pointer, not a floor-specific one:
 
 ---
 
+### 19. Coplanar-distinctness principle (architectural record — element identity vs. shared datum)
+
+**Logged:** Session 14, during elevation numeric-editor planning (Piece 2).
+
+**The principle:** Coincidence in one or more coordinates is NOT identity. Two elements sharing an elevation (same Z), or sharing X/Z with a Y separation, or coincident in any subset of coordinates, are distinct entities that happen to be coplanar — never to be merged on the basis of the shared coordinate. Identity is always per-element; it is never inferred from coordinate coincidence. Every element that can sit on a shared plane must carry its own identity and attributes.
+
+**Motivating case:** Two areas of a building at the same floor elevation — one slab-on-grade concrete, the other a wood-frame floor over a basement, vertically aligned. Same floor-plane Z, categorically different elements (different assembly, different what-is-below, different everything). The model must keep them separate despite the shared elevation.
+
+**Datum layer vs. element layer (the resolution adopted in Piece 1/2):** The floor-level Z-stack (floorHeightsRef, keyed by FLOOR_ORDER level, built Piece 1) is a DATUM layer — a small set of named reference elevations the building hangs off. Multiple coplanar elements correctly SHARE a datum (both the slab area and the wood-frame area reference "Main Floor floor plane Z"). Sharing a datum is the system working correctly, not a collapse. Per-element distinctness lives in the ELEMENT layer (completedShapesRef and its future per-element Z + assembly attributes), where each element references a datum but is never merged into it or into a sibling that shares the datum.
+
+**Current state:** Per-element Z and per-element assembly identity DO NOT yet exist in the data model — shapes store { vertices, pageId, status } only (recon-confirmed, Session 14). The numeric editor (Piece 2) populates the datum layer only; it is explicitly NOT where slab-vs-wood-frame or any per-element distinction is captured.
+
+**Why deferred:** Per-element Z is #7 (intra-floor Z / split-level). Per-element assembly identity is Phase 2 (assembly assignment, Section 12). Both need the coordinate model and assembly model that Phase 1.5 / 3a deliberately defers. This entry exists so that WHEN #7 and the Phase 2 assembly model are built, they are designed from the start to honor per-element identity (no coordinate-coincidence merging) rather than retrofitting it.
+
+**Relationship to other entries:** Governs the data-model shape of #7 (per-element/intra-floor Z) and Phase 2 assembly assignment. Sibling in kind to #17 (universal reference-layer model) — both are architectural records that drive deferred build shape rather than describing a near-term feature.
+
+**Status:** Architectural record. No build now; constrains the design of #7 and Phase 2 element-Z/assembly work.
+
+---
+
+### 20. Metric dimension-entry logic (unified rework — separate session)
+
+**Logged:** Session 14, during elevation numeric-editor Piece 2 input-format work.
+
+**Description:** Dimension input fields currently assume imperial display. The floor-heights panel uses feet-and-inches entry for ceiling heights (two fields: feet + decimal inches) and inches for floor-system thickness (presets and custom are inch-native). These input formats are correct for imperial-display projects but are NOT defined for metric-display projects. A unified rework is needed that defines dimension-entry input logic consistently across ALL typed-dimension surfaces — calibration/scale dialog, ceiling heights, floor-system thickness, and any future dimension entry — for both imperial and metric display units. This is a cross-cutting input-convention design, not a per-field patch.
+
+**Why deferred:** Touches multiple existing input surfaces, not just the floor-heights panel; doing it piecemeal per field would create inconsistent conventions. Deserves its own session to define the input model once, coherently, across imperial and metric. Storage under the hood is already unit-normalized (values normalized to one unit before accumulateZ); this is specifically about INPUT field format and parsing per display unit.
+
+**Current assumption (explicit):** The floor-heights panel and its ceiling/floor-system inputs assume imperial display. On a metric project these fields are not correctly defined and must not be trusted until this rework lands.
+
+**Status:** Deferred to a dedicated dimension-entry-logic session.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

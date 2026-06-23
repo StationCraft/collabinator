@@ -112,6 +112,18 @@ function App() {
   // ── Sidebar (Step 4c) ───────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
+  // ── Floor heights panel (elevation numeric editor, Piece 2) ─────────────────
+  const [showFloorHeights, setShowFloorHeights] = useState(false)
+  const [floorHeightsTick, setFloorHeightsTick] = useState(0)   // bumped on every floorHeightsRef write; forces re-render
+  const [fhExpandedLevel, setFhExpandedLevel] = useState(null)  // level string whose floor-system control is expanded
+  const [fhCustomActive, setFhCustomActive] = useState(false)   // true when Custom input is shown within expanded level
+  const [fhCustomVal, setFhCustomVal] = useState('')            // raw string from custom field in INCHES
+  const [fhCustomSheathing, setFhCustomSheathing] = useState(false) // "add sheathing+drywall" checkbox
+  // Per-level ft + in drafts for ceiling height entry (imperial convention: matches calibration dialog).
+  // Maps keyed by floor-level string so each row keeps its own draft independently.
+  const [fhFtVals, setFhFtVals] = useState({})   // { [level]: string }
+  const [fhInVals, setFhInVals] = useState({})   // { [level]: string }
+
   // ── Multi-floor ghost reference (Step 6) ─────────────────────────────────────
   const [showGhostByPageId, setShowGhostByPageId] = useState({})
 
@@ -294,6 +306,8 @@ function App() {
     setAlignMode(false); alignDragRef.current = null
     primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
     setShowGhostByPageId({})
+    setShowFloorHeights(false); setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false)
+    setFhFtVals({}); setFhInVals({})
     resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
@@ -2470,6 +2484,54 @@ function App() {
     ].filter(s => s.entries.length > 0)
   })()
 
+  // ── Floor heights panel derived values ──────────────────────────────────────
+  // floorHeightsTick read here ensures re-render when ref is written.
+  void floorHeightsTick
+  const fhDisplayUnit = Object.values(pageScalesRef.current)[0]?.displayUnit ?? 'ft'
+  // Known FLOOR_ORDER levels that have at least one categorized floor-plan page — ordered base→top.
+  const presentFloorLevels = FLOOR_ORDER.filter(level =>
+    pages.some(p => p.category === 'floor-plan' && p.subLabel === level)
+  )
+  const fhZStack = accumulateZ(floorHeightsRef.current, presentFloorLevels, FLOOR_ORDER)
+  const fhTopLevel = presentFloorLevels.length > 0 ? presentFloorLevels[presentFloorLevels.length - 1] : null
+  const fhOutstanding = presentFloorLevels.flatMap(level => {
+    const entry = floorHeightsRef.current[level] || {}
+    const items = []
+    if (entry.floorToCeiling == null) items.push({ key: `${level}-ftc`, label: `${level} — ceiling height` })
+    if (level !== fhTopLevel && entry.floorSystemAbove == null) items.push({ key: `${level}-fsa`, label: `${level} — floor system` })
+    return items
+  })
+  const FLOOR_SYSTEM_PRESETS = [
+    { label: '2×10',              inches: 10.625 },
+    { label: '2×12',              inches: 12.625 },
+    { label: '11⅞″ I-joist',     inches: 13.25  },
+    { label: '14″ I-joist',       inches: 15.375 },
+    { label: '16″ I-joist/truss', inches: 17.375 },
+    { label: '24″ truss',         inches: 25.375 },
+  ]
+  const inchesToFhUnit = (inches) => fhDisplayUnit === 'ft' ? inches / 12 : inches * 0.0254
+  const SHEATHING_INCHES = 1.375
+  const setFloorHeight = (level, field, value) => {
+    const cur = floorHeightsRef.current[level] || { floorToCeiling: null, floorSystemAbove: null }
+    floorHeightsRef.current[level] = { ...cur, [field]: value }
+    setFloorHeightsTick(t => t + 1)
+  }
+  const applyFhPreset = (level, inches) => {
+    setFloorHeight(level, 'floorSystemAbove', inchesToFhUnit(inches))
+    setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false)
+  }
+  const applyFhCustom = (level) => {
+    const rawInches = parseFloat(fhCustomVal)
+    if (isNaN(rawInches)) return
+    const totalInches = fhCustomSheathing ? rawInches + SHEATHING_INCHES : rawInches
+    setFloorHeight(level, 'floorSystemAbove', inchesToFhUnit(totalInches))
+    setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false)
+  }
+  const openFhExpand = (level) => {
+    if (fhExpandedLevel === level) { setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false) }
+    else { setFhExpandedLevel(level); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false) }
+  }
+
   // Page-arrow navigation. While categorizing, arrows cycle every page. After
   // Done (not categorizing), arrows step through categorized pages only,
   // skipping uncategorized ones. Falls back to sequential nav if nothing is
@@ -2597,6 +2659,15 @@ function App() {
         {pdf && currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <button className="categorize-btn" onClick={() => { setCatReentry(false); setCategorizeMode(true) }}>
             Categorize Pages
+          </button>
+        )}
+
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
+          <button
+            className={`floor-heights-btn ${showFloorHeights ? 'floor-heights-btn--open' : ''}`}
+            onClick={() => setShowFloorHeights(h => !h)}
+          >
+            {showFloorHeights ? 'Floor Heights ✕' : 'Floor Heights'}
           </button>
         )}
 
@@ -3194,6 +3265,174 @@ function App() {
             </div>
           )}
         </aside>
+
+        {showFloorHeights && pdf && (
+          <div className="fh-panel">
+            <div className="fh-panel-head">
+              <span className="fh-panel-title">Floor Heights</span>
+              <button className="fh-close-btn" onClick={() => setShowFloorHeights(false)}>✕</button>
+            </div>
+
+            {presentFloorLevels.length === 0 ? (
+              <div className="fh-empty">Categorize floor plan pages first to enter floor heights.</div>
+            ) : (
+              <>
+                {/* ── Outstanding zone ── */}
+                <div className="fh-zone">
+                  <div className="fh-zone-label">Outstanding</div>
+                  {fhOutstanding.length === 0 ? (
+                    <div className="fh-all-done">All heights entered ✓</div>
+                  ) : (
+                    <ul className="fh-outstanding-list">
+                      {fhOutstanding.map(item => (
+                        <li key={item.key} className="fh-outstanding-item">{item.label}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* ── Stack zone ── */}
+                <div className="fh-zone">
+                  <div className="fh-zone-label">Stack — base → top</div>
+                  {fhZStack.map((row, idx) => {
+                    const isTop = idx === fhZStack.length - 1
+                    const entry = floorHeightsRef.current[row.level] || {}
+                    const isExpanded = fhExpandedLevel === row.level
+                    const floorToFloor = (!isTop && row.floorToCeiling != null && row.floorSystemAbove != null)
+                      ? row.floorToCeiling + row.floorSystemAbove : null
+                    const precision = fhDisplayUnit === 'm' ? 3 : 2
+
+                    return (
+                      <div key={row.level} className="fh-row">
+                        <div className="fh-row-level">{row.level}</div>
+
+                        {/* Ceiling height input — ft + in, matching calibration dialog convention */}
+                        <div className="fh-field-row">
+                          <span className="fh-field-label">Ceiling height</span>
+                          <div className="fh-input-group">
+                            <input
+                              type="number"
+                              className="fh-input fh-input--sm"
+                              step="1"
+                              min="0"
+                              placeholder="0"
+                              value={fhFtVals[row.level] ?? ''}
+                              onChange={e => {
+                                const ftStr = e.target.value
+                                setFhFtVals(prev => ({ ...prev, [row.level]: ftStr }))
+                                const ft = parseFloat(ftStr) || 0
+                                const inches = parseFloat(fhInVals[row.level]) || 0
+                                const val = ft + inches / 12
+                                setFloorHeight(row.level, 'floorToCeiling', (ft === 0 && inches === 0 && ftStr === '' && (fhInVals[row.level] ?? '') === '') ? null : val)
+                              }}
+                            />
+                            <span className="fh-unit">ft</span>
+                            <input
+                              type="number"
+                              className="fh-input fh-input--sm"
+                              step="0.5"
+                              min="0"
+                              placeholder="0"
+                              value={fhInVals[row.level] ?? ''}
+                              onChange={e => {
+                                const inStr = e.target.value
+                                setFhInVals(prev => ({ ...prev, [row.level]: inStr }))
+                                const ft = parseFloat(fhFtVals[row.level]) || 0
+                                const inches = parseFloat(inStr) || 0
+                                const val = ft + inches / 12
+                                setFloorHeight(row.level, 'floorToCeiling', (ft === 0 && inches === 0 && (fhFtVals[row.level] ?? '') === '' && inStr === '') ? null : val)
+                              }}
+                            />
+                            <span className="fh-unit">in</span>
+                          </div>
+                        </div>
+
+                        {/* Floor system above */}
+                        {isTop ? (
+                          <div className="fh-top-marker">Floor system: — (top of stack)</div>
+                        ) : (
+                          <div className="fh-expand-control">
+                            <div className="fh-expand-summary" onClick={() => openFhExpand(row.level)}>
+                              <span className="fh-field-label">Floor system above</span>
+                              <span className="fh-expand-value">
+                                {entry.floorSystemAbove != null
+                                  ? `${entry.floorSystemAbove.toFixed(precision)} ${fhDisplayUnit}`
+                                  : 'not set'}
+                              </span>
+                              <span className="fh-expand-caret">{isExpanded ? '▲' : '▼'}</span>
+                            </div>
+                            {isExpanded && (
+                              <div className="fh-expand-body">
+                                <div className="fh-presets">
+                                  {FLOOR_SYSTEM_PRESETS.map(p => (
+                                    <button key={p.label} className="fh-preset-btn"
+                                      onClick={() => applyFhPreset(row.level, p.inches)}
+                                    >
+                                      {p.label}
+                                    </button>
+                                  ))}
+                                  <button
+                                    className={`fh-preset-btn ${fhCustomActive ? 'fh-preset-btn--active' : ''}`}
+                                    onClick={() => setFhCustomActive(a => !a)}
+                                  >
+                                    Custom
+                                  </button>
+                                </div>
+                                {fhCustomActive && (
+                                  <div className="fh-custom-form">
+                                    <div className="fh-input-group">
+                                      <input
+                                        type="number"
+                                        className="fh-input"
+                                        step="0.125"
+                                        min="0"
+                                        placeholder="depth"
+                                        value={fhCustomVal}
+                                        onChange={e => setFhCustomVal(e.target.value)}
+                                        autoFocus
+                                      />
+                                      <span className="fh-unit">in</span>
+                                    </div>
+                                    <label className="fh-sheathing-label">
+                                      <input
+                                        type="checkbox"
+                                        checked={fhCustomSheathing}
+                                        onChange={e => setFhCustomSheathing(e.target.checked)}
+                                      />
+                                      add sheathing &amp; drywall (1⅜″)
+                                    </label>
+                                    <button
+                                      className="fh-apply-btn"
+                                      disabled={fhCustomVal === '' || isNaN(parseFloat(fhCustomVal))}
+                                      onClick={() => applyFhCustom(row.level)}
+                                    >
+                                      Apply
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Derived readouts */}
+                        <div className="fh-derived">
+                          <span>Floor plane: {row.floorZ.toFixed(precision)} {fhDisplayUnit}</span>
+                          {row.floorToCeiling != null && (
+                            <span>Ceiling: {row.ceilingZ.toFixed(precision)} {fhDisplayUnit}</span>
+                          )}
+                          {floorToFloor != null && (
+                            <span>Floor-to-floor: {floorToFloor.toFixed(precision)} {fhDisplayUnit}</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
       <div className={`canvas-wrapper ${currentPage ? 'visible' : ''}`}>
         <div

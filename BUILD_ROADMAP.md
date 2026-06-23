@@ -86,6 +86,23 @@ Ground floor tracing (no origin capture — origin is a fixed arbitrary zero)
             -> Phase 2 threshold (3D wireframe + spreadsheet output)
 ```
 
+---
+
+## ⏸ WAYPOINT — Deep-level program review (scheduled, not optional)
+
+**Trigger:** Once a full 3D geometry expressing the building envelope + assembly thicknesses exists and correlates to the volume model (Phase 2 threshold reached).
+
+**Purpose:** A frank, ground-up review of what Collabinator is actually for, informed by the understanding gained through building Phase 1 — not the understanding held at the start. Ben has flagged that the program's true goal will be clearer in hindsight than it could be at the outset, and that the right move is to reserve dedicated time for that reassessment rather than let early assumptions ossify.
+
+**Explicitly in scope for this review:**
+- Whether the data model built through Phase 1.5 still serves the goal as then-understood, or whether a full rebuild is warranted. A rebuild is a legitimate, anticipated possible outcome — Phase 1 is partly a learning vehicle, and a clean, well-documented rebuild informed by real understanding is a success, not a failure.
+- Re-examination of every deferred ADDITIONAL_FUNCTIONALITY entry against the matured understanding.
+- The core question: what is the program's goal, restated from experience.
+
+**Why recorded now:** So the intention survives session history and is treated as a real milestone, not a vague someday. The disciplined deferral practiced throughout Phase 1 (clean data model, documented decisions, deferred-not-deleted register) is precisely what makes this review cheap and what makes a rebuild — if chosen — fast and informed rather than a loss.
+
+---
+
 That's intentionally a separate chat's goal — it deserves its own room to think,
 especially the multi-floor work, which is the feature that got lost once already.
 
