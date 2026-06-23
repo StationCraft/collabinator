@@ -75,7 +75,15 @@ building."
     [x] Elevation spatial Piece 2 — "Align elevation" mode (current): bbox + corner handles,
         uniform-scale drag, Confirm stores elevation's OWN pageScalesRef entry (peer calibration,
         not borrow; #22 honored)
-    [ ] Elevation spatial Piece 3 — floor/ceiling reference lines on the aligned elevation
+    [x] Elevation spatial Piece 3 — floor/ceiling reference lines on aligned elevation
+        Sub-piece 1 (1cb2c0b): drawElevRefLines — read-only teal floor + amber dashed ceiling
+          lines in view mode; anchorY provisional at edge-midpoint Y; spacing from accumulateZ;
+          floorHeightsTick wired into passive-redraw deps.
+        Sub-piece 2 (b597e91): elevBaseYRef (per-elevation-page, pageId-keyed) — drag the base
+          (lowest present level) floor line vertically to place the whole stack; offset persists
+          across page-nav; provisional fallback unchanged; no floorHeightsRef writes.
+        Placement half complete. Remaining: drag-to-edit individual heights (last-edited-wins,
+          separate sub-piece — NOT built yet).
     [ ] Elevation spatial Piece 4 — trace elevation outline as open polyline
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
     Approach: Path 3 / 3-minimal (supersedes the 4a/store-meters-natively scope from Session 17).
@@ -85,7 +93,7 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: Elevation spatial Piece 3 — floor/ceiling reference lines on the aligned elevation.**
+**Next: Elevation spatial Piece 3 sub-piece 3 — drag-to-edit individual line heights (last-edited-wins); then Piece 4 open-polyline tracing.**
 
 ---
 

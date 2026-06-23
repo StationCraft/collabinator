@@ -459,14 +459,14 @@ A React + Vite app with:
     they share calibration scale and ghost-align visually — no explicit geometry composition needed at R2.
     Composing the pageRefParent chain onto stored coordinates is R3 (explicitly NOT built at R2).
 
-- **Elevation PDF spatial work — Pieces 1+2 (Step 8 spatial, Session 19; commits 89b7ba2, current):**
+- **Elevation PDF spatial work — Pieces 1+2 (Step 8 spatial, Session 19; commits 89b7ba2, 2007265):**
   Two-piece interaction for aligning elevation PDFs to floor-plan geometry.
   * **Piece 1 — "Set elevation edge" mode (commit 89b7ba2):** Elevation pages get a "Set elevation
     edge" button. Mode shows the floor-plan ghost; user clicks any ghost edge to designate it as the
     horizontal reference. Stored as `elevationEdgeRef.current[elevPageId]` (authoritative shapeIndex +
     segmentIndex indices; endpointA/B are staleness-check snapshots — same pattern as `frontFace`).
     Purple edge highlight. Multiple floor-plan candidates shown in a selector. Gated to Elevation pages.
-  * **Piece 2 — "Align elevation" mode (current session):** Visible on Elevation pages that have a
+  * **Piece 2 — "Align elevation" mode (commit 2007265):** Visible on Elevation pages that have a
     stored edge (disabled with title hint otherwise). Entering the mode draws a temporary padded bbox
     around the two edge endpoints, with four amber corner handles. Body-drag translates; corner-drag
     scales uniformly around the diagonally-opposite corner — identical math to floor-reference align
@@ -481,8 +481,27 @@ A React + Vite app with:
     canvas-world coordinate space, so `pxPerMeter` equals the source plan's `pxPerMeter`. See also the
     Design notes coordinate note below.
 
+- **Elevation PDF spatial work — Piece 3 sub-pieces 1+2 (Session 20; commits 1cb2c0b, b597e91):**
+  Floor/ceiling reference lines drawn on aligned Elevation pages. Datum-Z only (placement, not
+  height-editing — no floorHeightsRef writes).
+  * **`drawElevRefLines(ctx)` (sub-piece 1, 1cb2c0b):** stateless helper called at end of
+    `redrawFrontFaceLayer` (view mode only — not yet wired into draw/edit redraws). Gate:
+    `resolveElevEdge` non-null + confirmed `pxPerMeter` + `fhZStack.length > 0`. Draws teal solid
+    floor lines and amber dashed ceiling lines spanning canvas width. Labels at left edge.
+    Line widths zoom-compensated (`/ zoomRef.current`). Anchor Y: `elevBaseYRef[pageId] ?? edge-midpoint Y`.
+    Spacing: each line Y = `anchorY - (Zfeet - lowestFloorZFeet) × 0.3048 × pxPerMeter`.
+    `floorHeightsTick` added to passive-redraw useEffect deps so panel edits repaint lines immediately.
+  * **`elevBaseYRef` (sub-piece 2, b597e91):** `useRef({})`, keyed by pageId. Stores the user-placed
+    anchor Y for the stack after a base-line drag. Drag hit-test: within `8 / zoom` px of the base
+    (lowest present level) floor line in view mode intercepts mousedown before pan; `alignDragRef`
+    reused with `mode: 'elevBase'`, vertical-only (`dy = (clientY - startClientY) / zoom`). Writes
+    `elevBaseYRef[pageId] = startBaseY + dy` on every mousemove; calls `redrawFrontFaceLayer`
+    directly (no tick bump needed). Mouseup clears `alignDragRef`. Persists across page-nav;
+    cleared on PDF upload. No new React state. Remaining sub-piece: drag-to-edit individual line
+    heights (last-edited-wins) — NOT yet built.
+
 **Not yet built (next increments):**
-- Elevation Piece 3: floor/ceiling reference lines on the aligned elevation
+- Elevation Piece 3 sub-piece 3: drag individual floor/ceiling lines to edit heights (last-edited-wins)
 - Elevation Piece 4: trace elevation outline as open polyline
 - Cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
@@ -564,6 +583,14 @@ elevationEdgeRef.current[elevPageId] = {
 }
 // Resolved live via resolveElevEdge(pageId) before any use.
 // Cleared on PDF upload.
+```
+
+**Elevation base-line placement offset** (added Session 20, Piece 3 sub-piece 2 — per Elevation page):
+```
+elevBaseYRef.current[elevPageId] = number  // canvas-pixel Y of the placed base line anchor
+// Absent until user drags the base floor line. Falls back to edge-midpoint Y when absent.
+// Persists across page navigation; cleared on PDF upload.
+// Datum-Z only: stores placement position, NOT any floorHeightsRef value.
 ```
 
 **Per-page PDF alignment transforms** (written by sub-step 2 align interaction; `confirmed` added by sub-step 3):

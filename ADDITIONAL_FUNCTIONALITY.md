@@ -448,6 +448,70 @@ projection exist.
 
 ---
 
+### 24. Global drag-release robustness (bug / polish — app-wide)
+
+**Logged:** Session 20, elevation Piece 3 sub-piece 2 close-out.
+
+**Description:** Drag interactions that end with the mouse cursor outside the browser window do not release on `mouseup`, because `mouseup` fires on the element, not on `window`. This affects elevation-edge align, floor-reference align, elevation base-line drag, and likely any other drag interaction in the app. Fix pattern: listen for `mouseup` on `window` (and ideally `pointercancel` / `mouseleave`) in addition to the canvas element's handler; tear down the drag ref in all three paths. Low-risk, no geometry change; app-wide effect.
+
+**Why deferred:** Surfaced mid-close-out, not mid-build; doesn't block any current workflow unless the user releases outside the window (an uncommon but real path). Deserves its own small, focused polish pass that touches all drag interactions at once rather than patching each individually.
+
+**Status:** Deferred. Good candidate for a dedicated drag-robustness pass before Phase 2.
+
+---
+
+### 25. Edge-select button labels (UI polish — Piece 1)
+
+**Logged:** Session 20, elevation Piece 3 sub-piece 2 close-out.
+
+**Description:** In "Set elevation edge" mode (Elevation spatial Piece 1), after the user clicks an edge the only toolbar button is "Exit". The expected UX is two buttons: "Confirm edge selection" (stores and exits pick mode) and "Choose again" (clears the current selection and lets the user re-pick). The current "Exit" doubles as a confirm, which is unclear.
+
+**Why deferred:** UI-label improvement to an already-built and working piece; doesn't block elevation work. Best batched into a UI polish pass with other similar label/button improvements rather than a standalone commit.
+
+**Status:** Deferred. Batch into a UI polish session.
+
+---
+
+### 26. Categorization exit navigation bug (bug — Step 4b)
+
+**Logged:** Session 20, elevation Piece 3 sub-piece 2 close-out.
+
+**Description:** If the user ends a categorization pass while the current page is uncategorized and then exits categorize mode (clicks "Done"), the view remains on the uncategorized page. It should navigate to the last categorized page (or the most-recently confirmed page). Step 4b categorize-mode exit logic does not currently account for this.
+
+**Why deferred:** Affects categorization flow only; does not block tracing or elevation work. No geometry or data impact. UI navigation fix, targeted to a polish pass.
+
+**Status:** Deferred. Fix alongside other categorize-mode polish items.
+
+---
+
+### 27. Reference-line snap-suggest to known Y positions (feature — near-term candidate)
+
+**Logged:** Session 20, elevation Piece 3 sub-piece 2 close-out.
+
+**Description:** When dragging the elevation floor/ceiling reference-line stack (Piece 3 sub-piece 2), snap-suggest the base line toward known reference Y positions — e.g., the elevation-edge ghost line's midpoint Y, or the Y of a previously placed reference line on another elevation page that shares the same source edge. Same UX family as start-vertex snap-suggest: a red proximity highlight when the dragged line approaches a known anchor, releasing gives exact alignment. No PDF image analysis required — all reference Ys are derived from stored geometry.
+
+**Why deferred:** Surfaced at close-out; doesn't block placement. Requires knowing what Y positions are "known" on the current elevation page (edge midpoint, peer page offsets), which is computable but adds hit-test logic to the drag path. Near-term candidate; relates directly to the Piece 3 drag work already built.
+
+**Status:** Deferred. Candidate for the next elevation polish pass after Piece 4 is done.
+
+---
+
+### 28. PDF visual analysis / analysis-first front end (MAJOR VISION — deep-review waypoint)
+
+**Logged:** Session 20, elevation Piece 3 sub-piece 2 close-out.
+
+**Description:** On PDF upload, run automated visual analysis of each page to propose: page category, what the page shows, approximate scale, and key geometry (e.g., exterior perimeter lines). Present findings to the user as confirm-and-correct prompts with a visual overlay — e.g., "Analysis suggests this is the Basement floor plan; these lines appear to be the exterior perimeter — confirm? If any line is wrong, click it and adjust." This is a fundamentally different build paradigm from the current manual-trace flow: **analysis-first, human-in-the-loop correction** rather than human-first trace from scratch.
+
+Includes raster-image line sensing, ML-assisted classification, and an overlay UI that presents analysis results as candidates rather than facts. Reflects how Ben originally envisioned the program working.
+
+**Why deferred:** The current Phase 1 toolkit (manual trace, snap, align) is the foundation the analysis layer would validate against and hand off to. Building analysis before the manual layer is complete would build on an incomplete reference. This item is explicitly flagged as **relevant input to the scheduled post-Phase-2 deep-review waypoint** — the review should evaluate whether Phase 2 rebuilds around the analysis-first paradigm rather than adding it on top.
+
+**Why it matters for the review waypoint:** This is a paradigm-level choice (analysis-first vs. trace-first), not a feature addition. The deep-review waypoint is the right place to decide whether the tool pivots to this model or continues the trace-first approach.
+
+**Status:** Deferred — not scheduled. Tag as a key input item for the ⏸ deep-level program review (BUILD_ROADMAP.md waypoint).
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

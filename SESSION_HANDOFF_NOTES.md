@@ -1178,6 +1178,58 @@ share one coordinate space. This invariant is now documented in CLAUDE.md Design
 
 ---
 
+## SESSION 20 — Elevation Piece 3 sub-pieces 1+2: reference lines + drag-to-place
+
+**Branch:** main | **Commits:** 1cb2c0b (sub-piece 1), b597e91 (sub-piece 2)
+
+### What was built
+
+**Sub-piece 1 (1cb2c0b): `drawElevRefLines` — read-only floor/ceiling reference lines**
+- `drawElevRefLines(ctx)` helper added before `redrawFrontFaceLayer` in App.jsx.
+- Called at end of `redrawFrontFaceLayer` (view mode); gates on confirmed `pxPerMeter` +
+  `resolveElevEdge` non-null + `fhZStack.length > 0`. View-only — not yet wired into
+  draw/edit redraws (elevation tracing is Piece 4, not yet built).
+- Teal (`#0d9488`) solid floor lines; amber (`#d97706`) dashed ceiling lines; labels left edge.
+- Anchor Y: `elevBaseYRef.current[pageId] ?? (edgeData.A.y + edgeData.B.y) / 2` (provisional fallback).
+- Spacing: `anchorY - (Zfeet - lowestFloorZFeet) × 0.3048 × pxPerMeter`.
+- `floorHeightsTick` added to passive-redraw `useEffect` deps.
+
+**Sub-piece 2 (b597e91): `elevBaseYRef` + drag-to-place base line**
+- `elevBaseYRef = useRef({})` — per-elevation-page pageId-keyed anchor Y; cleared on PDF upload.
+- Mousedown intercept: in view mode (before pan), hit-tests within `8 / zoom` px of base line Y.
+  If hit: stores `alignDragRef.current = { mode: 'elevBase', startClientY, startBaseY, pageId }` and
+  returns (no pan). Mousemove: `dy = (clientY - startClientY) / zoom`; writes `elevBaseYRef`; calls
+  `redrawFrontFaceLayer(null)` directly. Mouseup: clears alignDragRef before the `!editMode return`.
+- Pan on empty canvas completely unaffected (hit-test fails → falls through to `startPanDrag`).
+- Persists across page-nav (pageId-keyed); cleared on PDF upload.
+
+### Key design decisions confirmed this session
+
+- **Option B for Piece 3 drag:** placement-only — drag moves WHERE the stack sits on the elevation;
+  drag does NOT edit floorHeightsRef values. Drag-to-edit individual heights is a separate later sub-piece.
+- **Drag = whole-stack shift:** one Y-offset for the entire stack; `accumulateZ` spacing is always
+  authoritative. Only the base line is the grab target; other lines are not yet interactive.
+- **No new React state:** `elevBaseYRef` is a ref (not state). Repaint driven by direct
+  `redrawFrontFaceLayer(null)` call from mousemove — no tick bump needed.
+- **`alignDragRef` reuse with `mode: 'elevBase'`:** safe because `elevAlignMode` and `alignMode`
+  return early before elevBase code would conflict. Clean separation.
+
+### New deferred-register entries this session
+
+- **#24 — Global drag-release robustness:** drags ending outside the browser window don't release
+  on mouseup; fix is window-level listener + pointercancel. App-wide, low-risk polish pass.
+- **#25 — Edge-select button labels:** Piece 1 "Set elevation edge" shows only "Exit" after
+  picking; should offer "Confirm edge selection" / "Choose again". UI polish.
+- **#26 — Categorization exit navigation bug:** exiting categorize mode while on an uncategorized
+  page stays on that page; should navigate to last categorized page. Step 4b bug.
+- **#27 — Reference-line snap-suggest to known Y positions:** when dragging the base line, snap
+  toward known reference Ys (edge-midpoint, peer pages). Same UX as start-vertex snap-suggest.
+- **#28 — PDF visual analysis / analysis-first front end (MAJOR VISION):** automated per-page
+  analysis on upload → confirm-and-correct overlay. Original product vision; flagged for deep-review
+  waypoint as a paradigm-level decision (analysis-first vs. trace-first).
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -1203,6 +1255,12 @@ share one coordinate space. This invariant is now documented in CLAUDE.md Design
 - **Metric dimension-entry rework (#20):** floor-heights panel imperial-only; unified rework deferred to dedicated session
 - **Planes/edges as rule-imposing boundaries (#21):** ELEMENT-LAYER architectural record; constrains R3/Phase 2 design
 - **Recalibration-independence invariant (#22):** active invariant — geometry must stay scale-independent in storage; Path 3 honors it
+- **Isometric multi-reference elevation (#23):** Z-driven projected display of floor-plan references on elevation view; gated on R3/Phase 2 coordinate model
+- **Global drag-release robustness (#24):** drags ending outside browser window don't release; fix = window-level mouseup + pointercancel; app-wide polish pass
+- **Edge-select button labels (#25):** "Set elevation edge" mode shows "Exit" only after pick; needs "Confirm" / "Choose again" — UI polish
+- **Categorization exit navigation bug (#26):** exiting categorize mode on uncategorized page stays there instead of navigating to last categorized page
+- **Reference-line snap-suggest to known Ys (#27):** when dragging base line, snap toward known anchor Ys; near-term candidate post-Piece-4
+- **PDF visual analysis / analysis-first front end (#28):** MAJOR VISION — automated page analysis + confirm-and-correct overlay; flagged for deep-review waypoint
 - **Dump graph button (debug):** temporary `console.log` button in trace toolbar — remove before production
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
 

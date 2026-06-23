@@ -236,12 +236,27 @@ geometry" approach is **not** being rebuilt.
   ghost shown; user clicks an edge to designate it as the horizontal reference for this elevation.
   Stored in `elevationEdgeRef.current[elevPageId]` (authoritative indices + endpoint snapshots).
   Purple edge highlight. Selector for multiple floor-plan candidates.
-- **Elevation spatial Piece 2 (current session):** "Align elevation" mode. Temporary bounding box
+- **Elevation spatial Piece 2 (2007265):** "Align elevation" mode. Temporary bounding box
   with four amber corner handles around the picked edge. Body-drag translates; corner-drag scales
   uniformly (same math as floor-reference align). Zoom/pan active during align. "Confirm alignment"
   stores the elevation's OWN `pageScalesRef` entry — pxPerMeter = `elevPixelLen / realLenMeters` where
   both measurements are in the shared canvas-world coordinate space. Does NOT use `pageRefParentRef`:
   the elevation is a calibrated peer, independent if the source plan is recalibrated (#22 honored).
+- **Elevation spatial Piece 3 sub-piece 1 (1cb2c0b):** `drawElevRefLines(ctx)` — draws horizontal
+  reference lines on aligned Elevation pages in view mode. Teal solid lines for floor levels, amber
+  dashed lines for ceiling levels (where non-null). Anchor Y: edge-midpoint Y (provisional); spacing
+  via `accumulateZ(floorHeightsRef)` in feet × 0.3048 × pxPerMeter. Labels at left edge.
+  `floorHeightsTick` added to passive-redraw deps so lines repaint on panel edits. Gate:
+  `resolveElevEdge` non-null + confirmed `pxPerMeter` + `fhZStack.length > 0`. View mode only
+  (not yet wired into draw/edit redraws — elevation tracing not yet built).
+- **Elevation spatial Piece 3 sub-piece 2 (b597e91):** `elevBaseYRef` (per-elevation-page,
+  keyed by pageId) — stores a user-placed anchor Y for the stack. Drag the base (lowest present
+  level) teal floor line vertically within 8/zoom px to move the whole stack; spacing owned by
+  `accumulateZ` is preserved. `elevBaseYRef.current[pageId] ?? edge-midpoint-Y` fallback unchanged.
+  Offset persists across page-navigation round-trips; clears on PDF upload. No `floorHeightsRef`
+  writes, no height edits, no new React state. Pan on empty canvas unaffected.
+  Placement half of Piece 3 is complete. Drag-to-edit individual line heights (last-edited-wins)
+  is a separate remaining sub-piece.
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
 
