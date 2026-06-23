@@ -582,6 +582,7 @@ function App() {
         drawShapePoly(ctx, verts, style)
         ctx.restore()
       })
+      drawElevRefLines(ctx)
       return
     }
 
@@ -612,6 +613,7 @@ function App() {
           ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 4; ctx.stroke()
         }
       }
+      drawElevRefLines(ctx)
       return
     }
 
@@ -630,6 +632,7 @@ function App() {
         drawShapePoly(ctx, shape.vertices, idx === hoverIdx ? 'hover' : 'normal')
         ctx.restore()
       })
+      drawElevRefLines(ctx)
       return
     }
 
@@ -665,6 +668,7 @@ function App() {
           ctx.fillStyle = '#dc2626'; ctx.fill()
         })
       }
+      drawElevRefLines(ctx)
       return
     }
 
@@ -727,11 +731,13 @@ function App() {
           ctx.strokeStyle = 'white'; ctx.lineWidth = isMergeTarget ? 2.5 : (isVertHover ? 2 : 1.5); ctx.stroke()
         })
       })
+
+    drawElevRefLines(ctx)
   }
 
   useEffect(() => {
     if (editMode && currentPage) drawEditCanvas(editHoverRef.current)
-  }, [editMode, currentPage, alignMode, showGhostByPageId, alignTick])
+  }, [editMode, currentPage, alignMode, showGhostByPageId, alignTick, floorHeightsTick])
 
   useEffect(() => {
     if (!drawMode || !currentPage) return
@@ -740,7 +746,7 @@ function App() {
     } else {
       redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
     }
-  }, [drawMode, currentPage, alignMode, showGhostByPageId, alignTick, snapAngle, snapDist, roofShapeDraft])
+  }, [drawMode, currentPage, alignMode, showGhostByPageId, alignTick, snapAngle, snapDist, roofShapeDraft, floorHeightsTick])
 
 
   // ── Edit hit tests ───────────────────────────────────────────────────────
@@ -1823,6 +1829,8 @@ function App() {
         }
       }
     }
+
+    drawElevRefLines(ctx)
   }
 
   const redrawReviewCanvas = (shape, pageId) => {
@@ -1849,6 +1857,8 @@ function App() {
       ctx.fillStyle = '#16a34a'; ctx.fill()
       ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke()
     })
+
+    drawElevRefLines(ctx)
   }
 
   const confirmShape = () => {
