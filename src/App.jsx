@@ -169,6 +169,12 @@ function App() {
   const [frontFacePromptOpen, setFrontFacePromptOpen] = useState(false)  // popup + canvas pick mode
   const ffHoverRef = useRef(null)  // {shapeIdx, segIdx} hovered during pick
 
+  // ── Elevation edge pick (Step 8, Piece 1) ────────────────────────────────────
+  const [elevEdgeMode, setElevEdgeMode] = useState(false)
+  const [elevEdgeSourcePageId, setElevEdgeSourcePageId] = useState(null)
+  const elevEdgeHoverRef = useRef(null)
+  const elevationEdgeRef = useRef({})  // pageId -> {sourcePageId, shapeIndex, segmentIndex, endpointA, endpointB}
+
   const canvasRef = useRef(null)
   const measureRef = useRef(null)
   const pageScalesRef = useRef({})
@@ -306,6 +312,8 @@ function App() {
     setCategorizeMode(false); setPages([])
     setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote(''); setRecatPageNum(null); setCatReentry(false)
     setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
+    setElevEdgeMode(false); elevEdgeHoverRef.current = null; setElevEdgeSourcePageId(null)
+    elevationEdgeRef.current = {}
     setAlignMode(false); alignDragRef.current = null
     primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
     setShowGhostByPageId({})
@@ -404,7 +412,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick])
+  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -1005,6 +1013,8 @@ function App() {
   const handleMeasureMouseDown = (e) => {
     // Front-face pick mode: suppress all normal mousedown (pan/draw/edit) behavior.
     if (frontFacePromptOpen) return
+    // Elevation edge pick mode: suppress normal mousedown.
+    if (elevEdgeMode) return
     // Align mode: hit-test handles for scale-drag; else body-translate.
     if (alignMode) {
       if (e.button !== 0) return
@@ -1279,6 +1289,12 @@ function App() {
       if (hit) selectFrontFace(hit.shapeIdx, hit.segIdx)
       return
     }
+    // Elevation edge pick mode: a click on a ghost perimeter segment stores it.
+    if (elevEdgeMode && elevEdgeSourcePageId) {
+      const hit = hitTestElevEdgeSegment(getCanvasPos(e), elevEdgeSourcePageId)
+      if (hit) selectElevEdge(elevEdgeSourcePageId, hit.shapeIdx, hit.segIdx)
+      return
+    }
     // Suppress click that followed a pan drag
     if (panDidDragRef.current) { panDidDragRef.current = false; return }
     if (editMode) {
@@ -1396,6 +1412,16 @@ function App() {
       const changed = (!hit !== !prev) ||
         (hit && prev && (hit.shapeIdx !== prev.shapeIdx || hit.segIdx !== prev.segIdx))
       if (changed) { ffHoverRef.current = hit; redrawFrontFaceLayer(hit) }
+      setEditCursor(hit ? 'pointer' : 'default')
+      return
+    }
+    // Elevation edge pick mode: hover-highlight ghost perimeter segment.
+    if (elevEdgeMode && elevEdgeSourcePageId) {
+      const hit = hitTestElevEdgeSegment(getCanvasPos(e), elevEdgeSourcePageId)
+      const prev = elevEdgeHoverRef.current
+      const changed = (!hit !== !prev) ||
+        (hit && prev && (hit.shapeIdx !== prev.shapeIdx || hit.segIdx !== prev.segIdx))
+      if (changed) { elevEdgeHoverRef.current = hit; redrawFrontFaceLayer(null) }
       setEditCursor(hit ? 'pointer' : 'default')
       return
     }
@@ -2054,6 +2080,37 @@ function App() {
     return best
   }
 
+  // Hit-test ghost perimeter segments for elevation edge pick.
+  // Scans shapes from sourcePageId (a floor plan page), not the current page.
+  const hitTestElevEdgeSegment = (pos, sourcePageId) => {
+    let best = null, bestDist = HIT_SEG_DIST
+    completedShapesRef.current.forEach((shape, shapeIdx) => {
+      if (shape.pageId !== sourcePageId || shape.status !== 'locked') return
+      const verts = shape.vertices
+      for (let segIdx = 0; segIdx < verts.length; segIdx++) {
+        const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
+        if (d < bestDist) { bestDist = d; best = { shapeIdx, segIdx } }
+      }
+    })
+    return best
+  }
+
+  const selectElevEdge = (sourcePageId, shapeIdx, segIdx) => {
+    const shape = completedShapesRef.current[shapeIdx]
+    if (!shape) return
+    const a = shape.vertices[segIdx]
+    const b = shape.vertices[(segIdx + 1) % shape.vertices.length]
+    elevationEdgeRef.current[currentPageId] = {
+      sourcePageId,
+      shapeIndex: shapeIdx,
+      segmentIndex: segIdx,
+      endpointA: { x: a.x, y: a.y },
+      endpointB: { x: b.x, y: b.y },
+    }
+    elevEdgeHoverRef.current = null
+    redrawFrontFaceLayer(null)
+  }
+
   // Redraw the base measure layer plus the confirmed front face plus the pick
   // hover highlight. Used by the base-layer effect and the pick-mode handlers.
   const redrawFrontFaceLayer = (hoverSeg = ffHoverRef.current) => {
@@ -2079,6 +2136,40 @@ function App() {
         const a = shape.vertices[hoverSeg.segIdx]
         const b = shape.vertices[(hoverSeg.segIdx + 1) % shape.vertices.length]
         drawSegmentHighlight(ctx, a, b, 'hover')
+      }
+    }
+
+    // Elevation edge pick mode: ghost of source floor plan + selected/hover marks.
+    // Outside pick mode: just show the stored edge mark if present.
+    const storedElevEdge = elevationEdgeRef.current[currentPageId]
+    if (elevEdgeMode && elevEdgeSourcePageId) {
+      drawGhostShapes(ctx, completedShapesRef.current, elevEdgeSourcePageId)
+      // Draw already-selected edge (from the active source page)
+      if (storedElevEdge && storedElevEdge.sourcePageId === elevEdgeSourcePageId) {
+        const srcShape = completedShapesRef.current[storedElevEdge.shapeIndex]
+        if (srcShape && storedElevEdge.segmentIndex < srcShape.vertices.length) {
+          const ea = srcShape.vertices[storedElevEdge.segmentIndex]
+          const eb = srcShape.vertices[(storedElevEdge.segmentIndex + 1) % srcShape.vertices.length]
+          drawSegmentHighlight(ctx, ea, eb, 'elev-edge')
+        }
+      }
+      // Draw hover highlight
+      const ehov = elevEdgeHoverRef.current
+      if (ehov) {
+        const srcShape = completedShapesRef.current[ehov.shapeIdx]
+        if (srcShape) {
+          const ha = srcShape.vertices[ehov.segIdx]
+          const hb = srcShape.vertices[(ehov.segIdx + 1) % srcShape.vertices.length]
+          drawSegmentHighlight(ctx, ha, hb, 'hover')
+        }
+      }
+    } else if (storedElevEdge) {
+      // Outside pick mode — keep the stored edge marked
+      const srcShape = completedShapesRef.current[storedElevEdge.shapeIndex]
+      if (srcShape && storedElevEdge.segmentIndex < srcShape.vertices.length) {
+        const ea = srcShape.vertices[storedElevEdge.segmentIndex]
+        const eb = srcShape.vertices[(storedElevEdge.segmentIndex + 1) % srcShape.vertices.length]
+        drawSegmentHighlight(ctx, ea, eb, 'elev-edge')
       }
     }
   }
@@ -2618,6 +2709,20 @@ function App() {
     ? completedShapesRef.current.filter(s => s.pageId === currentPageId)
     : []
 
+  // ── Elevation edge mode (Step 8, Piece 1) ────────────────────────────────────
+  const currentPageCategory = pages.find(p => p.pageId === currentPageId)?.category
+  const isElevationPage = currentPageCategory === 'elevation'
+  // Floor plan pages with at least one locked shape, ordered by FLOOR_ORDER then pageNum.
+  const elevEdgeFloorCandidates = pages
+    .filter(p => p.category === 'floor-plan' &&
+      completedShapesRef.current.some(s => s.pageId === p.pageId && s.status === 'locked'))
+    .sort((a, b) => {
+      const ai = FLOOR_ORDER.indexOf(a.subLabel), bi = FLOOR_ORDER.indexOf(b.subLabel)
+      const aRank = ai === -1 ? 999 : ai, bRank = bi === -1 ? 999 : bi
+      if (aRank !== bRank) return aRank - bRank
+      return a.pageNum - b.pageNum
+    })
+
   const hasSlopedOnPage = lockedShapesOnPage.some(s => s.roofType === 'sloped')
 
   const hasCombinableShapes = editMode
@@ -2809,6 +2914,19 @@ function App() {
               Trace line
             </button>
           </>
+        )}
+
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && isElevationPage && (
+          <button
+            className="snap-btn"
+            onClick={() => {
+              const defaultSrc = elevEdgeFloorCandidates.length > 0 ? elevEdgeFloorCandidates[0].pageId : null
+              setElevEdgeSourcePageId(defaultSrc)
+              setElevEdgeMode(true)
+            }}
+          >
+            Set elevation edge
+          </button>
         )}
 
         {roofLineMode && (
@@ -3266,6 +3384,38 @@ function App() {
             Click the road-facing exterior wall of your building to set the front face.
           </span>
           <button className="calib-cancel" onClick={skipFrontFace}>Skip for now</button>
+        </div>
+      )}
+
+      {elevEdgeMode && (
+        <div className="frontface-prompt">
+          {elevEdgeFloorCandidates.length === 0 ? (
+            <span className="cat-panel-hint">No floor plan with locked shapes to reference.</span>
+          ) : (
+            <>
+              <span className="frontface-prompt-text">
+                Click an edge on the floor plan ghost to set the elevation reference edge.
+              </span>
+              {elevEdgeFloorCandidates.length > 1 && (
+                <select
+                  className="snap-increment-select"
+                  value={elevEdgeSourcePageId || ''}
+                  onChange={e => {
+                    elevEdgeHoverRef.current = null
+                    setElevEdgeSourcePageId(e.target.value || null)
+                  }}
+                >
+                  {elevEdgeFloorCandidates.map(p => (
+                    <option key={p.pageId} value={p.pageId}>{p.subLabel || `Page ${p.pageNum}`}</option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
+          <button className="calib-cancel" onClick={() => {
+            setElevEdgeMode(false); elevEdgeHoverRef.current = null; setEditCursor('default')
+            redrawFrontFaceLayer(null)
+          }}>Exit</button>
         </div>
       )}
 

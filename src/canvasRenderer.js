@@ -72,12 +72,14 @@ export function drawSegmentHighlight(ctx, a, b, variant) {
   ctx.save()
   if (variant === 'hover') {
     ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 5; ctx.globalAlpha = 0.85
+  } else if (variant === 'elev-edge') {
+    ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 4; ctx.globalAlpha = 0.95
   } else {
     ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 4; ctx.globalAlpha = 0.95
   }
   ctx.lineCap = 'round'
   ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
-  if (variant !== 'hover') {
+  if (variant !== 'hover' && variant !== 'elev-edge') {
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
     ctx.globalAlpha = 1
     ctx.font = 'bold 11px system-ui, sans-serif'
