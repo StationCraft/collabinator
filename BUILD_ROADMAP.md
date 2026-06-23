@@ -70,8 +70,13 @@ building."
     [x] Piece 1 — floorHeightsRef data structure + accumulateZ + getFloorLevel (2942e0e)
     [x] Piece 2 — Floor-heights entry panel UI (e780b88)
     [x] Piece 3 — Floor-to-floor back-solve entry, ceilingSource, validateCeiling (4e06de0)
-    [ ] Elevation PDF alignment + reference lines (NEXT)
-**Floor-heights Pieces 1-3 done (Sessions 14-15). Next: elevation PDF alignment + reference lines.**
+    [~] Elevation PDF alignment + reference lines — PAUSED (forks resolved; rebuild on real units after coordinate conversion; see SESSION_HANDOFF_NOTES Session 16)
+[ ] Pixels→real-world coordinate conversion (FOUNDATION) — NEXT
+    Gating prerequisite for the elevation spatial step and for per-element Z.
+    Currently all geometry is canvas pixels; convert to real-world units before
+    Z-aware work continues. Per-element 3D identity (#7, #19 ELEMENT layer) is
+    sequenced AFTER this conversion. Deserves its own planning chat (own context).
+**Floor-heights Pieces 1-3 done (Sessions 14-15). Next: pixels→real-world coordinate conversion (foundation), then resume elevation spatial work on real units.**
 
 ---
 

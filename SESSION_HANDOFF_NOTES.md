@@ -910,6 +910,65 @@ between levels (onFocus clears if `fhError.level !== current level`).
 
 ---
 
+---
+
+## SESSION 16 — Elevation-spatial planning; coordinate-conversion pulled forward
+
+**Branch:** main | **Commits:** none (planning only — no code written this session)
+
+### What happened
+
+Planning session for the SPATIAL half of Step 8 (elevation PDF alignment +
+reference lines). No code was written. The session resolved the design forks for
+the elevation mechanic, then surfaced a larger decision that supersedes it.
+
+### Decision: pull the pixels→real-world coordinate conversion forward
+
+Repeatedly, every Z-aware step (floor heights, elevations, roof slope) has had to
+work around geometry being stored in canvas pixels rather than real-world units.
+The recurring friction is the deferred pixels→real-world conversion (CLAUDE.md's
+standing "post-Phase-1.5 refactor" note; the "gated on pixels→XYZ" language in
+ADDITIONAL_FUNCTIONALITY #7/#17/#18/#19).
+
+Decision made this session:
+1. Scope the pixels→real-world coordinate conversion NOW, as its own dedicated
+   step — the foundation. It touches every stored coordinate, every snap, every
+   label, every transform consumer; it gets its own planning chat with its own
+   loaded context (same "own room to think" reasoning that protects the multi-floor
+   work in BUILD_ROADMAP).
+2. Per-element 3D identity (the ELEMENT layer — #7 intra-floor Z, #19 coplanar-
+   distinctness) stays SEQUENCED BEHIND the conversion. It depends on the
+   conversion existing and must be designed deliberately per #19, not bolted on.
+3. The elevation spatial step is PAUSED and will be rebuilt on real units once the
+   conversion lands (cleaner that way).
+
+### Step-8 spatial forks — RESOLVED BUT PARKED (do not re-litigate when elevation resumes)
+
+- **Edge-as-ghost:** an elevation's ghost reference is the selected floor-plan EDGE
+  (already calibrated) projected as a horizontal line of known real-world length.
+  It reuses the existing align machinery (.pdf-align-layer, pageTransformsRef,
+  getCSSTransform, body-drag + corner handles); handles anchor to the edge-line
+  endpoints rather than a polygon bbox. This collapses old Fork C (no separate
+  elevation align entry point needed) and old Fork B (horizontal scale is borrowed
+  from the edge).
+- **Uniform scale always:** the borrowed horizontal scale applies proportionally to
+  BOTH axes — no non-uniform/stretched scaling, ever. There is ONE uniform scale per
+  elevation, set by the edge-ghost. Floor/ceiling reference lines are positioned
+  WITHIN that scale and read height OFF it; they do NOT establish an independent
+  vertical scale.
+- **Datum-Z this step / element-Z later (old Fork A):** the elevation floor/ceiling
+  lines read/write the DATUM layer (floorHeightsRef) only. The traced elevation
+  outline is stored as 2D pixels like every other shape — NO per-vertex Z this step.
+  Per-element Z is the ELEMENT layer, sequenced behind the coordinate conversion.
+- **Last-edited-wins across surfaces:** the elevation line and the floor-heights
+  panel are two editing surfaces for the SAME value in floorHeightsRef. Edit one and
+  the other updates to match — same last-edited-wins pattern as Piece 3's
+  ceilingSource, now spanning two surfaces instead of two fields.
+- **Piece sequence (when elevation resumes):** floor-plan edge-select → align
+  horizontal to edge-ghost (uniform) → place floor/ceiling lines (read height off
+  the uniform scale) → trace outline as single open polyline. Edge-select comes
+  FIRST because the edge IS the align ghost.
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
