@@ -763,6 +763,89 @@ These are stored in different places: `shape.lineRoles` for perimeter, `edge.rol
 
 ---
 
+---
+
+## SESSION 14 — Floor-height Z-stack data structure + entry panel
+
+**Branch:** main | **Commits:** 2942e0e (Piece 1), e780b88 (Piece 2)
+
+### What was built
+
+**Step 8 (Elevation calibration + tracing), Pieces 1-2: datum-layer height capture**
+
+**Piece 1 (2942e0e): floorHeightsRef + accumulateZ + getFloorLevel — no UI**
+- `floorHeightsRef = useRef({})` in App.jsx — keyed by FLOOR_ORDER level string
+  (e.g. `'Main Floor'`), value `{ floorToCeiling: number|null, floorSystemAbove: number|null }`.
+  Values stored in feet. First floor-level-keyed ref in codebase (all others are pageId-keyed).
+- `accumulateZ(floorHeights, presentLevels, floorOrder)` — pure function in geometry.js.
+  Returns `[{level, floorZ, ceilingZ, floorToCeiling, floorSystemAbove}]` base→top.
+  `presentLevels` = FLOOR_ORDER levels with at least one categorized Floor Plan page.
+  Nulls treated as 0 for accumulation but preserved in output.
+- `getFloorLevel(pageId)` — App.jsx helper. Looks up `pages` state array, returns `subLabel`
+  if it is a known FLOOR_ORDER level (via `isKnownFloorLabel`), else null. The only helper
+  in the codebase that crosses the ref/state boundary (floor level is in React state, not a ref).
+- `floorHeightsTick` state counter bumped on every `floorHeightsRef` write (same pattern as
+  `alignTick`) to force React re-render from ref mutation. `void floorHeightsTick` silences
+  linter while creating the dependency.
+- Temporary console dump added, verified correct (React double-invoke in dev Strict Mode fires
+  dump 4× — expected, not a bug), then removed before commit.
+- Upload reset added to `handleFileChange`: `floorHeightsRef.current = {}` plus all draft
+  state cleared (`fhFtVals`, `fhInVals`, `fhExpandedLevel`, etc.).
+
+**Piece 2 (e780b88): Floor-heights entry panel — browser-verified**
+- "Floor Heights" toolbar button (teal `.floor-heights-btn`) toggles `.fh-panel` overlay.
+  Only visible when PDF loaded + no active mode (draw/edit/calibrate/categorize).
+- Right-side overlay: `position:absolute; right:0; height:100%; width:300px; z-index:100;`
+  dark semi-transparent background; no effect on canvas area.
+- **Outstanding worklist (amber):** lists any missing `floorToCeiling` or `floorSystemAbove`
+  for each present level; green "All heights entered" when complete.
+- **Stack zone:** one `.fh-row` per `fhZStack` entry, base to top.
+  - Level name header.
+  - Ceiling height: two `number` inputs (ft + in), matching calibration dialog convention.
+    Per-level `fhFtVals`/`fhInVals` maps hold draft values independently per row.
+    Storage formula: `ft + inches/12` feet. Null stored if both fields are blank.
+  - Floor-system-above: expanding control with presets (2×10 = 10.625", 2×12 = 12.625",
+    11⅞″ I-joist = 13.25", 14″ I-joist = 15.375", 16″ I-joist/truss = 17.375",
+    24″ truss = 25.375") + Custom inches input (`step="0.125"`) with `+1⅜″ sheathing`
+    checkbox. All preset values are total depths in inches; converted via
+    `inchesToFhUnit(inches) = fhDisplayUnit === 'ft' ? inches/12 : inches*0.0254`.
+    `fhDisplayUnit` derived from first available `pageScalesRef` displayUnit, defaults `'ft'`.
+  - Topmost level (`fhTopLevel`) shows "— (top of stack)" instead of floor-system control.
+  - Derived readouts: floorZ and ceilingZ (display only, muted grey, computed from `fhZStack`).
+- Input-format fix applied before commit: ceiling height was originally a single field;
+  changed to ft+in two-field entry. Custom floor-system field explicitly in inches with `in` label.
+
+### Architecture decisions this session
+
+**3a scope boundary (explicit):** Session 14 elevation step captures topology/offsets only.
+No pixels→real-world XYZ coordinate conversion. `floorHeightsRef` stores heights in feet
+(display unit). Coordinate-space conversion is deferred to Phase 2.
+
+**Datum vs. element framing (new):** `floorHeightsRef` is the DATUM layer — named reference
+elevations shared across the project (one per known floor level). Per-element Z on individual
+shapes is the ELEMENT layer — does not exist yet and is deferred to Phase 2. `completedShapesRef`
+shapes do NOT have `floorLevel` or `elevationZ` fields (CLAUDE.md previously documented these
+as present — that was a phantom; corrected in Session 14 doc refresh). Coplanar elements sharing
+a datum are NOT merged; see ADDITIONAL_FUNCTIONALITY.md #19.
+
+**Imperial-only (explicit):** floor-heights panel stores/displays ft/in only. Metric rework
+deferred to #20.
+
+### Deferred-register entries added this session
+
+- **#19 — Coplanar-distinctness principle (architectural record):** coincidence ≠ identity;
+  datum layer vs. element layer; per-element Z deferred to Phase 2 (#7).
+- **#20 — Metric dimension-entry rework:** all inputs currently imperial-only; unified
+  rework deferred to dedicated session.
+
+### BUILD_ROADMAP.md addition
+
+Waypoint added (⏸ WAYPOINT — Deep-level program review): triggers at Phase 2 threshold,
+when full 3D geometry + volume model exists. Purpose: frank reassessment of program goals
+informed by Phase 1 experience; rebuild is an explicitly anticipated possible outcome.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -784,6 +867,8 @@ These are stored in different places: `shape.lineRoles` for perimeter, `edge.rol
 - **Multi-select reference ghosts by floor label (#16):** per-floor-label visibility picker for reference overlays; bridge between single ghost and #8 full layer system
 - **Universal reference-layer model (#17):** architectural record; sub-step 5 adopts data shape; projection math + multi-entity referencing gated on pixels→XYZ conversion
 - **Roof slope/Z-derivation + peaked-eave inference (#18):** ridge-to-perimeter junction topology built (perimParent vertex); the elevation consequence (eave rising to ridge, sloped surface) needs slope rules + XYZ model — see #18 build-order in ADDITIONAL_FUNCTIONALITY.md
+- **Coplanar-distinctness principle (#19):** architectural record — datum vs. element layer; per-element Z deferred to Phase 2
+- **Metric dimension-entry rework (#20):** floor-heights panel imperial-only; unified rework deferred to dedicated session
 - **Dump graph button (debug):** temporary `console.log` button in trace toolbar — remove before production
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
 
@@ -803,7 +888,10 @@ These are stored in different places: `shape.lineRoles` for perimeter, `edge.rol
    - ~~Sub-step 3: confirm-scale lock~~ — DONE (d49060d, e4cf8b6, 327e84d, d030a34)
    - ~~Sub-step 4: cross-page persistence/toggle~~ — DONE (c7a45e0, d42296e, 196b0fa)
    - ~~Sub-step 5: directional decoupling / primary-reference model~~ — DONE (9ef06b1, b8dd9ce, 6f7f629)
-8. **Roof plan tracing — NEXT**
+8. ~~Roof plan tracing~~ — DONE (a5c1b48, 8288a1d)
+9. **Elevation calibration + tracing (IN PROGRESS)**
+   - ~~Piece 1: floorHeightsRef + accumulateZ + getFloorLevel~~ — DONE (2942e0e)
+   - ~~Piece 2: Floor-heights entry panel~~ — DONE (e780b88)
+   - **Piece 3: Display/read-back, cross-validation, elevation PDF alignment (NEXT)**
 
-After roof: elevation calibration + tracing → cross-section reference geometry →
-windows/doors → Phase 2 threshold.
+After elevation: cross-section reference geometry → windows/doors → Phase 2 threshold.

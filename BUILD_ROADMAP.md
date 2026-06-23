@@ -66,8 +66,11 @@ building."
         snap, edge-split snap, auto-split on perimeter edge (8288a1d)
     [x] Piece F: Heal-on-undo/delete — healAfterEdgeRemoval restores split edges (8288a1d)
     [x] Piece G: Five role colors, Z-undo, Undo button in toolbar (8288a1d)
-[ ] Elevation calibration + tracing (next)
-**Roof plan tracing complete. Next: elevation calibration + tracing.**
+[ ] Elevation calibration + tracing
+    [x] Piece 1 — floorHeightsRef data structure + accumulateZ + getFloorLevel (2942e0e)
+    [x] Piece 2 — Floor-heights entry panel UI (e780b88)
+    [ ] Piece 3 — Display/read-back, cross-validation, integration with elevation tracing (NEXT)
+**Floor-heights Pieces 1-2 done (Session 14). Next: Piece 3 and/or elevation PDF alignment + reference lines.**
 
 ---
 

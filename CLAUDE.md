@@ -381,7 +381,38 @@ A React + Vite app with:
     (solid, on top of default polygon fill).
   * All roof graph state clears on PDF upload; chain state clears on page nav.
 
+- **Floor-height Z-stack data structure (Step 8, Session 14 — Pieces 1-2):**
+  Datum-layer height capture for all known floor levels (Piece 1: `2942e0e`; Piece 2: `e780b88`):
+  * **`floorHeightsRef`** — `useRef({})` keyed by FLOOR_ORDER level string (e.g. `'Main Floor'`);
+    value `{ floorToCeiling: number|null, floorSystemAbove: number|null }`. Storage in feet.
+    First floor-level-keyed ref in codebase (all others are pageId-keyed). Cleared on PDF upload.
+  * **`accumulateZ(floorHeights, presentLevels, floorOrder)`** — pure function in geometry.js;
+    returns ordered `[{level, floorZ, ceilingZ, floorToCeiling, floorSystemAbove}]` base→top.
+    Nulls preserved in output but treated as 0 for accumulation.
+  * **`getFloorLevel(pageId)`** — App.jsx helper; looks up `pages` state array, returns `subLabel`
+    if it is a known FLOOR_ORDER level, else null. Bridges the ref/state boundary.
+  * **`floorHeightsTick`** — state integer bumped on every `floorHeightsRef` write (same pattern
+    as `alignTick`) to force React re-render.
+  * **Floor-heights panel (Piece 2)** — right-side overlay (`.fh-panel`), 300px, absolute-positioned,
+    dark semi-transparent background. "Floor Heights" toolbar button (teal) toggles it; only shown
+    when PDF is loaded and no active mode (draw/edit/calibrate/categorize). Panel contains:
+    - Outstanding items (amber worklist): missing ceiling heights and floor-system depths
+    - Stack zone: one row per `fhZStack` entry (base to top), showing level name, ft+in ceiling
+      height entry (two `number` inputs matching calibration dialog convention), expanding
+      floor-system-above control with inch-native presets (2×10 through 24″ truss) + custom
+      inches input with optional `+1⅜″ sheathing` checkbox, derived Z readouts (floorZ, ceilingZ)
+    - Topmost level shows "— (top of stack)" in place of floor-system control
+  * **3a scope boundary:** this step captures topology/offsets only — NO pixels→real-world XYZ
+    coordinate conversion. `floorHeightsRef` stores heights in feet (display unit); coordinate-space
+    conversion is deferred to Phase 2.
+  * **Datum vs. element framing:** `floorHeightsRef` is the DATUM layer (named reference elevations
+    shared across the project). Per-element Z on individual shapes is the ELEMENT layer — deferred
+    to Phase 2. Coplanar elements sharing a datum are NOT merged (see ADDITIONAL_FUNCTIONALITY.md #19).
+  * **Imperial-only (explicit):** Metric dimension-entry in this panel deferred to a dedicated
+    session (see ADDITIONAL_FUNCTIONALITY.md #20). Do not trust the panel for metric projects.
+
 **Not yet built (next increments):**
+- Floor-heights panel Piece 3 (display/read-back; validation; integration with elevation tracing)
 - Elevations, cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
@@ -409,13 +440,14 @@ completedShapesRef.current = Array<{
   vertices: [{x, y}],           // canvas-pixel coordinates
   status: 'reviewing' | 'locked',
   pageId: string,               // e.g. "page-1"
-  floorLevel: string,
-  elevationZ: number,
   // Roof-plan pages only:
   roofType?: 'flat' | 'sloped' | null,
   parapetWidth?: number | null,  // inches (always imperial); flat sections only
   lineRoles?: { [segIdx: number]: 'eave' | 'rake' }  // perimeter-edge role map
 }>
+// NOTE: floorLevel and elevationZ are NOT present on shape objects. Per-element Z
+// is deferred to Phase 2 (ELEMENT layer). Floor-level heights live in floorHeightsRef
+// (DATUM layer). See ADDITIONAL_FUNCTIONALITY.md #19.
 ```
 
 **Per-page scales:**
@@ -471,6 +503,22 @@ pageRefParentRef.current = { [pageId: string]: string }
   // Maps each confirmed page to the reference page it aligned/confirmed against.
   // Written at confirm time. getEffectiveScale follows this chain to the primary.
 ```
+
+**Floor-height Z-stack** (added Session 14 — datum layer only; ELEMENT Z is Phase 2):
+```
+floorHeightsRef.current[floorLevel] = {
+  floorToCeiling: number | null,   // feet (e.g. 9 = 9 ft); null until entered
+  floorSystemAbove: number | null  // feet (e.g. 0.885 ≈ 10⅝"); null until entered
+}
+// floorLevel is a FLOOR_ORDER string ('Basement', 'Main Floor', etc.)
+// Only present for levels in FLOOR_ORDER — free-text subLabels excluded.
+// Cleared on PDF upload.
+```
+
+`accumulateZ(floorHeights, presentLevels, floorOrder)` pure helper in geometry.js:
+- Returns `[{level, floorZ, ceilingZ, floorToCeiling, floorSystemAbove}]` base→top.
+- `presentLevels` = FLOOR_ORDER levels with at least one categorized Floor Plan page.
+- Nulls treated as 0 for accumulation but preserved in output.
 
 **Roof internal-line graph** (added Session 13 — roof-plan tracing):
 ```
@@ -532,7 +580,7 @@ All of the above are cleared on PDF upload.
 - `src/canvasRenderer.js` — stateless drawing primitives that take explicit
   data params (drawLockedShapes, drawShapePoly, drawAlignGuide, pxToDisplayDist)
 - `src/App.jsx` — all React state, refs, event handlers, stateful canvas
-  drawing (drawEditCanvas, redrawDrawCanvas), and JSX (~2800 lines)
+  drawing (drawEditCanvas, redrawDrawCanvas), and JSX (~3400 lines)
 
 ## Working environment notes
 

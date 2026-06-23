@@ -210,6 +210,17 @@ geometry" approach is **not** being rebuilt.
 
 ## 8. Elevation calibration & tracing
 
+**Build status (Session 14):** Partially built.
+- **Piece 1 (2942e0e):** `floorHeightsRef` data structure, `accumulateZ` helper, `getFloorLevel` helper. No UI.
+- **Piece 2 (e780b88):** Floor-heights entry panel — worklist + Z-stack rows, ft+in ceiling height
+  entry, inch-native floor-system presets + custom input. Browser-verified.
+- **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
+  No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
+- **Piece 3 (NEXT):** Display/read-back, cross-validation, integration with elevation PDF alignment.
+
+**Imperial-only assumption (explicit, Session 14):** The floor-heights panel stores and displays
+values in ft/in only. Metric rework deferred to ADDITIONAL_FUNCTIONALITY.md #20.
+
 **Purpose:** elevations are **reference-only** for the 3D envelope — they are not
 used to generate new floor/wall planes (those already exist from the floor-plan
 traces). Elevations exist to:
