@@ -104,8 +104,20 @@ building."
             visible when isElevationPage && gradeLineOnPage && no active mode. Click deletes ALL
             grade-line shapes for currentPageId, repaints, re-enters draw mode (setDrawMode +
             setGradeLineDrawing). Wall polygon untouched. Browser-verified.
-    [ ] Elevation spatial Piece 4 sub-piece 3+ — windows/doors (NEXT); cross-sections (DEFERRED —
-        windows/doors intentionally builds first)
+    [x] Elevation spatial Piece 4 sub-piece 3 — windows/doors Pieces 1+2: placement layer (Session 26)
+        Piece 1 (data spine): stable shape ids (shapeIdCounterRef + nextShapeId); shapeKind
+          'window'|'door' discriminator; dimensionBasisRef project-level setting; OPENING_TYPES list;
+          drawOpeningPoly / drawOpeningShapes in canvasRenderer.js; isOpening() helper at all sites;
+          getEligibleShapes excludes openings from combine; Edit Shapes inclusion/exclusion rules.
+        Piece 2 (interaction + dialog): "Place opening" toolbar button (elevation + scale gated);
+          first-use dimension-basis gate; two-click free rectangle (useAngle=false); opening dialog
+          (Kind/Type/Width/Height/Label); confirmOpening + discardOpening with immediate canvas repaint;
+          1" default snap on placement + Edit Shapes entry when openings present (priorSnapIncrementRef
+          save/restore); persistent top-bar snap selector (one selector, always visible, disabled when
+          no scale; prior in-toolbar selectors removed). Browser-verified.
+    [ ] Windows/doors Piece 3 — three-layer snap (NEXT)
+    [ ] Windows/doors Piece 4 — dumb duplicate (NEXT)
+    [ ] Cross-sections (DEFERRED — windows/doors intentionally builds first)
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
     Approach: Path 3 / 3-minimal (supersedes the 4a/store-meters-natively scope from Session 17).
     Geometry stays stored in pixels; meters are a read-time projection through named helpers.
@@ -114,7 +126,7 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: Windows/doors on elevation pages. Cross-sections deferred (windows/doors builds first).**
+**Next: Windows/doors Piece 3 (three-layer snap) and Piece 4 (dumb duplicate). Cross-sections deferred.**
 
 ---
 

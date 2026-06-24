@@ -708,6 +708,66 @@ The intersection/quantification logic (the "read" half) is R3 / element-layer, d
 
 ---
 
+### 44. Window/door component model (shared instance identity)
+
+**Logged:** Session 26, windows/doors Pieces 1+2 close-out.
+
+**Description:** Today each placed opening is a dumb-duplicate rectangle — no shared identity with other openings of the same type. The component model makes openings instances of project-level shared type definitions. Capabilities:
+- Project-level opening definitions store dimensions + type + frame/RO basis only. Edit a definition → prompt "edit all instances of this type" vs. "make unique."
+- Cross-elevation place-from-existing picker: instead of drawing a new rectangle, pick an already-placed opening to inherit its definition.
+- Definitions store NO Z and NO 3D position — instances stay 2D rectangles at page-specific pixel coords; per-instance Z is R3 / the #19 seam.
+- The current dumb-placement layer (Pieces 1+2) is explicitly throwaway: it migrates into or re-places as component instances here. No legacy compatibility required.
+
+**Why deferred:** Placement layer (Pieces 1+2) must be stable first. Component model is the logical next windows/doors session.
+
+**Status:** Deferred. Next windows/doors session after Pieces 1+2 stable.
+
+---
+
+### 45. Window-as-assembly model (MAJOR)
+
+**Logged:** Session 26, windows/doors Pieces 1+2 close-out.
+
+**Description:** A window is an assembly, not a rectangle. A dedicated "edit" mode where dragging horizontal and vertical lines in from the unit's sides creates **mullions** subdividing it into sub-sections, each carrying independent properties (e.g. operation type per pane: fixed / casement / tilt-turn). Frame edges are first-class geometry **with width**, tracked differentially from glass. The app's job is **2D dimensional data only** — frame dimensions, glass sub-areas, overall unit dimensions. NO Z, NO 3D in this layer.
+
+**Performance coefficients (U-value, SHGC, etc.) are downstream math computed OUTSIDE the geometry layer** — naturally as columns in an export spreadsheet. The app stores dimensions; the spreadsheet computes performance. This is NOT in-app calculation.
+
+Feeds window schedule export (anticipated large function). Depends on #44.
+
+**Why deferred:** Substantial standalone build; depends on #44 (component model) and on the export layer being scoped. Major future session.
+
+**Status:** Deferred. Own planning session when #44 is stable.
+
+---
+
+### 46. Window-schedule import + place-from-list
+
+**Logged:** Session 26, windows/doors Pieces 1+2 close-out.
+
+**Description:** Recognize and import an existing window-or-door schedule table from the plan set. Let the user place units directly from the imported list onto elevations (click an entry → appears ready to align) instead of drawing each from scratch. Imported entries autofill the display label.
+
+**Cross-references:**
+- **#28 (PDF visual analysis):** recognizing a schedule table is the same recognition problem as page categorization and geometry identification — strong candidate to build under the analysis-first layer when #28 is scoped.
+- **#44 (component model):** an imported schedule entry is effectively a component definition; import likely populates the component library directly.
+
+**Why deferred:** Requires #28 (PDF recognition) and #44 (component model). Import/export round-trip should be designed together.
+
+**Status:** Deferred. Revisit alongside #28 and #44.
+
+---
+
+### 47. Top-bar snap selector: metric label fallback on no-scale page (minor polish)
+
+**Logged:** Session 26, windows/doors Pieces 1+2 close-out.
+
+**Description:** On a page with no scale set, the top-bar snap selector shows metric (cm) options instead of imperial because `getEffectiveScale(currentPageId)?.displayUnit` returns undefined and the selector defaults to the metric branch. Cosmetic only — the control is `disabled` when there is no scale, so no user interaction is possible. Labels resolve correctly once scale is set or borrowed.
+
+**Why deferred:** Cosmetic only; no functional impact. Same display-format path as #20 (metric dimension-entry rework). Fix together with #20 or in a UI polish pass.
+
+**Status:** Deferred. Bundle with #20.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

@@ -1410,6 +1410,67 @@ A reference line drawn under snap rules should be scoped as ONE build (draw + sn
 
 ---
 
+## SESSION 26 — Windows/doors placement layer: Pieces 1+2 + two fix rounds
+
+**Branch:** main | **Commits:** code commit + doc close-out
+
+### What shipped
+
+**Windows/doors Pieces 1+2 — placement layer (browser-verified):**
+
+**Piece 1 — data spine:**
+- `shapeIdCounterRef` (monotonic `useRef(0)`) + `nextShapeId()`: assigns `id: 'sh-N'` to every shape at creation. `confirmShape`, `commitGradeLine`, `confirmRoofShape`, and `confirmOpening` all call `nextShapeId()`. Counter cleared on PDF upload.
+- `shapeKind: 'window'|'door'` discriminator added to the existing `'grade-line'` discriminator set. Absent = closed wall polygon (default; no migration of existing shapes). `isOpening(s)` helper in both App.jsx and canvasRenderer.js at all discrimination sites.
+- `OPENING_TYPES = ['Tilt-turn', 'Casement', 'Fixed', 'Slider', 'Hinged door']` module-level array. Dropdowns derive from this.
+- `dimensionBasisRef`: project-level `'frame'|'rough-opening'|null`; set once via first-use gate; persists across page navigation; cleared on PDF upload.
+- `drawOpeningPoly(ctx, verts, style)` in canvasRenderer.js: teal fill/stroke (rgba(6,182,212) / #0891b2); same style interface as `drawShapePoly`. `drawOpeningShapes(ctx, completedShapes, pageId)` iterates locked openings. Both wired into all render paths.
+- `drawLockedShapes` and `drawGhostShapes` skip openings (`isOpening(shape)` guard). Openings never shown as ghost reference on adjacent floors.
+- `getEligibleShapes` in geometry.js excludes `shapeKind === 'window'` and `'door'` from combine eligibility.
+- All five edit sub-mode forEach loops handle openings: wall polygons via `drawShapePoly`, openings via `drawOpeningPoly`. Openings excluded from split hit-test (`hitTestShapeBody` guard).
+
+**Piece 2 — interaction + dialog:**
+- "Place opening" toolbar button: visible when `isElevationPage && pageHasScale && !anyActiveMode`.
+- Two-click free rectangle: `openingCorner1` set on first click; `makeRectVerts(c1, c2)` builds 4-vertex CW rect on second click. `applySnap` called with `useAngle=false` at both clicks and in rubber-band mousemove — axis-snap off, distance-snap active.
+- First-use gate: if `dimensionBasisRef.current` null, sets `openingDraftShape.pendingBasis=true` and shows "Frame Size or Rough Opening?" modal first.
+- Opening dialog: Kind radio, Type dropdown, Width/Height ft+in (seeded from pixel distance via `openOpeningDialog`), Label, Confirm/Cancel. `parseFtIn` converts to meters.
+- `confirmOpening`: pushes shape to `completedShapesRef`, restores snap, repaints.
+- `discardOpening`: clears state, restores snap, calls `redrawFrontFaceLayer(null)` — immediate repaint.
+
+**Fix 1 — free rectangle (no axis-snap):** Original build used `useAngle=true` in placement, forcing 45° diagonals (square-only). Fixed to `useAngle=false` in both click handler and mousemove rubber-band.
+
+**Fix 2 — 1" default snap + save/restore:**
+- `saveAndDefaultSnapIncrement()`: saves `priorSnapIncrementRef.current = snapIncrementRef.current`, then sets increment to `ONE_INCH_M = 0.0254m`. Called on "Place opening" entry and on "Edit Shapes" entry when `lockedShapesOnPage.some(s => isOpening(s))`.
+- `restoreSnapIncrement()`: restores prior value. Called in `discardOpening`, `confirmOpening`, and `exitEditMode`.
+
+**Fix 3 — discardOpening repaint:** `discardOpening` originally cleared state without repainting; rubber-band rectangle stayed on canvas until something else triggered a repaint. Fixed by adding `redrawFrontFaceLayer(null)` as last action.
+
+**Persistent top-bar snap selector:**
+- Removed: inline draw-toolbar selector (`snapDist && pageHasScale && (() => ...)`) and `editSnapIncrementSelect` variable + all 5 usages in edit toolbar.
+- Added: single `<select>` in `.toolbar` div, always visible when `currentPage && pdf`, `disabled={!pageHasScale}`. onChange triggers `redrawDrawCanvas` in draw mode or `drawEditCanvas` in edit mode. Exactly one selector project-wide.
+
+### Key decisions (carry forward)
+
+- **Placement-first (Path 2 / dumb-duplicate model):** openings are independent rectangles with metadata. No shared identity, no component instances. This layer is explicitly throwaway — it exists so placement works now; the component model (#44) replaces/migrates it later. No compatibility shim needed.
+- **Free rectangle, not axis-constrained:** axis-snap off during placement is intentional. Openings are defined by two user-clicked corners; 45° constraint is wrong for this tool.
+- **1" snap default is defaulted, not forced:** the selector is live and overridable. Prior setting restored on exit.
+- **`discardOpening` must repaint:** any discard/cancel path that clears `openingDraftShape` must also call a canvas repaint. This is the same discipline as `discardShape` calling `redrawDrawCanvas(null, [], ...)`.
+- **Component model deferred (#44):** shared instance identity, edit-all-vs-make-unique, cross-elevation place-from-existing. The dumb-duplicate Pieces 1+2 is intentionally the first layer and will migrate.
+
+### Recon findings (for future sessions)
+
+- `isOpening()` must be checked at SEVEN sites: `drawLockedShapes`, `drawGhostShapes`, `hitTestSegments`, `hitTestShapeBody`, `getEligibleShapes`, all five edit sub-mode forEach loops, and the split hit-test. Any new shape-type discriminator touches these same seven.
+- Opening shapes included in vertex/segment drag and move sub-mode automatically once the edit forEach loops call `drawOpeningPoly` for openings and `drawShapePoly` for polygons. No new drag logic.
+- The rubber-band preview in `handleMeasureMouseMove` must match the click handler's snap params (`useAngle=false`); mismatching them caused the axis-snap-forced-square bug.
+
+### New deferred-register entries
+
+- **#44 — Window/door component model** (shared instance identity; edit-all/make-unique; cross-elevation picker; dumb-duplicate is throwaway; no Z/no 3D on instances; see ADDITIONAL_FUNCTIONALITY.md)
+- **#45 — Window-as-assembly model (MAJOR)** (mullions, sub-sections, frame width, glass areas; performance coefficients are spreadsheet math not in-app; depends on #44; see ADDITIONAL_FUNCTIONALITY.md)
+- **#46 — Window-schedule import + place-from-list** (recognize schedule table from PDF; cross-ref #28 and #44; see ADDITIONAL_FUNCTIONALITY.md)
+- **#47 — Top-bar snap selector metric fallback on no-scale page** (cosmetic; disabled control; bundle with #20)
+
+---
+
 ## SESSION 25 — Elevation Piece 4 sub-piece 2 piece 3: Redraw grade line button + sequence decision
 
 **Commit:** e9c04a6 (code) + doc close-out
@@ -1463,6 +1524,10 @@ A reference line drawn under snap rules should be scoped as ONE build (draw + sn
 - **UX notes (#32–#40):** categorize shortcut, button colour audit, ghost-vertex snap gap, align-handle cursor mirror, sidebar auto-collapse, edge-select copy, isometric ghost preview, reference-line label stacking, floor-to-floor field auto-grey
 - **Trackpad/wheel zoom speed (#42):** too fast on laptop; trackpad deltas need scaling/clamping — input polish
 - **Grade-line draw-UI clarity pass (#43):** toolbar text/prompt flow could be clearer — polish after elevation workflow stable
+- **Window/door component model (#44):** shared instance identity, edit-all/make-unique, cross-elevation picker; dumb-duplicate (Pieces 1+2) is throwaway — migrates here; no Z/3D on instances; next windows/doors session
+- **Window-as-assembly model (#45, MAJOR):** mullions, sub-sections, frame geometry, glass areas; performance coefficients are spreadsheet math; depends on #44
+- **Window-schedule import + place-from-list (#46):** recognize schedule table from PDF; cross-ref #28 and #44
+- **Top-bar snap selector metric fallback (#47):** shows cm labels on no-scale page (disabled so cosmetic only); bundle with #20
 - **Elevation Piece 3 sub-piece 3 (deferred/shelved):** drag-to-edit individual floor/ceiling heights; height editing stays panel-only
 - **Dump graph button (debug):** temporary `console.log` button in trace toolbar — remove before production
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
@@ -1496,6 +1561,8 @@ A reference line drawn under snap rules should be scoped as ONE build (draw + sn
     - ~~Elevation spatial Piece 4 sub-piece 1: closed-polygon tracing + edit; drawElevRefLines wired into all redraw paths~~ — DONE (5266dc5)
     - Elevation spatial Piece 3 sub-piece 3: drag-to-edit heights — DEFERRED (shelved)
     - ~~Elevation spatial Piece 4 sub-piece 2: grade / soil line (pieces 1+2+3)~~ — DONE (3fae81b, c7a2092, e9c04a6)
-    - **Elevation spatial Piece 4 sub-piece 3+: windows/doors — NEXT**
+    - ~~Elevation spatial Piece 4 sub-piece 3: windows/doors Pieces 1+2 (placement layer)~~ — DONE (Session 26)
+    - **Elevation spatial Piece 4: windows/doors Piece 3 (three-layer snap) — NEXT**
+    - **Elevation spatial Piece 4: windows/doors Piece 4 (dumb duplicate) — NEXT**
 
-After windows/doors: cross-sections (deferred — windows/doors intentionally builds first) → Phase 2 threshold.
+After windows/doors Pieces 3+4: cross-sections (deferred — windows/doors intentionally builds first) → Phase 2 threshold.

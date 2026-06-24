@@ -366,29 +366,48 @@ This question is closed.
 
 ## 10. Windows & doors
 
-Two input methods:
+**As-built (Session 26 — Pieces 1+2: placement layer):**
 
-1. **Drag-and-drop:** A generic window blank (default 24"×24") sits in a tray on the
-   side of the screen. User drags it onto the elevation, drops it aligned to a corner
-   of the actual window opening (snapped to a grid), grabbing/dropping by a corner
-   handle.
-2. **Resize:** Either drag the opposite corner to match the real opening, or click to
-   type exact dimensions — when dimensions are typed, the **original drop-handle
-   corner stays locked in place** and the opposite corner adjusts.
+The tray-blank / drag-and-drop design from earlier planning is **superseded**. The
+implemented model is a **two-click free-rectangle** on the elevation canvas followed by
+a fill-in dialog. This is the dumb-placement layer; the component model (#44) is deferred.
 
-**Additional UI:**
-- A top bar toggle indicates whether the user is entering **frame dimension** or
-  **rough opening** dimension.
-- A snap-grid setting controls the smallest increment the drag/resize tool honors.
-- Once one window's size is set, **"suggested reference lines" activate** (same
-  mechanic as floor-plan tracing) to help align subsequent windows.
-- Workflow otherwise mirrors floor-plan tracing: click/place, then confirm.
+**Placement workflow:**
+1. On an Elevation page with scale set, the **"Place opening" button** appears in the toolbar.
+2. Entering placement mode defaults the snap grid to **1 inch** (overridable; prior increment restored on exit).
+3. **First click** sets one corner of the opening rectangle.
+4. **Rubber-band preview** shows the rectangle as the cursor moves; distance-snap is active;
+   axis-snap (45°) is deliberately **off** — free rectangle, any width/height ratio.
+5. **Second click** completes the rectangle.
+6. **First-use dimension-basis gate:** on the very first opening of the project session, a modal
+   asks whether dimensions will be entered as **Frame Size** or **Rough Opening**. Answer stored
+   project-wide; never re-prompted until next PDF upload.
+7. **Opening dialog:** Kind (window / door radio), Type dropdown (Tilt-turn / Casement / Fixed /
+   Slider / Hinged door), Width ft+in, Height ft+in (seeded from pixel distance), Label (free
+   text). Confirm locks the opening; Cancel discards and immediately repaints (no lingering rect).
 
-**Future connection (not Phase 1.5, noted for continuity):** the same elevation canvas
-will later be used to display envelope penetrations (e.g., a bathroom exhaust vent),
-automatically rendered at the correct location based on the penetration's stored 3D
-path and elevation — this is why elevation geometry needs to be accurately scaled and
-positioned now, even though penetrations themselves are a later phase.
+**Data stored per opening:**
+```
+{ id:'sh-N', vertices:[{x,y}×4], pageId, status:'locked',
+  shapeKind:'window'|'door', openingType, label, widthM, heightM,
+  dimBasis:'frame'|'rough-opening' }
+```
+
+**Edit Shapes compatibility:** openings support segment drag, vertex drag, move, and delete
+sub-modes. Openings are excluded from Split Shape hit-test and Combine eligibility.
+
+**Snap selector:** a single persistent `<select>` in the top toolbar — always visible when a
+page is loaded, disabled (greyed) when no scale is set. Replaced all prior per-toolbar-mode
+selector instances. One selector total, shared across draw / placement / edit modes.
+
+**Deferred (see ADDITIONAL_FUNCTIONALITY.md):**
+- #44 — component model (shared instance identity; edit-all/make-unique)
+- #45 — window-as-assembly (mullions, sub-sections, frame geometry, glass areas)
+- #46 — schedule import + place-from-list
+
+**Future connection (not Phase 1.5):** the elevation canvas will later display envelope
+penetrations (e.g., bathroom exhaust vents) at their correct location based on stored 3D paths
+— this is why elevation geometry is accurately scaled and positioned now.
 
 ---
 
@@ -421,3 +440,7 @@ line as the final exterior face.
 - Auto-detecting the compass rose via image recognition — manual alignment only.
 - Treating the working-area crop as a permanent crop (it's a default viewport, not a
   destructive crop).
+- **Windows/doors tray-blank / drag-and-drop design (§10 original):** side-tray with a
+  generic window blank, drag-to-place, resize-by-corner, "suggested reference lines" after
+  first placement — superseded by the two-click free-rectangle model (Section 10, as-built).
+  Do not reintroduce the tray concept.

@@ -559,8 +559,26 @@ A React + Vite app with:
   * On click: filters `completedShapesRef` removing all `{ pageId === currentPageId && shapeKind === 'grade-line' }` entries, repaints immediately, then calls `setDrawMode(true)` + `setGradeLineDrawing(true)` (same entry point as `confirmShape` after the on-closure prompt).
   * No confirm dialog, no vertex editing, wall polygon untouched. Existing `commitGradeLine` + snap-as-aid + finish-anywhere unchanged. Browser-verified (Session 25).
 
+- **Windows/doors placement layer — Pieces 1+2 (Session 26):**
+  * **Stable shape IDs:** `shapeIdCounterRef` (monotonic `useRef(0)`) + `nextShapeId()` helper assign `id: 'sh-N'` to every shape at creation — `confirmShape`, `commitGradeLine`, `confirmRoofShape`, and `confirmOpening` all call `nextShapeId()`. Counter cleared on PDF upload. IDs are in-memory stable identity; not persisted across reloads. Future component-instance model (#44) can key on this.
+  * **`shapeKind: 'window'|'door'` discriminator:** added alongside `'grade-line'`. Absent = closed wall polygon (default; no migration of existing shapes). `isOpening(s)` helper (`s.shapeKind === 'window' || s.shapeKind === 'door'`) used at all discrimination sites in both App.jsx and canvasRenderer.js.
+  * **`OPENING_TYPES`:** module-level array `['Tilt-turn', 'Casement', 'Fixed', 'Slider', 'Hinged door']`; UI dropdowns derive from this; edit the list here to add/remove types.
+  * **`dimensionBasisRef`:** project-level `'frame'|'rough-opening'|null`; `null` until set. Set once via first-use gate on first opening placement for the session; persists across page navigation; cleared on PDF upload. Never re-prompted once set for that session.
+  * **"Place opening" toolbar button:** visible when `isElevationPage && pageHasScale && !anyActiveMode`. On click: calls `saveAndDefaultSnapIncrement()` then enters `placingOpeningMode`.
+  * **Two-click free rectangle:** first click sets `openingCorner1`; second click completes. `makeRectVerts(c1, c2)` builds a 4-vertex CW rectangle from the diagonal corners. `applySnap` called with `useAngle=false` at both clicks and in the rubber-band mousemove — free rectangle, no 45° axis constraint. Distance-grid snap active.
+  * **First-use dimension-basis gate:** if `dimensionBasisRef.current` is null when the second click lands, `openingDraftShape` is stored with `pendingBasis: true` and the "Frame Size or Rough Opening?" modal shows before the opening dialog.
+  * **Opening dialog:** Kind radio ('window'|'door'), Type dropdown (`OPENING_TYPES`), Width/Height ft+in entry (seeded from pixel distance via `openOpeningDialog`), Label text field, Confirm/Cancel. `parseFtIn(ftStr, inStr)` converts to meters for storage.
+  * **`confirmOpening`:** pushes `{ id, vertices, pageId, status:'locked', shapeKind:kind, openingType, label, widthM, heightM, dimBasis }` to `completedShapesRef`; restores snap increment; repaints via `redrawFrontFaceLayer(null)`.
+  * **`discardOpening`:** clears draft state, restores snap increment, calls `redrawFrontFaceLayer(null)` — canvas repaints immediately, preventing the rubber-band rectangle from lingering after Cancel.
+  * **Rendering:** `drawOpeningPoly(ctx, verts, style)` in canvasRenderer.js — teal fill/stroke (rgba(6,182,212) / `#0891b2`), same style-switching interface as `drawShapePoly`. `drawOpeningShapes(ctx, completedShapes, pageId)` draws all locked openings on a page. Both wired into all render paths (view, draw, review, all five edit sub-modes).
+  * **`drawLockedShapes` / `drawGhostShapes`:** both skip openings via `isOpening(shape)`. Openings never appear as ghost reference on adjacent floors.
+  * **Edit Shapes compatibility:** openings ARE included in segment drag, vertex drag, move sub-mode, and delete sub-mode (same logic paths as wall polygons, rendered via `drawOpeningPoly`). Openings are EXCLUDED from: split hit-test (`hitTestShapeBody` in split click guards `&& !isOpening(...)`); combine eligibility (`getEligibleShapes` excludes `shapeKind === 'window'` and `'door'`).
+  * **1" snap default on placement and edit:** `saveAndDefaultSnapIncrement()` saves `priorSnapIncrementRef.current` and sets `snapIncrementRef`/`snapIncrement` to `ONE_INCH_M = 0.0254m`. Called on "Place opening" entry and on "Edit Shapes" entry when the page has any locked opening. `restoreSnapIncrement()` restores the prior value on both `discardOpening`/`confirmOpening` (placement) and `exitEditMode` (edit).
+  * **Persistent top-bar snap selector:** single `<select className="snap-increment-select">` in the `.toolbar` div, always visible when `currentPage && pdf`. `disabled={!pageHasScale}` (greyed with tooltip when no scale). Options resolve imperial/metric from `getEffectiveScale(currentPageId)?.displayUnit`. onChange calls `redrawDrawCanvas` in draw mode, `drawEditCanvas` in edit mode. All prior in-toolbar selector instances removed — exactly one selector project-wide.
+
 **Not yet built (next increments):**
-- Windows/doors on elevation pages (NEXT)
+- Windows/doors Piece 3 (three-layer snap) — NEXT
+- Windows/doors Piece 4 (dumb duplicate) — NEXT
 - Cross-sections (deferred — windows/doors intentionally builds first)
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
@@ -585,16 +603,25 @@ not the numeric `pageNum`. `pageNum` is retained only for PDF.js rendering;
 pageIdMapRef.current[pageNum] = `page-${pageNum}`   // e.g. 1 -> "page-1"
 ```
 
-**Polygons and grade-line shapes (completed shapes):**
+**Polygons, grade-line shapes, and opening shapes (completed shapes):**
 ```
 completedShapesRef.current = Array<{
+  id: string,                   // stable 'sh-N' identity (assigned at creation via nextShapeId(); monotonic)
   vertices: [{x, y}],           // canvas-pixel coordinates
   status: 'reviewing' | 'locked',
   pageId: string,               // e.g. "page-1"
-  shapeKind?: 'grade-line',     // absent = closed wall polygon (default); 'grade-line' = open reference polyline
+  shapeKind?: 'grade-line' | 'window' | 'door',
+                                // absent = closed wall polygon (default); 'grade-line' = open reference polyline;
+                                // 'window'|'door' = opening rectangle (Pieces 1+2)
   // Grade-line shapes carry NO binding fields. Endpoints may be snapped to corners or the
   // lowest-floor reference line as drawing aids, but nothing is stored. Above/below-grade
   // meaning is derived at read-time by intersecting the polyline against the wall polygon (#41).
+  // Opening shapes (window/door) carry additional fields:
+  openingType?: string,         // from OPENING_TYPES (e.g. 'Casement', 'Fixed')
+  label?: string,               // free-text label (e.g. 'W1', user-supplied)
+  widthM?: number,              // overall width in meters (user-entered, display-unit-independent)
+  heightM?: number,             // overall height in meters (user-entered, display-unit-independent)
+  dimBasis?: 'frame' | 'rough-opening', // copied from dimensionBasisRef at confirm time
   // Roof-plan pages only (wall polygons, not grade lines):
   roofType?: 'flat' | 'sloped' | null,
   parapetWidth?: number | null,  // inches (always imperial); flat sections only
@@ -667,6 +694,19 @@ pageTransformsRef.current[pageId] = {
   angle: number,     // rotation in degrees (reserved; always 0 until sub-step 2 rotation built)
   confirmed?: boolean  // true once user clicks "Confirm scale & alignment"; enables scale-borrow
 }
+```
+
+**Stable shape identity counter** (added Session 26):
+```
+shapeIdCounterRef.current = number  // monotonic counter; nextShapeId() returns 'sh-N' and increments
+// Cleared on PDF upload. Every shape in completedShapesRef carries id: 'sh-N'.
+```
+
+**Dimension-basis setting** (added Session 26, opening placement):
+```
+dimensionBasisRef.current = 'frame' | 'rough-opening' | null
+// Project-level (not per-page). null until first opening placement for the session.
+// Set once via first-use modal; never re-prompted. Cleared on PDF upload.
 ```
 
 **Primary-reference tree** (added sub-step 5):
