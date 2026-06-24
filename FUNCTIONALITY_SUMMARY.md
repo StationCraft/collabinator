@@ -278,22 +278,23 @@ geometry" approach is **not** being rebuilt.
   * Grade-line draw mode reuses existing snap/draw conventions; close-snap ring suppressed;
     finish via Enter key or "Finish grade line" button (min 2 vertices).
   * Stored as 2D pixels via makeVertex, no Z; clears on page-nav and PDF upload.
-- **Elevation spatial Piece 4 sub-piece 2 piece 2 (2f3f071, Session 23):** enforced wall-vertex
-  binding on BOTH grade-line endpoints (A1 strict).
+- **Elevation spatial Piece 4 sub-piece 2 piece 2 — step 2b (2f3f071, Session 23):** wall-corner
+  binding on both grade-line endpoints. A1 original: both endpoints must snap to a wall-polygon
+  vertex. **A1 amended after first real test:** endpoint may ALSO terminate on the lowest-floor
+  reference line mid-span (floor-line binding, steps 2c/2d — not yet built). Wall-edge-along
+  termination remains deferred as <1% case.
   * `getWallVerticesWithId(pageId)` returns `{x, y, shapeIdx, vertIdx}` for wall polygons only
     (excludes `shapeKind === 'grade-line'`). Parallel to existing `getVisibleVertices` — normal
     polygon start-snap unchanged.
   * `gradeEndSnapRef` tracks the last-vertex wall snap during grade-line draw. Red snap ring shown
-    for both start vertex (pre-first-vertex window) and end vertex (after first vertex placed).
-  * `gradeBindings = {start: {shapeIdx, vertIdx}|null, end: ...}` state drives the Finish button
-    `disabled` prop and an inline hint ("Both ends must land on a building corner").
-  * `commitGradeLine` hard-gates unless both `gradeBindings.start` and `.end` are non-null.
-    Writes `boundStart: {shapeIdx, vertIdx}` and `boundEnd: {shapeIdx, vertIdx}` on the committed
-    shape. No other shape type carries these fields.
-  * Z-undo during grade-line draw clears `end` (and `start` if back to 0 vertices).
-  * All six reset sites (exitDrawMode, discardShape, goToPage, handleFileChange, commitGradeLine,
-    dev-fixture restore) reset `gradeBindings` and `gradeEndSnapRef`.
-  * Piece 3 (editing) and lowest-floor reference-line snap still outstanding. Edge-termination deferred as <1% case (#30).
+    for both start vertex and end vertex on hover.
+  * `gradeBindings = {start: {shapeIdx, vertIdx}|null, end: ...}` state drives Finish button
+    `disabled` and inline hint ("Both ends must land on a building corner").
+  * `commitGradeLine` hard-gates; writes `boundStart: {shapeIdx, vertIdx}` and `boundEnd` (wall-
+    vertex binding kind — a `kind` discriminator will be added when floor-line binding is built).
+  * Z-undo clears `end` (and `start` if back to 0). All six reset sites clear both refs/state.
+  * Steps 2c (floor-line snappable during draw), 2d (floor-line mid-span termination), and 2e
+    (follow-on-edit for both binding kinds) still outstanding. See #30.
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
 

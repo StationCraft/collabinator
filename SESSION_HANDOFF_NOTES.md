@@ -1328,9 +1328,18 @@ Elevation edit-drag bug survived TWO static-analysis rounds. Only `[DBG-]` instr
 
 Drag-to-edit individual heights — **shelved, not cancelled.** Height editing stays panel-only.
 
-### NEXT (after Session 23)
+### NEXT (after Session 23 — corrected in post-session doc fix)
 
-Elevation Piece 4 sub-piece 2 piece 3: grade-line editing (vertex/segment drag) + endpoint follow-on-edit (bound endpoint moves when its wall-polygon vertex is moved via Edit Shapes). Or dev fixture Piece 2 (Save/Load buttons, #31) — Ben to choose.
+Elevation Piece 4 sub-piece 2 step **2c**: make the lowest-floor reference line snappable during
+grade-line draw (red-highlight on hover, like corner snap). Then 2d (floor-line mid-span
+termination — the NORMAL termination case per amended A1), then 2e (follow-on-edit for both
+binding kinds). Piece 3 (editing) comes after 2b–2e are complete.
+
+**A1 amendment (missed in original close-out):** after the 2b build, the original "both
+endpoints must snap to a wall-polygon vertex" rule was amended in planning. Floor-line mid-span
+termination is now IN SCOPE (grade is continuous even where the building hides it — this is the
+normal case, not a <1% case). Wall-edge-along termination remains deferred as <1% (different
+target). See #30 and ADDITIONAL_FUNCTIONALITY.md for the full 2b–2e sequence and two binding kinds.
 
 ---
 
@@ -1404,7 +1413,7 @@ Corner-vertex snaps work on both endpoints; Finish stays greyed until both bound
 - **Reference-line snap-suggest to known Ys (#27):** when dragging base line, snap toward known anchor Ys; near-term candidate post-Piece-4
 - **PDF visual analysis / analysis-first front end (#28):** MAJOR VISION — automated page analysis + confirm-and-correct overlay; flagged for deep-review waypoint
 - **Derived envelope block (#29):** Phase 2 architectural target — elevation surfaces derived from floor-plan polygons, not traced freehand; gated on R3
-- **Grade / soil line (#30):** Elevation Piece 4 sub-piece 2 — piece 1 DONE (3fae81b); piece 2 DONE (2f3f071, Session 23, wall-vertex binding on both endpoints); piece 3 = grade-line editing + endpoint follow-on-edit
+- **Grade / soil line (#30):** Elevation Piece 4 sub-piece 2 — piece 1 DONE (3fae81b); piece 2 IN PROGRESS: 2b DONE (2f3f071, wall-corner binding), 2c/2d/2e not yet built (floor-line snappable → floor-line termination → follow-on-edit); piece 3 (editing) after 2b–2e
 - **Grade-line read-time interpretation (#41):** wall polygon never split; above/below-grade quantities derived on read by intersecting grade line with polygon — R3/deferred; no stored split geometry ever
 - **Dev fixture Piece 2 (#31):** Save/Load buttons (console-only today)
 - **UX notes (#32–#40):** categorize shortcut, button colour audit, ghost-vertex snap gap, align-handle cursor mirror, sidebar auto-collapse, edge-select copy, isometric ghost preview, reference-line label stacking, floor-to-floor field auto-grey

@@ -92,11 +92,20 @@ building."
         [x] Piece 1 (3fae81b): open-polyline draw tool + on-closure prompt; shapeKind:'grade-line'
             discriminator; drawGradeLineShapes in all 13 render paths; wall polygon unmodified;
             stored as 2D pixels via makeVertex; finish via Enter/button; clears on nav/upload.
-        [x] Piece 2 (2f3f071): enforced wall-vertex binding on both endpoints (A1 strict).
-            getWallVerticesWithId helper (wall-only, with shapeIdx/vertIdx identity); gradeEndSnapRef
-            tracks end snap; gradeBindings state drives Finish gate + inline hint; commitGradeLine
-            writes boundStart/boundEnd; both reset sites + keydown dep updated.
-        [ ] Piece 3: grade-line editing (vertex/segment drag) + endpoint follow-on-edit
+        [~] Piece 2 (in progress — A1 amended after first real test):
+            [x] 2b (2f3f071): wall-corner binding — both endpoints must snap to a wall-polygon
+                vertex; getWallVerticesWithId helper; gradeBindings state + Finish gate + inline
+                hint; commitGradeLine writes boundStart/boundEnd {shapeIdx,vertIdx}.
+            [ ] 2c: lowest-floor reference line snappable during grade-line draw (red-highlight
+                on hover, like corner snap). Promoted ahead — floor-line termination depends on it.
+            [ ] 2d: floor-line mid-span termination — endpoint may bind a wall corner (2b) OR
+                snap-terminate on the lowest-floor reference line mid-span (Option-1 datum-Z
+                binding: follow base-Y drag vertically, hold horizontally). A1 amended: this is
+                the NORMAL case (grade is continuous even where the building hides it).
+                Wall-edge-along termination still deferred as <1% case (different target).
+            [ ] 2e: follow-on-edit — bound endpoints follow, for BOTH binding kinds
+                (wall-vertex and floor-line).
+        [ ] Piece 3: grade-line vertex/segment drag editing
     [ ] Elevation spatial Piece 4 sub-piece 3+ — windows/doors, cross-sections (future)
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
     Approach: Path 3 / 3-minimal (supersedes the 4a/store-meters-natively scope from Session 17).
@@ -106,7 +115,7 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: Elevation spatial Piece 4 sub-piece 2 piece 3 (grade-line editing — vertex/segment drag + endpoint follow-on-edit). Or dev fixture Piece 2 (Save/Load buttons #31) — Ben to choose.**
+**Next: Elevation spatial Piece 4 sub-piece 2 step 2c — make the lowest-floor reference line snappable during grade-line draw. Then 2d (floor-line mid-span termination), then 2e (follow-on-edit for both binding kinds).**
 
 ---
 

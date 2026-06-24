@@ -537,13 +537,27 @@ Includes raster-image line sensing, ML-assisted classification, and an overlay U
 
 **Description:** An open polyline drawn across the elevation canvas representing the finished grade / soil line. Visually distinguishes above-grade from below-grade portions of the elevation. Geometry only — no Z-value derivation. R3/element-layer for Z association deferred (see #21).
 
-**Status:** Piece 1 (draw tool + on-closure prompt + `shapeKind:'grade-line'` discriminator) — **DONE** (Session 22; commit 3fae81b). Piece 2 (vertex-only endpoint binding) — **DONE** (Session 23; commit 2f3f071). Piece 3 (editing) still outstanding.
+**Status:** Piece 1 (draw tool + on-closure prompt + `shapeKind:'grade-line'` discriminator) — **DONE** (Session 22; commit 3fae81b). Piece 2 **IN PROGRESS** — 2b (wall-corner binding) DONE (Session 23; commit 2f3f071); 2c/2d/2e still outstanding. Piece 3 (editing) still outstanding.
 
-**Piece 2 scope (finalized Session 22 follow-up):**
-- **Vertex-only binding by deliberate decision.** Each grade-line endpoint must snap to an existing wall-polygon vertex (snap-assisted during draw). The bound endpoint stores a reference to that vertex and follows it when the wall polygon is edited or moved — eliminates floating endpoints.
-- **Edge-termination (partway along an edge) is explicitly deferred as negligible (<1%).** Vertical-edge bind, along-ratio binding, and edge-split logic are NOT built. This is not an oversight — it is a deliberate scope call, logged here to prevent a future "fix" that isn't needed.
-- Also includes: lowest-floor (below-grade slab) reference line visible and snappable during grade-line trace.
-- Architectural note: vertex binding is the model's first shape-to-shape reference (one endpoint → one vertex on a different shape) — a minimal, deliberate toe into R3 element-identity. Kept as small as possible.
+**Piece 2 scope — re-scoped after first real test (A1 amended):**
+
+Original A1: both endpoints must snap to an existing wall-polygon vertex. This held for the corner case. **A1 was amended in planning after 2b was built:** a grade-line endpoint may ALSO terminate on the lowest-floor reference line mid-span. Reason: grade is a continuous ground level that always exists even where the building hides it; ending on the floor line is the NORMAL termination, not an edge case. The watch-item fired on first test exactly as predicted.
+
+**Still deferred (unchanged):** binding partway along a WALL EDGE (along-ratio / edge-split). This is a different target from floor-line termination, nobody has asked for it, and it remains a genuine <1% case.
+
+**Two binding kinds (when fully built):**
+- `{ kind: 'wall-vertex', shapeIdx, vertIdx }` — snaps to a wall-polygon corner vertex (2b, done)
+- `{ kind: 'floor-line', level }` — snaps to the lowest-floor reference line mid-span (2d, not yet built)
+
+**Current storage (2b only, commit 2f3f071):** `boundStart`/`boundEnd` are stored as bare `{shapeIdx, vertIdx}` — the wall-vertex kind. When floor-line binding (2d) is built, a `kind` discriminator tag will be added. No code migration needed until then.
+
+**2b–2e sequence:**
+- **2b (DONE, 2f3f071):** wall-corner binding — snap to wall-polygon vertex on both endpoints; gradeBindings state; Finish gate; commitGradeLine writes boundStart/boundEnd.
+- **2c (NEXT):** lowest-floor reference line snappable during grade-line draw — red-highlight on hover, like corner snap. Promoted ahead of 2d because floor-line termination depends on it.
+- **2d:** floor-line mid-span termination — endpoint binds a wall corner (2b) OR snaps to the lowest-floor reference line mid-span (Option-1 datum-Z binding: follows base-Y drag vertically, holds horizontally — same store-reference/project-on-read pattern as #41/#22).
+- **2e:** follow-on-edit — bound endpoints follow for BOTH binding kinds.
+
+Architectural note: endpoint binding is the model's first shape-to-shape reference — a minimal, deliberate toe into R3 element-identity. Kept as small as possible.
 
 ---
 
