@@ -522,8 +522,26 @@ A React + Vite app with:
   on a fresh clone.** Save/Load buttons deferred (ADDITIONAL_FUNCTIONALITY #31). Production
   tree-shakes the entire block.
 
+- **Elevation Piece 4 sub-piece 2 (grade line) piece 1 (Session 22; commit 3fae81b):**
+  Open-polyline grade / soil line tool on Elevation pages.
+  * `shapeKind: 'grade-line'` field on grade-line entries — absent = closed wall polygon (no
+    migration of existing shapes). Seven code sites discriminate: `drawLockedShapes` /
+    `drawGhostShapes` skip grade-line entries; `hitTestSegments` / `hitTestShapeBody` skip them;
+    `getEligibleShapes` excludes them; all 5 edit sub-mode forEach loops skip them.
+  * `drawGradeLineShapes(ctx, completedShapes, pageId)` in canvasRenderer.js: draws open
+    polylines, green (#16a34a) dashed (8/4), vertex dots, no closePath. Wired into all 13
+    render paths.
+  * On closure of a wall polygon on an Elevation page: "Trace grade line?" prompt (Yes/No).
+    Yes → `gradeLinePending`; after polygon confirm → `gradeLineDrawing` activates.
+    Wall polygon is NEVER split, modified, or tagged.
+  * Grade-line draw mode: reuses `drawVerticesRef` + existing snap; close-snap ring
+    suppressed; finish via Enter or "Finish grade line" button (min 2 vertices).
+  * Stored as `{ vertices, pageId, status:'locked', shapeKind:'grade-line' }` via makeVertex, no Z.
+  * States `showGradeLinePrompt`, `gradeLinePending`, `gradeLineDrawing` — all reset on
+    page-nav, PDF upload, exitDrawMode, discardShape.
+
 **Not yet built (next increments):**
-- Elevation Piece 4 sub-piece 2: grade / soil line (open polyline across elevation, side-to-side)
+- Elevation Piece 4 sub-piece 2 pieces 2+3: grade-line termination enforcement on polygon vertex/edge (piece 2); lowest-floor reference line (piece 2); grade-line editing (piece 3)
 - Dev fixture Piece 2: Save/Load buttons (`window.__snapshotFixture/__restoreFixture` console-only today)
 - Cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
@@ -549,13 +567,14 @@ not the numeric `pageNum`. `pageNum` is retained only for PDF.js rendering;
 pageIdMapRef.current[pageNum] = `page-${pageNum}`   // e.g. 1 -> "page-1"
 ```
 
-**Polygons (completed shapes):**
+**Polygons and grade-line shapes (completed shapes):**
 ```
 completedShapesRef.current = Array<{
   vertices: [{x, y}],           // canvas-pixel coordinates
   status: 'reviewing' | 'locked',
   pageId: string,               // e.g. "page-1"
-  // Roof-plan pages only:
+  shapeKind?: 'grade-line',     // absent = closed wall polygon (default); 'grade-line' = open reference polyline
+  // Roof-plan pages only (wall polygons, not grade lines):
   roofType?: 'flat' | 'sloped' | null,
   parapetWidth?: number | null,  // inches (always imperial); flat sections only
   lineRoles?: { [segIdx: number]: 'eave' | 'rake' }  // perimeter-edge role map

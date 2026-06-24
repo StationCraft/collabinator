@@ -531,15 +531,13 @@ Includes raster-image line sensing, ML-assisted classification, and an overlay U
 
 ---
 
-### 30. Grade / soil line (near-term candidate — Elevation Piece 4 sub-piece 2)
+### 30. Grade / soil line — Elevation Piece 4 sub-piece 2
 
 **Logged:** Session 21, designated as next elevation increment.
 
-**Description:** An open polyline drawn horizontally (or with slight slope) across the elevation canvas representing the finished grade / soil line. Visually distinguishes above-grade from below-grade portions of the elevation. Near-term scope: geometry only — trace + store as a typed open polyline, distinct from the closed elevation outline polygon. No Z-value derivation now. R3/element-layer for Z association deferred (see #21 — the grade line is a plane that imposes the "below = buried" rule).
+**Description:** An open polyline drawn across the elevation canvas representing the finished grade / soil line. Visually distinguishes above-grade from below-grade portions of the elevation. Geometry only — no Z-value derivation. R3/element-layer for Z association deferred (see #21).
 
-**Why deferred:** Natural next increment after Piece 4 sub-piece 1. Small, well-scoped. Ben to confirm at next session start.
-
-**Status:** Near-term candidate — designated Elevation Piece 4 sub-piece 2.
+**Status:** Piece 1 (draw tool + on-closure prompt + `shapeKind:'grade-line'` discriminator) — **DONE** (Session 22; commit 3fae81b). Pieces 2 (termination enforcement on polygon vertex/edge + lowest-floor reference line) and 3 (grade-line editing) still outstanding.
 
 ---
 

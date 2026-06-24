@@ -264,6 +264,21 @@ geometry" approach is **not** being rebuilt.
   (trace → close → review → confirm → lock → Edit Shapes) — no category fork, no separate open-
   polyline mode. Decision: closed polygon is the correct primitive for elevation outlines.
   Browser-verified (Session 21; commit 5266dc5).
+- **Elevation spatial Piece 4 sub-piece 2 piece 1 (3fae81b, Session 22):** open-polyline grade /
+  soil line tool on Elevation pages.
+  * `shapeKind: 'grade-line'` discriminator on shape entries — absent = closed wall polygon;
+    `'grade-line'` = open reference polyline. No migration of existing shapes.
+  * `drawGradeLineShapes(ctx, completedShapes, pageId)` in canvasRenderer.js: green dashed
+    open polyline; no closePath; wired into all 13 render paths.
+  * Type-discrimination at 7 code sites: `drawLockedShapes`, `drawGhostShapes`,
+    `hitTestSegments`, `hitTestShapeBody`, `getEligibleShapes`, and all 5 edit sub-mode
+    forEach loops skip grade-line entries.
+  * On-closure prompt on Elevation pages: "Trace grade line?" Yes/No alongside normal polygon
+    review. Wall polygon never split or modified. Grade line stored alongside it.
+  * Grade-line draw mode reuses existing snap/draw conventions; close-snap ring suppressed;
+    finish via Enter key or "Finish grade line" button (min 2 vertices).
+  * Stored as 2D pixels via makeVertex, no Z; clears on page-nav and PDF upload.
+  * Pieces 2 (termination enforcement) and 3 (editing) still outstanding.
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
 

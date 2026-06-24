@@ -1230,6 +1230,55 @@ share one coordinate space. This invariant is now documented in CLAUDE.md Design
 
 ---
 
+## SESSION 22 — Elevation Piece 4 sub-piece 2 (grade line) piece 1: open-polyline grade tool + on-closure prompt
+
+**Branch:** main | **Commit:** 3fae81b
+
+### What was built
+
+**Grade-line draw tool (piece 1 of 3) — commit 3fae81b**
+
+- **`shapeKind: 'grade-line'` discriminator** — new optional field on shapes in `completedShapesRef`. Absent (undefined) = closed wall polygon (all existing shapes, zero migration). Present as `'grade-line'` = open reference polyline.
+
+- **Type-discrimination at 7 code sites:**
+  - `drawLockedShapes` (canvasRenderer.js): skips grade-line entries (no `closePath`)
+  - `drawGhostShapes` (canvasRenderer.js): skips grade-line entries (grade lines don't show as ghost reference on adjacent floors)
+  - `hitTestSegments`: skips grade-line shapes (edit hit-test only targets wall polygons)
+  - `hitTestShapeBody` / `pointInPolygon`: skips grade-line shapes (no area hit-test on open line)
+  - `getEligibleShapes` (geometry.js): excludes grade-line shapes from Combine eligibility
+  - All 5 edit sub-mode forEach loops: skip grade-line shapes in drawShapePoly calls
+
+- **`drawGradeLineShapes(ctx, completedShapes, pageId)`** new export in canvasRenderer.js: draws open polylines in green (#16a34a) dashed (8/4) style with vertex dots; no `closePath`; respects pageId filter. Wired into all 13 render paths (view/draw/review/edit sub-modes/roof/role canvases).
+
+- **On-closure prompt on Elevation pages:** when a wall polygon closes on an Elevation page, `setShowGradeLinePrompt(true)` fires alongside `setReviewShape(shape)`. The polygon enters normal review state. Prompt shows "Trace grade line?" with [Yes — trace grade line] / [No] buttons. Yes sets `gradeLinePending: true`; No clears the prompt. Prompt choice is independent of polygon confirm/discard.
+
+- **`confirmShape` integration:** reads `gradeLinePending` before clearing it. If pending: after polygon is locked, `setGradeLineDrawing(true)` — grade-line trace mode starts automatically. Otherwise: `maybePromptFrontFace()` as normal.
+
+- **Grade-line draw mode:** reuses existing `drawVerticesRef` and all snap/draw conventions (axis snap, distance snap, alignment guides, Z undo). Close-snap ring suppressed (`!gradeLineDrawing && vertices.length >= 3`) so the polyline cannot accidentally close back to its start. Finish via Enter key or "Finish grade line" toolbar button (disabled if `< 2` vertices). Escape/Cancel exits draw mode and clears grade-line state.
+
+- **`commitGradeLine()`:** pushes `{ vertices: [...verts], pageId, status: 'locked', shapeKind: 'grade-line' }` to `completedShapesRef`; clears draw state; redraws via `redrawDrawCanvas(null, [], ...)`.
+
+- **State management:** `showGradeLinePrompt`, `gradeLinePending`, `gradeLineDrawing` — all reset on page-nav, PDF upload, `exitDrawMode()`, and `discardShape()`.
+
+- **Wall polygon unmodified throughout:** the grade line is stored alongside the wall polygon; no intersection, splitting, or tagging of the polygon occurs. Above/below-grade interpretation is R3/deferred.
+
+### Known gaps (pieces 2 and 3)
+
+- **Piece 2:** Enforce termination on polygon vertex/edge (grade line must start/end on wall geometry); add lowest-floor reference line as visual guide.
+- **Piece 3:** Grade-line editing (vertex drag, segment drag via Edit Shapes or a dedicated edit mode).
+- **UX clarity pass:** "Grade line draw UI needs a clarity pass" logged — toolbar text and prompt flow could be cleaner.
+- Grade lines are NOT Z-aware (no per-vertex Z); all vertices stored as 2D pixels via makeVertex factory.
+
+### Dev fixture
+
+Dev fixture (commit 21a967c from Session 21) captures `completedShapesRef` including grade-line shapes with `shapeKind` field. Snapshot + restore via console (`copy(JSON.stringify(window.__snapshotFixture()))` / `await window.__restoreFixture(obj)`). Fixture PDF at `public/devFixtures/test-fixture.pdf` (gitignored). Save/Load buttons still deferred (#31).
+
+### New deferred-register entries this session
+
+- Grade-line UI clarity pass: toolbar text and prompt could be more obvious — log for a UI polish session.
+
+---
+
 ## SESSION 21 — Elevation Piece 4 sub-piece 1: tracing + edit on Elevation pages; edit-drag index fix; dev fixture
 
 **Branch:** main | **Commits:** 5266dc5 (Piece 4 sub-piece 1), 1a3a144 (edit-drag bug fix), 21a967c (dev fixture)
@@ -1281,7 +1330,7 @@ Drag-to-edit individual heights — **shelved, not cancelled.** Height editing s
 
 ### NEXT
 
-Elevation Piece 4 sub-piece 2 (grade / soil line) OR dev fixture Piece 2 (Save/Load buttons) — Ben to choose at session start.
+Elevation Piece 4 sub-piece 2 (grade line) piece 2: enforced termination on polygon vertex/edge + lowest-floor reference line.
 
 ---
 
@@ -1317,7 +1366,7 @@ Elevation Piece 4 sub-piece 2 (grade / soil line) OR dev fixture Piece 2 (Save/L
 - **Reference-line snap-suggest to known Ys (#27):** when dragging base line, snap toward known anchor Ys; near-term candidate post-Piece-4
 - **PDF visual analysis / analysis-first front end (#28):** MAJOR VISION — automated page analysis + confirm-and-correct overlay; flagged for deep-review waypoint
 - **Derived envelope block (#29):** Phase 2 architectural target — elevation surfaces derived from floor-plan polygons, not traced freehand; gated on R3
-- **Grade / soil line (#30):** Elevation Piece 4 sub-piece 2 — near-term candidate
+- **Grade / soil line (#30):** Elevation Piece 4 sub-piece 2 — piece 1 DONE (3fae81b); pieces 2 (termination enforcement) + 3 (editing) still outstanding
 - **Dev fixture Piece 2 (#31):** Save/Load buttons (console-only today)
 - **UX notes (#32–#40):** categorize shortcut, button colour audit, ghost-vertex snap gap, align-handle cursor mirror, sidebar auto-collapse, edge-select copy, isometric ghost preview, reference-line label stacking, floor-to-floor field auto-grey
 - **Elevation Piece 3 sub-piece 3 (deferred/shelved):** drag-to-edit individual floor/ceiling heights; height editing stays panel-only
