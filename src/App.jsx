@@ -680,8 +680,8 @@ function App() {
     }
 
     completedShapesRef.current
-      .filter(s => s.pageId === currentPageId)
       .forEach((shape, shapeIdx) => {
+        if (shape.pageId !== currentPageId) return
         const verts = (previewOverride && previewOverride.shapeIdx === shapeIdx)
           ? previewOverride.vertices : shape.vertices
         const N = verts.length
@@ -1026,9 +1026,9 @@ function App() {
 
   const handleMeasureMouseDown = (e) => {
     // Front-face pick mode: suppress all normal mousedown (pan/draw/edit) behavior.
-    if (frontFacePromptOpen) return
+    if (frontFacePromptOpen) { return }
     // Elevation edge pick mode: suppress normal mousedown.
-    if (elevEdgeMode) return
+    if (elevEdgeMode) { return }
     // Elevation align mode: hit-test edge-bbox handles; else body-translate.
     if (elevAlignMode) {
       if (e.button !== 0) return
@@ -1434,7 +1434,8 @@ function App() {
 
   const handleMeasureMouseMove = (e) => {
     // Elevation align mode: hover cursor + drag — same transform math as alignMode.
-    if (elevAlignMode) {
+    // Guard: editMode takes priority so segment/vertex drag always works in Edit Shapes.
+    if (elevAlignMode && !editMode) {
       if (!alignDragRef.current) {
         const pos = getCanvasPos(e)
         const edgeData = resolveElevEdge(getPageId(currentPage))
@@ -1470,7 +1471,8 @@ function App() {
       return
     }
     // Align mode: update pdf-align-layer transform during drag.
-    if (alignMode) {
+    // Guard: editMode takes priority so segment/vertex drag always works in Edit Shapes.
+    if (alignMode && !editMode) {
       // Hover hit-test for handle cursor (only when not actively dragging).
       if (!alignDragRef.current) {
         const pos = getCanvasPos(e)
@@ -1516,7 +1518,8 @@ function App() {
       return
     }
     // Elevation base-line drag: vertical-only, whole stack rides along.
-    if (alignDragRef.current?.mode === 'elevBase') {
+    // Guard: editMode takes priority; also prevents stale ref from blocking edit interactions.
+    if (alignDragRef.current?.mode === 'elevBase' && !editMode) {
       const drag = alignDragRef.current
       const dy = (e.clientY - drag.startClientY) / zoomRef.current
       elevBaseYRef.current[drag.pageId] = drag.startBaseY + dy
