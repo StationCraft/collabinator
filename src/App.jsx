@@ -8,7 +8,7 @@ import {
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -57,6 +57,8 @@ const FLOOR_SUBLABELS = ['Basement', 'Crawlspace', 'Main Floor', '2nd Floor', '3
 // Categories whose sub-label is a simple optional free-text input
 const FREETEXT_SUBLABEL_CATEGORIES = ['site-plan', 'cross-section', 'detail', 'roof-plan']
 const ELEVATION_DIRS = ['North', 'South', 'East', 'West']
+// Editable opening type list — change/add entries here; UI dropdowns derive from this.
+const OPENING_TYPES = ['Tilt-turn', 'Casement', 'Fixed', 'Slider', 'Hinged door']
 const categoryLabel = (key) => CATEGORY_OPTIONS.find(o => o.key === key)?.label ?? key
 
 function App() {
@@ -93,6 +95,19 @@ function App() {
   const [gradeLinePending, setGradeLinePending] = useState(false)         // user answered Yes; start grade-line mode after polygon confirm
   const [gradeLineDrawing, setGradeLineDrawing] = useState(false)         // actively tracing the grade line
   // Bound wall-vertex identities for first + last grade-line endpoint (piece 2, A1 strict).
+
+  // ── Opening placement (windows/doors, Pieces 1+2) ────────────────────────────
+  const [placingOpeningMode, setPlacingOpeningMode] = useState(false)
+  const [openingCorner1, setOpeningCorner1] = useState(null)           // first-click canvas pos
+  const [openingDraftShape, setOpeningDraftShape] = useState(null)     // {vertices, corner1} pending dialog
+  const [openingDraftKind, setOpeningDraftKind] = useState('window')   // 'window' | 'door'
+  const [openingDraftType, setOpeningDraftType] = useState(OPENING_TYPES[0])
+  const [openingDraftLabel, setOpeningDraftLabel] = useState('')
+  const [openingDraftFt, setOpeningDraftFt] = useState('')             // width ft
+  const [openingDraftIn, setOpeningDraftIn] = useState('')             // width in
+  const [openingDraftHFt, setOpeningDraftHFt] = useState('')           // height ft
+  const [openingDraftHIn, setOpeningDraftHIn] = useState('')           // height in
+  const [showDimBasisDialog, setShowDimBasisDialog] = useState(false)  // first-use gate
 
   const [editMode, setEditMode] = useState(false)
   const [editSubMode, setEditSubMode] = useState(null) // 'move'|'combine'|'split'|null
@@ -139,6 +154,9 @@ function App() {
   // ── Reference-layer model (Step 6, sub-step 5) ──────────────────────────────
   const primaryReferenceIdRef = useRef(null)   // pageId of first manually-calibrated page; set once, never overwritten
   const pageRefParentRef = useRef({})          // pageId -> sourcePageId; written at confirm time (Piece B)
+  const shapeIdCounterRef = useRef(0)          // monotonic id for stable shape identity
+  const dimensionBasisRef = useRef(null)       // 'frame' | 'rough-opening' | null (project-level, set once per upload)
+  const priorSnapIncrementRef = useRef(null)   // saved increment before opening-placement / opening-edit default
 
   // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
   const [alignMode, setAlignMode] = useState(false)
@@ -313,6 +331,10 @@ function App() {
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
     gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
+    setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
+    setOpeningDraftKind('window'); setOpeningDraftType(OPENING_TYPES[0]); setOpeningDraftLabel('')
+    setOpeningDraftFt(''); setOpeningDraftIn(''); setOpeningDraftHFt(''); setOpeningDraftHIn('')
+    setShowDimBasisDialog(false); dimensionBasisRef.current = null; shapeIdCounterRef.current = 0; priorSnapIncrementRef.current = null
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
@@ -361,6 +383,7 @@ function App() {
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
     gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
+    setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
@@ -485,6 +508,23 @@ function App() {
   }
 
   // ── Drawing ──────────────────────────────────────────────────────────────
+
+  const nextShapeId = () => `sh-${shapeIdCounterRef.current++}`
+  const isOpening = (s) => s.shapeKind === 'window' || s.shapeKind === 'door'
+
+  const ONE_INCH_M = 0.0254
+  const saveAndDefaultSnapIncrement = () => {
+    priorSnapIncrementRef.current = snapIncrementRef.current
+    snapIncrementRef.current = ONE_INCH_M
+    setSnapIncrement(ONE_INCH_M)
+  }
+  const restoreSnapIncrement = () => {
+    if (priorSnapIncrementRef.current !== null) {
+      snapIncrementRef.current = priorSnapIncrementRef.current
+      setSnapIncrement(priorSnapIncrementRef.current)
+      priorSnapIncrementRef.current = null
+    }
+  }
 
   const exitDrawMode = () => {
     setDrawMode(false); setReviewShape(null)
@@ -612,7 +652,8 @@ function App() {
         const isDragged = drag && drag.shapeIdx === idx
         const verts = isDragged && drag.previewVerts ? drag.previewVerts : shape.vertices
         const style = isDragged ? 'drag-preview' : (idx === moveHoverIdx ? 'hover' : 'normal')
-        drawShapePoly(ctx, verts, style)
+        if (isOpening(shape)) drawOpeningPoly(ctx, verts, style)
+        else drawShapePoly(ctx, verts, style)
         ctx.restore()
       })
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
@@ -634,9 +675,11 @@ function App() {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
         ctx.save()
-        if (!eligible.has(idx)) ctx.globalAlpha = 0.2
+        if (isOpening(shape)) { ctx.globalAlpha = 0.3 } // openings not eligible; dim them
+        else if (!eligible.has(idx)) ctx.globalAlpha = 0.2
         const style = sel.includes(idx) ? 'selected' : 'normal'
-        drawShapePoly(ctx, shape.vertices, style)
+        if (isOpening(shape)) drawOpeningPoly(ctx, shape.vertices, 'normal')
+        else drawShapePoly(ctx, shape.vertices, style)
         ctx.restore()
       })
       // Highlight shared overlap segment if 2 shapes selected
@@ -666,7 +709,9 @@ function App() {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
         ctx.save()
-        drawShapePoly(ctx, shape.vertices, idx === hoverIdx ? 'hover' : 'normal')
+        const style = idx === hoverIdx ? 'hover' : 'normal'
+        if (isOpening(shape)) drawOpeningPoly(ctx, shape.vertices, style)
+        else drawShapePoly(ctx, shape.vertices, style)
         ctx.restore()
       })
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
@@ -688,6 +733,7 @@ function App() {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
         ctx.save()
+        if (isOpening(shape)) { ctx.globalAlpha = 0.3; drawOpeningPoly(ctx, shape.vertices, 'normal'); ctx.restore(); return }
         if (selIdx !== null && idx !== selIdx) ctx.globalAlpha = 0.2
         const style = idx === selIdx ? 'normal' : (selIdx === null && idx === hoverIdx ? 'hover' : 'normal')
         drawShapePoly(ctx, shape.vertices, style)
@@ -728,11 +774,18 @@ function App() {
         const N = verts.length
         if (N < 3) return
 
+        const opening = isOpening(shape)
+        const basePolyFill = opening ? 'rgba(6,182,212,0.12)' : 'rgba(59,130,246,0.1)'
+        const baseSegStroke = opening ? '#0891b2' : '#2563eb'
+        const baseLabelBg = opening ? 'rgba(207,250,254,0.92)' : 'rgba(255,255,255,0.92)'
+        const baseLabelFg = opening ? '#164e63' : '#1d4ed8'
+        const baseVertFill = opening ? '#06b6d4' : '#3b82f6'
+
         ctx.beginPath()
         ctx.moveTo(verts[0].x, verts[0].y)
         for (let i = 1; i < N; i++) ctx.lineTo(verts[i].x, verts[i].y)
         ctx.closePath()
-        ctx.fillStyle = 'rgba(59,130,246,0.1)'; ctx.fill()
+        ctx.fillStyle = basePolyFill; ctx.fill()
 
         for (let segIdx = 0; segIdx < N; segIdx++) {
           const a = verts[segIdx], b = verts[(segIdx + 1) % N]
@@ -740,7 +793,7 @@ function App() {
             hoverState.shapeIdx === shapeIdx && hoverState.segIdx === segIdx
 
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
-          ctx.strokeStyle = isSegHover ? '#f59e0b' : '#2563eb'
+          ctx.strokeStyle = isSegHover ? '#f59e0b' : baseSegStroke
           ctx.lineWidth = isSegHover ? 3 : 1.5
           ctx.lineJoin = 'round'; ctx.stroke()
 
@@ -751,9 +804,9 @@ function App() {
             ctx.font = '12px system-ui, sans-serif'
             const tw = ctx.measureText(label).width, pad = 3
             const lx = mx - tw / 2 - pad, ly = my - 15, lw = tw + pad * 2, lh = 18
-            ctx.fillStyle = isSegHover ? 'rgba(254,243,199,0.97)' : 'rgba(255,255,255,0.92)'
+            ctx.fillStyle = isSegHover ? 'rgba(254,243,199,0.97)' : baseLabelBg
             ctx.fillRect(lx, ly, lw, lh)
-            ctx.fillStyle = isSegHover ? '#92400e' : '#1d4ed8'
+            ctx.fillStyle = isSegHover ? '#92400e' : baseLabelFg
             ctx.fillText(label, mx - tw / 2, my - 1)
             segLabelRectsRef.current.push({ shapeIdx, segIdx, x: lx, y: ly, w: lw, h: lh, mx, my, label })
           }
@@ -767,7 +820,7 @@ function App() {
             ds.mergeTarget === i && i !== ds.vertIdx
           ctx.beginPath()
           ctx.arc(v.x, v.y, isMergeTarget ? 9 : (isVertHover ? 7 : 5), 0, Math.PI * 2)
-          ctx.fillStyle = isMergeTarget ? '#dc2626' : (isVertHover ? '#f59e0b' : '#3b82f6')
+          ctx.fillStyle = isMergeTarget ? '#dc2626' : (isVertHover ? '#f59e0b' : baseVertFill)
           ctx.fill()
           ctx.strokeStyle = 'white'; ctx.lineWidth = isMergeTarget ? 2.5 : (isVertHover ? 2 : 1.5); ctx.stroke()
         })
@@ -1001,7 +1054,7 @@ function App() {
     const selIdx = splitSelectedRef.current
     if (selIdx === null) {
       const idx = hitTestShapeBody(pos)
-      if (idx !== null) {
+      if (idx !== null && !isOpening(completedShapesRef.current[idx])) {
         splitSelectedRef.current = idx; setSplitSelected(idx)
         setEditCursor('crosshair'); drawEditCanvas()
       }
@@ -1044,6 +1097,7 @@ function App() {
   // ── Exit edit mode ───────────────────────────────────────────────────────
 
   const exitEditMode = () => {
+    restoreSnapIncrement()
     resetEditState()
   }
 
@@ -1343,6 +1397,24 @@ function App() {
   const handleMeasureClick = (e) => {
     // Align mode: drag is the gesture; suppress clicks.
     if (alignMode) return
+    // Opening placement: two-click rectangle (corner1 → corner2 → dialog)
+    if (placingOpeningMode && !openingDraftShape) {
+      if (panDidDragRef.current) { panDidDragRef.current = false; return }
+      const pos = getCanvasPos(e)
+      const snapped = applySnap(pos, openingCorner1 || pos, false, snapDist, currentPageId)
+      if (!openingCorner1) {
+        setOpeningCorner1(snapped)
+      } else {
+        const verts = makeRectVerts(openingCorner1, snapped)
+        if (dimensionBasisRef.current) {
+          openOpeningDialog(verts, openingCorner1)
+        } else {
+          setOpeningDraftShape({ vertices: verts, corner1: openingCorner1, pendingBasis: true })
+          setShowDimBasisDialog(true)
+        }
+      }
+      return
+    }
     // Roof graph trace mode: two-clicks-per-segment chain
     if (roofLineMode) {
       if (panDidDragRef.current) { panDidDragRef.current = false; return }
@@ -1773,7 +1845,24 @@ function App() {
       return
     }
 
-    if (calibMode && !showScaleDialog && calibPoints.length === 1) {
+    if (placingOpeningMode && openingCorner1 && !openingDraftShape) {
+      // Rubber-band rectangle preview while placing second corner
+      const c = measureRef.current
+      if (c) {
+        const ctx = c.getContext('2d')
+        ctx.clearRect(0, 0, c.width, c.height)
+        drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
+        drawOpeningShapes(ctx, completedShapesRef.current, currentPageId)
+        drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+        drawElevRefLines(ctx)
+        const snapped = applySnap(pos, openingCorner1, false, snapDist, currentPageId)
+        const verts = makeRectVerts(openingCorner1, snapped)
+        drawOpeningPoly(ctx, verts, 'drag-preview')
+        // Corner 1 dot
+        ctx.beginPath(); ctx.arc(openingCorner1.x, openingCorner1.y, 4, 0, Math.PI * 2)
+        ctx.fillStyle = '#0891b2'; ctx.fill()
+      }
+    } else if (calibMode && !showScaleDialog && calibPoints.length === 1) {
       drawCalibState([calibPoints[0], applySnap(pos, calibPoints[0], true, false, currentPageId)])
     } else if (drawMode && !reviewShape && !roofShapeDraft) {
       mousePosRef.current = pos
@@ -1882,6 +1971,7 @@ function App() {
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
+    drawOpeningShapes(ctx, completedShapesRef.current, pageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, pageId)
 
     // Start-vertex snap highlight: pre-first-vertex window only
@@ -1969,6 +2059,7 @@ function App() {
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
+    drawOpeningShapes(ctx, completedShapesRef.current, pageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, pageId)
     const verts = shape.vertices
     ctx.beginPath(); ctx.moveTo(verts[0].x, verts[0].y)
@@ -1989,7 +2080,7 @@ function App() {
     if (!reviewShape) return
     completedShapesRef.current = [
       ...completedShapesRef.current,
-      { vertices: reviewShape.vertices, pageId: currentPageId, status: 'locked' },
+      { id: nextShapeId(), vertices: reviewShape.vertices, pageId: currentPageId, status: 'locked' },
     ]
     const pendingGrade = gradeLinePending
     setReviewShape(null); drawVerticesRef.current = []; setDrawVertexCount(0)
@@ -1999,6 +2090,7 @@ function App() {
       const ctx2 = c.getContext('2d')
       ctx2.clearRect(0, 0, c.width, c.height)
       drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
+      drawOpeningShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
     }
     if (pendingGrade) {
@@ -2022,6 +2114,7 @@ function App() {
     completedShapesRef.current = [
       ...completedShapesRef.current,
       {
+        id: nextShapeId(),
         vertices: [...verts],
         pageId: currentPageId,
         status: 'locked',
@@ -2034,12 +2127,93 @@ function App() {
     redrawDrawCanvas(null, [], snapAngle, snapDist, currentPageId)
   }
 
+  // ── Opening placement helpers ─────────────────────────────────────────────
+
+  // Build 4-vertex clockwise rectangle from two diagonal corners.
+  const makeRectVerts = (c1, c2) => [
+    makeVertex(c1.x, c1.y),
+    makeVertex(c2.x, c1.y),
+    makeVertex(c2.x, c2.y),
+    makeVertex(c1.x, c2.y),
+  ]
+
+  // Parse ft + in string pair into meters.
+  const parseFtIn = (ftStr, inStr) => {
+    const ft = parseFloat(ftStr) || 0
+    const inches = parseFloat(inStr) || 0
+    const totalInches = ft * 12 + inches
+    return totalInches * 0.0254  // meters
+  }
+
+  // When opening dialog is opened, seed the width/height draft fields from pixel distances.
+  const openOpeningDialog = (vertices, corner1) => {
+    const scale = getEffectiveScale(currentPageId)
+    if (scale) {
+      const wPx = Math.abs(vertices[1].x - vertices[0].x)
+      const hPx = Math.abs(vertices[2].y - vertices[1].y)
+      const wM = wPx / scale.pxPerMeter
+      const hM = hPx / scale.pxPerMeter
+      const wIn = wM / 0.0254
+      const hIn = hM / 0.0254
+      const wFt = Math.floor(wIn / 12), wInPart = wIn % 12
+      const hFt = Math.floor(hIn / 12), hInPart = hIn % 12
+      setOpeningDraftFt(String(wFt))
+      setOpeningDraftIn(wInPart.toFixed(1))
+      setOpeningDraftHFt(String(hFt))
+      setOpeningDraftHIn(hInPart.toFixed(1))
+    }
+    setOpeningDraftShape({ vertices, corner1 })
+  }
+
+  const confirmOpening = () => {
+    if (!openingDraftShape) return
+    const scale = getEffectiveScale(currentPageId)
+    let vertices = openingDraftShape.vertices
+    if (scale) {
+      const wM = parseFtIn(openingDraftFt, openingDraftIn)
+      const hM = parseFtIn(openingDraftHFt, openingDraftHIn)
+      if (wM > 0 && hM > 0) {
+        const wPx = wM * scale.pxPerMeter
+        const hPx = hM * scale.pxPerMeter
+        const c1 = openingDraftShape.corner1
+        vertices = makeRectVerts(c1, { x: c1.x + wPx, y: c1.y + hPx })
+      }
+    }
+    completedShapesRef.current = [
+      ...completedShapesRef.current,
+      {
+        id: nextShapeId(),
+        vertices,
+        pageId: currentPageId,
+        status: 'locked',
+        shapeKind: openingDraftKind,
+        openingType: openingDraftType,
+        openingLabel: openingDraftLabel,
+        dimBasis: dimensionBasisRef.current,
+      },
+    ]
+    setOpeningDraftShape(null)
+    setOpeningCorner1(null)
+    setPlacingOpeningMode(false)
+    restoreSnapIncrement()
+    redrawFrontFaceLayer(null)
+  }
+
+  const discardOpening = () => {
+    setOpeningDraftShape(null)
+    setOpeningCorner1(null)
+    setPlacingOpeningMode(false)
+    restoreSnapIncrement()
+    redrawFrontFaceLayer(null)
+  }
+
   const confirmRoofShape = () => {
     if (!roofShapeDraft || !roofTypeDraft) return
     const parapet = roofTypeDraft === 'flat' ? (parseFloat(parapetWidthDraft) || 0) : null
     completedShapesRef.current = [
       ...completedShapesRef.current,
       {
+        id: nextShapeId(),
         vertices: roofShapeDraft.vertices,
         pageId: currentPageId,
         status: 'locked',
@@ -2055,6 +2229,7 @@ function App() {
       const ctx2 = c.getContext('2d')
       ctx2.clearRect(0, 0, c.width, c.height)
       drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
+      drawOpeningShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
     }
   }
@@ -2486,6 +2661,7 @@ function App() {
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
+    drawOpeningShapes(ctx, completedShapesRef.current, currentPageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
     const seg = resolveFrontFaceSegment()
     if (seg && frontFace && frontFace.pageId === currentPageId) {
@@ -3135,22 +3311,6 @@ function App() {
     : null
   const canApplySplit = !!splitResult
 
-  // Snap increment selector for Edit Shapes mode — reads/writes the same ref+state as Draw mode.
-  // Changing it in edit mode takes effect on the next vertex drag/insert/move snap.
-  const editSnapIncrementSelect = snapDist && pageHasScale ? (() => {
-    const isImperial = getEffectiveScale(currentPageId)?.displayUnit === 'ft'
-    return (
-      <select className="snap-increment-select" value={snapIncrement}
-        onChange={e => { const v = parseFloat(e.target.value); snapIncrementRef.current = v; setSnapIncrement(v) }}
-      >
-        {isImperial
-          ? <><option value={0.0254}>1″</option><option value={0.0762}>3″</option>
-              <option value={0.1524}>6″</option><option value={0.3048}>12″</option></>
-          : <><option value={0.025}>2.5 cm</option><option value={0.075}>7.5 cm</option>
-              <option value={0.15}>15 cm</option><option value={0.30}>30 cm</option></>}
-      </select>
-    )
-  })() : null
 
   // ── Dev fixture: snapshot / restore (DEV only) ───────────────────────────
   if (import.meta.env.DEV) {
@@ -3330,6 +3490,30 @@ function App() {
           </div>
         )}
 
+        {currentPage && pdf && (() => {
+          const isImperial = getEffectiveScale(currentPageId)?.displayUnit === 'ft'
+          return (
+            <select
+              className="snap-increment-select"
+              value={snapIncrement}
+              disabled={!pageHasScale}
+              title={!pageHasScale ? 'Set scale to enable snap grid' : 'Snap grid increment'}
+              onChange={e => {
+                const v = parseFloat(e.target.value)
+                snapIncrementRef.current = v; setSnapIncrement(v)
+                if (drawMode) redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, true, currentPageId)
+                else if (editMode) drawEditCanvas(editHoverRef.current)
+              }}
+            >
+              {isImperial
+                ? <><option value={0.0254}>1″</option><option value={0.0762}>3″</option>
+                    <option value={0.1524}>6″</option><option value={0.3048}>12″</option></>
+                : <><option value={0.025}>2.5 cm</option><option value={0.075}>7.5 cm</option>
+                    <option value={0.15}>15 cm</option><option value={0.30}>30 cm</option></>}
+            </select>
+          )
+        })()}
+
         {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <>
             <button
@@ -3389,7 +3573,11 @@ function App() {
         })()}
 
         {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !categorizeMode && lockedShapesOnPage.length > 0 && (
-          <button className="edit-btn" onClick={() => { clearMeasureCanvas(); setEditMode(true) }}>
+          <button className="edit-btn" onClick={() => {
+            clearMeasureCanvas()
+            if (lockedShapesOnPage.some(s => isOpening(s))) saveAndDefaultSnapIncrement()
+            setEditMode(true)
+          }}>
             Edit Shapes
           </button>
         )}
@@ -3441,7 +3629,33 @@ function App() {
           )
         })()}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && gradeLineOnPage && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && !placingOpeningMode && (
+          <button
+            className="snap-btn"
+            title={!pageHasScale ? 'Set scale before placing openings' : ''}
+            disabled={!pageHasScale}
+            onClick={() => {
+              setOpeningCorner1(null)
+              setOpeningDraftShape(null)
+              saveAndDefaultSnapIncrement()
+              setPlacingOpeningMode(true)
+            }}
+          >
+            Place opening
+          </button>
+        )}
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && placingOpeningMode && !openingDraftShape && (
+          <>
+            <span className="review-status" style={{ color: '#0891b2' }}>
+              {openingCorner1 ? 'Click second corner to set size' : 'Click first corner of opening'}
+            </span>
+            <button className="btn-secondary" onClick={() => { restoreSnapIncrement(); setPlacingOpeningMode(false); setOpeningCorner1(null); redrawFrontFaceLayer(null) }}>
+              Cancel
+            </button>
+          </>
+        )}
+
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && gradeLineOnPage && !placingOpeningMode && (
           <button
             className="snap-btn"
             onClick={() => {
@@ -3453,6 +3667,7 @@ function App() {
                 const ctx2 = c.getContext('2d')
                 ctx2.clearRect(0, 0, c.width, c.height)
                 drawLockedShapes(ctx2, completedShapesRef.current, currentPageId)
+                drawOpeningShapes(ctx2, completedShapesRef.current, currentPageId)
                 drawGradeLineShapes(ctx2, completedShapesRef.current, currentPageId)
               }
               drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
@@ -3578,24 +3793,6 @@ function App() {
                     redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, next, currentPageId)
                   }}
                 >Dist Snap {snapDist ? 'ON' : 'OFF'}</button>
-                {snapDist && pageHasScale && (() => {
-                  const isImperial = getEffectiveScale(currentPageId)?.displayUnit === 'ft'
-                  return (
-                    <select className="snap-increment-select" value={snapIncrement}
-                      onChange={e => {
-                        const v = parseFloat(e.target.value)
-                        snapIncrementRef.current = v; setSnapIncrement(v)
-                        redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, true, currentPageId)
-                      }}
-                    >
-                      {isImperial
-                        ? <><option value={0.0254}>1″</option><option value={0.0762}>3″</option>
-                            <option value={0.1524}>6″</option><option value={0.3048}>12″</option></>
-                        : <><option value={0.025}>2.5 cm</option><option value={0.075}>7.5 cm</option>
-                            <option value={0.15}>15 cm</option><option value={0.30}>30 cm</option></>}
-                    </select>
-                  )
-                })()}
                 {(() => {
                   const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
                   return ghostPageId ? (
@@ -3777,7 +3974,7 @@ function App() {
                   ) : null
                 })()}
                 <span className="edit-status">Drag corner · side · click label to edit · hold segment to insert vertex</span>
-                {editSnapIncrementSelect}
+
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitEditMode}>Done</button>
@@ -3788,7 +3985,7 @@ function App() {
               <>
                 <span className="submode-status submode-status--move">Move Shape</span>
                 <span className="edit-status">Click and drag a shape · Esc to cancel</span>
-                {editSnapIncrementSelect}
+
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
@@ -3808,7 +4005,7 @@ function App() {
                 {canApplyCombine && (
                   <button className="btn-primary btn-sm" onClick={applyMerge}>Apply Combine</button>
                 )}
-                {editSnapIncrementSelect}
+
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
@@ -3819,7 +4016,7 @@ function App() {
               <>
                 <span className="submode-status submode-status--delete">Delete Shape</span>
                 <span className="edit-status">Click a shape to delete it permanently</span>
-                {editSnapIncrementSelect}
+
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
@@ -3845,7 +4042,7 @@ function App() {
                     setSplitCut([]); drawEditCanvas()
                   }}>Reset Cut</button>
                 )}
-                {editSnapIncrementSelect}
+
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
                 <button className="calib-cancel" onClick={exitSubMode}>Back</button>
@@ -4270,7 +4467,7 @@ function App() {
         <div
           className="canvas-stack"
           ref={canvasWrapperRef}
-          style={{ cursor: isPanning ? 'grabbing' : (!drawMode && !calibMode && !editMode && !roofLineMode && currentPage ? 'grab' : undefined) }}
+          style={{ cursor: isPanning ? 'grabbing' : (!drawMode && !calibMode && !editMode && !roofLineMode && !placingOpeningMode && currentPage ? 'grab' : undefined) }}
         >
           <div
             ref={canvasWorldRef}
@@ -4293,7 +4490,7 @@ function App() {
             <canvas
               ref={measureRef}
               className="measure-canvas"
-              style={{ cursor: (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode) ? 'crosshair' : undefined }}
+              style={{ cursor: (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode || placingOpeningMode) ? 'crosshair' : undefined }}
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}
@@ -4457,6 +4654,101 @@ function App() {
             <div className="modal-actions">
               <button className="btn-secondary" onClick={exitCalibMode}>Back</button>
               <button className="btn-primary" onClick={handleConfirmScale}>Confirm Scale</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDimBasisDialog && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2 className="modal-title">Dimension Basis</h2>
+            <p className="modal-sub">Are the window/door dimensions measured to the frame or to the rough opening?</p>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => {
+                dimensionBasisRef.current = 'rough-opening'
+                setShowDimBasisDialog(false)
+                if (openingDraftShape?.pendingBasis) {
+                  const { vertices, corner1 } = openingDraftShape
+                  setOpeningDraftShape(null)
+                  openOpeningDialog(vertices, corner1)
+                }
+              }}>Rough Opening (RO)</button>
+              <button className="btn-primary" onClick={() => {
+                dimensionBasisRef.current = 'frame'
+                setShowDimBasisDialog(false)
+                if (openingDraftShape?.pendingBasis) {
+                  const { vertices, corner1 } = openingDraftShape
+                  setOpeningDraftShape(null)
+                  openOpeningDialog(vertices, corner1)
+                }
+              }}>Frame Size</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openingDraftShape && !openingDraftShape.pendingBasis && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2 className="modal-title">Opening Details</h2>
+            <div className="fh-field-row" style={{ marginBottom: 10 }}>
+              <span className="fh-field-label">Kind</span>
+              <label style={{ marginRight: 12 }}>
+                <input type="radio" name="opKind" value="window"
+                  checked={openingDraftKind === 'window'}
+                  onChange={() => setOpeningDraftKind('window')} /> Window
+              </label>
+              <label>
+                <input type="radio" name="opKind" value="door"
+                  checked={openingDraftKind === 'door'}
+                  onChange={() => setOpeningDraftKind('door')} /> Door
+              </label>
+            </div>
+            <div className="fh-field-row" style={{ marginBottom: 10 }}>
+              <span className="fh-field-label">Type</span>
+              <select className="snap-increment-select"
+                value={openingDraftType}
+                onChange={e => setOpeningDraftType(e.target.value)}
+              >
+                {OPENING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="fh-field-row" style={{ marginBottom: 10 }}>
+              <span className="fh-field-label">Width ({dimensionBasisRef.current})</span>
+              <div className="fh-input-group">
+                <input type="number" className="fh-input fh-input--sm" placeholder="0" min="0" step="1"
+                  value={openingDraftFt}
+                  onChange={e => setOpeningDraftFt(e.target.value)} />
+                <span className="fh-unit">ft</span>
+                <input type="number" className="fh-input fh-input--sm" placeholder="0" min="0" step="0.5"
+                  value={openingDraftIn}
+                  onChange={e => setOpeningDraftIn(e.target.value)} />
+                <span className="fh-unit">in</span>
+              </div>
+            </div>
+            <div className="fh-field-row" style={{ marginBottom: 10 }}>
+              <span className="fh-field-label">Height ({dimensionBasisRef.current})</span>
+              <div className="fh-input-group">
+                <input type="number" className="fh-input fh-input--sm" placeholder="0" min="0" step="1"
+                  value={openingDraftHFt}
+                  onChange={e => setOpeningDraftHFt(e.target.value)} />
+                <span className="fh-unit">ft</span>
+                <input type="number" className="fh-input fh-input--sm" placeholder="0" min="0" step="0.5"
+                  value={openingDraftHIn}
+                  onChange={e => setOpeningDraftHIn(e.target.value)} />
+                <span className="fh-unit">in</span>
+              </div>
+            </div>
+            <div className="fh-field-row" style={{ marginBottom: 16 }}>
+              <span className="fh-field-label">Label</span>
+              <input type="text" className="fh-input" placeholder="optional"
+                value={openingDraftLabel}
+                onChange={e => setOpeningDraftLabel(e.target.value)} />
+            </div>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={discardOpening}>Cancel</button>
+              <button className="btn-primary" onClick={confirmOpening}>Confirm</button>
             </div>
           </div>
         </div>

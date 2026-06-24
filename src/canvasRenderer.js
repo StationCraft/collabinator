@@ -26,11 +26,16 @@ export function pxToDisplayDist(px, pageScales, pageId) {
   return `${meters.toFixed(3)} m`
 }
 
+function isOpening(shape) {
+  return shape.shapeKind === 'window' || shape.shapeKind === 'door'
+}
+
 export function drawLockedShapes(ctx, completedShapes, pageId) {
   completedShapes
     .filter(s => s.pageId === pageId)
     .forEach(shape => {
       if (shape.shapeKind === 'grade-line') return
+      if (isOpening(shape)) return
       const verts = shape.vertices
       if (verts.length < 3) return
       ctx.beginPath()
@@ -135,6 +140,7 @@ export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
     .filter(s => s.pageId === ghostPageId && s.status === 'locked')
     .forEach(shape => {
       if (shape.shapeKind === 'grade-line') return
+      if (isOpening(shape)) return
       const verts = shape.vertices
       if (verts.length < 3) return
 
@@ -229,6 +235,41 @@ export function drawAlignHandles(ctx, completedShapes, ghostPageId, zoom) {
     ctx.fillRect(x - half, y - half, HANDLE_PX / zoom, HANDLE_PX / zoom)
   }
   ctx.restore()
+}
+
+// Draw a single opening polygon (window or door) with distinct teal style.
+// Same style-switching interface as drawShapePoly so edit-mode loops can call either.
+export function drawOpeningPoly(ctx, verts, style) {
+  const N = verts.length
+  if (N < 3) return
+  ctx.beginPath()
+  ctx.moveTo(verts[0].x, verts[0].y)
+  for (let i = 1; i < N; i++) ctx.lineTo(verts[i].x, verts[i].y)
+  ctx.closePath()
+  if (style === 'hover') {
+    ctx.fillStyle = 'rgba(6,182,212,0.2)'; ctx.fill()
+    ctx.strokeStyle = '#0891b2'; ctx.lineWidth = 2.5
+  } else if (style === 'selected') {
+    ctx.fillStyle = 'rgba(6,182,212,0.25)'; ctx.fill()
+    ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2.5
+  } else if (style === 'drag-preview') {
+    ctx.fillStyle = 'rgba(6,182,212,0.12)'; ctx.fill()
+    ctx.strokeStyle = '#0e7490'; ctx.lineWidth = 2; ctx.setLineDash([4, 3])
+  } else {
+    ctx.fillStyle = 'rgba(6,182,212,0.12)'; ctx.fill()
+    ctx.strokeStyle = '#0891b2'; ctx.lineWidth = 1.5
+  }
+  ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([])
+}
+
+// Draw all locked opening shapes (windows/doors) for a page.
+// Called alongside drawLockedShapes and drawGradeLineShapes in every render path.
+export function drawOpeningShapes(ctx, completedShapes, pageId) {
+  completedShapes
+    .filter(s => s.pageId === pageId && isOpening(s) && s.status === 'locked')
+    .forEach(shape => {
+      drawOpeningPoly(ctx, shape.vertices, 'normal')
+    })
 }
 
 // Build a CSS transform string for a per-page PDF alignment transform.
