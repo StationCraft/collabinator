@@ -223,7 +223,8 @@ function App() {
   const deleteHoverIdxRef = useRef(null)
   const holdTimerRef = useRef(null)
   const drawStartSnapRef = useRef(null)
-  const gradeEndSnapRef = useRef(null)  // wall-vertex snap for the last grade-line vertex
+  const gradeEndSnapRef = useRef(null)       // wall-vertex snap for the last grade-line vertex
+  const gradeFloorLineSnapRef = useRef(null) // lowest-floor reference-line snap {x,y} (2c)
 
   // ── Zoom / pan ────────────────────────────────────────────────────────────
   const MIN_ZOOM = 0.1
@@ -313,7 +314,7 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
-    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null
+    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
@@ -361,7 +362,7 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
-    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null
+    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
@@ -492,7 +493,7 @@ function App() {
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
     setGradeBindings({ start: null, end: null })
     drawVerticesRef.current = []; setDrawVertexCount(0)
-    mousePosRef.current = null; drawStartSnapRef.current = null; gradeEndSnapRef.current = null
+    mousePosRef.current = null; drawStartSnapRef.current = null; gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
   }
 
@@ -511,6 +512,16 @@ function App() {
         ? s.vertices.map((v, vertIdx) => ({ x: v.x, y: v.y, shapeIdx, vertIdx }))
         : []
     )
+
+  // Returns the canvas-pixel Y of the lowest-floor reference line for the current elevation page,
+  // or null if the gate (edge + scale + fhZStack) is not met. Same formula as drawElevRefLines.
+  const getLowestFloorLineY = () => {
+    if (!pageScalesRef.current[currentPageId]?.pxPerMeter) return null
+    const edgeData = resolveElevEdge(currentPageId)
+    if (!edgeData) return null
+    if (!fhZStack.length) return null
+    return elevBaseYRef.current[currentPageId] ?? (edgeData.A.y + edgeData.B.y) / 2
+  }
 
   // Returns the effective scale entry { pxPerMeter, displayUnit } for a page:
   // its own calibration if set; else, if confirmed, follows pageRefParentRef chain to
@@ -1458,9 +1469,15 @@ function App() {
       let finalPos
       if (verts.length === 0) {
         const snapHit = !e.shiftKey && drawStartSnapRef.current
-        finalPos = snapHit ? { x: snapHit.x, y: snapHit.y } : snapToGrid(rawPos, currentPageId)
+        const floorLineSnap0 = !snapHit && gradeLineDrawing && gradeFloorLineSnapRef.current
+        finalPos = snapHit
+          ? { x: snapHit.x, y: snapHit.y }
+          : floorLineSnap0
+            ? { x: floorLineSnap0.x, y: floorLineSnap0.y }
+            : snapToGrid(rawPos, currentPageId)
         drawStartSnapRef.current = null
-        // Grade-line: record start binding if the snap carried wall-vertex identity.
+        gradeFloorLineSnapRef.current = null
+        // Grade-line: record start binding (wall-corner only; floor-line binding is 2d).
         if (gradeLineDrawing) {
           setGradeBindings(prev => ({
             ...prev,
@@ -1473,8 +1490,15 @@ function App() {
           const endSnap = !e.shiftKey && gradeEndSnapRef.current
           if (endSnap) {
             finalPos = { x: endSnap.x, y: endSnap.y }
+            gradeFloorLineSnapRef.current = null
             setGradeBindings(prev => ({ ...prev, end: { shapeIdx: endSnap.shapeIdx, vertIdx: endSnap.vertIdx } }))
+          } else if (!e.shiftKey && gradeFloorLineSnapRef.current) {
+            const fls = gradeFloorLineSnapRef.current
+            finalPos = { x: fls.x, y: fls.y }
+            gradeFloorLineSnapRef.current = null
+            setGradeBindings(prev => ({ ...prev, end: null }))  // no binding yet; floor-line binding is 2d
           } else {
+            gradeFloorLineSnapRef.current = null
             const { pos } = computeFinalSnapPos(rawPos, verts, useAngleNow, snapDist, currentPageId)
             finalPos = pos
             setGradeBindings(prev => ({ ...prev, end: null }))
@@ -1798,6 +1822,24 @@ function App() {
           gradeEndSnapRef.current = null
         }
       }
+      // Grade-line: floor-line snap (lower priority than corner snap; Shift suppresses).
+      if (gradeLineDrawing && !e.shiftKey) {
+        const cornerActive = drawVerticesRef.current.length === 0
+          ? drawStartSnapRef.current !== null
+          : gradeEndSnapRef.current !== null
+        if (!cornerActive) {
+          const lineY = getLowestFloorLineY()
+          if (lineY !== null && Math.abs(pos.y - lineY) <= HIT_VERT_DIST) {
+            gradeFloorLineSnapRef.current = { x: pos.x, y: lineY }
+          } else {
+            gradeFloorLineSnapRef.current = null
+          }
+        } else {
+          gradeFloorLineSnapRef.current = null
+        }
+      } else if (gradeLineDrawing) {
+        gradeFloorLineSnapRef.current = null
+      }
       redrawDrawCanvas(pos, drawVerticesRef.current, snapAngle && !e.shiftKey, snapDist, currentPageId)
     } else if (roofLineMode) {
       let axisPos = pos
@@ -1865,6 +1907,13 @@ function App() {
     // Grade-line end-vertex snap highlight: active after first vertex is placed.
     if (gradeLineDrawing && vertices.length >= 1 && mousePos && gradeEndSnapRef.current) {
       const sv = gradeEndSnapRef.current
+      ctx.beginPath(); ctx.arc(sv.x, sv.y, 9, 0, Math.PI * 2)
+      ctx.fillStyle = '#dc2626'; ctx.fill()
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 2.5; ctx.stroke()
+    }
+    // Grade-line floor-line snap indicator (lower priority than corner; shown when no corner in range).
+    if (gradeLineDrawing && mousePos && gradeFloorLineSnapRef.current) {
+      const sv = gradeFloorLineSnapRef.current
       ctx.beginPath(); ctx.arc(sv.x, sv.y, 9, 0, Math.PI * 2)
       ctx.fillStyle = '#dc2626'; ctx.fill()
       ctx.strokeStyle = 'white'; ctx.lineWidth = 2.5; ctx.stroke()
@@ -1978,7 +2027,7 @@ function App() {
     setGradeBindings({ start: null, end: null })
     setDrawMode(false)
     drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
-    gradeEndSnapRef.current = null
+    gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
   }
 
   const commitGradeLine = () => {
@@ -1998,7 +2047,7 @@ function App() {
     ]
     drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
     setGradeLineDrawing(false)
-    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null
+    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     redrawDrawCanvas(null, [], snapAngle, snapDist, currentPageId)
   }
 
@@ -3192,7 +3241,7 @@ function App() {
       //    Reset ephemeral modes first, then write scenario state
       setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
       setDrawMode(false); setReviewShape(null)
-      setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null
+      setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
       setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
       setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
       setRoofLineMode(false); setRoofChainStartId(null)
