@@ -537,7 +537,7 @@ Includes raster-image line sensing, ML-assisted classification, and an overlay U
 
 **Description:** An open polyline drawn across the elevation canvas representing the finished grade / soil line. Visually distinguishes above-grade from below-grade portions of the elevation. Geometry only — no Z-value derivation. R3/element-layer for Z association deferred (see #21).
 
-**Status:** Piece 1 (draw tool + on-closure prompt + `shapeKind:'grade-line'` discriminator) — **DONE** (Session 22; commit 3fae81b). Pieces 2 and 3 still outstanding.
+**Status:** Piece 1 (draw tool + on-closure prompt + `shapeKind:'grade-line'` discriminator) — **DONE** (Session 22; commit 3fae81b). Piece 2 (vertex-only endpoint binding) — **DONE** (Session 23; commit 2f3f071). Piece 3 (editing) still outstanding.
 
 **Piece 2 scope (finalized Session 22 follow-up):**
 - **Vertex-only binding by deliberate decision.** Each grade-line endpoint must snap to an existing wall-polygon vertex (snap-assisted during draw). The bound endpoint stores a reference to that vertex and follows it when the wall polygon is edited or moved — eliminates floating endpoints.

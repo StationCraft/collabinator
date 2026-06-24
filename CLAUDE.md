@@ -539,9 +539,21 @@ A React + Vite app with:
   * Stored as `{ vertices, pageId, status:'locked', shapeKind:'grade-line' }` via makeVertex, no Z.
   * States `showGradeLinePrompt`, `gradeLinePending`, `gradeLineDrawing` — all reset on
     page-nav, PDF upload, exitDrawMode, discardShape.
+- **Elevation Piece 4 sub-piece 2 (grade line) piece 2 (Session 23; commit 2f3f071):** enforced
+  wall-vertex binding on BOTH grade-line endpoints (A1 strict).
+  * `getWallVerticesWithId(pageId)` returns `{x, y, shapeIdx, vertIdx}` for wall-polygon vertices
+    only (excludes grade-line shapes); parallel path to `getVisibleVertices` — normal polygon
+    start-snap unchanged.
+  * `gradeEndSnapRef = useRef(null)` tracks end-vertex wall snap during draw (after first vertex
+    placed). Red snap ring drawn for both start and end hover positions.
+  * `gradeBindings = {start: {shapeIdx,vertIdx}|null, end: ...}` React state drives Finish button
+    `disabled` and inline hint ("Both ends must land on a building corner"). Added to keydown dep array.
+  * `commitGradeLine` hard-gates unless both bindings non-null; writes `boundStart` and `boundEnd`
+    on committed shape. Z-undo during grade-line draw clears `end` (and `start` if back to 0).
+    All 6 reset sites clear both `gradeBindings` and `gradeEndSnapRef`.
 
 **Not yet built (next increments):**
-- Elevation Piece 4 sub-piece 2 pieces 2+3: vertex-only endpoint binding — snap to existing wall-polygon vertex, endpoint follows on edit (piece 2); lowest-floor reference line visible/snappable during draw (piece 2); grade-line editing (piece 3). Edge-termination explicitly deferred as <1% case.
+- Elevation Piece 4 sub-piece 2 piece 3: endpoint follow-on-edit (bound endpoint tracks its wall-polygon vertex through Edit Shapes) + grade-line vertex/segment drag editing. Edge-termination explicitly deferred as <1% case.
 - Dev fixture Piece 2: Save/Load buttons (`window.__snapshotFixture/__restoreFixture` console-only today)
 - Cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
@@ -574,6 +586,9 @@ completedShapesRef.current = Array<{
   status: 'reviewing' | 'locked',
   pageId: string,               // e.g. "page-1"
   shapeKind?: 'grade-line',     // absent = closed wall polygon (default); 'grade-line' = open reference polyline
+  // Grade-line shapes only (piece 2 — both present on committed grade lines):
+  boundStart?: { shapeIdx: number, vertIdx: number },  // wall-polygon vertex the start endpoint binds to
+  boundEnd?:   { shapeIdx: number, vertIdx: number },  // wall-polygon vertex the end endpoint binds to
   // Roof-plan pages only (wall polygons, not grade lines):
   roofType?: 'flat' | 'sloped' | null,
   parapetWidth?: number | null,  // inches (always imperial); flat sections only
