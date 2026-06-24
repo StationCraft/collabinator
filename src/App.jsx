@@ -3118,6 +3118,7 @@ function App() {
     })
 
   const hasSlopedOnPage = lockedShapesOnPage.some(s => s.roofType === 'sloped')
+  const gradeLineOnPage = lockedShapesOnPage.some(s => s.shapeKind === 'grade-line')
 
   const hasCombinableShapes = editMode
     ? getEligibleShapes(completedShapesRef.current, currentPageId).size >= 2
@@ -3439,6 +3440,29 @@ function App() {
             </button>
           )
         })()}
+
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && gradeLineOnPage && (
+          <button
+            className="snap-btn"
+            onClick={() => {
+              completedShapesRef.current = completedShapesRef.current.filter(
+                s => !(s.pageId === currentPageId && s.shapeKind === 'grade-line')
+              )
+              const c = measureRef.current
+              if (c) {
+                const ctx2 = c.getContext('2d')
+                ctx2.clearRect(0, 0, c.width, c.height)
+                drawLockedShapes(ctx2, completedShapesRef.current, currentPageId)
+                drawGradeLineShapes(ctx2, completedShapesRef.current, currentPageId)
+              }
+              drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
+              setDrawMode(true)
+              setGradeLineDrawing(true)
+            }}
+          >
+            Redraw grade line
+          </button>
+        )}
 
         {roofLineMode && (
           <div className="draw-toolbar">
