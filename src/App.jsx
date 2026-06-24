@@ -93,8 +93,6 @@ function App() {
   const [gradeLinePending, setGradeLinePending] = useState(false)         // user answered Yes; start grade-line mode after polygon confirm
   const [gradeLineDrawing, setGradeLineDrawing] = useState(false)         // actively tracing the grade line
   // Bound wall-vertex identities for first + last grade-line endpoint (piece 2, A1 strict).
-  // Both must be non-null before commitGradeLine is allowed.
-  const [gradeBindings, setGradeBindings] = useState({ start: null, end: null })
 
   const [editMode, setEditMode] = useState(false)
   const [editSubMode, setEditSubMode] = useState(null) // 'move'|'combine'|'split'|null
@@ -314,7 +312,7 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
-    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
+    gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
@@ -362,7 +360,7 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
-    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
+    gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
@@ -491,7 +489,6 @@ function App() {
   const exitDrawMode = () => {
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
-    setGradeBindings({ start: null, end: null })
     drawVerticesRef.current = []; setDrawVertexCount(0)
     mousePosRef.current = null; drawStartSnapRef.current = null; gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
@@ -1477,31 +1474,21 @@ function App() {
             : snapToGrid(rawPos, currentPageId)
         drawStartSnapRef.current = null
         gradeFloorLineSnapRef.current = null
-        // Grade-line: record start binding (wall-corner only; floor-line binding is 2d).
-        if (gradeLineDrawing) {
-          setGradeBindings(prev => ({
-            ...prev,
-            start: (snapHit?.shapeIdx != null) ? { shapeIdx: snapHit.shapeIdx, vertIdx: snapHit.vertIdx } : null,
-          }))
-        }
       } else {
-        // Grade-line: if there's a wall snap for this vertex, use its exact coords and record end binding.
+        // Grade-line: snap to wall corner or floor line affects vertex POSITION only (no binding).
         if (gradeLineDrawing) {
           const endSnap = !e.shiftKey && gradeEndSnapRef.current
           if (endSnap) {
             finalPos = { x: endSnap.x, y: endSnap.y }
             gradeFloorLineSnapRef.current = null
-            setGradeBindings(prev => ({ ...prev, end: { shapeIdx: endSnap.shapeIdx, vertIdx: endSnap.vertIdx } }))
           } else if (!e.shiftKey && gradeFloorLineSnapRef.current) {
             const fls = gradeFloorLineSnapRef.current
             finalPos = { x: fls.x, y: fls.y }
             gradeFloorLineSnapRef.current = null
-            setGradeBindings(prev => ({ ...prev, end: null }))  // no binding yet; floor-line binding is 2d
           } else {
             gradeFloorLineSnapRef.current = null
             const { pos } = computeFinalSnapPos(rawPos, verts, useAngleNow, snapDist, currentPageId)
             finalPos = pos
-            setGradeBindings(prev => ({ ...prev, end: null }))
           }
         } else {
           const { pos } = computeFinalSnapPos(rawPos, verts, useAngleNow, snapDist, currentPageId)
@@ -2024,7 +2011,6 @@ function App() {
   const discardShape = () => {
     setReviewShape(null); setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
-    setGradeBindings({ start: null, end: null })
     setDrawMode(false)
     drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
     gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
@@ -2033,7 +2019,6 @@ function App() {
   const commitGradeLine = () => {
     const verts = drawVerticesRef.current
     if (verts.length < 2) return
-    if (!gradeBindings.start || !gradeBindings.end) return  // A1 strict: both endpoints must be wall-bound
     completedShapesRef.current = [
       ...completedShapesRef.current,
       {
@@ -2041,13 +2026,11 @@ function App() {
         pageId: currentPageId,
         status: 'locked',
         shapeKind: 'grade-line',
-        boundStart: { shapeIdx: gradeBindings.start.shapeIdx, vertIdx: gradeBindings.start.vertIdx },
-        boundEnd:   { shapeIdx: gradeBindings.end.shapeIdx,   vertIdx: gradeBindings.end.vertIdx },
       },
     ]
     drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
     setGradeLineDrawing(false)
-    setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
+    gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     redrawDrawCanvas(null, [], snapAngle, snapDist, currentPageId)
   }
 
@@ -2645,13 +2628,6 @@ function App() {
         if (verts.length === 0) return
         const next = verts.slice(0, -1)
         drawVerticesRef.current = next; setDrawVertexCount(next.length)
-        // Grade-line: removing the last vertex clears end binding; if back to 0 also clear start.
-        if (gradeLineDrawing) {
-          setGradeBindings(prev => ({
-            start: next.length === 0 ? null : prev.start,
-            end: null,
-          }))
-        }
         redrawDrawCanvas(mousePosRef.current, next, snapAngle, snapDist, currentPageId)
       }
       if (roofLineMode && roofChainStartId && (e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
@@ -2672,7 +2648,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState, gradeLineDrawing, gradeBindings])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState, gradeLineDrawing])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -3241,7 +3217,7 @@ function App() {
       //    Reset ephemeral modes first, then write scenario state
       setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
       setDrawMode(false); setReviewShape(null)
-      setGradeBindings({ start: null, end: null }); gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
+      gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
       setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
       setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
       setRoofLineMode(false); setRoofChainStartId(null)
@@ -3641,14 +3617,10 @@ function App() {
                   ) : null
                 })()}
                 {gradeLineDrawing ? (() => {
-                  const gradeCanFinish = drawVertexCount >= 2 && !!gradeBindings.start && !!gradeBindings.end
                   return (
                     <>
                       <span className="review-status">Grade line — click to trace · Z to undo · Enter or Finish when done</span>
-                      <button className="btn-primary" onClick={commitGradeLine} disabled={!gradeCanFinish}>Finish grade line</button>
-                      {drawVertexCount >= 2 && !gradeCanFinish && (
-                        <span className="cat-panel-hint">Both ends must land on a building corner</span>
-                      )}
+                      <button className="btn-primary" onClick={commitGradeLine} disabled={drawVertexCount < 2}>Finish grade line</button>
                       <button className="calib-cancel" onClick={exitDrawMode}>Cancel</button>
                     </>
                   )
