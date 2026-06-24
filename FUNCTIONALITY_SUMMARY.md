@@ -278,23 +278,20 @@ geometry" approach is **not** being rebuilt.
   * Grade-line draw mode reuses existing snap/draw conventions; close-snap ring suppressed;
     finish via Enter key or "Finish grade line" button (min 2 vertices).
   * Stored as 2D pixels via makeVertex, no Z; clears on page-nav and PDF upload.
-- **Elevation spatial Piece 4 sub-piece 2 piece 2 — step 2b (2f3f071, Session 23):** wall-corner
-  binding on both grade-line endpoints. A1 original: both endpoints must snap to a wall-polygon
-  vertex. **A1 amended after first real test:** endpoint may ALSO terminate on the lowest-floor
-  reference line mid-span (floor-line binding, steps 2c/2d — not yet built). Wall-edge-along
-  termination remains deferred as <1% case.
-  * `getWallVerticesWithId(pageId)` returns `{x, y, shapeIdx, vertIdx}` for wall polygons only
-    (excludes `shapeKind === 'grade-line'`). Parallel to existing `getVisibleVertices` — normal
-    polygon start-snap unchanged.
-  * `gradeEndSnapRef` tracks the last-vertex wall snap during grade-line draw. Red snap ring shown
-    for both start vertex and end vertex on hover.
-  * `gradeBindings = {start: {shapeIdx, vertIdx}|null, end: ...}` state drives Finish button
-    `disabled` and inline hint ("Both ends must land on a building corner").
-  * `commitGradeLine` hard-gates; writes `boundStart: {shapeIdx, vertIdx}` and `boundEnd` (wall-
-    vertex binding kind — a `kind` discriminator will be added when floor-line binding is built).
-  * Z-undo clears `end` (and `start` if back to 0). All six reset sites clear both refs/state.
-  * Steps 2c (floor-line snappable during draw), 2d (floor-line mid-span termination), and 2e
-    (follow-on-edit for both binding kinds) still outstanding. See #30.
+- **Elevation spatial Piece 4 sub-piece 2 piece 2 — finish-anywhere + snap-as-aid (c7a2092,
+  Session 24; −28 lines net):** The endpoint-binding requirement (A1, 2b/2c/2d/2e) was built then
+  reverted as the wrong abstraction. A grade line ends with ≥2 vertices ANYWHERE — corner, floor
+  line, or open space. Trigger: a real grade line legitimately ended in open space between two
+  building masses; the binding gate blocked a valid drawing.
+  * `getWallVerticesWithId(pageId)` and `gradeEndSnapRef` remain: corner snap is a POSITION AID
+    (vertex lands exactly on a corner on click). Shift suppresses.
+  * `getLowestFloorLineY()` and `gradeFloorLineSnapRef` remain: floor-line snap is a POSITION AID
+    (vertex Y snaps to lowest-floor reference line Y on click). Corner takes priority; Shift suppresses.
+  * No `gradeBindings` state, no `boundStart`/`boundEnd` fields. Grade-line shape = piece-1 shape:
+    `{ vertices, pageId, status:'locked', shapeKind:'grade-line' }`.
+  * Finish gate: `drawVertexCount >= 2` only. `commitGradeLine` has no binding guard.
+  * Above/below-grade meaning = read-time intersection of grade polyline against intact wall polygon
+    (#41). No stored binding needed. Wall polygon never modified. See #30 and #41.
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
 

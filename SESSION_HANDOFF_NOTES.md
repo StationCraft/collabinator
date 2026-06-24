@@ -1328,18 +1328,13 @@ Elevation edit-drag bug survived TWO static-analysis rounds. Only `[DBG-]` instr
 
 Drag-to-edit individual heights — **shelved, not cancelled.** Height editing stays panel-only.
 
-### NEXT (after Session 23 — corrected in post-session doc fix)
+### NEXT (after Session 23/24 — binding model reverted, grade line DONE)
 
-Elevation Piece 4 sub-piece 2 step **2c**: make the lowest-floor reference line snappable during
-grade-line draw (red-highlight on hover, like corner snap). Then 2d (floor-line mid-span
-termination — the NORMAL termination case per amended A1), then 2e (follow-on-edit for both
-binding kinds). Piece 3 (editing) comes after 2b–2e are complete.
-
-**A1 amendment (missed in original close-out):** after the 2b build, the original "both
-endpoints must snap to a wall-polygon vertex" rule was amended in planning. Floor-line mid-span
-termination is now IN SCOPE (grade is continuous even where the building hides it — this is the
-normal case, not a <1% case). Wall-edge-along termination remains deferred as <1% (different
-target). See #30 and ADDITIONAL_FUNCTIONALITY.md for the full 2b–2e sequence and two binding kinds.
+Grade-line piece 2 is **DONE** (Session 24; c7a2092). The binding model was reverted — grade line
+finishes anywhere with ≥2 vertices; snap is a position aid only. **Next is Ben's choice:**
+- Optional grade-line **Piece 3**: "Redraw grade line" button (delete + restart draw), OR
+- Move on to **elevation cross-sections / windows-doors**, OR
+- Another increment from the deferred list.
 
 ---
 
@@ -1379,6 +1374,40 @@ Returns `Array<{x, y, shapeIdx, vertIdx}>` for wall-polygon vertices only (exclu
 
 Corner-vertex snaps work on both endpoints; Finish stays greyed until both bound; grade line locks green on commit.
 
+*(Session 23 architecture decisions were superseded in Session 24 — see below.)*
+
+---
+
+## SESSION 24 — Grade-line binding reverted; snap-as-aid model confirmed; docs corrected
+
+**Branch:** main | **Commits:** 344668b (2c floor-line snap), c7a2092 (binding revert + revert of 2b/2d), this doc commit (close-out)
+
+### What was built / decided
+
+**Step 2c — lowest-floor reference-line snap (344668b):**
+`getLowestFloorLineY()` helper (same formula as `drawElevRefLines`). `gradeFloorLineSnapRef` tracks hover snap. Red dot indicator on floor line at cursor X. Corner snap takes priority. Shift suppresses. Clicking snaps vertex Y to floor-line Y. No binding recorded (was a prerequisite for 2d, now moot).
+
+**Binding model reverted — finish-anywhere + snap-as-aid (c7a2092, −28 lines net):**
+The 2b/2c/2d/2e endpoint-binding model was reverted as the wrong abstraction. Trigger: a real grade line legitimately ended in open space between two building masses — the binding gate blocked a valid drawing. This is not an edge case; it is the normal case for a grade line that continues past the building.
+
+Grade line now finishes with ≥2 vertices ANYWHERE (corner, floor line, or open space). Corner snap (`getWallVerticesWithId` + `gradeEndSnapRef`) and floor-line snap (`getLowestFloorLineY` + `gradeFloorLineSnapRef`) remain as POSITION AIDS only — they affect vertex placement, record nothing. No `boundStart`/`boundEnd` fields. No `gradeBindings` state. Finish gate = `drawVertexCount >= 2` only.
+
+**Above/below-grade meaning — #41 only:** read-time intersection of grade polyline against intact wall polygon. No stored binding needed. This is the sole model, confirmed as correct. Old 2e (follow-on-edit) is moot — nothing bound, nothing to follow.
+
+**Dev fixture Save/Load buttons confirmed LIVE:** Discovered during doc check — buttons have been live since Session 22 (#31 done). CLAUDE.md + ADDITIONAL_FUNCTIONALITY.md corrected.
+
+### Process lesson (carry forward)
+
+A reference line drawn under snap rules should be scoped as ONE build (draw + snap + finish) with meaning derived at READ-TIME — NOT fragmented into binding sub-pieces. The grade-line binding work was over-engineered; the runtime (an open-space end) exposed the wrong abstraction; the revert left the codebase leaner. Carry this default into future reference-geometry sequences: snap = drawing aid, interpretation = read-time.
+
+**The doc close-out for this session was missed at the time of c7a2092 and corrected in a separate doc commit.** The code was correct; only the five docs were stale.
+
+### Architecture decisions
+
+- Grade line = polyline, finish anywhere. Wall polygon never modified. #41 (read-time intersection) is the sole model.
+- Piece 3 (Redraw grade line button — delete + restart) is OPTIONAL. Ben to decide next session.
+- 2c floor-line snap stays (useful drawing aid regardless of binding).
+
 ---
 
 ## CURRENT DEFERRED ITEMS
@@ -1413,10 +1442,12 @@ Corner-vertex snaps work on both endpoints; Finish stays greyed until both bound
 - **Reference-line snap-suggest to known Ys (#27):** when dragging base line, snap toward known anchor Ys; near-term candidate post-Piece-4
 - **PDF visual analysis / analysis-first front end (#28):** MAJOR VISION — automated page analysis + confirm-and-correct overlay; flagged for deep-review waypoint
 - **Derived envelope block (#29):** Phase 2 architectural target — elevation surfaces derived from floor-plan polygons, not traced freehand; gated on R3
-- **Grade / soil line (#30):** Elevation Piece 4 sub-piece 2 — piece 1 DONE (3fae81b); piece 2 IN PROGRESS: 2b DONE (2f3f071, wall-corner binding), 2c/2d/2e not yet built (floor-line snappable → floor-line termination → follow-on-edit); piece 3 (editing) after 2b–2e
-- **Grade-line read-time interpretation (#41):** wall polygon never split; above/below-grade quantities derived on read by intersecting grade line with polygon — R3/deferred; no stored split geometry ever
-- **Dev fixture Piece 2 (#31):** Save/Load buttons (console-only today)
+- **Grade / soil line (#30):** pieces 1+2 DONE (3fae81b + c7a2092); piece 3 OPTIONAL (Redraw button — delete + restart draw); finish-anywhere + snap-as-aid model; #41 is the sole meaning model
+- **Grade-line read-time interpretation (#41):** active architectural principle — wall polygon never split; above/below-grade derived on read by intersecting grade polyline with polygon; R3/Phase 2 build
+- **Dev fixture Piece 2 (#31):** DONE — Save/Load buttons live in DEV strip (Session 22; confirmed Session 24)
 - **UX notes (#32–#40):** categorize shortcut, button colour audit, ghost-vertex snap gap, align-handle cursor mirror, sidebar auto-collapse, edge-select copy, isometric ghost preview, reference-line label stacking, floor-to-floor field auto-grey
+- **Trackpad/wheel zoom speed (#42):** too fast on laptop; trackpad deltas need scaling/clamping — input polish
+- **Grade-line draw-UI clarity pass (#43):** toolbar text/prompt flow could be clearer — polish after elevation workflow stable
 - **Elevation Piece 3 sub-piece 3 (deferred/shelved):** drag-to-edit individual floor/ceiling heights; height editing stays panel-only
 - **Dump graph button (debug):** temporary `console.log` button in trace toolbar — remove before production
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items

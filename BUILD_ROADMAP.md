@@ -88,24 +88,20 @@ building."
         (5266dc5): drawElevRefLines wired into all redraw paths (draw/review/edit); floorHeightsTick
         added to draw/edit passive-repaint deps; elevation outline uses standard closed-polygon
         workflow — decision: closed polygon, not open polyline. Browser-verified (Session 21).
-    [~] Elevation spatial Piece 4 sub-piece 2 — grade / soil line
+    [x] Elevation spatial Piece 4 sub-piece 2 — grade / soil line — DONE (Session 24)
         [x] Piece 1 (3fae81b): open-polyline draw tool + on-closure prompt; shapeKind:'grade-line'
             discriminator; drawGradeLineShapes in all 13 render paths; wall polygon unmodified;
             stored as 2D pixels via makeVertex; finish via Enter/button; clears on nav/upload.
-        [~] Piece 2 (in progress — A1 amended after first real test):
-            [x] 2b (2f3f071): wall-corner binding — both endpoints must snap to a wall-polygon
-                vertex; getWallVerticesWithId helper; gradeBindings state + Finish gate + inline
-                hint; commitGradeLine writes boundStart/boundEnd {shapeIdx,vertIdx}.
-            [ ] 2c: lowest-floor reference line snappable during grade-line draw (red-highlight
-                on hover, like corner snap). Promoted ahead — floor-line termination depends on it.
-            [ ] 2d: floor-line mid-span termination — endpoint may bind a wall corner (2b) OR
-                snap-terminate on the lowest-floor reference line mid-span (Option-1 datum-Z
-                binding: follow base-Y drag vertically, hold horizontally). A1 amended: this is
-                the NORMAL case (grade is continuous even where the building hides it).
-                Wall-edge-along termination still deferred as <1% case (different target).
-            [ ] 2e: follow-on-edit — bound endpoints follow, for BOTH binding kinds
-                (wall-vertex and floor-line).
-        [ ] Piece 3: grade-line vertex/segment drag editing
+        [x] Piece 2 — finish-anywhere + snap-as-aid (c7a2092, Session 24; net −28 lines):
+            2b (2f3f071) and 2c (344668b) built wall-corner binding + floor-line snap. Entire
+            binding REQUIREMENT reverted at c7a2092: a real grade line ended legitimately in open
+            space between two building masses — the binding gate blocked a valid drawing and was
+            the wrong abstraction. Grade line now finishes with >=2 vertices ANYWHERE (corner,
+            floor line, or open space). Corner snap + floor-line snap remain as POSITION AIDS only
+            (no boundStart/boundEnd written). Above/below-grade meaning = read-time intersection
+            against intact wall polygon (#41, R3). Old 2e (follow-on-edit) is MOOT — nothing bound.
+        [ ] Piece 3 (OPTIONAL): "Redraw grade line" button — delete existing grade line + restart
+            draw. NOT vertex/segment editing. Ben to decide if needed.
     [ ] Elevation spatial Piece 4 sub-piece 3+ — windows/doors, cross-sections (future)
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
     Approach: Path 3 / 3-minimal (supersedes the 4a/store-meters-natively scope from Session 17).
@@ -115,7 +111,7 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: Elevation spatial Piece 4 sub-piece 2 step 2c — make the lowest-floor reference line snappable during grade-line draw. Then 2d (floor-line mid-span termination), then 2e (follow-on-edit for both binding kinds).**
+**Next: Ben to choose — optional grade-line Piece 3 (Redraw button), or move to elevation cross-sections / windows-doors.**
 
 ---
 

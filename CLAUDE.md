@@ -519,7 +519,7 @@ A React + Vite app with:
   mode flags. Restore writes all refs, resets ephemeral modes, then triggers React state cascade
   and re-renders the target page from the bundled PDF. Bundled PDF path:
   `public/devFixtures/test-fixture.pdf` — **gitignored; never committed; drop real test PDF there
-  on a fresh clone.** Save/Load buttons deferred (ADDITIONAL_FUNCTIONALITY #31). Production
+  on a fresh clone.** Save/Load buttons ARE LIVE (DEV-guarded strip; see #31). Production
   tree-shakes the entire block.
 
 - **Elevation Piece 4 sub-piece 2 (grade line) piece 1 (Session 22; commit 3fae81b):**
@@ -539,25 +539,23 @@ A React + Vite app with:
   * Stored as `{ vertices, pageId, status:'locked', shapeKind:'grade-line' }` via makeVertex, no Z.
   * States `showGradeLinePrompt`, `gradeLinePending`, `gradeLineDrawing` — all reset on
     page-nav, PDF upload, exitDrawMode, discardShape.
-- **Elevation Piece 4 sub-piece 2 (grade line) step 2b (Session 23; commit 2f3f071):** wall-corner
-  binding on both grade-line endpoints. A1 original held; A1 amended after first real test to
-  also allow floor-line mid-span termination (steps 2c/2d — not yet built). Wall-edge-along
-  termination remains deferred as <1%.
-  * `getWallVerticesWithId(pageId)` returns `{x, y, shapeIdx, vertIdx}` for wall-polygon vertices
-    only (excludes grade-line shapes); parallel path to `getVisibleVertices` — normal polygon
-    start-snap unchanged.
-  * `gradeEndSnapRef = useRef(null)` tracks end-vertex wall snap during draw. Red snap ring on hover
-    for both endpoints.
-  * `gradeBindings = {start: {shapeIdx,vertIdx}|null, end: ...}` React state drives Finish button
-    `disabled` and inline hint ("Both ends must land on a building corner"). In keydown dep array.
-  * `commitGradeLine` hard-gates unless both bindings non-null; writes `boundStart`/`boundEnd`
-    (wall-vertex kind — `kind` discriminator added when floor-line binding is built in 2d).
-    Z-undo clears `end` (and `start` if back to 0). All 6 reset sites clear both.
+- **Elevation Piece 4 sub-piece 2 piece 2 — finish-anywhere + snap-as-aid (Session 24; c7a2092):**
+  Endpoint-binding requirement reverted as wrong abstraction. Grade line finishes with ≥2 vertices
+  ANYWHERE (corner, floor line, or open space). Trigger: real grade line ended in open space between
+  two building masses — binding gate blocked a valid drawing. A1 model and 2b/2c/2d/2e sequence
+  superseded; old 2e (follow-on-edit) is moot.
+  * `getWallVerticesWithId(pageId)` + `gradeEndSnapRef`: corner snap remains as POSITION AID —
+    vertex lands on corner, nothing recorded. Normal polygon start-snap unchanged.
+  * `getLowestFloorLineY()` + `gradeFloorLineSnapRef`: floor-line snap remains as POSITION AID —
+    vertex Y snaps to lowest-floor reference line Y, nothing recorded. Corner takes priority.
+  * `commitGradeLine`: gate = `verts.length >= 2` only. Shape written as piece-1 shape:
+    `{ vertices, pageId, status:'locked', shapeKind:'grade-line' }` — NO `boundStart`/`boundEnd`.
+  * Above/below-grade meaning = read-time intersection against intact wall polygon (#41, R3).
+    No stored binding needed. This is the sole model.
 
 **Not yet built (next increments):**
-- Elevation Piece 4 sub-piece 2 steps 2c/2d/2e: lowest-floor reference line snappable during grade-line draw (2c); floor-line mid-span termination — `{kind:'floor-line', level}` binding (2d); follow-on-edit for both binding kinds (2e).
-- Elevation Piece 4 sub-piece 2 piece 3: grade-line vertex/segment drag editing.
-- Dev fixture Piece 2: Save/Load buttons (`window.__snapshotFixture/__restoreFixture` console-only today)
+- Elevation Piece 4 sub-piece 2 piece 3 (OPTIONAL): "Redraw grade line" button — delete existing grade line + restart draw. NOT vertex/segment editing. Ben to decide if needed.
+- Cross-sections, windows/doors (not in scope yet)
 - Cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
@@ -589,11 +587,9 @@ completedShapesRef.current = Array<{
   status: 'reviewing' | 'locked',
   pageId: string,               // e.g. "page-1"
   shapeKind?: 'grade-line',     // absent = closed wall polygon (default); 'grade-line' = open reference polyline
-  // Grade-line shapes only (step 2b — wall-vertex kind; floor-line kind added in step 2d):
-  // NOTE: stored as bare {shapeIdx,vertIdx} today; a 'kind' discriminator tag will be added
-  // when floor-line binding (2d) is built. No code migration until then.
-  boundStart?: { shapeIdx: number, vertIdx: number },  // wall-polygon vertex the start endpoint binds to
-  boundEnd?:   { shapeIdx: number, vertIdx: number },  // wall-polygon vertex the end endpoint binds to
+  // Grade-line shapes carry NO binding fields. Endpoints may be snapped to corners or the
+  // lowest-floor reference line as drawing aids, but nothing is stored. Above/below-grade
+  // meaning is derived at read-time by intersecting the polyline against the wall polygon (#41).
   // Roof-plan pages only (wall polygons, not grade lines):
   roofType?: 'flat' | 'sloped' | null,
   parapetWidth?: number | null,  // inches (always imperial); flat sections only
@@ -872,6 +868,6 @@ The user has a separate Claude.ai Project called "Collabinator" containing:
   full scenario with `await window.__restoreFixture(JSON.parse('<snapshot JSON>'))` in the
   browser console. The bundled PDF lives at `public/devFixtures/test-fixture.pdf` (gitignored
   — drop your real test PDF there on a fresh clone). Snapshot with
-  `copy(JSON.stringify(window.__snapshotFixture()))`. Save/Load buttons are deferred
-  (ADDITIONAL_FUNCTIONALITY #31).
+  `copy(JSON.stringify(window.__snapshotFixture()))`. LOAD FIXTURE and SAVE FIXTURE buttons
+  are live in the DEV strip (Session 22; #31 done).
 

@@ -537,27 +537,17 @@ Includes raster-image line sensing, ML-assisted classification, and an overlay U
 
 **Description:** An open polyline drawn across the elevation canvas representing the finished grade / soil line. Visually distinguishes above-grade from below-grade portions of the elevation. Geometry only — no Z-value derivation. R3/element-layer for Z association deferred (see #21).
 
-**Status:** Piece 1 (draw tool + on-closure prompt + `shapeKind:'grade-line'` discriminator) — **DONE** (Session 22; commit 3fae81b). Piece 2 **IN PROGRESS** — 2b (wall-corner binding) DONE (Session 23; commit 2f3f071); 2c/2d/2e still outstanding. Piece 3 (editing) still outstanding.
+**Status:** Piece 1 **DONE** (Session 22; 3fae81b). Piece 2 **DONE** (Session 24; c7a2092). Piece 3 OPTIONAL (see below).
 
-**Piece 2 scope — re-scoped after first real test (A1 amended):**
+**Piece 2 final — finish-anywhere + snap-as-aid (c7a2092, Session 24):**
 
-Original A1: both endpoints must snap to an existing wall-polygon vertex. This held for the corner case. **A1 was amended in planning after 2b was built:** a grade-line endpoint may ALSO terminate on the lowest-floor reference line mid-span. Reason: grade is a continuous ground level that always exists even where the building hides it; ending on the floor line is the NORMAL termination, not an edge case. The watch-item fired on first test exactly as predicted.
+2b (2f3f071) built wall-corner binding; 2c (344668b) added floor-line snap. The entire binding REQUIREMENT was then reverted at c7a2092 because it was the wrong abstraction. Trigger: a real grade line legitimately ended in open space between two building masses — the binding gate blocked a valid and common drawing. A grade line is drawn under normal snap rules; it finishes with ≥2 vertices anywhere (corner, floor line, or open space). Corner snap and lowest-floor-line snap remain as POSITION AIDS only — they affect where a vertex lands, they record nothing. No `boundStart`/`boundEnd` fields exist on the shape.
 
-**Still deferred (unchanged):** binding partway along a WALL EDGE (along-ratio / edge-split). This is a different target from floor-line termination, nobody has asked for it, and it remains a genuine <1% case.
+**A1 model: superseded and withdrawn.** A1 (both endpoints must bind) and its floor-line-termination amendment were the wrong framing. The open-space end is not an edge case — it is the normal case for a grade line that continues past the building. Stored bindings would also have required follow-on-edit (2e), adding machinery for a requirement that shouldn't exist. The revert left the codebase −28 lines cleaner.
 
-**Two binding kinds (when fully built):**
-- `{ kind: 'wall-vertex', shapeIdx, vertIdx }` — snaps to a wall-polygon corner vertex (2b, done)
-- `{ kind: 'floor-line', level }` — snaps to the lowest-floor reference line mid-span (2d, not yet built)
+**Above/below-grade meaning — #41 only.** Above-grade vs. below-grade portions of the wall are derived at READ-TIME by intersecting the grade line with the intact wall polygon (#41). No stored binding needed. One wall element, read two ways. This is the sole model.
 
-**Current storage (2b only, commit 2f3f071):** `boundStart`/`boundEnd` are stored as bare `{shapeIdx, vertIdx}` — the wall-vertex kind. When floor-line binding (2d) is built, a `kind` discriminator tag will be added. No code migration needed until then.
-
-**2b–2e sequence:**
-- **2b (DONE, 2f3f071):** wall-corner binding — snap to wall-polygon vertex on both endpoints; gradeBindings state; Finish gate; commitGradeLine writes boundStart/boundEnd.
-- **2c (NEXT):** lowest-floor reference line snappable during grade-line draw — red-highlight on hover, like corner snap. Promoted ahead of 2d because floor-line termination depends on it.
-- **2d:** floor-line mid-span termination — endpoint binds a wall corner (2b) OR snaps to the lowest-floor reference line mid-span (Option-1 datum-Z binding: follows base-Y drag vertically, holds horizontally — same store-reference/project-on-read pattern as #41/#22).
-- **2e:** follow-on-edit — bound endpoints follow for BOTH binding kinds.
-
-Architectural note: endpoint binding is the model's first shape-to-shape reference — a minimal, deliberate toe into R3 element-identity. Kept as small as possible.
+**Piece 3 (OPTIONAL):** "Redraw grade line" button — delete the existing grade line on the current page and restart the draw tool. NOT vertex/segment editing (over-engineered for a reference polyline). Ben to decide if needed.
 
 ---
 
@@ -565,11 +555,9 @@ Architectural note: endpoint binding is the model's first shape-to-shape referen
 
 **Logged:** Session 21, after dev fixture (21a967c) committed.
 
-**Description:** UI buttons (DEV-guarded) for saving and loading a fixture snapshot without going through the browser console. "Save fixture" = `JSON.stringify(window.__snapshotFixture())` → download as JSON or write to localStorage. "Load fixture" = file-picker or paste-dialog → `window.__restoreFixture(obj)`. Currently both operations require the browser console. Would make the test-fixture workflow faster and less error-prone.
+**Description:** UI buttons (DEV-guarded) for saving and loading a fixture snapshot without going through the browser console. LOAD FIXTURE fetches from `/devFixtures/fixture-elevation.json`; SAVE FIXTURE downloads a timestamped JSON file.
 
-**Why deferred:** Console path works. Piece 1 (the core fixture) was the priority.
-
-**Status:** Deferred. Good candidate for a short dev-tooling session.
+**Status:** DONE — live in the DEV strip (Session 22; confirmed in code Session 24 doc check).
 
 ---
 
@@ -697,6 +685,26 @@ The intersection/quantification logic (the "read" half) is R3 / element-layer, d
 **Why logged:** To make the no-split decision explicit and durable — so a future build step does not accidentally split the polygon or store redundant area geometry under time pressure.
 
 **Status:** Principle only — no build needed at this stage. Enforce at design-review time before any above/below-grade feature is scoped.
+
+---
+
+### 42. Trackpad / wheel zoom speed — too fast on laptop
+
+**Logged:** Session 24.
+
+**Description:** Mouse-wheel zoom step is calibrated for a scroll wheel (large discrete delta per tick). On a trackpad, deltas are continuous and small but frequent — the same multiplier produces over-sensitive zoom that overshoots. Needs a delta-magnitude clamp or separate sensitivity path for trackpad events (check `e.deltaMode` and magnitude). Input polish, no geometry impact.
+
+**Status:** Deferred — not blocking anything. Fix in a dedicated input-polish session.
+
+---
+
+### 43. Grade-line draw-UI clarity pass
+
+**Logged:** Session 24.
+
+**Description:** The toolbar text and prompt flow during grade-line draw could be clearer — what constitutes a valid line, what the snap indicators mean, and when Finish enables. Low priority; the mechanics work. Polish pass once the overall elevation workflow is stable.
+
+**Status:** Deferred.
 
 ---
 
