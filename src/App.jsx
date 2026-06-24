@@ -2994,6 +2994,108 @@ function App() {
     )
   })() : null
 
+  // ── Dev fixture: snapshot / restore (DEV only) ───────────────────────────
+  if (import.meta.env.DEV) {
+    window.__snapshotFixture = () => ({
+      _version: 1,
+      // React state (scenario-defining only; ephemeral mode flags excluded)
+      currentPage,
+      pageCount,
+      fileName,
+      pages,
+      compassAngleDeg,
+      compassCardinal,
+      compassPos,
+      frontFace,
+      snapIncrement,
+      showGhostByPageId,
+      // Refs
+      completedShapes: completedShapesRef.current,
+      pageScales:      pageScalesRef.current,
+      pageGridOrigin:  pageGridOriginRef.current,
+      pageIdMap:       pageIdMapRef.current,
+      pageTransforms:  pageTransformsRef.current,
+      floorHeights:    floorHeightsRef.current,
+      elevationEdge:   elevationEdgeRef.current,
+      elevBaseY:       elevBaseYRef.current,
+      pageRefParent:   pageRefParentRef.current,
+      primaryReferenceId: primaryReferenceIdRef.current,
+      roofGraph:       roofGraphRef.current,
+      roofVertCounter: roofVertCounterRef.current,
+      roofEdgeCounter: roofEdgeCounterRef.current,
+    })
+
+    window.__restoreFixture = async (obj) => {
+      if (!obj || obj._version !== 1) { console.error('[fixture] invalid or missing _version field'); return }
+
+      // 1. Restore all refs immediately (before any async work)
+      completedShapesRef.current   = obj.completedShapes   ?? []
+      pageScalesRef.current        = obj.pageScales        ?? {}
+      pageGridOriginRef.current    = obj.pageGridOrigin    ?? {}
+      pageIdMapRef.current         = obj.pageIdMap         ?? {}
+      pageTransformsRef.current    = obj.pageTransforms    ?? {}
+      floorHeightsRef.current      = obj.floorHeights      ?? {}
+      elevationEdgeRef.current     = obj.elevationEdge     ?? {}
+      elevBaseYRef.current         = obj.elevBaseY         ?? {}
+      pageRefParentRef.current     = obj.pageRefParent     ?? {}
+      primaryReferenceIdRef.current = obj.primaryReferenceId ?? null
+      roofGraphRef.current         = obj.roofGraph         ?? { verts: [], edges: [] }
+      roofVertCounterRef.current   = obj.roofVertCounter   ?? 0
+      roofEdgeCounterRef.current   = obj.roofEdgeCounter   ?? 0
+      snapIncrementRef.current     = obj.snapIncrement     ?? 0.1524
+
+      // 2. Load the bundled test PDF
+      let pdfDoc
+      try {
+        const resp = await fetch('/devFixtures/test-fixture.pdf')
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const buffer = await resp.arrayBuffer()
+        pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise
+      } catch (err) {
+        console.error('[fixture] Failed to load /devFixtures/test-fixture.pdf — copy your test PDF there first:', err)
+        return
+      }
+
+      // 3. Restore React state (triggers re-render cascade)
+      //    Reset ephemeral modes first, then write scenario state
+      setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
+      setDrawMode(false); setReviewShape(null)
+      setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
+      setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
+      setRoofLineMode(false); setRoofChainStartId(null)
+      resetEditState()
+      setAlignMode(false); alignDragRef.current = null
+      setElevAlignMode(false); setElevEdgeMode(false); setElevEdgeSourcePageId(null)
+      elevEdgeHoverRef.current = null; ffHoverRef.current = null
+      setFrontFacePromptOpen(false)
+      setCategorizeMode(false); setRecatPageNum(null); setCatReentry(false)
+      setShowFloorHeights(false)
+      resetZoomPan()
+
+      // Scenario state
+      setPages(obj.pages        ?? [])
+      setCompassAngleDeg(obj.compassAngleDeg ?? null)
+      setCompassCardinal(obj.compassCardinal ?? null)
+      setCompassPos(obj.compassPos ?? { x: null, y: null })
+      setFrontFace(obj.frontFace ?? null)
+      setSnapIncrement(obj.snapIncrement ?? 0.1524)
+      setShowGhostByPageId(obj.showGhostByPageId ?? {})
+      setFileName(obj.fileName ?? 'test-fixture.pdf')
+      setPageCount(obj.pageCount ?? pdfDoc.numPages)
+      setPdf(pdfDoc)
+
+      // 4. Render the target page (async — must be after setPdf so canvasRef is ready)
+      const targetPage = obj.currentPage ?? 1
+      await renderPage(pdfDoc, targetPage)
+
+      // 5. Bump ticks to force dependent repaints (alignTick drives pdf-align-layer, floorHeightsTick drives ref lines)
+      setAlignTick(t => t + 1)
+      setFloorHeightsTick(t => t + 1)
+
+      console.log('[fixture] restore complete → page', targetPage, '| shapes:', completedShapesRef.current.length, '| scales:', Object.keys(pageScalesRef.current))
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
