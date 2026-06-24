@@ -512,6 +512,160 @@ Includes raster-image line sensing, ML-assisted classification, and an overlay U
 
 ---
 
+### 29. Derived envelope block + confirm-and-annotate elevation model (architectural)
+
+**Logged:** Session 21, during Piece 4 close-out.
+
+**Description:** A model shift for how elevation outlines relate to floor-plan geometry. Instead of treating elevation polygons as independent traced shapes, the derived-envelope-block approach:
+
+- **Four boundary surfaces per floor stack:** front wall plane, rear wall plane, left wall plane, right wall plane — each the canonical extent of that face of the building.
+- **Reference-boundary rule:** these surfaces are DERIVED from floor-plan polygons (the outermost extents in each compass direction), not drawn freehand. The elevation drawing is used to CONFIRM and ANNOTATE them (add windows, doors, height annotations) — not to define them.
+- **Source-of-truth = floor-plan block geometry.** An elevation trace that contradicts the floor plans is wrong by definition.
+- **Interaction posture shift:** user confirms/adjusts pre-drawn boundary lines (derived from the plan), then traces openings and surface detail ON TOP of those confirmed surfaces.
+- **Simple-massing boundary first:** initial derived block is the bounding box of floor-plan polygons projected onto each elevation face. Actual complexity comes from plan-polygon edge projection, not freehand tracing.
+- **Cross-ref #28** (analysis-first front-end): derived surfaces are already "known," so only detail needs human input — natural fit for analysis-first annotation.
+
+**Why deferred:** The derive-from-plan-polygon projection requires R3 (per-element Z, real-world XY frame on the plan polygon). The current confirm-and-trace Piece 4 approach is the correct interim step. This is the Phase 2 / post-review target.
+
+**Status:** Architectural record. Constrains Phase 2 elevation-annotation design. Flag if any Piece 4 decision forecloses this.
+
+---
+
+### 30. Grade / soil line (near-term candidate — Elevation Piece 4 sub-piece 2)
+
+**Logged:** Session 21, designated as next elevation increment.
+
+**Description:** An open polyline drawn horizontally (or with slight slope) across the elevation canvas representing the finished grade / soil line. Visually distinguishes above-grade from below-grade portions of the elevation. Near-term scope: geometry only — trace + store as a typed open polyline, distinct from the closed elevation outline polygon. No Z-value derivation now. R3/element-layer for Z association deferred (see #21 — the grade line is a plane that imposes the "below = buried" rule).
+
+**Why deferred:** Natural next increment after Piece 4 sub-piece 1. Small, well-scoped. Ben to confirm at next session start.
+
+**Status:** Near-term candidate — designated Elevation Piece 4 sub-piece 2.
+
+---
+
+### 31. Dev test fixture Piece 2 — Save/Load buttons
+
+**Logged:** Session 21, after dev fixture (21a967c) committed.
+
+**Description:** UI buttons (DEV-guarded) for saving and loading a fixture snapshot without going through the browser console. "Save fixture" = `JSON.stringify(window.__snapshotFixture())` → download as JSON or write to localStorage. "Load fixture" = file-picker or paste-dialog → `window.__restoreFixture(obj)`. Currently both operations require the browser console. Would make the test-fixture workflow faster and less error-prone.
+
+**Why deferred:** Console path works. Piece 1 (the core fixture) was the priority.
+
+**Status:** Deferred. Good candidate for a short dev-tooling session.
+
+---
+
+### 32. Categorize-as-you-go UX shortcut (minor UI)
+
+**Logged:** Session 21 close-out.
+
+**Description:** When the user is drawing on an uncategorized page, offer an inline "Categorize this page" shortcut button in the draw-mode toolbar rather than requiring them to leave draw mode and enter the categorize flow. Reduces context-switching friction during early sessions.
+
+**Why deferred:** Convenience only; no geometry or data impact. Bundle into a UI polish pass.
+
+**Status:** Deferred.
+
+---
+
+### 33. Button colour/priority audit (UI polish)
+
+**Logged:** Session 21 close-out.
+
+**Description:** Button highlight and color states across modes (draw, edit, categorize, align, elevation) are not driven by a single documented rule — each mode was built incrementally with slightly different conventions. A coherent audit should define: primary action color, destructive color, active/toggled color, disabled state — and apply those rules consistently across all toolbar contexts. See also CLAUDE.md known issue "Categorize-input button color scheme not documented."
+
+**Why deferred:** No user-facing bug. Deserves a short session with a written color-state spec before implementation.
+
+**Status:** Deferred. Candidate for UI polish session.
+
+---
+
+### 34. Ghost-vertex snapping note / getVisibleVertices gap (extends #13)
+
+**Logged:** Session 21 close-out.
+
+**Description:** `getVisibleVertices()` currently returns only locked shapes on the CURRENT page — it does NOT include ghost shapes from the reference page. For ghost-vertex or ghost-edge snapping to work (see #13), ghost geometry must be made explicitly available to the snap system. This is the concrete implementation note for #13 sub-piece 1b: the snap extension for ghost targets requires updating `getVisibleVertices` to include the ghost source shapes.
+
+**Why deferred:** Implementation note on top of existing #13 deferral.
+
+**Status:** Note on #13 — record here so the gap is visible when #13 is built.
+
+---
+
+### 35. Elevation align-handle cursor mirroring (UI micro-polish)
+
+**Logged:** Session 21 close-out.
+
+**Description:** The four corner handles on the elevation align bbox all use `nwse-resize` cursor. This is correct for NW and SE corners but looks wrong for NE and SW corners, which should show `nesw-resize`. One-liner fix in the cursor-assignment logic in the align hover handler.
+
+**Why deferred:** Visual micro-polish; no functional impact. One-liner — batch into a cursor/hover polish pass.
+
+**Status:** Deferred.
+
+---
+
+### 36. Sidebar auto-collapse on canvas interaction (extends #11)
+
+**Logged:** Session 21 close-out.
+
+**Description:** When the sidebar is open and the user begins interacting with the canvas (mousedown on canvas area), auto-collapse the sidebar. Extends #11 (auto-hide on selection) — both are canvas-real-estate behaviors. Related to #10 (full-screen canvas layout).
+
+**Why deferred:** Same rationale as #11. Batch with #10/#11 in a canvas-real-estate UI pass.
+
+**Status:** Deferred. Extends #11.
+
+---
+
+### 37. Edge-select "select the edge this elevation faces" copy (UI polish — extends #25)
+
+**Logged:** Session 21 close-out.
+
+**Description:** In "Set elevation edge" mode, the toolbar should display a contextual instruction: "Select the floor-plan edge this elevation faces." Currently self-explanatory only if you already know what the mode does. A one-line note would clarify for first-time users. Related to #25 (edge-select button labels: "Confirm edge selection" / "Choose again").
+
+**Why deferred:** Copy/UX polish. Batch with #25.
+
+**Status:** Deferred. Extends #25.
+
+---
+
+### 38. Isometric ghost preview on edge selection (extends #23)
+
+**Logged:** Session 21 close-out.
+
+**Description:** When the user selects a reference edge in "Set elevation edge" mode, show an isometric or perspective-projected preview of the building from that elevation direction. Visual payoff confirming the selected face before commit. Ties to #23 (isometric multi-reference elevation alignment). Same R3/Z prerequisites as #23.
+
+**Why deferred:** R3 / Phase 2 prerequisites. Same deferral as #23.
+
+**Status:** Deferred. Extend with #23 when the 3D coordinate model exists.
+
+---
+
+### 39. Reference-line label stacking + unconfirmed-height indicator (UI polish)
+
+**Logged:** Session 21 close-out.
+
+**Description:** Two related polish items for `drawElevRefLines`:
+(a) **Label stacking:** when floor/ceiling lines are close vertically, left-edge labels overlap. Labels should offset vertically when tight so each is readable.
+(b) **Unconfirmed indicator:** lines whose corresponding floor height is null (not yet entered in the panel) should render RED/amber to show they are placeholder positions, not confirmed heights.
+Both are single-pass changes.
+
+**Why deferred:** UI polish on working reference lines. Batch in an elevation-reference-lines polish pass.
+
+**Status:** Deferred.
+
+---
+
+### 40. Floor-to-floor field auto-grey when ceiling + floor-system both set (UI polish)
+
+**Logged:** Session 21 close-out.
+
+**Description:** In the floor-heights panel, when both ceiling height AND floor-system-above are already entered for a level, the floor-to-floor back-solve field is fully constrained and redundant. The field should grey out or display a read-only derived value, preventing accidental overwrite of a solved value. Display-layer only — no change to `ceilingSource` logic or stored data.
+
+**Why deferred:** Panel ergonomics. Batch with floor-heights panel polish.
+
+**Status:** Deferred.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

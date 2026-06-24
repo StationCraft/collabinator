@@ -1230,6 +1230,61 @@ share one coordinate space. This invariant is now documented in CLAUDE.md Design
 
 ---
 
+## SESSION 21 — Elevation Piece 4 sub-piece 1: tracing + edit on Elevation pages; edit-drag index fix; dev fixture
+
+**Branch:** main | **Commits:** 5266dc5 (Piece 4 sub-piece 1), 1a3a144 (edit-drag bug fix), 21a967c (dev fixture)
+
+### What was built
+
+**1a3a144 — Fix elevation edit hover/drag: filtered-local vs. global shapeIdx**
+- Root cause: `drawEditCanvas` default path used `.filter().forEach()` which gives LOCAL `shapeIdx` indices; hit-test functions (`getSegHit`, `getVertHit`) return GLOBAL indices into `completedShapesRef`. The elevation shape at global index 1 was filtered to local index 0 — `previewOverride.shapeIdx === shapeIdx` (1 === 0) always false → no preview, no drag visual.
+- Floor-plan pages worked by coincidence: their shape is always `completedShapes[0]`; filtered index 0 = global index 0.
+- Fix: `.filter().forEach()` → `.forEach()` with `if (shape.pageId !== currentPageId) return`. All other sub-modes already used the correct pattern.
+- Three `!editMode` guards kept in `handleMeasureMouseMove` (lines 1447, 1484, 1531) — protect `elevAlignMode`, `alignMode`, and `elevBase` from intercepting edit-mode canvas interactions.
+- All `[DBG-MD]`/`[DBG-MM]`/`[DBG-]` instrumentation removed before commit.
+
+**5266dc5 — Elevation Piece 4 sub-piece 1: closed-polygon tracing + edit on Elevation pages**
+- `drawElevRefLines` wired into `redrawDrawCanvas`, `redrawReviewCanvas`, and all five `drawEditCanvas` sub-mode paths (was view-mode only).
+- `floorHeightsTick` added to draw/edit passive-repaint deps.
+- No category fork: Elevation pages use the standard closed-polygon draw/review/confirm/lock/Edit-Shapes workflow directly.
+- Decision: elevation outline = CLOSED polygon (not open polyline). Architecturally correct — an elevation outline is a boundary.
+- Browser-verified.
+
+**21a967c — Dev-only capture/restore test fixture**
+- `window.__snapshotFixture()` and `window.__restoreFixture(obj)` DEV-guarded in component render body.
+- Snapshot: all scenario-defining refs + state; excludes non-serialisable `combineEligibleRef` (Set) and ephemeral mode flags.
+- Restore: writes all refs → resets modes → fetches `/devFixtures/test-fixture.pdf` → React state cascade + `renderPage`.
+- `public/devFixtures/test-fixture.pdf` added to `.gitignore` — never committed.
+- `copy(JSON.stringify(window.__snapshotFixture()))` = record; `await window.__restoreFixture(obj)` = restore.
+
+### Key design decisions
+
+- **Closed polygon for elevation outline.** Open polyline rejected — standard workflow correct.
+- **Index fix: `.filter().forEach()` → `.forEach()` + early return** — matches existing sub-mode pattern.
+- **Two-commit staging:** fixture block temporarily removed, commit A landed, fixture restored, commit B landed.
+- **Fixture is console-only:** Save/Load buttons deferred (#31).
+
+### Session runtime lesson
+
+Elevation edit-drag bug survived TWO static-analysis rounds. Only `[DBG-]` instrumentation revealed the filtered-local vs. global index mismatch. Rule reinforced: **when a bug survives a static read, instrument and run.**
+
+### New deferred-register entries this session
+
+- **#29 — Derived envelope block + confirm-and-annotate elevation model:** Phase 2 architectural target; elevation surfaces derived from floor-plan polygons, not traced freehand. Gated on R3.
+- **#30 — Grade / soil line:** geometry-only open polyline; Elevation Piece 4 sub-piece 2.
+- **#31 — Dev fixture Piece 2: Save/Load buttons** (console-only today).
+- **#32–#40 — Small UX notes:** categorize shortcut, button colour audit, ghost-vertex snap gap, align-handle cursor mirror, sidebar auto-collapse, edge-select copy, isometric ghost preview, reference-line label stacking + unconfirmed indicator, floor-to-floor field auto-grey.
+
+### Piece 3 sub-piece 3 status
+
+Drag-to-edit individual heights — **shelved, not cancelled.** Height editing stays panel-only.
+
+### NEXT
+
+Elevation Piece 4 sub-piece 2 (grade / soil line) OR dev fixture Piece 2 (Save/Load buttons) — Ben to choose at session start.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -1261,6 +1316,11 @@ share one coordinate space. This invariant is now documented in CLAUDE.md Design
 - **Categorization exit navigation bug (#26):** exiting categorize mode on uncategorized page stays there instead of navigating to last categorized page
 - **Reference-line snap-suggest to known Ys (#27):** when dragging base line, snap toward known anchor Ys; near-term candidate post-Piece-4
 - **PDF visual analysis / analysis-first front end (#28):** MAJOR VISION — automated page analysis + confirm-and-correct overlay; flagged for deep-review waypoint
+- **Derived envelope block (#29):** Phase 2 architectural target — elevation surfaces derived from floor-plan polygons, not traced freehand; gated on R3
+- **Grade / soil line (#30):** Elevation Piece 4 sub-piece 2 — near-term candidate
+- **Dev fixture Piece 2 (#31):** Save/Load buttons (console-only today)
+- **UX notes (#32–#40):** categorize shortcut, button colour audit, ghost-vertex snap gap, align-handle cursor mirror, sidebar auto-collapse, edge-select copy, isometric ghost preview, reference-line label stacking, floor-to-floor field auto-grey
+- **Elevation Piece 3 sub-piece 3 (deferred/shelved):** drag-to-edit individual floor/ceiling heights; height editing stays panel-only
 - **Dump graph button (debug):** temporary `console.log` button in trace toolbar — remove before production
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
 
@@ -1287,8 +1347,11 @@ share one coordinate space. This invariant is now documented in CLAUDE.md Design
     - ~~Piece 2: Floor-heights entry panel~~ — DONE (e780b88)
     - ~~Piece 3: Floor-to-floor back-solve entry + ceilingSource + validateCeiling~~ — DONE (4e06de0)
     - ~~Elevation spatial Piece 1: "Set elevation edge" mode~~ — DONE (89b7ba2)
-    - ~~Elevation spatial Piece 2: "Align elevation" mode — own-scale confirm~~ — DONE (current)
-    - **Elevation spatial Piece 3: floor/ceiling reference lines (NEXT)**
-    - Elevation spatial Piece 4: trace elevation outline as open polyline
+    - ~~Elevation spatial Piece 2: "Align elevation" mode — own-scale confirm~~ — DONE (2007265)
+    - ~~Elevation spatial Piece 3 sub-piece 1: drawElevRefLines (view mode)~~ — DONE (1cb2c0b)
+    - ~~Elevation spatial Piece 3 sub-piece 2: elevBaseYRef + drag-to-place base line~~ — DONE (b597e91)
+    - ~~Elevation spatial Piece 4 sub-piece 1: closed-polygon tracing + edit; drawElevRefLines wired into all redraw paths~~ — DONE (5266dc5)
+    - Elevation spatial Piece 3 sub-piece 3: drag-to-edit heights — DEFERRED (shelved)
+    - **Elevation spatial Piece 4 sub-piece 2: grade / soil line — NEXT (or dev fixture Piece 2: Save/Load buttons — Ben to choose)**
 
 After elevation: cross-section reference geometry → windows/doors → Phase 2 threshold.

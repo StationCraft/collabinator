@@ -484,28 +484,53 @@ A React + Vite app with:
 - **Elevation PDF spatial work — Piece 3 sub-pieces 1+2 (Session 20; commits 1cb2c0b, b597e91):**
   Floor/ceiling reference lines drawn on aligned Elevation pages. Datum-Z only (placement, not
   height-editing — no floorHeightsRef writes).
-  * **`drawElevRefLines(ctx)` (sub-piece 1, 1cb2c0b):** stateless helper called at end of
-    `redrawFrontFaceLayer` (view mode only — not yet wired into draw/edit redraws). Gate:
-    `resolveElevEdge` non-null + confirmed `pxPerMeter` + `fhZStack.length > 0`. Draws teal solid
-    floor lines and amber dashed ceiling lines spanning canvas width. Labels at left edge.
-    Line widths zoom-compensated (`/ zoomRef.current`). Anchor Y: `elevBaseYRef[pageId] ?? edge-midpoint Y`.
-    Spacing: each line Y = `anchorY - (Zfeet - lowestFloorZFeet) × 0.3048 × pxPerMeter`.
-    `floorHeightsTick` added to passive-redraw useEffect deps so panel edits repaint lines immediately.
+  * **`drawElevRefLines(ctx)` (sub-piece 1, 1cb2c0b):** stateless helper called at end of all
+    canvas redraw paths (`redrawFrontFaceLayer`, `redrawDrawCanvas`, `redrawReviewCanvas`, and all
+    five `drawEditCanvas` sub-mode paths — wired into draw/review/edit in Piece 4 sub-piece 1,
+    5266dc5). Gate: `resolveElevEdge` non-null + confirmed `pxPerMeter` + `fhZStack.length > 0`.
+    Draws teal solid floor lines and amber dashed ceiling lines spanning canvas width. Labels at
+    left edge. Line widths zoom-compensated (`/ zoomRef.current`). Anchor Y:
+    `elevBaseYRef[pageId] ?? edge-midpoint Y`. Spacing: each line Y =
+    `anchorY - (Zfeet - lowestFloorZFeet) × 0.3048 × pxPerMeter`.
+    `floorHeightsTick` added to passive-redraw useEffect deps (view, draw, and edit modes) so panel
+    edits repaint lines immediately.
   * **`elevBaseYRef` (sub-piece 2, b597e91):** `useRef({})`, keyed by pageId. Stores the user-placed
     anchor Y for the stack after a base-line drag. Drag hit-test: within `8 / zoom` px of the base
     (lowest present level) floor line in view mode intercepts mousedown before pan; `alignDragRef`
     reused with `mode: 'elevBase'`, vertical-only (`dy = (clientY - startClientY) / zoom`). Writes
     `elevBaseYRef[pageId] = startBaseY + dy` on every mousemove; calls `redrawFrontFaceLayer`
     directly (no tick bump needed). Mouseup clears `alignDragRef`. Persists across page-nav;
-    cleared on PDF upload. No new React state. Remaining sub-piece: drag-to-edit individual line
-    heights (last-edited-wins) — NOT yet built.
+    cleared on PDF upload. No new React state.
+
+- **Elevation Piece 4 sub-piece 1 (Session 21; commit 5266dc5):** closed-polygon tracing + full
+  edit suite enabled on Elevation pages. `drawElevRefLines` wired into `redrawDrawCanvas`,
+  `redrawReviewCanvas`, and all five `drawEditCanvas` sub-mode paths so reference lines remain
+  visible during draw and edit. `floorHeightsTick` added to draw/edit passive-repaint deps.
+  The elevation outline uses the standard closed-polygon workflow (trace → close → review → confirm
+  → lock → Edit Shapes) with NO category fork — the existing machinery works on Elevation pages
+  directly. Decision: closed polygon (not open polyline) is the correct primitive for elevation
+  outlines (same as floor plans). Browser-verified.
+
+- **Dev-only test fixture (Session 21; commit 21a967c):** `window.__snapshotFixture()` /
+  `window.__restoreFixture(obj)` exposed in the component render body, DEV-guarded
+  (`import.meta.env.DEV`). Snapshot captures all scenario-defining refs and state (shapes,
+  scales, page categories, pageIdMap, transforms, floor heights, elevation edge, frontFace,
+  compass, primaryReferenceId, roofGraph, etc.); excludes non-serialisable `Set` and ephemeral
+  mode flags. Restore writes all refs, resets ephemeral modes, then triggers React state cascade
+  and re-renders the target page from the bundled PDF. Bundled PDF path:
+  `public/devFixtures/test-fixture.pdf` — **gitignored; never committed; drop real test PDF there
+  on a fresh clone.** Save/Load buttons deferred (ADDITIONAL_FUNCTIONALITY #31). Production
+  tree-shakes the entire block.
 
 **Not yet built (next increments):**
-- Elevation Piece 3 sub-piece 3: drag individual floor/ceiling lines to edit heights (last-edited-wins)
-- Elevation Piece 4: trace elevation outline as open polyline
+- Elevation Piece 4 sub-piece 2: grade / soil line (open polyline across elevation, side-to-side)
+- Dev fixture Piece 2: Save/Load buttons (`window.__snapshotFixture/__restoreFixture` console-only today)
 - Cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
+
+**Deferred (shelved, not cancelled):**
+- Elevation Piece 3 sub-piece 3: drag individual floor/ceiling lines to edit heights (last-edited-wins) — height editing stays panel-only for now
 
 **Deferred polish items:**
 - **Redundant collinear vertex after Combine:** some complex merges leave a
@@ -797,4 +822,17 @@ The user has a separate Claude.ai Project called "Collabinator" containing:
   over edge-case polish.
 - **Prefer self-contained Code prompts** that complete a whole piece and report once.
   Minimise checkpoint count without merging pieces that need independent browser verification.
+- **Trust the runtime over static code review (reinforced Session 21):** the elevation
+  edit-drag bug survived two rounds of static analysis — the first hypothesis (`!editMode`
+  guards) was entirely wrong; the second "looks correct" read of the filter path was also
+  wrong. Only `[DBG-]` console instrumentation revealed the real cause: `drawEditCanvas`
+  default path used `.filter().forEach()` giving LOCAL `shapeIdx` indices, while hit-test
+  functions return GLOBAL indices. A mismatch invisible to eye, instantly visible in logs.
+  When a bug survives a static read, instrument and run; do not theorize further.
+- **Dev fixture is the standard session-start test path:** after a hard reload, restore the
+  full scenario with `await window.__restoreFixture(JSON.parse('<snapshot JSON>'))` in the
+  browser console. The bundled PDF lives at `public/devFixtures/test-fixture.pdf` (gitignored
+  — drop your real test PDF there on a fresh clone). Snapshot with
+  `copy(JSON.stringify(window.__snapshotFixture()))`. Save/Load buttons are deferred
+  (ADDITIONAL_FUNCTIONALITY #31).
 

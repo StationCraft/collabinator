@@ -243,20 +243,27 @@ geometry" approach is **not** being rebuilt.
   both measurements are in the shared canvas-world coordinate space. Does NOT use `pageRefParentRef`:
   the elevation is a calibrated peer, independent if the source plan is recalibrated (#22 honored).
 - **Elevation spatial Piece 3 sub-piece 1 (1cb2c0b):** `drawElevRefLines(ctx)` — draws horizontal
-  reference lines on aligned Elevation pages in view mode. Teal solid lines for floor levels, amber
-  dashed lines for ceiling levels (where non-null). Anchor Y: edge-midpoint Y (provisional); spacing
+  reference lines on aligned Elevation pages. Teal solid lines for floor levels, amber dashed lines
+  for ceiling levels (where non-null). Anchor Y: `elevBaseYRef[pageId] ?? edge-midpoint Y`; spacing
   via `accumulateZ(floorHeightsRef)` in feet × 0.3048 × pxPerMeter. Labels at left edge.
-  `floorHeightsTick` added to passive-redraw deps so lines repaint on panel edits. Gate:
-  `resolveElevEdge` non-null + confirmed `pxPerMeter` + `fhZStack.length > 0`. View mode only
-  (not yet wired into draw/edit redraws — elevation tracing not yet built).
+  `floorHeightsTick` added to passive-redraw deps (view, draw, and edit modes) so lines repaint on
+  panel edits. Gate: `resolveElevEdge` non-null + confirmed `pxPerMeter` + `fhZStack.length > 0`.
+  Initially wired into view mode only; wired into draw/review/edit in Piece 4 sub-piece 1 (5266dc5).
 - **Elevation spatial Piece 3 sub-piece 2 (b597e91):** `elevBaseYRef` (per-elevation-page,
   keyed by pageId) — stores a user-placed anchor Y for the stack. Drag the base (lowest present
   level) teal floor line vertically within 8/zoom px to move the whole stack; spacing owned by
   `accumulateZ` is preserved. `elevBaseYRef.current[pageId] ?? edge-midpoint-Y` fallback unchanged.
   Offset persists across page-navigation round-trips; clears on PDF upload. No `floorHeightsRef`
   writes, no height edits, no new React state. Pan on empty canvas unaffected.
-  Placement half of Piece 3 is complete. Drag-to-edit individual line heights (last-edited-wins)
-  is a separate remaining sub-piece.
+- **Elevation spatial Piece 3 sub-piece 3 (DEFERRED):** drag-to-edit individual floor/ceiling line
+  heights (last-edited-wins). Height editing stays panel-only. Shelved, not cancelled.
+- **Elevation spatial Piece 4 sub-piece 1 (5266dc5, Session 21):** closed-polygon tracing + full
+  Edit Shapes suite enabled on Elevation pages. `drawElevRefLines` wired into `redrawDrawCanvas`,
+  `redrawReviewCanvas`, and all five `drawEditCanvas` sub-mode paths. `floorHeightsTick` added to
+  draw/edit passive-repaint deps. The elevation outline uses the standard closed-polygon workflow
+  (trace → close → review → confirm → lock → Edit Shapes) — no category fork, no separate open-
+  polyline mode. Decision: closed polygon is the correct primitive for elevation outlines.
+  Browser-verified (Session 21; commit 5266dc5).
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
 

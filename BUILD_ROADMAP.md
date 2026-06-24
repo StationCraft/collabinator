@@ -82,9 +82,14 @@ building."
         Sub-piece 2 (b597e91): elevBaseYRef (per-elevation-page, pageId-keyed) — drag the base
           (lowest present level) floor line vertically to place the whole stack; offset persists
           across page-nav; provisional fallback unchanged; no floorHeightsRef writes.
-        Placement half complete. Remaining: drag-to-edit individual heights (last-edited-wins,
-          separate sub-piece — NOT built yet).
-    [ ] Elevation spatial Piece 4 — trace elevation outline as open polyline
+        Sub-piece 3 (DEFERRED — shelved, not cancelled): drag individual floor/ceiling lines
+          to edit heights (last-edited-wins); height editing stays panel-only for now.
+    [x] Elevation spatial Piece 4 sub-piece 1 — closed-polygon tracing + edit on Elevation pages
+        (5266dc5): drawElevRefLines wired into all redraw paths (draw/review/edit); floorHeightsTick
+        added to draw/edit passive-repaint deps; elevation outline uses standard closed-polygon
+        workflow — decision: closed polygon, not open polyline. Browser-verified (Session 21).
+    [ ] Elevation spatial Piece 4 sub-piece 2 — grade / soil line
+    [ ] Elevation spatial Piece 4 sub-piece 3+ — windows/doors, cross-sections (future)
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
     Approach: Path 3 / 3-minimal (supersedes the 4a/store-meters-natively scope from Session 17).
     Geometry stays stored in pixels; meters are a read-time projection through named helpers.
@@ -93,7 +98,7 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: Elevation spatial Piece 3 sub-piece 3 — drag-to-edit individual line heights (last-edited-wins); then Piece 4 open-polyline tracing.**
+**Next: Elevation spatial Piece 4 sub-piece 2 (grade / soil line) OR dev fixture Piece 2 (Save/Load buttons) — Ben to choose at session start. Piece 3 sub-piece 3 is deferred (shelved).**
 
 ---
 
