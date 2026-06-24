@@ -292,6 +292,12 @@ geometry" approach is **not** being rebuilt.
   * Finish gate: `drawVertexCount >= 2` only. `commitGradeLine` has no binding guard.
   * Above/below-grade meaning = read-time intersection of grade polyline against intact wall polygon
     (#41). No stored binding needed. Wall polygon never modified. See #30 and #41.
+- **Elevation spatial Piece 4 sub-piece 2 piece 3 — Redraw grade line (e9c04a6, Session 25):**
+  "Redraw grade line" toolbar button on Elevation pages when a grade-line shape exists and no mode
+  is active (`isElevationPage && gradeLineOnPage && !anyActiveMode`). On click: deletes ALL
+  grade-line shapes for `currentPageId` from `completedShapesRef`, repaints, then calls
+  `setDrawMode(true)` + `setGradeLineDrawing(true)` — same entry path as `confirmShape` after the
+  on-closure prompt. Wall polygon untouched. `commitGradeLine` + snap-as-aid unchanged.
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
 

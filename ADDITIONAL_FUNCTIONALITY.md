@@ -537,7 +537,7 @@ Includes raster-image line sensing, ML-assisted classification, and an overlay U
 
 **Description:** An open polyline drawn across the elevation canvas representing the finished grade / soil line. Visually distinguishes above-grade from below-grade portions of the elevation. Geometry only — no Z-value derivation. R3/element-layer for Z association deferred (see #21).
 
-**Status:** Piece 1 **DONE** (Session 22; 3fae81b). Piece 2 **DONE** (Session 24; c7a2092). Piece 3 OPTIONAL (see below).
+**Status:** Piece 1 **DONE** (Session 22; 3fae81b). Piece 2 **DONE** (Session 24; c7a2092). Piece 3 **DONE** (Session 25; e9c04a6). Sub-piece 2 fully complete.
 
 **Piece 2 final — finish-anywhere + snap-as-aid (c7a2092, Session 24):**
 
@@ -547,7 +547,7 @@ Includes raster-image line sensing, ML-assisted classification, and an overlay U
 
 **Above/below-grade meaning — #41 only.** Above-grade vs. below-grade portions of the wall are derived at READ-TIME by intersecting the grade line with the intact wall polygon (#41). No stored binding needed. One wall element, read two ways. This is the sole model.
 
-**Piece 3 (OPTIONAL):** "Redraw grade line" button — delete the existing grade line on the current page and restart the draw tool. NOT vertex/segment editing (over-engineered for a reference polyline). Ben to decide if needed.
+**Piece 3: DONE (e9c04a6, Session 25).** "Redraw grade line" button on Elevation-page toolbar, visible when `isElevationPage && gradeLineOnPage && !anyActiveMode`. Click deletes ALL grade-line shapes for `currentPageId` from `completedShapesRef`, repaints, then calls `setDrawMode(true)` + `setGradeLineDrawing(true)` — same entry path as after the on-closure prompt. Wall polygon untouched. Browser-verified.
 
 ---
 

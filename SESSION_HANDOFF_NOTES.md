@@ -1405,8 +1405,23 @@ A reference line drawn under snap rules should be scoped as ONE build (draw + sn
 ### Architecture decisions
 
 - Grade line = polyline, finish anywhere. Wall polygon never modified. #41 (read-time intersection) is the sole model.
-- Piece 3 (Redraw grade line button — delete + restart) is OPTIONAL. Ben to decide next session.
+- Piece 3 (Redraw grade line button — delete + restart) built Session 25. Sub-piece 2 fully done.
 - 2c floor-line snap stays (useful drawing aid regardless of binding).
+
+---
+
+## SESSION 25 — Elevation Piece 4 sub-piece 2 piece 3: Redraw grade line button + sequence decision
+
+**Commit:** e9c04a6 (code) + doc close-out
+
+**What shipped:**
+- **"Redraw grade line" button (e9c04a6):** elevation-page toolbar button, visible only when `isElevationPage && gradeLineOnPage && !anyActiveMode`. `gradeLineOnPage` derived from `lockedShapesOnPage.some(s => s.shapeKind === 'grade-line')`. On click: filters `completedShapesRef` removing ALL grade-line shapes for `currentPageId`, repaints (clearRect + drawLockedShapes + drawGradeLineShapes), then calls `setDrawMode(true)` + `setGradeLineDrawing(true)` — same entry path as `confirmShape` after the on-closure prompt. Wall polygon untouched; `commitGradeLine` + snap-as-aid unchanged; finish-anywhere unchanged. Browser-verified by Ben (elevation page, existing grade line confirmed deleted and redrawn).
+
+**Sequence decision:** windows/doors builds NEXT. Cross-sections deferred — windows/doors intentionally comes first.
+
+**Architecture decisions:**
+- Sub-piece 2 (grade line) is fully done: draw + corner-snap aid + floor-line-snap aid + finish-anywhere + Redraw button.
+- Cross-sections deferred to after windows/doors (intentional ordering, not doc default).
 
 ---
 
@@ -1442,7 +1457,7 @@ A reference line drawn under snap rules should be scoped as ONE build (draw + sn
 - **Reference-line snap-suggest to known Ys (#27):** when dragging base line, snap toward known anchor Ys; near-term candidate post-Piece-4
 - **PDF visual analysis / analysis-first front end (#28):** MAJOR VISION — automated page analysis + confirm-and-correct overlay; flagged for deep-review waypoint
 - **Derived envelope block (#29):** Phase 2 architectural target — elevation surfaces derived from floor-plan polygons, not traced freehand; gated on R3
-- **Grade / soil line (#30):** pieces 1+2 DONE (3fae81b + c7a2092); piece 3 OPTIONAL (Redraw button — delete + restart draw); finish-anywhere + snap-as-aid model; #41 is the sole meaning model
+- **Grade / soil line (#30):** pieces 1+2+3 DONE (3fae81b + c7a2092 + e9c04a6); sub-piece 2 fully complete; finish-anywhere + snap-as-aid model; Redraw button built; #41 is the sole meaning model
 - **Grade-line read-time interpretation (#41):** active architectural principle — wall polygon never split; above/below-grade derived on read by intersecting grade polyline with polygon; R3/Phase 2 build
 - **Dev fixture Piece 2 (#31):** DONE — Save/Load buttons live in DEV strip (Session 22; confirmed Session 24)
 - **UX notes (#32–#40):** categorize shortcut, button colour audit, ghost-vertex snap gap, align-handle cursor mirror, sidebar auto-collapse, edge-select copy, isometric ghost preview, reference-line label stacking, floor-to-floor field auto-grey
@@ -1480,6 +1495,7 @@ A reference line drawn under snap rules should be scoped as ONE build (draw + sn
     - ~~Elevation spatial Piece 3 sub-piece 2: elevBaseYRef + drag-to-place base line~~ — DONE (b597e91)
     - ~~Elevation spatial Piece 4 sub-piece 1: closed-polygon tracing + edit; drawElevRefLines wired into all redraw paths~~ — DONE (5266dc5)
     - Elevation spatial Piece 3 sub-piece 3: drag-to-edit heights — DEFERRED (shelved)
-    - **Elevation spatial Piece 4 sub-piece 2: grade / soil line — NEXT (or dev fixture Piece 2: Save/Load buttons — Ben to choose)**
+    - ~~Elevation spatial Piece 4 sub-piece 2: grade / soil line (pieces 1+2+3)~~ — DONE (3fae81b, c7a2092, e9c04a6)
+    - **Elevation spatial Piece 4 sub-piece 3+: windows/doors — NEXT**
 
-After elevation: cross-section reference geometry → windows/doors → Phase 2 threshold.
+After windows/doors: cross-sections (deferred — windows/doors intentionally builds first) → Phase 2 threshold.

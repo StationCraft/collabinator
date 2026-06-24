@@ -100,9 +100,12 @@ building."
             floor line, or open space). Corner snap + floor-line snap remain as POSITION AIDS only
             (no boundStart/boundEnd written). Above/below-grade meaning = read-time intersection
             against intact wall polygon (#41, R3). Old 2e (follow-on-edit) is MOOT — nothing bound.
-        [ ] Piece 3 (OPTIONAL): "Redraw grade line" button — delete existing grade line + restart
-            draw. NOT vertex/segment editing. Ben to decide if needed.
-    [ ] Elevation spatial Piece 4 sub-piece 3+ — windows/doors, cross-sections (future)
+        [x] Piece 3 (e9c04a6, Session 25): "Redraw grade line" button — elevation-page toolbar,
+            visible when isElevationPage && gradeLineOnPage && no active mode. Click deletes ALL
+            grade-line shapes for currentPageId, repaints, re-enters draw mode (setDrawMode +
+            setGradeLineDrawing). Wall polygon untouched. Browser-verified.
+    [ ] Elevation spatial Piece 4 sub-piece 3+ — windows/doors (NEXT); cross-sections (DEFERRED —
+        windows/doors intentionally builds first)
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
     Approach: Path 3 / 3-minimal (supersedes the 4a/store-meters-natively scope from Session 17).
     Geometry stays stored in pixels; meters are a read-time projection through named helpers.
@@ -111,7 +114,7 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: Ben to choose — optional grade-line Piece 3 (Redraw button), or move to elevation cross-sections / windows-doors.**
+**Next: Windows/doors on elevation pages. Cross-sections deferred (windows/doors builds first).**
 
 ---
 

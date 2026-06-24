@@ -552,11 +552,16 @@ A React + Vite app with:
     `{ vertices, pageId, status:'locked', shapeKind:'grade-line' }` — NO `boundStart`/`boundEnd`.
   * Above/below-grade meaning = read-time intersection against intact wall polygon (#41, R3).
     No stored binding needed. This is the sole model.
+- **Elevation Piece 4 sub-piece 2 piece 3 — Redraw grade line (Session 25; e9c04a6):**
+  Toolbar button visible only when `isElevationPage && gradeLineOnPage && !anyActiveMode`.
+  * `gradeLineOnPage = lockedShapesOnPage.some(s => s.shapeKind === 'grade-line')` — derived
+    alongside `hasSlopedOnPage` from the existing `lockedShapesOnPage` read.
+  * On click: filters `completedShapesRef` removing all `{ pageId === currentPageId && shapeKind === 'grade-line' }` entries, repaints immediately, then calls `setDrawMode(true)` + `setGradeLineDrawing(true)` (same entry point as `confirmShape` after the on-closure prompt).
+  * No confirm dialog, no vertex editing, wall polygon untouched. Existing `commitGradeLine` + snap-as-aid + finish-anywhere unchanged. Browser-verified (Session 25).
 
 **Not yet built (next increments):**
-- Elevation Piece 4 sub-piece 2 piece 3 (OPTIONAL): "Redraw grade line" button — delete existing grade line + restart draw. NOT vertex/segment editing. Ben to decide if needed.
-- Cross-sections, windows/doors (not in scope yet)
-- Cross-sections, windows/doors
+- Windows/doors on elevation pages (NEXT)
+- Cross-sections (deferred — windows/doors intentionally builds first)
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
 
