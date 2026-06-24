@@ -229,7 +229,7 @@ export function splitPolygon(verts, cutP1, cutP2) {
 }
 
 export function getEligibleShapes(shapes, pageId) {
-  const pageIdxs = shapes.map((s, i) => ({ s, i })).filter(({ s }) => s.pageId === pageId).map(({ i }) => i)
+  const pageIdxs = shapes.map((s, i) => ({ s, i })).filter(({ s }) => s.pageId === pageId && s.shapeKind !== 'grade-line').map(({ i }) => i)
   const eligible = new Set()
   for (let a = 0; a < pageIdxs.length; a++) {
     for (let b = a + 1; b < pageIdxs.length; b++) {

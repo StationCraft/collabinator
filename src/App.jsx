@@ -8,7 +8,7 @@ import {
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawShapePoly, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -87,6 +87,11 @@ function App() {
   const [roofShapeDraft, setRoofShapeDraft] = useState(null)  // {vertices, pageId} closed on roof page, pending type pick
   const [roofTypeDraft, setRoofTypeDraft] = useState(null)    // 'flat' | 'sloped'
   const [parapetWidthDraft, setParapetWidthDraft] = useState('')
+
+  // ── Grade-line tracing (Elevation Piece 4 sub-piece 2) ──────────────────────
+  const [showGradeLinePrompt, setShowGradeLinePrompt] = useState(false)  // "Trace grade line?" Q shown during polygon review
+  const [gradeLinePending, setGradeLinePending] = useState(false)         // user answered Yes; start grade-line mode after polygon confirm
+  const [gradeLineDrawing, setGradeLineDrawing] = useState(false)         // actively tracing the grade line
 
   const [editMode, setEditMode] = useState(false)
   const [editSubMode, setEditSubMode] = useState(null) // 'move'|'combine'|'split'|null
@@ -303,6 +308,7 @@ function App() {
     setPdf(null); setCurrentPage(null); setPageCount(0); setFileName(file.name)
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
+    setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
@@ -349,6 +355,7 @@ function App() {
     if (!pdf || renderingPage) return
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
+    setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
@@ -476,6 +483,7 @@ function App() {
 
   const exitDrawMode = () => {
     setDrawMode(false); setReviewShape(null)
+    setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
     drawVerticesRef.current = []; setDrawVertexCount(0)
     mousePosRef.current = null; drawStartSnapRef.current = null
     snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
@@ -575,6 +583,7 @@ function App() {
       const drag = moveDragRef.current
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
+        if (shape.shapeKind === 'grade-line') return
         ctx.save()
         const isDragged = drag && drag.shapeIdx === idx
         const verts = isDragged && drag.previewVerts ? drag.previewVerts : shape.vertices
@@ -582,6 +591,7 @@ function App() {
         drawShapePoly(ctx, verts, style)
         ctx.restore()
       })
+      drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
       drawElevRefLines(ctx)
       return
     }
@@ -598,6 +608,7 @@ function App() {
       const sel = combineSelectRef.current
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
+        if (shape.shapeKind === 'grade-line') return
         ctx.save()
         if (!eligible.has(idx)) ctx.globalAlpha = 0.2
         const style = sel.includes(idx) ? 'selected' : 'normal'
@@ -613,6 +624,7 @@ function App() {
           ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 4; ctx.stroke()
         }
       }
+      drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
       drawElevRefLines(ctx)
       return
     }
@@ -628,10 +640,12 @@ function App() {
       const hoverIdx = deleteHoverIdxRef.current
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
+        if (shape.shapeKind === 'grade-line') return
         ctx.save()
         drawShapePoly(ctx, shape.vertices, idx === hoverIdx ? 'hover' : 'normal')
         ctx.restore()
       })
+      drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
       drawElevRefLines(ctx)
       return
     }
@@ -648,6 +662,7 @@ function App() {
       const hoverIdx = splitHoverIdxRef.current
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
+        if (shape.shapeKind === 'grade-line') return
         ctx.save()
         if (selIdx !== null && idx !== selIdx) ctx.globalAlpha = 0.2
         const style = idx === selIdx ? 'normal' : (selIdx === null && idx === hoverIdx ? 'hover' : 'normal')
@@ -668,6 +683,7 @@ function App() {
           ctx.fillStyle = '#dc2626'; ctx.fill()
         })
       }
+      drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
       drawElevRefLines(ctx)
       return
     }
@@ -682,6 +698,7 @@ function App() {
     completedShapesRef.current
       .forEach((shape, shapeIdx) => {
         if (shape.pageId !== currentPageId) return
+        if (shape.shapeKind === 'grade-line') return
         const verts = (previewOverride && previewOverride.shapeIdx === shapeIdx)
           ? previewOverride.vertices : shape.vertices
         const N = verts.length
@@ -732,6 +749,7 @@ function App() {
         })
       })
 
+    drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
     drawElevRefLines(ctx)
   }
 
@@ -776,6 +794,7 @@ function App() {
     let best = null, bestDist = HIT_SEG_DIST
     completedShapesRef.current.forEach((shape, shapeIdx) => {
       if (shape.pageId !== currentPageId) return
+      if (shape.shapeKind === 'grade-line') return
       const verts = shape.vertices
       for (let segIdx = 0; segIdx < verts.length; segIdx++) {
         const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
@@ -788,6 +807,7 @@ function App() {
   const hitTestShapeBody = (pos) => {
     const shapes = completedShapesRef.current
     for (let i = shapes.length - 1; i >= 0; i--) {
+      if (shapes[i].shapeKind === 'grade-line') continue
       if (shapes[i].pageId === currentPageId && pointInPolygon(pos, shapes[i].vertices)) return i
     }
     return null
@@ -1402,7 +1422,7 @@ function App() {
     } else if (drawMode && !reviewShape) {
       const rawPos = getCanvasPos(e)
       const verts = drawVerticesRef.current
-      if (verts.length >= 3) {
+      if (verts.length >= 3 && !gradeLineDrawing) {
         const first = verts[0]
         const dx = rawPos.x - first.x, dy = rawPos.y - first.y
         if (Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS) {
@@ -1412,6 +1432,9 @@ function App() {
             redrawReviewCanvas(shape, currentPageId); return
           }
           setReviewShape(shape); drawVerticesRef.current = []; setDrawVertexCount(0)
+          if (pages.find(p => p.pageId === currentPageId)?.category === 'elevation') {
+            setShowGradeLinePrompt(true)
+          }
           redrawReviewCanvas(shape, currentPageId); return
         }
       }
@@ -1777,6 +1800,7 @@ function App() {
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
+    drawGradeLineShapes(ctx, completedShapesRef.current, pageId)
 
     // Start-vertex snap highlight: pre-first-vertex window only
     if (vertices.length === 0 && mousePos && drawStartSnapRef.current) {
@@ -1800,7 +1824,7 @@ function App() {
 
     if (vertices.length >= 1 && mousePos) {
       const last = vertices[vertices.length - 1], first = vertices[0]
-      const nearClose = vertices.length >= 3 && (() => {
+      const nearClose = !gradeLineDrawing && vertices.length >= 3 && (() => {
         const dx = mousePos.x - first.x, dy = mousePos.y - first.y
         return Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS
       })()
@@ -1849,6 +1873,7 @@ function App() {
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
+    drawGradeLineShapes(ctx, completedShapesRef.current, pageId)
     const verts = shape.vertices
     ctx.beginPath(); ctx.moveTo(verts[0].x, verts[0].y)
     for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
@@ -1870,19 +1895,40 @@ function App() {
       ...completedShapesRef.current,
       { vertices: reviewShape.vertices, pageId: currentPageId, status: 'locked' },
     ]
+    const pendingGrade = gradeLinePending
     setReviewShape(null); drawVerticesRef.current = []; setDrawVertexCount(0)
+    setShowGradeLinePrompt(false); setGradeLinePending(false)
     const c = measureRef.current
     if (c) {
-      c.getContext('2d').clearRect(0, 0, c.width, c.height)
-      drawLockedShapes(c.getContext('2d'), completedShapesRef.current, getPageId(currentPage))
+      const ctx2 = c.getContext('2d')
+      ctx2.clearRect(0, 0, c.width, c.height)
+      drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
+      drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
     }
-    maybePromptFrontFace()
+    if (pendingGrade) {
+      setGradeLineDrawing(true)
+    } else {
+      maybePromptFrontFace()
+    }
   }
 
   const discardShape = () => {
     setReviewShape(null); setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
+    setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
     setDrawMode(false)
     drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
+  }
+
+  const commitGradeLine = () => {
+    const verts = drawVerticesRef.current
+    if (verts.length < 2) return
+    completedShapesRef.current = [
+      ...completedShapesRef.current,
+      { vertices: [...verts], pageId: currentPageId, status: 'locked', shapeKind: 'grade-line' },
+    ]
+    drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
+    setGradeLineDrawing(false)
+    redrawDrawCanvas(null, [], snapAngle, snapDist, currentPageId)
   }
 
   const confirmRoofShape = () => {
@@ -1903,8 +1949,10 @@ function App() {
     drawVerticesRef.current = []; setDrawVertexCount(0)
     const c = measureRef.current
     if (c) {
-      c.getContext('2d').clearRect(0, 0, c.width, c.height)
-      drawLockedShapes(c.getContext('2d'), completedShapesRef.current, getPageId(currentPage))
+      const ctx2 = c.getContext('2d')
+      ctx2.clearRect(0, 0, c.width, c.height)
+      drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
+      drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
     }
   }
 
@@ -2083,6 +2131,7 @@ function App() {
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
+    drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
     drawPerimRoles(ctx)
     const graph = roofGraphRef.current
     graph.edges.forEach(edge => {
@@ -2126,6 +2175,7 @@ function App() {
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
+    drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
     drawPerimRoles(ctx)
     const graph = roofGraphRef.current
     graph.edges.forEach(edge => {
@@ -2333,6 +2383,7 @@ function App() {
     }
 
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
+    drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
     const seg = resolveFrontFaceSegment()
     if (seg && frontFace && frontFace.pageId === currentPageId) {
       drawSegmentHighlight(ctx, seg.a, seg.b, 'front')
@@ -2466,6 +2517,9 @@ function App() {
           } else exitEditMode()
         }
       }
+      if (gradeLineDrawing && e.key === 'Enter') {
+        commitGradeLine(); return
+      }
       if (drawMode && !reviewShape && (e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
         const verts = drawVerticesRef.current
         if (verts.length === 0) return
@@ -2491,7 +2545,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState, gradeLineDrawing])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -3458,20 +3512,30 @@ function App() {
                     </>
                   ) : null
                 })()}
-                <span className="draw-status">
-                  {drawVertexCount === 0 ? 'Click to start tracing'
-                    : drawVertexCount < 3 ? 'Click to continue · Z to undo · Esc to cancel'
-                    : 'Continue · click start point to close · Z to undo · Esc to cancel'}
-                </span>
-                {lockedShapesOnPage.length > 0 && (
-                  <button className="edit-btn edit-btn--small" onClick={() => {
-                    drawVerticesRef.current = []; setDrawVertexCount(0)
-                    mousePosRef.current = null; setReviewShape(null)
-                    snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
-                    setDrawMode(false); setEditMode(true)
-                  }}>Edit Shapes</button>
+                {gradeLineDrawing ? (
+                  <>
+                    <span className="review-status">Grade line — click to trace · Z to undo · Enter or Finish when done</span>
+                    <button className="btn-primary" onClick={commitGradeLine} disabled={drawVertexCount < 2}>Finish grade line</button>
+                    <button className="calib-cancel" onClick={exitDrawMode}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <span className="draw-status">
+                      {drawVertexCount === 0 ? 'Click to start tracing'
+                        : drawVertexCount < 3 ? 'Click to continue · Z to undo · Esc to cancel'
+                        : 'Continue · click start point to close · Z to undo · Esc to cancel'}
+                    </span>
+                    {lockedShapesOnPage.length > 0 && (
+                      <button className="edit-btn edit-btn--small" onClick={() => {
+                        drawVerticesRef.current = []; setDrawVertexCount(0)
+                        mousePosRef.current = null; setReviewShape(null)
+                        snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
+                        setDrawMode(false); setEditMode(true)
+                      }}>Edit Shapes</button>
+                    )}
+                    <button className="calib-cancel" onClick={exitDrawMode}>Done</button>
+                  </>
                 )}
-                <button className="calib-cancel" onClick={exitDrawMode}>Done</button>
               </>
             ) : roofShapeDraft ? (
               <>
@@ -3503,7 +3567,15 @@ function App() {
               </>
             ) : (
               <>
-                <span className="review-status">Shape closed — confirm or discard</span>
+                {showGradeLinePrompt ? (
+                  <>
+                    <span className="review-status">Trace grade line?</span>
+                    <button className="btn-primary" onClick={() => { setGradeLinePending(true); setShowGradeLinePrompt(false) }}>Yes — trace grade line</button>
+                    <button className="btn-secondary" onClick={() => setShowGradeLinePrompt(false)}>No</button>
+                  </>
+                ) : (
+                  <span className="review-status">Shape closed — confirm or discard</span>
+                )}
                 <button className="btn-primary" onClick={confirmShape}>Confirm Shape</button>
                 <button className="btn-secondary" onClick={discardShape}>Discard</button>
               </>

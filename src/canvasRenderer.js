@@ -30,6 +30,7 @@ export function drawLockedShapes(ctx, completedShapes, pageId) {
   completedShapes
     .filter(s => s.pageId === pageId)
     .forEach(shape => {
+      if (shape.shapeKind === 'grade-line') return
       const verts = shape.vertices
       if (verts.length < 3) return
       ctx.beginPath()
@@ -103,10 +104,37 @@ export function drawAlignGuide(ctx, guide, cw, ch) {
 // Draw locked shapes from a ghost source page (floor below) as read-only reference.
 // Visual style: amber dashed outline + flat 10% fill + 45° hatch at 25% opacity.
 // Ghost is drawn BELOW working geometry, so current-page traces read on top.
+// Draw stored grade-line shapes (open polylines) on the given page as green dashed reference lines.
+export function drawGradeLineShapes(ctx, completedShapes, pageId) {
+  completedShapes
+    .filter(s => s.pageId === pageId && s.shapeKind === 'grade-line' && s.status === 'locked')
+    .forEach(shape => {
+      const verts = shape.vertices
+      if (verts.length < 2) return
+      ctx.save()
+      ctx.beginPath()
+      ctx.moveTo(verts[0].x, verts[0].y)
+      for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
+      ctx.strokeStyle = '#16a34a'
+      ctx.lineWidth = 2
+      ctx.setLineDash([8, 4])
+      ctx.lineJoin = 'round'
+      ctx.globalAlpha = 0.85
+      ctx.stroke()
+      ctx.setLineDash([])
+      verts.forEach(v => {
+        ctx.beginPath(); ctx.arc(v.x, v.y, 3, 0, Math.PI * 2)
+        ctx.fillStyle = '#16a34a'; ctx.globalAlpha = 0.85; ctx.fill()
+      })
+      ctx.restore()
+    })
+}
+
 export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
   completedShapes
     .filter(s => s.pageId === ghostPageId && s.status === 'locked')
     .forEach(shape => {
+      if (shape.shapeKind === 'grade-line') return
       const verts = shape.vertices
       if (verts.length < 3) return
 
