@@ -4259,6 +4259,34 @@ function App() {
           </div>
         </div>
       )}
+
+      {import.meta.env.DEV && (
+        <div className="dev-fixture-strip">
+          <span className="dev-fixture-label">DEV</span>
+          <button className="dev-fixture-btn" onClick={async () => {
+            try {
+              const resp = await fetch('/devFixtures/fixture-elevation.json')
+              if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+              const obj = await resp.json()
+              await window.__restoreFixture(obj)
+            } catch (err) {
+              console.error('[fixture] LOAD failed:', err)
+              alert('LOAD FIXTURE failed — see console')
+            }
+          }}>LOAD FIXTURE</button>
+          <button className="dev-fixture-btn" onClick={() => {
+            const snap = window.__snapshotFixture()
+            const pageLabel = snap.pages?.find(p => p.pageId === `page-${snap.currentPage}`)?.category ?? 'unknown'
+            const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+            const filename = `fixture-${pageLabel}-${ts}.json`
+            const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url; a.download = filename; a.click()
+            URL.revokeObjectURL(url)
+          }}>SAVE FIXTURE</button>
+        </div>
+      )}
     </div>
   )
 }
