@@ -537,7 +537,13 @@ Includes raster-image line sensing, ML-assisted classification, and an overlay U
 
 **Description:** An open polyline drawn across the elevation canvas representing the finished grade / soil line. Visually distinguishes above-grade from below-grade portions of the elevation. Geometry only — no Z-value derivation. R3/element-layer for Z association deferred (see #21).
 
-**Status:** Piece 1 (draw tool + on-closure prompt + `shapeKind:'grade-line'` discriminator) — **DONE** (Session 22; commit 3fae81b). Pieces 2 (termination enforcement on polygon vertex/edge + lowest-floor reference line) and 3 (grade-line editing) still outstanding.
+**Status:** Piece 1 (draw tool + on-closure prompt + `shapeKind:'grade-line'` discriminator) — **DONE** (Session 22; commit 3fae81b). Pieces 2 and 3 still outstanding.
+
+**Piece 2 scope (finalized Session 22 follow-up):**
+- **Vertex-only binding by deliberate decision.** Each grade-line endpoint must snap to an existing wall-polygon vertex (snap-assisted during draw). The bound endpoint stores a reference to that vertex and follows it when the wall polygon is edited or moved — eliminates floating endpoints.
+- **Edge-termination (partway along an edge) is explicitly deferred as negligible (<1%).** Vertical-edge bind, along-ratio binding, and edge-split logic are NOT built. This is not an oversight — it is a deliberate scope call, logged here to prevent a future "fix" that isn't needed.
+- Also includes: lowest-floor (below-grade slab) reference line visible and snappable during grade-line trace.
+- Architectural note: vertex binding is the model's first shape-to-shape reference (one endpoint → one vertex on a different shape) — a minimal, deliberate toe into R3 element-identity. Kept as small as possible.
 
 ---
 
@@ -661,6 +667,22 @@ Both are single-pass changes.
 **Why deferred:** Panel ergonomics. Batch with floor-heights panel polish.
 
 **Status:** Deferred.
+
+---
+
+### 41. Grade line: read-time above/below-grade interpretation — no polygon split (architectural principle)
+
+**Logged:** Session 22 follow-up (after close-out commit 82de016).
+
+**Description / principle:** The wall/outline polygon is NEVER divided by the grade line. The grade line is stored reference data laid across the intact wall polygon. Above-grade vs. below-grade quantities (e.g. below-grade wall area for an energy model or downstream program) are **derived on read** by intersecting the grade line with the wall polygon geometry — never stored as separate shapes. One wall element exists; it is read two ways.
+
+This is the same store-inputs/project-at-read-time pattern as the `pxToMeters` recalibration-independence seam (#22): inputs (the polygon, the grade line) are stored unchanged; the derived quantity is computed fresh from them every time it is needed. Changing the grade line or editing the polygon automatically updates every derived quantity without any stored state to patch.
+
+The intersection/quantification logic (the "read" half) is R3 / element-layer, deferred. See also: #29 (derived envelope block), #19 (coplanar-distinctness / element identity), #21 (planes/edges as rule-imposing boundaries).
+
+**Why logged:** To make the no-split decision explicit and durable — so a future build step does not accidentally split the polygon or store redundant area geometry under time pressure.
+
+**Status:** Principle only — no build needed at this stage. Enforce at design-review time before any above/below-grade feature is scoped.
 
 ---
 

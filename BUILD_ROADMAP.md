@@ -92,7 +92,7 @@ building."
         [x] Piece 1 (3fae81b): open-polyline draw tool + on-closure prompt; shapeKind:'grade-line'
             discriminator; drawGradeLineShapes in all 13 render paths; wall polygon unmodified;
             stored as 2D pixels via makeVertex; finish via Enter/button; clears on nav/upload.
-        [ ] Piece 2: enforced termination on polygon vertex/edge; lowest-floor reference line
+        [ ] Piece 2: vertex-only endpoint binding (snap to wall-polygon vertex, follow on edit) + lowest-floor reference line visible/snappable; edge-termination deferred as <1% case
         [ ] Piece 3: grade-line editing (vertex/segment drag)
     [ ] Elevation spatial Piece 4 sub-piece 3+ — windows/doors, cross-sections (future)
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
@@ -103,7 +103,7 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: Elevation spatial Piece 4 sub-piece 2 piece 2 (grade-line termination enforcement + lowest-floor reference line). Piece 3 sub-piece 3 (drag-to-edit heights) is deferred/shelved.**
+**Next: Elevation spatial Piece 4 sub-piece 2 piece 2 (vertex-only endpoint binding + lowest-floor reference line). Edge-termination deferred as <1% case (#30). Piece 3 sub-piece 3 (drag-to-edit heights) is deferred/shelved.**
 
 ---
 

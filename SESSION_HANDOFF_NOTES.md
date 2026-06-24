@@ -1330,7 +1330,7 @@ Drag-to-edit individual heights — **shelved, not cancelled.** Height editing s
 
 ### NEXT
 
-Elevation Piece 4 sub-piece 2 (grade line) piece 2: enforced termination on polygon vertex/edge + lowest-floor reference line.
+Elevation Piece 4 sub-piece 2 piece 2: vertex-only grade-line binding (each endpoint snaps to and references an existing wall-polygon vertex; follows it on edit) + lowest-floor reference line visible/snappable during draw. Edge-termination explicitly deferred as <1% case (see #30).
 
 ---
 
@@ -1366,7 +1366,8 @@ Elevation Piece 4 sub-piece 2 (grade line) piece 2: enforced termination on poly
 - **Reference-line snap-suggest to known Ys (#27):** when dragging base line, snap toward known anchor Ys; near-term candidate post-Piece-4
 - **PDF visual analysis / analysis-first front end (#28):** MAJOR VISION — automated page analysis + confirm-and-correct overlay; flagged for deep-review waypoint
 - **Derived envelope block (#29):** Phase 2 architectural target — elevation surfaces derived from floor-plan polygons, not traced freehand; gated on R3
-- **Grade / soil line (#30):** Elevation Piece 4 sub-piece 2 — piece 1 DONE (3fae81b); pieces 2 (termination enforcement) + 3 (editing) still outstanding
+- **Grade / soil line (#30):** Elevation Piece 4 sub-piece 2 — piece 1 DONE (3fae81b); piece 2 = vertex-only binding + lowest-floor reference line (edge-termination deferred as <1%); piece 3 = grade-line editing
+- **Grade-line read-time interpretation (#41):** wall polygon never split; above/below-grade quantities derived on read by intersecting grade line with polygon — R3/deferred; no stored split geometry ever
 - **Dev fixture Piece 2 (#31):** Save/Load buttons (console-only today)
 - **UX notes (#32–#40):** categorize shortcut, button colour audit, ghost-vertex snap gap, align-handle cursor mirror, sidebar auto-collapse, edge-select copy, isometric ghost preview, reference-line label stacking, floor-to-floor field auto-grey
 - **Elevation Piece 3 sub-piece 3 (deferred/shelved):** drag-to-edit individual floor/ceiling heights; height editing stays panel-only

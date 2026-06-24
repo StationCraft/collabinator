@@ -278,7 +278,7 @@ geometry" approach is **not** being rebuilt.
   * Grade-line draw mode reuses existing snap/draw conventions; close-snap ring suppressed;
     finish via Enter key or "Finish grade line" button (min 2 vertices).
   * Stored as 2D pixels via makeVertex, no Z; clears on page-nav and PDF upload.
-  * Pieces 2 (termination enforcement) and 3 (editing) still outstanding.
+  * Piece 2 (vertex-only endpoint binding + lowest-floor reference line) and piece 3 (editing) still outstanding. Edge-termination deferred as <1% case (#30).
 - **3a scope boundary:** datum layer only — named reference elevations per FLOOR_ORDER level.
   No pixels→real-world XYZ coordinate conversion in this step. Per-element Z is deferred to Phase 2.
 

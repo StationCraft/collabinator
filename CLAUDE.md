@@ -541,7 +541,7 @@ A React + Vite app with:
     page-nav, PDF upload, exitDrawMode, discardShape.
 
 **Not yet built (next increments):**
-- Elevation Piece 4 sub-piece 2 pieces 2+3: grade-line termination enforcement on polygon vertex/edge (piece 2); lowest-floor reference line (piece 2); grade-line editing (piece 3)
+- Elevation Piece 4 sub-piece 2 pieces 2+3: vertex-only endpoint binding — snap to existing wall-polygon vertex, endpoint follows on edit (piece 2); lowest-floor reference line visible/snappable during draw (piece 2); grade-line editing (piece 3). Edge-termination explicitly deferred as <1% case.
 - Dev fixture Piece 2: Save/Load buttons (`window.__snapshotFixture/__restoreFixture` console-only today)
 - Cross-sections, windows/doors
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
