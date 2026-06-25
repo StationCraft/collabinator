@@ -158,6 +158,16 @@ function App() {
   const shapeIdCounterRef = useRef(0)          // monotonic id for stable shape identity
   const dimensionBasisRef = useRef(null)       // 'frame' | 'rough-opening' | null (project-level, set once per upload)
   const priorSnapIncrementRef = useRef(null)   // saved increment before opening-placement / opening-edit default
+  // B4: project-level physical derivation config (§5.3 — base case of extensible model; no UI yet)
+  const projectConfigRef = useRef({
+    // Reconcile rule for stacked floors: 'closest-approach' measures per-edge signed perpendicular
+    // distance to the nearest floor-below edge in world meters, with pointInPolygon for sign.
+    cantileverRule: 'closest-approach',
+    // Threshold (meters) to classify coincident vs cantilever/setback.
+    reconcileThresholdM: 0.05,
+    // Minimum overhang (meters) to report as a soffit element.
+    soffitCombineThresholdM: 0.05,
+  })
 
   // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
   const [alignMode, setAlignMode] = useState(false)
@@ -3569,6 +3579,303 @@ function App() {
       }
 
       if (!floorPages.length && !elevPages.length && !roofPages.length) console.warn('[world] no categorized floor-plan, elevation, or roof-plan pages found')
+    }
+
+    // ── B4: deriveEnumeration() ────────────────────────────────────────────────
+    // Returns an array of envelope elements (wall-surface, roof-plane, soffit, window, door).
+    // Every derived quantity is a named property on the element — never a transient in render code (§7.3).
+    // Reads refs at call time; never stores meters (recalibration-safe, #22).
+    const deriveEnumeration = () => {
+      const elements = []
+      const origin = getWorldOriginM()
+      if (!origin) return elements
+
+      // Local fhZStack (same source as component-derived fhZStack)
+      const presentLevels = FLOOR_ORDER.filter(level =>
+        pages.some(p => p.category === 'floor-plan' && p.subLabel === level)
+      )
+      const zStack = accumulateZ(floorHeightsRef.current, presentLevels, FLOOR_ORDER)
+
+      // Helper: world-space bbox of all locked wall polygons on a page
+      const getWorldBbox = (pageId) => {
+        const shapes = completedShapesRef.current.filter(
+          s => s.pageId === pageId && s.status === 'locked' && !s.shapeKind
+        )
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+        for (const s of shapes) {
+          for (const v of s.vertices) {
+            const w = pageVertexToWorld(v, pageId)
+            if (!w) continue
+            if (w.x < minX) minX = w.x; if (w.x > maxX) maxX = w.x
+            if (w.y < minY) minY = w.y; if (w.y > maxY) maxY = w.y
+          }
+        }
+        return isFinite(minX) ? { minX, maxX, minY, maxY } : null
+      }
+
+      // Floor-page lookup (first page per FLOOR_ORDER level)
+      const floorPageMap = {}
+      for (const fp of pages.filter(p => p.category === 'floor-plan' && isKnownFloorLabel(p.subLabel))) {
+        if (!floorPageMap[fp.subLabel]) floorPageMap[fp.subLabel] = fp
+      }
+
+      const cfg = projectConfigRef.current
+      const thr = cfg.soffitCombineThresholdM ?? 0.05
+
+      // ── STEP A: Wall surfaces — each polygon edge lifted to floor Z ──────────
+      for (let li = 0; li < zStack.length; li++) {
+        const row = zStack[li]
+        const floorPage = floorPageMap[row.level]
+        if (!floorPage) continue
+        const scale = getEffectiveScale(floorPage.pageId)
+        if (!scale) continue
+
+        const floorZm   = (row.floorZ   ?? 0) * 0.3048
+        const ceilingZm = row.ceilingZ  != null ? row.ceilingZ * 0.3048 : null
+        const heightM   = row.floorToCeiling != null ? row.floorToCeiling * 0.3048 : null
+
+        // STEP B: reconcile vs floor below (closest-approach rule)
+        // Pre-project all floor-below polygon vertices to world meters once per level pair.
+        const belowRow  = li > 0 ? zStack[li - 1] : null
+        const belowPage = belowRow ? floorPageMap[belowRow.level] : null
+        // belowWorldShapes: array of world-meter vertex arrays, one per locked wall polygon on the below floor
+        const belowWorldShapes = belowPage
+          ? completedShapesRef.current
+              .filter(s => s.pageId === belowPage.pageId && s.status === 'locked' && !s.shapeKind)
+              .map(s => s.vertices.map(v => pageVertexToWorld(v, belowPage.pageId)).filter(Boolean))
+              .filter(wv => wv.length >= 3)
+          : []
+
+        const reconcileThreshold = cfg.reconcileThresholdM ?? 0.05
+
+        const wallShapes = completedShapesRef.current.filter(
+          s => s.pageId === floorPage.pageId && s.status === 'locked' && !s.shapeKind
+        )
+        for (const shape of wallShapes) {
+          for (let si = 0; si < shape.vertices.length; si++) {
+            const vA = shape.vertices[si]
+            const vB = shape.vertices[(si + 1) % shape.vertices.length]
+            const wA = pageVertexToWorld(vA, floorPage.pageId)
+            const wB = pageVertexToWorld(vB, floorPage.pageId)
+            if (!wA || !wB) continue
+
+            const dx = wB.x - wA.x
+            const dy = wB.y - wA.y
+            const widthM = Math.sqrt(dx * dx + dy * dy)
+
+            // Compass bearing of edge direction: atan2(dx, -dy) where canvas +Y = south
+            const bearingRad = Math.atan2(dx, -dy)
+            const orientationDeg = ((bearingRad * 180 / Math.PI) + 360) % 360
+
+            // Reconcile: closest-approach signed perpendicular distance to floor-below polygon edges.
+            // Unsigned minimum distance via distToSegment; sign from pointInPolygon on midpoint.
+            // Works in world meters — same coordinate space as pageVertexToWorld output.
+            let reconcile = null
+            let signedDistM = null
+            if (belowWorldShapes.length > 0) {
+              const mx = (wA.x + wB.x) / 2
+              const my = (wA.y + wB.y) / 2
+              const mid = { x: mx, y: my }
+
+              // Minimum unsigned distance from midpoint to any edge of any floor-below polygon
+              let minDist = Infinity
+              for (const wv of belowWorldShapes) {
+                for (let bi = 0; bi < wv.length; bi++) {
+                  const d = distToSegment(mid, wv[bi], wv[(bi + 1) % wv.length])
+                  if (d < minDist) minDist = d
+                }
+              }
+
+              // Sign: inside any floor-below polygon = setback (negative), outside = cantilever (positive)
+              const insideBelow = belowWorldShapes.some(wv => pointInPolygon(mid, wv))
+              signedDistM = insideBelow ? -minDist : minDist
+
+              if (minDist <= reconcileThreshold) {
+                reconcile = 'coincident'
+              } else {
+                reconcile = insideBelow ? 'setback' : 'cantilever'
+              }
+            }
+
+            elements.push({
+              id: `wall-${shape.id}-seg${si}-${row.level.replace(/\s/g, '_')}`,
+              kind: 'wall-surface',
+              floorLevel: row.level,
+              pageId: floorPage.pageId,
+              worldA: { x: wA.x, y: wA.y, z: floorZm },
+              worldB: { x: wB.x, y: wB.y, z: floorZm },
+              widthM,
+              heightM,
+              orientationDeg,
+              floorZm,
+              ceilingZm,
+              reconcile,
+              signedDistM,
+            })
+          }
+        }
+      }
+
+      // ── STEP C: Soffit/eave — roof bbox vs wall-below bbox ──────────────────
+      // Roof polygon larger than wall below on a side → overhang → soffit element.
+      // Coincident-but-distinct surfaces are not merged (#19).
+      const roofPagesArr = pages.filter(p => p.category === 'roof-plan')
+      for (const rp of roofPagesArr) {
+        if (!pageTransformsRef.current[rp.pageId]?.confirmed) continue
+        const roofBbox = getWorldBbox(rp.pageId)
+        if (!roofBbox) continue
+
+        const highestLevel = presentLevels.length > 0 ? presentLevels[presentLevels.length - 1] : null
+        const wallPage = highestLevel ? floorPageMap[highestLevel] : null
+        if (!wallPage) continue
+        const wallBbox = getWorldBbox(wallPage.pageId)
+        if (!wallBbox) continue
+
+        // Z of roof eave = ceiling of highest floor (top of stack)
+        const topRow = zStack[zStack.length - 1]
+        const eaveZm = topRow?.ceilingZ != null ? topRow.ceilingZ * 0.3048 : null
+
+        // Per side: positive projection = roof extends beyond wall
+        const sides = [
+          { side: 'north', projection: wallBbox.minY - roofBbox.minY, spanM: roofBbox.maxX - roofBbox.minX },
+          { side: 'south', projection: roofBbox.maxY - wallBbox.maxY, spanM: roofBbox.maxX - roofBbox.minX },
+          { side: 'west',  projection: wallBbox.minX - roofBbox.minX, spanM: roofBbox.maxY - roofBbox.minY },
+          { side: 'east',  projection: roofBbox.maxX - wallBbox.maxX, spanM: roofBbox.maxY - roofBbox.minY },
+        ]
+        for (const { side, projection, spanM } of sides) {
+          if (projection > thr) {
+            elements.push({
+              id: `soffit-${rp.pageId}-${side}`,
+              kind: 'soffit',
+              floorLevel: highestLevel,
+              pageId: rp.pageId,
+              side,
+              projectionM: projection,
+              spanM,
+              eaveZm,
+            })
+          }
+        }
+      }
+
+      // ── STEP D: Fenestration — openings on elevation pages get world Z ───────
+      for (const ep of pages.filter(p => p.category === 'elevation')) {
+        if (!pageScalesRef.current[ep.pageId]?.pxPerMeter) continue
+        if (!resolveElevEdge(ep.pageId)) continue
+
+        const openings = completedShapesRef.current.filter(
+          s => s.pageId === ep.pageId && s.status === 'locked' && isOpening(s)
+        )
+        for (const op of openings) {
+          const centroidY = op.vertices.reduce((sum, v) => sum + v.y, 0) / op.vertices.length
+          const worldZm = elevYToWorldZ(centroidY, ep.pageId)
+          elements.push({
+            id: `${op.shapeKind}-${op.id}-${ep.pageId}`,
+            kind: op.shapeKind,
+            floorLevel: null,
+            pageId: ep.pageId,
+            label: op.label ?? null,
+            openingType: op.openingType ?? null,
+            widthM: op.widthM ?? null,
+            heightM: op.heightM ?? null,
+            dimBasis: op.dimBasis ?? null,
+            worldZm,
+          })
+        }
+      }
+
+      return elements
+    }
+
+    // __dumpEnumeration(): B4 console verification — enumerate all envelope elements with size + orientation.
+    // Verbose: every element printed individually with full geometry + reconcile tag.
+    // Extends __dumpWorld pattern (§7.1, §7.3). DEV-only; tree-shaken in production.
+    window.__dumpEnumeration = () => {
+      const elements = deriveEnumeration()
+      if (!elements.length) { console.warn('[enum] empty — check fixture loaded and floors/roof confirmed'); return }
+
+      // ── Polygon edge counts for reconcile audit ──────────────────────────────
+      console.log('[enum] --- polygon edge counts ---')
+      const seenPages = new Set()
+      for (const el of elements) {
+        if (el.kind !== 'wall-surface' || seenPages.has(el.pageId + el.floorLevel)) continue
+        seenPages.add(el.pageId + el.floorLevel)
+        const count = elements.filter(e => e.kind === 'wall-surface' && e.pageId === el.pageId && e.floorLevel === el.floorLevel).length
+        console.log(`  ${el.floorLevel} (${el.pageId}): ${count} edges`)
+      }
+      const roofPage = pages.find(p => p.category === 'roof-plan')
+      if (roofPage) {
+        const roofShapes = completedShapesRef.current.filter(s => s.pageId === roofPage.pageId && s.status === 'locked' && !s.shapeKind)
+        const edgeCount = roofShapes.reduce((n, s) => n + s.vertices.length, 0)
+        console.log(`  roof (${roofPage.pageId}): ${edgeCount} polygon edges (not wall-surfaces — soffit derived from bbox)`)
+      }
+      console.log(`[enum] ${elements.length} total elements`)
+      console.log('[enum] --- per-element detail ---')
+
+      // ── Per-element verbose lines ────────────────────────────────────────────
+      let prevKind = null
+      for (const el of elements) {
+        if (el.kind !== prevKind) {
+          console.log(`[enum] === ${el.kind.toUpperCase()} ===`)
+          prevKind = el.kind
+        }
+        if (el.kind === 'wall-surface') {
+          const wStr = el.widthM   != null ? el.widthM.toFixed(4) + 'm'  : 'w=null'
+          const hStr = el.heightM  != null ? el.heightM.toFixed(4) + 'm' : 'h=null (floor heights not entered)'
+          const fStr = el.floorZm  != null ? el.floorZm.toFixed(4) + 'm'  : 'null'
+          const cStr = el.ceilingZm != null ? el.ceilingZm.toFixed(4) + 'm' : 'null'
+          const oStr = el.orientationDeg != null ? el.orientationDeg.toFixed(1) + '°' : 'null'
+          const rStr = el.reconcile ?? 'null (base floor — no floor below)'
+          const dStr = el.signedDistM != null
+            ? `${el.signedDistM >= 0 ? '+' : ''}${el.signedDistM.toFixed(4)}m (${el.signedDistM < 0 ? 'inside' : 'outside'} floor-below)`
+            : 'n/a'
+          console.log(
+            `  ${el.id}\n` +
+            `    page:${el.pageId}  floor:${el.floorLevel}\n` +
+            `    width=${wStr}  height=${hStr}\n` +
+            `    floorZ=${fStr}  ceilingZ=${cStr}  bearing=${oStr}\n` +
+            `    signedDist=${dStr}\n` +
+            `    reconcile: ${rStr}`
+          )
+        } else if (el.kind === 'soffit') {
+          const pStr = el.projectionM.toFixed(4) + 'm'
+          const sStr = el.spanM != null ? el.spanM.toFixed(4) + 'm' : 'null'
+          const zStr = el.eaveZm != null ? el.eaveZm.toFixed(4) + 'm' : 'null (no ceiling Z for top floor)'
+          console.log(
+            `  ${el.id}\n` +
+            `    page:${el.pageId}  floor:${el.floorLevel}  side:${el.side}\n` +
+            `    projection=${pStr}  span=${sStr}  eaveZ=${zStr}`
+          )
+        } else if (el.kind === 'window' || el.kind === 'door') {
+          const wStr = el.widthM  != null ? el.widthM.toFixed(4) + 'm'  : 'null'
+          const hStr = el.heightM != null ? el.heightM.toFixed(4) + 'm' : 'null'
+          const zStr = el.worldZm != null ? el.worldZm.toFixed(4) + 'm' : 'null'
+          console.log(
+            `  ${el.id}\n` +
+            `    page:${el.pageId}  label:"${el.label ?? ''}"  type:${el.openingType ?? 'null'}\n` +
+            `    width=${wStr}  height=${hStr}  dimBasis:${el.dimBasis ?? 'null'}\n` +
+            `    worldZ=${zStr}`
+          )
+        } else {
+          console.log(`  ${el.id}`, el)
+        }
+      }
+
+      // ── Reconcile summary for quick audit ────────────────────────────────────
+      console.log('[enum] --- reconcile summary (wall-surfaces only) ---')
+      const wallEls = elements.filter(e => e.kind === 'wall-surface')
+      const reconcileCounts = {}
+      for (const el of wallEls) {
+        const key = `${el.floorLevel}:${el.reconcile ?? 'base'}`
+        reconcileCounts[key] = (reconcileCounts[key] ?? 0) + 1
+      }
+      for (const [key, count] of Object.entries(reconcileCounts)) {
+        console.log(`  ${key}: ${count} edge(s)`)
+      }
+      const allCoincident = wallEls.filter(e => e.reconcile).every(e => e.reconcile === 'coincident')
+      if (allCoincident && wallEls.some(e => e.reconcile)) {
+        console.warn('[enum] FINDING: all reconciled edges are "coincident" — bbox-compare may not be detecting the intentional Main Floor offset. bbox-compare only catches midpoints outside the below-floor bbox; a shifted-but-still-overlapping polygon may produce all-coincident results. Consider a per-edge closest-approach rule.')
+      }
     }
   }
 
