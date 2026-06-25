@@ -3383,34 +3383,48 @@ function App() {
 
   // ── Dev fixture: snapshot / restore (DEV only) ───────────────────────────
   if (import.meta.env.DEV) {
-    window.__snapshotFixture = () => ({
-      _version: 1,
-      // React state (scenario-defining only; ephemeral mode flags excluded)
-      currentPage,
-      pageCount,
-      fileName,
-      pages,
-      compassAngleDeg,
-      compassCardinal,
-      compassPos,
-      frontFace,
-      snapIncrement,
-      showGhostByPageId,
-      // Refs
-      completedShapes: completedShapesRef.current,
-      pageScales:      pageScalesRef.current,
-      pageGridOrigin:  pageGridOriginRef.current,
-      pageIdMap:       pageIdMapRef.current,
-      pageTransforms:  pageTransformsRef.current,
-      floorHeights:    floorHeightsRef.current,
-      elevationEdge:   elevationEdgeRef.current,
-      elevBaseY:       elevBaseYRef.current,
-      pageRefParent:   pageRefParentRef.current,
-      primaryReferenceId: primaryReferenceIdRef.current,
-      roofGraph:       roofGraphRef.current,
-      roofVertCounter: roofVertCounterRef.current,
-      roofEdgeCounter: roofEdgeCounterRef.current,
-    })
+    window.__snapshotFixture = async () => {
+      // Serialize the loaded PDF bytes into the fixture so restore is self-contained.
+      let documents = []
+      if (pdf) {
+        try {
+          const bytes = await pdf.getData()
+          const binary = Array.from(bytes, b => String.fromCharCode(b)).join('')
+          documents = [{ pdfBase64: btoa(binary), fileName }]
+        } catch (err) {
+          console.warn('[fixture] Could not serialize PDF bytes:', err)
+        }
+      }
+      return {
+        _version: 1,
+        documents,
+        // React state (scenario-defining only; ephemeral mode flags excluded)
+        currentPage,
+        pageCount,
+        fileName,
+        pages,
+        compassAngleDeg,
+        compassCardinal,
+        compassPos,
+        frontFace,
+        snapIncrement,
+        showGhostByPageId,
+        // Refs
+        completedShapes: completedShapesRef.current,
+        pageScales:      pageScalesRef.current,
+        pageGridOrigin:  pageGridOriginRef.current,
+        pageIdMap:       pageIdMapRef.current,
+        pageTransforms:  pageTransformsRef.current,
+        floorHeights:    floorHeightsRef.current,
+        elevationEdge:   elevationEdgeRef.current,
+        elevBaseY:       elevBaseYRef.current,
+        pageRefParent:   pageRefParentRef.current,
+        primaryReferenceId: primaryReferenceIdRef.current,
+        roofGraph:       roofGraphRef.current,
+        roofVertCounter: roofVertCounterRef.current,
+        roofEdgeCounter: roofEdgeCounterRef.current,
+      }
+    }
 
     window.__restoreFixture = async (obj) => {
       if (!obj || obj._version !== 1) { console.error('[fixture] invalid or missing _version field'); return }
@@ -3431,16 +3445,28 @@ function App() {
       roofEdgeCounterRef.current   = obj.roofEdgeCounter   ?? 0
       snapIncrementRef.current     = obj.snapIncrement     ?? 0.1524
 
-      // 2. Load the bundled test PDF
+      // 2. Load PDF — from bundled base64 bytes if present, else legacy file fetch
       let pdfDoc
-      try {
-        const resp = await fetch('/devFixtures/test-fixture.pdf')
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-        const buffer = await resp.arrayBuffer()
-        pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise
-      } catch (err) {
-        console.error('[fixture] Failed to load /devFixtures/test-fixture.pdf — copy your test PDF there first:', err)
-        return
+      if (obj.documents?.length > 0) {
+        try {
+          const binary = atob(obj.documents[0].pdfBase64)
+          const bytes = new Uint8Array(binary.length)
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+          pdfDoc = await pdfjsLib.getDocument({ data: bytes.buffer }).promise
+        } catch (err) {
+          console.error('[fixture] Failed to decode bundled PDF bytes:', err)
+          return
+        }
+      } else {
+        try {
+          const resp = await fetch('/devFixtures/test-fixture.pdf')
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+          const buffer = await resp.arrayBuffer()
+          pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise
+        } catch (err) {
+          console.error('[fixture] No bundled PDF in fixture and /devFixtures/test-fixture.pdf unavailable:', err)
+          return
+        }
       }
 
       // 3. Restore React state (triggers re-render cascade)
@@ -4899,8 +4925,8 @@ function App() {
               alert('LOAD FIXTURE failed — see console')
             }
           }}>LOAD FIXTURE</button>
-          <button className="dev-fixture-btn" onClick={() => {
-            const snap = window.__snapshotFixture()
+          <button className="dev-fixture-btn" onClick={async () => {
+            const snap = await window.__snapshotFixture()
             const pageLabel = snap.pages?.find(p => p.pageId === `page-${snap.currentPage}`)?.category ?? 'unknown'
             const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
             const filename = `fixture-${pageLabel}-${ts}.json`
