@@ -791,6 +791,42 @@ Needs a short planning pass to verify the math is neutral before any code change
 
 **Status:** Deferred. Plan before build; confirm #22 compliance.
 
+### 49. Project-owned PDF persistence (web/multi-machine)
+**Logged:** Session 29, fixture-PDF work.
+**Description:** Once a PDF is uploaded it must live WITH the project, not as a pointer to the
+machine that loaded it. The program operates web-based across many machines, so a filesystem path
+is meaningless on reopen elsewhere. The PDF bytes (or a project-owned blob) travel with the project.
+The fixture-PDF bundling built this session (documents[] with base64 bytes) is the dev-tooling base
+case of this principle. The backdrop stays VISUAL-ONLY: its on-screen position is derived from the
+stored per-page pageTransforms {tx,ty,s}, never from geometry reference points baked into the image.
+Geometry truth stays in shapes + transforms; the PDF is positioned BY the transform, never the reverse.
+**Why deferred:** Real project persistence (how a whole project serializes/stores web-side, how blobs
+travel) is a large subsystem, part of the project-configuration/persistence layer (Vision §3). Not
+pulled into the fixture fix.
+**Status:** Deferred. Principle set; base case built for the dev fixture only.
+
+### 50. Multiple PDFs per project, all referencing one wireframe
+**Logged:** Session 29, fixture-PDF work.
+**Description:** Eventual requirement: a project loads several separate PDFs, all applicable to the
+single wireframe for reference. The project owns a SET of source documents, each with its own
+page→category mapping, all composing into the one coordinate space. The fixture's documents[] is
+already a keyed/array structure (one entry today) specifically so this generalizes as a layer-on,
+not a tear-out (§5.3). Pairs with #49 (project-owned PDF persistence).
+**Why deferred:** Today is one multi-page PDF per project. Multi-PDF is downstream of project
+persistence; not now.
+**Status:** Deferred. Fixture structure already accommodates it (documents[] array).
+
+### 51. Elevation reference line: auto-seat on confirmed reference edge
+**Logged:** Session 29, elevation calibration during fixture build.
+**Description:** When a floor-plan edge is set as the elevation reference edge, the system knows the
+true Y of that specific floor's line. On confirm, the elevation line matching that level should
+AUTO-SEAT on the reference edge — no manual base-drag — because that Y is known, not eyeballed.
+Currently all lines render stacked at the provisional anchor and the user must drag the base into
+place by eye even when a reference edge was set. The manual base-drag (elevBaseYRef, sub-piece 2)
+stays as the fallback for the no-edge-set case.
+**Why deferred:** Observed mid-fixture-build, not blocking. Small targeted fix to the anchor logic.
+**Status:** Deferred. Auto-seat on confirm when reference edge present; manual drag remains fallback.
+
 ---
 
 ## Review checkpoints

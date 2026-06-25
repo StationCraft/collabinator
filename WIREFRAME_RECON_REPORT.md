@@ -204,6 +204,19 @@ resolves live from authoritative indices.
 
 All refs cleared on PDF upload (`handleFileChange`).
 
+**B4 blocker — no project-config store exists yet:** B4 derivation core reads floor-system and
+assembly data (wall type, U-values, etc.) that live in a project configuration layer which has not
+been built. Three unsettled forks: (1) how much config to stand up now vs. defer, (2) where it
+lives (new `projectConfigRef` vs. extending `floorHeightsRef`), (3) output form (console / panel /
+both). B4 is NOT promptable until these are resolved in a planning pass. See SESSION_HANDOFF_NOTES.md.
+
+**Source PDF persistence (Session 29):** The dev fixture now bundles source PDF bytes under
+`documents: [{ pdfBase64, fileName }]` — a document-keyed array (one entry today; array structure
+accommodates future multi-PDF per project, #50). The PDF backdrop remains VISUAL-ONLY: its
+on-screen position is derived from `pageTransformsRef {tx,ty,s}` only; geometry truth stays in
+shapes + transforms. The PDF is positioned BY the transform, never the reverse. See
+ADDITIONAL_FUNCTIONALITY #49 (project-owned PDF persistence) and #50 (multi-PDF).
+
 ---
 
 ## §8 — Render paths (where geometry hits canvas)
@@ -243,18 +256,17 @@ All 4 render functions call `drawGhostShapes` + `drawAlignHandles` when ghost so
 ```
 [x] B1 — getWorldOriginM() + pageVertexToWorld(v,pageId) → world XY meters   (9e5bd0d)
 [x] B2 — elevYToWorldZ(y,elevPageId) → world Z meters                         (9e5bd0d)
-[ ] B3 — widen getGhostSourcePageId gate for Roof Plan pages                  NEXT
-[ ] B4 — fixture prereq: re-confirm Main Floor alignment + re-snapshot;
-         then verify __dumpWorld composition across ≥2 confirmed floors        NEXT (after B4 prereq)
+[x] B3 — widen getGhostSourcePageId gate for Roof Plan pages                  (d4e99d8)
+[x] B4 fixture prereq — default fixture rebuilt self-contained (Session 29):
+         PDF bytes bundled (documents[]); Crawlspace (page-3, origin) + Main Floor (page-5,
+         borrow chain, pxPerMeter=114.83) composing in world XY; roof polygon (page-7)
+         with 1ft overhang on two edges; elevation page-2 calibrated, live Z (Z@anchor=0.0000).
+         Session 27 "Main Floor MISSING scale" resolved — borrow chain confirmed in new fixture.
+         Default fixture is now self-contained: no machine path dependency, PDF bundled.        (c5deb8d)
+[ ] B4 — derivation core — ⚠️ BLOCKER: config-store forks unsettled (see §7 note below)
 [ ] B5 — roof Z (slope rules, #18) — needs R3 coordinate model
 [ ] B6 — element-Z openings and grade-line interpretation — R3/Phase 2
 ```
-
-**B4 fixture prereq note:** `__dumpWorld` verification in Session 27 showed Main Floor (page-4)
-as MISSING effective scale — not a seam bug. Main Floor has no own scale, no confirmed transform,
-no `pageRefParentRef` entry in the restored fixture (alignment was never confirmed for that page
-before the snapshot was taken). Re-run "Confirm scale & alignment" on Main Floor in the fixture
-and re-snapshot before running B4 multi-floor stacking verification.
 
 ---
 

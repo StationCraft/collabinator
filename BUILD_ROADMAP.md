@@ -137,10 +137,15 @@ building."
         Fallback scan starts at floorOrder.length (above all floors) → highest floor with locked shapes.
         Scale borrow via getEffectiveScale chain identical to floors. __dumpWorld extended with
         roof-plan block. Verified: pxPerMeter=59.08 [confirmed] after confirm (was MISSING before).
-    [ ] B4: derivation core — ⚠️ NEEDS PLANNING PASS FIRST (no project-config store for
-        floor-system/assembly data; see §7 recon). Fixture prereq: re-confirm Main Floor (page-4) +
-        roof (page-7) alignment, add locked roof polygons, re-snapshot; then verify __dumpWorld ≥2 floors.
-**Next: Windows/doors Piece 3 (three-layer snap) + Piece 4 (dumb duplicate). B4 needs planning before it is promptable. Cross-sections deferred.**
+    [ ] B4: derivation core — ⚠️ STILL NEEDS PLANNING PASS (config-store forks unsettled).
+        [x] Fixture prereq DONE (Session 29): default fixture rebuilt self-contained —
+            PDF bytes bundled; Crawlspace + Main Floor composing in world XY (borrow chain,
+            pxPerMeter=114.83); roof polygon with 1ft overhang on two edges; elevation page-2
+            calibrated with live Z (Z@anchor=0.0000). Verified via __dumpWorld round-trip from
+            committed default.
+        [ ] BLOCKER: three config-store forks unsettled (how much config now / where it lives /
+            output form). B4 not promptable until settled. See SESSION_HANDOFF_NOTES.md.
+**Next: B4 planning pass (config-store forks) → then Windows/doors Piece 3+4. Cross-sections deferred.**
 
 ---
 

@@ -1670,6 +1670,53 @@ Re-run "Confirm scale & alignment" on Main Floor in the test fixture and re-snap
 
 ---
 
+## Session 29 — Fixture-PDF bundling + default fixture rebuild (2026-06-25)
+
+### DONE this session
+
+**(a) Fixture-PDF bundling (commit c5deb8d):**
+- `__snapshotFixture` is now `async`. After collecting all geometry fields (unchanged), calls
+  `pdf.getData()` → raw `Uint8Array` bytes → base64-encode via `btoa` → stored as
+  `documents: [{ pdfBase64, fileName }]` (document-keyed array; one entry today).
+- `__restoreFixture` checks `obj.documents?.length > 0` first: if present, decodes base64 →
+  `Uint8Array` → `pdfjsLib.getDocument({ data: bytes.buffer })` and proceeds as before.
+  Does NOT run the `handleFileChange` clear path — refs are written directly, geometry intact.
+  Backward-compatible fallback: if `documents` absent (old fixtures), fetches from
+  `/devFixtures/test-fixture.pdf` as before.
+- SAVE button `onClick` made `async` to `await __snapshotFixture()`. LOAD button unchanged.
+- `handleFileChange` normal upload-clears-refs behavior unchanged.
+
+**(b) Default fixture rebuilt from scratch (commit c5deb8d):**
+- New `public/devFixtures/fixture-elevation.json` is self-contained — no machine path dependency.
+- Page map: page-3 Crawlspace (calibrated, origin), page-5 Main Floor (borrow chain from page-3,
+  pxPerMeter=114.83 confirmed), page-7 roof plan (locked polygon with 1ft overhang on two edges,
+  confirmed borrow from Main Floor), page-2 elevation (own scale confirmed, live Z, Z@anchor=0.0000).
+- NOTE: fixture page map differs from the old page-4=Main Floor reference. The fixture is now its
+  own thing keyed to its specific PDF. Do not assume page numbers match any prior session's fixture.
+- Verified via `__dumpWorld` round-trip from committed default: Crawlspace + Main Floor compose
+  correctly in world XY; Session 27 "Main Floor MISSING scale" is resolved (borrow chain wired).
+
+### Observation to confirm next session
+On scale recalibrate, confirm stored vertex pixels do NOT move (only `pxPerMeter` changes) —
+recalibration-independence #22 spot-check. Not confirmed this session.
+
+### NEXT SESSION OPENS WITH
+B4 config-store planning pass. Three unsettled forks:
+1. How much config to stand up now vs. defer (assembly data, wall types, U-values)?
+2. Where it lives: new `projectConfigRef` vs. extending `floorHeightsRef`?
+3. Output form: console output / panel display / both?
+
+B4 derivation core is NOT promptable until these are settled. The "what the docs already force"
+analysis is in this session's planning chat — re-derive from VISION_SUPPLEMENT §3, §6.3, §6.4,
+§6.9, §7.3, §5.3 if not carried forward to the next session.
+
+### Logged this session (ADDITIONAL_FUNCTIONALITY.md)
+- **#49** — Project-owned PDF persistence (web/multi-machine): principle set; base case built for dev fixture.
+- **#50** — Multiple PDFs per project: documents[] array structure already accommodates it.
+- **#51** — Elevation reference-edge auto-seat: auto-seat base line on confirm when reference edge set; manual drag fallback remains.
+
+---
+
 ## FORWARD BUILD SEQUENCE
 
 1. ~~Zoom/pan~~ — DONE
@@ -1704,7 +1751,7 @@ Re-run "Confirm scale & alignment" on Main Floor in the test fixture and re-snap
     - ~~B1: pageVertexToWorld + getWorldOriginM (world XY in meters)~~ — DONE
     - ~~B2: elevYToWorldZ (world Z in meters)~~ — DONE
     - ~~B3: widen getGhostSourcePageId for Roof Plan pages~~ — DONE (d4e99d8)
-    - **B4: derivation core — ⚠️ NEEDS PLANNING PASS FIRST** (§7 recon: no project-config store
-      for floor-system/assembly data; fixture also needs Main Floor + roof confirmed + re-snapshot)
+    - ~~B4 fixture prereq~~ — DONE (Session 29; c5deb8d): PDF bundled, Crawlspace+Main Floor+roof+elevation
+    - **B4: derivation core — ⚠️ NEEDS PLANNING PASS FIRST** (config-store forks unsettled; see Session 29 handoff)
 
-After windows/doors Pieces 3+4: B4 (after planning) → cross-sections (deferred) → Phase 2 threshold.
+After B4 planning pass → B4 build → cross-sections (deferred) → Phase 2 threshold.
