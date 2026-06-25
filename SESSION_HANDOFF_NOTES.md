@@ -16,13 +16,10 @@ current CLAUDE.md to confirm nothing fell through.
 
 1. `git pull --ff-only origin main` — confirm clean fast-forward. If NOT clean, STOP.
 2. `git log -1 --oneline` — confirm HEAD hash matches last known-good commit.
-3. **CREATE-IF-MISSING `.claude/settings.local.json`** with exactly:
-   `{"permissions":{"defaultMode":"acceptEdits"}}`
-   This file is **gitignored** — it does NOT travel with clones or new worktrees.
-   Without it, every file edit requires manual approval. This step recurs on every
-   fresh clone or new working tree and must be recreated each time.
-   **OPEN DECISION (carry forward):** un-ignore this file (solo tree, no secrets) vs.
-   keep gitignored + this checklist step. Decide before next build session.
+3. **`.claude/settings.local.json` is now tracked in-repo** (commit f24fd7e). No recreate needed.
+   The global git ignore rule (`**/.claude/settings.local.json` in `C:\Users\ben\.config\git\ignore`)
+   was permanently overridden by `!.claude/settings.local.json` in the project `.gitignore`.
+   The file travels with clones and worktrees. This step is RETIRED — no action needed.
 4. Confirm `VISION_SUPPLEMENT.md` + `WIREFRAME_RECON_REPORT.md` present in working tree.
 5. `npm install` only if `node_modules` is missing or `package.json` changed; skip otherwise.
 
@@ -1717,6 +1714,84 @@ analysis is in this session's planning chat — re-derive from VISION_SUPPLEMENT
 
 ---
 
+## SESSION 30 — B4 derivation core; gitignore fix; #22 recalibration-independence confirmed (2026-06-25)
+
+**Branch:** main | **Commits:** f24fd7e (gitignore fix), 106d847 (B4 code)
+
+### What was built
+
+**`.claude/settings.local.json` gitignore friction resolved permanently (f24fd7e):**
+The file was blocked by a global git ignore rule (`**/.claude/settings.local.json` at
+`C:\Users\ben\.config\git\ignore` line 1). Rather than modifying the global rule, added a
+project-level negation `!.claude/settings.local.json` in `.gitignore`. File is now tracked
+in-repo; the standing checklist "recreate-on-clone" step 3 is RETIRED.
+
+**#22 recalibration-independence confirmed (read-only, no source edits):**
+Used `await window.__snapshotFixture()` before and after recalibrating a page.
+Scale changed (114.834 → 114.961 pxPerMeter); all page-3 vertices were byte-identical.
+Invariant holds: geometry is stored in pixels, recalibration only updates `pxPerMeter`.
+Note: `__snapshotFixture` is ASYNC — must use `await`, not sync call (returns empty object `{}`
+without await; took two debugging passes to discover).
+
+**B4 derivation core — `deriveEnumeration()` + `window.__dumpEnumeration()` (106d847):**
+Console-dump-only enumeration of all envelope surfaces. No render, no panel.
+
+**`projectConfigRef`** — new `useRef({})` for project-level physical derivation config only.
+NOT the §9 project-configuration layer (no roles/jurisdiction/U-values/assemblies). Three forks settled:
+(a) minimal physical-only extensible slice; (b) new `projectConfigRef`, NOT an extension of
+`floorHeightsRef`; (c) console dump only for now. Fields:
+- `cantileverRule: 'closest-approach'`
+- `reconcileThresholdM: 0.05`
+- `soffitCombineThresholdM: 0.05`
+
+**`deriveEnumeration()` — six internal steps:**
+- Gets world origin via `getWorldOriginM()`.
+- Builds local `zStack` from `accumulateZ(floorHeightsRef.current, presentLevels, FLOOR_ORDER)`.
+- Helper `getWorldBbox(pageId)` for soffit derivation (min/max world X/Y of all wall-polygon vertices).
+- Builds `floorPageMap` (first categorized page per FLOOR_ORDER level with locked shapes).
+- **STEP A+B (wall surfaces):** Per floor in zStack, per locked wall-polygon edge: projects vA/vB via
+  `pageVertexToWorld`, computes `widthM`, `orientationDeg` (compass bearing via `atan2(dx, -dy)`).
+  Pre-projects floor-below polygon vertices to world meters (`belowWorldShapes`).
+  Closest-approach reconcile: `distToSegment(mid, wv[bi], wv[(bi+1)%n])` over all below edges → `minDist`;
+  `pointInPolygon(mid, wv)` for sign; classify against `reconcileThresholdM`.
+  Pushes `{ id, kind:'wall-surface', ..., reconcile, signedDistM }`.
+- **STEP C (soffits):** Per confirmed roof page: compares `getWorldBbox(roofPageId)` vs
+  `getWorldBbox(wallPage.pageId)` per side (N/S/E/W); projection > `soffitCombineThresholdM` →
+  soffit element with `projectionM`, `spanM`, `eaveZm`.
+- **STEP D (fenestration):** Per elevation page with confirmed scale + elevation edge: finds openings
+  (`isOpening(s)`), calls `elevYToWorldZ(centroidY, ep.pageId)`, pushes window/door elements with `worldZm`.
+
+**`window.__dumpEnumeration()`:** verbose per-element dump with all fields; reconcile summary at bottom.
+Wall-surface lines include `signedDist=+/-X.XXXXm (inside/outside floor-below)`.
+
+**Reconcile rule history (important carry-forward):**
+Built bbox-compare first → REJECTED at runtime. A notch in the floor polygon doesn't change the
+bounding box; edge midpoints get tested against an unchanged bbox and produce
+plausible-but-meaningless coincident tags. Replaced with closest-approach (`distToSegment` +
+`pointInPolygon`). Lesson: identical labels can come from two rules; only the signed-distance dump
+revealed which was real.
+
+**Verified against fixture (4 sub-checks):**
+(a) 12 elements total: 4 Crawlspace wall-surfaces + 6 Main Floor wall-surfaces + 2 soffits.
+(b) Main Floor notch: seg3 = -0.305m (setback), seg4 = -0.381m (setback); 4 remaining edges coincident.
+(c) Soffits on north/west: projectionM = 0.3048m (1ft overhang, as built in fixture).
+(d) No fenestration elements (no openings placed on elevation in fixture).
+
+### Known boundary characteristic (logged, not a bug)
+
+Ray-casting `pointInPolygon` returns "outside" for midpoints EXACTLY on the perimeter (distance = 0).
+This is harmless because distance ≤ reconcileThresholdM → tagged coincident before sign matters.
+Only relevant if the sign at exactly zero distance becomes meaningful — not required today.
+
+### New deferred-register entries
+
+- **#52 — B4 render/panel:** `deriveEnumeration()` is console-only; a rendered envelope summary
+  panel or 3D wireframe render is B5. Deferred.
+- **#53 — B4 cantilever/setback UI annotation:** hover a wall edge → show reconcile tag + signed
+  distance inline. Deferred until panel/render work is active.
+
+---
+
 ## FORWARD BUILD SEQUENCE
 
 1. ~~Zoom/pan~~ — DONE
@@ -1752,6 +1827,10 @@ analysis is in this session's planning chat — re-derive from VISION_SUPPLEMENT
     - ~~B2: elevYToWorldZ (world Z in meters)~~ — DONE
     - ~~B3: widen getGhostSourcePageId for Roof Plan pages~~ — DONE (d4e99d8)
     - ~~B4 fixture prereq~~ — DONE (Session 29; c5deb8d): PDF bundled, Crawlspace+Main Floor+roof+elevation
-    - **B4: derivation core — ⚠️ NEEDS PLANNING PASS FIRST** (config-store forks unsettled; see Session 29 handoff)
+    - ~~B4: derivation core~~ — **DONE (Session 30; commit 106d847)**
+      deriveEnumeration() + __dumpEnumeration; projectConfigRef; closest-approach reconcile;
+      soffit/eave combine; fenestration Z path. Verified against fixture (12 elements).
 
-After B4 planning pass → B4 build → cross-sections (deferred) → Phase 2 threshold.
+**Next: Windows/doors Piece 3+4, then B5 (3D render).**
+
+After windows/doors → B5 → cross-sections (deferred) → Phase 2 threshold.

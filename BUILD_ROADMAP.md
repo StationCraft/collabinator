@@ -137,15 +137,20 @@ building."
         Fallback scan starts at floorOrder.length (above all floors) → highest floor with locked shapes.
         Scale borrow via getEffectiveScale chain identical to floors. __dumpWorld extended with
         roof-plan block. Verified: pxPerMeter=59.08 [confirmed] after confirm (was MISSING before).
-    [ ] B4: derivation core — ⚠️ STILL NEEDS PLANNING PASS (config-store forks unsettled).
+    [x] B4: derivation core — DONE (Session 30; commit 106d847)
+        Derivation core complete: floor Z lift via accumulateZ; per-edge closest-approach reconcile
+        (cantilever/setback/coincident, signed perpendicular distance + point-in-polygon sign);
+        soffit/eave combine (roof bbox vs wall-below bbox, threshold from projectConfigRef);
+        fenestration Z path (elevYToWorldZ on opening centroidY). Output = __dumpEnumeration
+        console dump. No render, no panel.
+        Config-store forks settled: minimal physical-only extensible slice; new projectConfigRef
+        (NOT the §9 config layer); console dump only.
         [x] Fixture prereq DONE (Session 29): default fixture rebuilt self-contained —
             PDF bytes bundled; Crawlspace + Main Floor composing in world XY (borrow chain,
             pxPerMeter=114.83); roof polygon with 1ft overhang on two edges; elevation page-2
             calibrated with live Z (Z@anchor=0.0000). Verified via __dumpWorld round-trip from
             committed default.
-        [ ] BLOCKER: three config-store forks unsettled (how much config now / where it lives /
-            output form). B4 not promptable until settled. See SESSION_HANDOFF_NOTES.md.
-**Next: B4 planning pass (config-store forks) → then Windows/doors Piece 3+4. Cross-sections deferred.**
+**Next: Windows/doors Piece 3+4, then B5 (3D render).**
 
 ---
 
