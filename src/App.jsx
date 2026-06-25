@@ -62,6 +62,129 @@ const ELEVATION_DIRS = ['North', 'South', 'East', 'West']
 const OPENING_TYPES = ['Tilt-turn', 'Casement', 'Fixed', 'Slider', 'Hinged door']
 const categoryLabel = (key) => CATEGORY_OPTIONS.find(o => o.key === key)?.label ?? key
 
+// ── §9 Project-configuration layer — descriptor schema ──────────────────────
+// CONFIG_FIELDS is the single source of truth for the project-setup panel.
+// Each descriptor is data-only; adding a new field = adding a descriptor here.
+// `spawns` is a reserved hook for the §8.2 worklist build; always null this piece.
+const CONFIG_FIELDS = [
+  // ── Outputs ──────────────────────────────────────────────────────────────
+  {
+    id: 'outputs',
+    category: 'Outputs',
+    label: 'Required outputs',
+    options: [
+      { value: 'f280',       label: 'F280 Heat Loss/Gain' },
+      { value: 'h2k',        label: 'HOT2000 / Energy packet' },
+      { value: 'permit-set', label: 'Full permit set' },
+    ],
+    multi: true,
+    spawns: null,
+  },
+  // ── Jurisdiction ─────────────────────────────────────────────────────────
+  {
+    id: 'jurisdiction',
+    category: 'Jurisdiction',
+    label: 'Building code',
+    options: [
+      { value: 'nbc',   label: 'National Building Code' },
+      { value: 'obc',   label: 'Ontario Building Code' },
+      { value: 'other', label: 'Other / TBD' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+  // ── Assemblies ───────────────────────────────────────────────────────────
+  {
+    id: 'assembly-wall',
+    category: 'Assemblies',
+    label: 'Exterior wall assembly',
+    options: [
+      { value: '2x6-r22',      label: '2×6 wood frame, R22 batt, drywall + sheathing' },
+      { value: '2x6-r22-ext2', label: '2×6 wood frame, R22 batt + 2″ exterior insulation' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+  {
+    id: 'assembly-foundation',
+    category: 'Assemblies',
+    label: 'Foundation assembly',
+    options: [
+      { value: '8in-concrete-frost', label: '8″ concrete + interior frost wall' },
+      { value: 'icf',               label: 'ICF (insulated concrete form)' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+  {
+    id: 'assembly-roof',
+    category: 'Assemblies',
+    label: 'Roof / attic assembly',
+    options: [
+      { value: 'vented-attic-r50',    label: 'Vented attic, R50 blown-in insulation' },
+      { value: 'unvented-cathedral-r40', label: 'Unvented cathedral, R40 continuous' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+  {
+    id: 'assembly-floor',
+    category: 'Assemblies',
+    label: 'Floor system',
+    options: [
+      { value: 'eng-i-joist',    label: 'Engineered I-joist' },
+      { value: 'open-web-truss', label: 'Open-web floor truss' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+  // ── Equipment ────────────────────────────────────────────────────────────
+  {
+    id: 'water-heating',
+    category: 'Equipment',
+    label: 'Water heating',
+    options: [
+      { value: 'tank-gas',     label: 'Tank (gas)' },
+      { value: 'tankless-gas', label: 'Tankless (gas)' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+  {
+    id: 'space-heating',
+    category: 'Equipment',
+    label: 'Space heating',
+    options: [
+      { value: 'furnace-gas',      label: 'Gas furnace' },
+      { value: 'heat-pump-ducted', label: 'Ducted heat pump' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+  {
+    id: 'cooling',
+    category: 'Equipment',
+    label: 'Cooling',
+    options: [
+      { value: 'central-ac', label: 'Central A/C' },
+      { value: 'none',       label: 'None' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+  {
+    id: 'ventilation',
+    category: 'Equipment',
+    label: 'Ventilation',
+    options: [
+      { value: 'hrv', label: 'HRV (heat recovery ventilator)' },
+      { value: 'erv', label: 'ERV (energy recovery ventilator)' },
+    ],
+    multi: false,
+    spawns: null,
+  },
+]
+
 function App() {
   const [pdf, setPdf] = useState(null)
   const [pageCount, setPageCount] = useState(0)
@@ -173,6 +296,21 @@ function App() {
     // Minimum overhang (meters) to report as a soffit element.
     soffitCombineThresholdM: 0.05,
   })
+  // §9 project-configuration layer; operator-edited project setup.
+  // Distinct from projectConfigRef (B4 physical-derivation thresholds).
+  const projectSetupRef = useRef({ values: {} })
+
+  // §9 accessors — single read/write path to projectSetupRef.values.
+  // No re-render tick this piece; Piece 2 adds the panel and whatever tick it needs.
+  const getConfigValue = (fieldId) => {
+    const field = CONFIG_FIELDS.find(f => f.id === fieldId)
+    const stored = projectSetupRef.current.values[fieldId]
+    if (stored !== undefined) return stored
+    return field?.multi ? [] : null
+  }
+  const setConfigValue = (fieldId, value) => {
+    projectSetupRef.current.values[fieldId] = value
+  }
 
   // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
   const [alignMode, setAlignMode] = useState(false)
@@ -351,6 +489,7 @@ function App() {
     setOpeningDraftKind('window'); setOpeningDraftType(OPENING_TYPES[0]); setOpeningDraftLabel('')
     setOpeningDraftFt(''); setOpeningDraftIn(''); setOpeningDraftHFt(''); setOpeningDraftHIn('')
     setShowDimBasisDialog(false); dimensionBasisRef.current = null; shapeIdCounterRef.current = 0; priorSnapIncrementRef.current = null
+    projectSetupRef.current = { values: {} }
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
@@ -4113,6 +4252,23 @@ function App() {
         }
         return wf
       }
+
+    // __dumpProjectSetup(): §9 console verification — schema + current selection state.
+    // Prints every CONFIG_FIELDS descriptor and its stored value side-by-side.
+    window.__dumpProjectSetup = () => {
+      console.log('[setup] CONFIG_FIELDS schema + current values:')
+      let lastCat = null
+      for (const field of CONFIG_FIELDS) {
+        if (field.category !== lastCat) {
+          console.log(`[setup] ── ${field.category} ──`)
+          lastCat = field.category
+        }
+        const val = getConfigValue(field.id)
+        const valStr = Array.isArray(val) ? (val.length ? val.join(', ') : '(none)') : (val ?? 'null')
+        console.log(`  [${field.id}]  label="${field.label}"  options=${field.options.length}  multi=${field.multi}  value=${valStr}`)
+      }
+      console.log('[setup] raw values:', JSON.stringify(projectSetupRef.current.values))
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
