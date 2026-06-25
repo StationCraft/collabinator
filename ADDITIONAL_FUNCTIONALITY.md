@@ -833,6 +833,16 @@ Needs a short planning pass to verify the math is neutral before any code change
 
 ---
 
+### 57. Project Setup as a dedicated full-page form
+The Session-32 config panel (ps-panel, floor-heights overlay style) is a functional stand-in. Target:
+a navigable full-page form holding the complete project-configuration set (VISION_SUPPLEMENT §3/§6.4/§8.2
++ vision docs) — all fields as a real form, with autofill + derived-requirements behavior (Fork C)
+rendered properly. CONFIG_FIELDS descriptor rendering already supports growing the field list without
+logic changes; this is about the surface/layout, not the data model. The Required-Roles computed view +
+accessors port directly into the form as one section.
+
+---
+
 ### 49. Project-owned PDF persistence (web/multi-machine)
 **Logged:** Session 29, fixture-PDF work.
 **Description:** Once a PDF is uploaded it must live WITH the project, not as a pointer to the

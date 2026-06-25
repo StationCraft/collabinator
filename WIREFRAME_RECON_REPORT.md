@@ -201,14 +201,12 @@ resolves live from authoritative indices.
 | `pageIdMapRef` | ref `{[pageNum]:pageId}` | Stable pageId assignment at PDF load |
 | `dimensionBasisRef` | ref `'frame'\|'rough-opening'\|null` | Opening dimension basis (project-level, once per upload) |
 | `shapeIdCounterRef` | ref `number` | Monotonic counter for `id: 'sh-N'` shape identity |
+| `projectConfigRef` | ref `{ cantileverRule, reconcileThresholdM, soffitCombineThresholdM }` | B4 physical-derivation thresholds — read only by `deriveEnumeration` / `deriveWireframe`; NOT reset on upload |
+| `projectSetupRef` | ref `{ values: {}, roleAssignments: {} }` | §9 project-configuration layer — operator-edited outputs/jurisdiction/assemblies/equipment (`values`) + role assignments (`roleAssignments`). Reset on upload (unlike `projectConfigRef`). Session 32; commits 4cca140, eb82eba, a049854. |
 
-All refs cleared on PDF upload (`handleFileChange`).
+All refs except `projectConfigRef` cleared on PDF upload (`handleFileChange`). `projectConfigRef` holds hard-coded physical-derivation thresholds and is deliberately not reset.
 
-**B4 blocker — no project-config store exists yet:** B4 derivation core reads floor-system and
-assembly data (wall type, U-values, etc.) that live in a project configuration layer which has not
-been built. Three unsettled forks: (1) how much config to stand up now vs. defer, (2) where it
-lives (new `projectConfigRef` vs. extending `floorHeightsRef`), (3) output form (console / panel /
-both). B4 is NOT promptable until these are resolved in a planning pass. See SESSION_HANDOFF_NOTES.md.
+**§9 project-configuration layer now exists (Session 32):** `projectSetupRef` holds `{ values, roleAssignments }` keyed by field id and role id respectively. `CONFIG_FIELDS` (10-field descriptor array) drives the operator panel (`ps-panel`). `OUTPUT_ROLES` + `ROLE_LABELS` + `getRequiredRoles()` implement the §3 output→roles derivation as a computed view (never stored). The three Session-32 forks are resolved: A=separate ref (no collision with `projectConfigRef`); B=coarse output→roles map; C=overlay panel (full-page form deferred, #57). The `spawns: null` hook on each `CONFIG_FIELDS` descriptor is reserved for the §8.2 worklist build.
 
 **Source PDF persistence (Session 29):** The dev fixture now bundles source PDF bytes under
 `documents: [{ pdfBase64, fileName }]` — a document-keyed array (one entry today; array structure

@@ -1670,6 +1670,65 @@ Re-run "Confirm scale & alignment" on Main Floor in the test fixture and re-snap
 
 ---
 
+## SESSION 32 — §9 project-configuration layer, Pieces 1–3 (2026-06-25)
+
+**Branch:** main | **Commits:** 4cca140 (Piece 1), eb82eba (Piece 2), a049854 (Piece 3) — all on origin.
+
+### Recon findings (read-only pass, start of session)
+
+- **projectConfigRef (B4)** is definition-only (3 physical-derivation thresholds: `cantileverRule`, `reconcileThresholdM`, `soffitCombineThresholdM`), read only by `deriveEnumeration` and `deriveWireframe`, never written after init, NOT reset on upload. Fork A separation clean — a new config ref does not collide with it at all.
+- **No prior project-level settings surface existed.** `dimensionBasisRef` has a one-shot first-use modal but no standalone settings panel. Config panel is net-new UI.
+- **Floor-heights panel** is the house pattern: `useState` toggle + gated toolbar button (`{pdf && !calibMode && !drawMode && !editMode && !categorizeMode && ...}`) + absolute-overlay div rendered inline in component return; fields `.map()`ed from a derived array.
+
+### What was built
+
+**Piece 1 (4cca140) — data model + descriptor schema:**
+- `CONFIG_FIELDS`: 10-field module-level descriptor array (1 Outputs[multi], 1 Jurisdiction, 4 Assemblies @ 2 opts each, 4 Equipment lite). `spawns: null` hook reserved for §8.2 worklist build — empty, never read.
+- `projectSetupRef = useRef({ values: {}, roleAssignments: {} })` — §9 operator config store. Distinct from B4 `projectConfigRef` (physical-derivation thresholds). Reset on PDF upload; `projectConfigRef` is deliberately NOT reset.
+- `getConfigValue` / `setConfigValue` — sole read/write seam for `values`. `__dumpProjectSetup` DEV console dump.
+
+**Piece 2 (eb82eba) — operator panel:**
+- `showProjectSetup` / `projectSetupTick` useState pair (floor-heights pattern).
+- `setConfigValue` extended to bump `projectSetupTick` after every write.
+- Toolbar button gated identically to Floor Heights; placed alongside it.
+- `ps-panel` overlay: fields `.map()`ed from `CONFIG_FIELDS` grouped by `.category`; category order derived from array order (no hardcoded list). `multi:false` → `<select>`; `multi:true` → checkbox group.
+- Browser-verified: selections persist across close/reopen.
+
+**Piece 3 (a049854) — output→roles derivation + role assignment UI:**
+- `OUTPUT_ROLES` map: `f280` → [hvac-designer, energy-advisor]; `h2k` → [energy-advisor]; `permit-set` → [designer, hvac-designer, plumber, electrician].
+- `ROLE_LABELS`: 5 role id → label entries; insertion order = display order.
+- `getRequiredRoles()`: pure computed function — unions `OUTPUT_ROLES` across selected outputs, deduped by `Set`, ordered by `ROLE_LABELS` insertion order. Never stored.
+- `roleAssignments: {}` added to `projectSetupRef` alongside `values`; reset on upload.
+- `getRoleAssignment` / `setRoleAssignment` accessors; `setRoleAssignment` bumps `projectSetupTick`.
+- "Required Roles" section in ps-panel: live-recomputed each render; text input per role; unassigned roles show "(unassigned — owner responsible)" owner-fallback marker.
+- Browser-verified: F280 → HVAC Designer + Energy Advisor; F280 + Permit Set → Designer + HVAC Designer + Energy Advisor (deduped) + Plumber + Electrician; typed assignment persists across close/reopen; clear → fallback marker returns.
+
+### Forks settled (planning pass)
+
+- **A** — separate ref from B4 projectConfigRef (clean separation confirmed).
+- **B** — coarse output→roles map now; sub-rules added incrementally later.
+- **C** — operator panel now (overlay, floor-heights style); full-page form deferred (#57).
+- **D** — 2 assembly options per category (starter set, extensible).
+- **E** — equipment selections stored inert; `spawns` hook empty, reserved for §8.2.
+
+### Carry-forward lesson (recurred twice this session)
+
+Code reported persistence/recompute as "confirmed statically" twice (Pieces 2, 3) — reasoning
+through the render path instead of browser-verifying. Both times the planning layer pushed back and
+Ben browser-verified before close-out. The standing rule holds: static reasoning does not discharge
+a browser-verifiable claim. Build prompts should keep saying "browser-verify; static reasoning does
+not count."
+
+### Logged this session (ADDITIONAL_FUNCTIONALITY.md)
+
+- **#57** — Project Setup as a dedicated full-page form (full-page form deferred; overlay panel is functional stand-in).
+
+### NEXT SESSION OPENS WITH
+
+Config-driven layer/worklist system (§8.2) planning — the `spawns` hook on `CONFIG_FIELDS` descriptors is the attach point; needs the symbol/icon library + item-requirement table (VISION_SUPPLEMENT §8.1 planning artifacts) before or alongside.
+
+---
+
 ## SESSION 31 — B5: 3D envelope wireframe (2026-06-25)
 
 **Branch:** main | **Commits:** 7c44e24 (Pieces 1 + 1a), 622e76d (Piece 2)

@@ -167,8 +167,22 @@ building."
           __dumpWireframe DEV function extended. 2 soffits (N+W) verified visually; 0 openings in fixture —
           opening-line VISUAL verification DEFERRED until a test opening is placed (#55).
           Lines only; envelope surfaces = B6 (deferred, #54).
-**Next: windows/doors Pieces 3+4 remain available (off critical path — VISION_SUPPLEMENT §9);
-next critical-path build = project-configuration layer (§9 step 3).**
+[x] Project-configuration layer (§9 step 3) — DONE (Session 32; commits 4cca140, eb82eba, a049854)
+    Piece 1 (4cca140): projectSetupRef + CONFIG_FIELDS descriptor schema (10 fields / 4 categories:
+      outputs[multi], jurisdiction, 4 assemblies @2-opts, 4 equipment lite); getConfigValue/setConfigValue
+      accessor seams; reset-on-upload; __dumpProjectSetup. Distinct from B4 projectConfigRef. Console-verified.
+    Piece 2 (eb82eba): operator panel (ps-panel, floor-heights house style) — fields .map()ed from
+      CONFIG_FIELDS grouped by category; checkboxes (multi) / dropdowns (single); projectSetupTick re-render.
+      Browser-verified: selections persist across close/reopen.
+    Piece 3 (a049854): OUTPUT_ROLES + ROLE_LABELS map; getRequiredRoles() computed view (outputs→roles,
+      deduped, never stored); roleAssignments store + accessors; "Required Roles" panel section with
+      name-entry + owner-fallback marker. Browser-verified: live recompute, dedup, persistence, fallback.
+    Forks settled (planning): A=separate ref; B=coarse output→roles map, sub-rules later; C=operator panel
+      now (full-page form deferred, ADDITIONAL_FUNCTIONALITY #57); D=2 assembly opts/category;
+      E=equipment lite, inert (spawns hook empty, reserved for §8.2).
+**Next critical-path build = config-driven layer/worklist system (§8.2) — generates the to-place
+worklist from equipment selections; fills the CONFIG_FIELDS spawns hook. Windows/doors Pieces 3+4
+remain off-critical-path (§9).**
 
 ---
 

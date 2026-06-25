@@ -627,6 +627,9 @@ A React + Vite app with:
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**
 - B4: derivation core — **DONE (Session 30; commit 106d847)**: deriveEnumeration() + projectConfigRef;
   closest-approach reconcile + soffit/eave combine + fenestration Z. Console dump only.
+- **§9 project-configuration layer — DONE (Session 32; commits 4cca140, eb82eba, a049854)**:
+  Three-piece build; browser-verified. Distinct from B4 `projectConfigRef` (physical-derivation thresholds).
+  See "§9 Project-configuration layer" data-structures section below for full detail.
 - B5: 3D envelope wireframe — **DONE (Session 31; commits 7c44e24, 622e76d)**:
   ThreeDView.jsx + deriveWireframe(); floor/ceiling rings + verticals + roof ring + soffits + openings;
   lines only (envelope surfaces = B6, deferred #54). Opening visual verify deferred (#55).
@@ -762,6 +765,53 @@ dimensionBasisRef.current = 'frame' | 'rough-opening' | null
 // Project-level (not per-page). null until first opening placement for the session.
 // Set once via first-use modal; never re-prompted. Cleared on PDF upload.
 ```
+
+**§9 Project-configuration layer** (added Session 32; commits 4cca140, eb82eba, a049854):
+DISTINCT from B4 `projectConfigRef` (which holds physical-derivation thresholds and is NOT reset on upload).
+```
+projectSetupRef.current = {
+  values: { [fieldId: string]: string | string[] | null },
+    // Keyed by CONFIG_FIELDS descriptor id. Single-select: string|null. Multi: string[].
+    // Read via getConfigValue(fieldId); written via setConfigValue(fieldId, value).
+  roleAssignments: { [roleId: string]: string },
+    // Keyed by role id (e.g. 'hvac-designer'). Value = assigned person name string.
+    // Absent/empty = unassigned (owner-fallback displayed).
+    // Read via getRoleAssignment(roleId); written via setRoleAssignment(roleId, name).
+}
+// Reset on PDF upload to { values: {}, roleAssignments: {} }.
+```
+
+`CONFIG_FIELDS` — module-level descriptor array (10 fields / 4 categories):
+- **Outputs** (multi:true): `outputs` — f280, h2k, permit-set
+- **Jurisdiction** (multi:false): `jurisdiction` — nbc, obc, other
+- **Assemblies** (multi:false, 2 opts each): `assembly-wall`, `assembly-foundation`, `assembly-roof`, `assembly-floor`
+- **Equipment** (multi:false, 2 opts each): `water-heating`, `space-heating`, `cooling`, `ventilation`
+Each descriptor: `{ id, category, label, options: [{value, label}], multi, spawns: null }`.
+`spawns: null` is a reserved hook for the §8.2 worklist build — empty and never read this piece.
+Adding a new field = adding a descriptor entry; panel renders automatically from the array.
+
+`OUTPUT_ROLES` — module-level map: output value → role id array (coarse starter set, extensible):
+- `'f280'` → `['hvac-designer', 'energy-advisor']`
+- `'h2k'` → `['energy-advisor']`
+- `'permit-set'` → `['designer', 'hvac-designer', 'plumber', 'electrician']`
+
+`ROLE_LABELS` — module-level map: role id → display label (insertion order = display order):
+designer, hvac-designer, energy-advisor, plumber, electrician.
+
+`getRequiredRoles()` — component-scope pure computed function. Unions `OUTPUT_ROLES` across all
+selected outputs, deduped via `Set`, ordered by `ROLE_LABELS` insertion order. Never stored — computed
+fresh each render. Implements the §3 "required roles derive from chosen outputs" logic.
+
+`projectSetupTick` / `setProjectSetupTick` — `useState(0)` integer; bumped inside both `setConfigValue`
+and `setRoleAssignment` to force re-render after every ref write.
+
+**Operator panel (`ps-panel`):** `showProjectSetup` useState toggle; toolbar button gated by
+`{pdf && !calibMode && !drawMode && !editMode && !categorizeMode}` (identical to floor-heights button).
+Panel renders as an absolute overlay (`.fh-panel .ps-panel`) at `right: 300px`. Fields `.map()`ed from
+`CONFIG_FIELDS` grouped by `.category`; category order derived from array order (no hardcoded list).
+`multi:false` → `<select>` with placeholder. `multi:true` → checkbox group. "Required Roles" section
+below: calls `getRequiredRoles()` each render; text input per role bound to `getRoleAssignment`/`setRoleAssignment`;
+unassigned roles show "(unassigned — owner responsible)" fallback marker.
 
 **Primary-reference tree** (added sub-step 5):
 ```
