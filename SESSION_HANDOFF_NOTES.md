@@ -1663,7 +1663,54 @@ Re-run "Confirm scale & alignment" on Main Floor in the test fixture and re-snap
 - **Top-bar snap selector metric fallback (#47):** shows cm labels on no-scale page (disabled so cosmetic only); bundle with #20
 - **Elevation Piece 3 sub-piece 3 (deferred/shelved):** drag-to-edit individual floor/ceiling heights; height editing stays panel-only
 - **Dump graph button (debug):** temporary `console.log` button in trace toolbar — remove before production
+- **B6 envelope surfaces (#54):** floor/roof/soffit fill meshes + face culling + transparency — deferred
+- **3D opening-line visual verification (#55):** place test opening on elevation page, confirm orange rectangle renders — deferred
+- **3D axis nub visibility (#56):** AxesHelper(0.5) too small at fixture scale; cosmetic — deferred
 - See `ADDITIONAL_FUNCTIONALITY.md` for all deferred items
+
+---
+
+## SESSION 31 — B5: 3D envelope wireframe (2026-06-25)
+
+**Branch:** main | **Commits:** 7c44e24 (Pieces 1 + 1a), 622e76d (Piece 2)
+
+### Sequencing decision
+
+B5 (3D render) built before windows/doors Pieces 3+4. Critical-path next = project-configuration layer (§9 step 3). Windows/doors Pieces 3+4 are off critical path and remain available.
+
+### What was built
+
+**B5 Piece 1 + 1a (7c44e24):**
+- `deriveWireframe()` pure function added BEFORE the `if (import.meta.env.DEV)` block (not inside — needed by production toolbar button). Returns `{ floorRings, roofRing, soffitLines, openingLines }` in world meters. Closes over refs.
+- `ThreeDView.jsx`: `THREE.LineSegments` + `BufferGeometry` + `Float32BufferAttribute` + `OrbitControls`; `toVec(x,y,z)` axis-mapping helper (world X→three.js X, world Y→three.js Z, world Z→three.js Y up); `addLineLoop` builds explicit from/to pairs. Full cleanup on unmount.
+- Colors: floor #22d3ee, ceiling #f59e0b, walls #94a3b8, roof #a78bfa. Camera framed to bbox. AxesHelper(0.5).
+- "3D View" toolbar button: gated on `!!getWorldOriginM()`. Wireframe computed once on click, passed as stable prop.
+- **Piece 1a:** AxesHelper(3) → AxesHelper(0.5). Geometry was correct; bug was the helper's 3m Z-arm overshooting the 2.59m Crawlspace footprint.
+
+**DEBUGGING STORY (carry forward as a trust-the-runtime lesson):**
+Two instrumentation passes (logging all ring/vertical/roof geometry) BOTH EXONERATED the computed geometry — every logged segment was correct. Root cause was AxesHelper(3) at world origin, whose Z-arm coincided with the Crawlspace edge and overshot by 0.41m. The bug was in a DRAW PATH, not in the computed data. Lesson: when instrumentation proves computed geometry correct but the screen is wrong, the bug lives in something that draws but doesn't compute (helpers, renderer objects, attribute packing). Widen instrumentation to those paths; don't re-check coordinates.
+
+**B5 Piece 2 (622e76d):**
+- `soffitLines`: re-derived (independently from `deriveEnumeration`) using `worldBboxOf` helper + 0.05m threshold from projectConfigRef; 3 segs/soffit: outer eave edge + 2 returns at eaveZm. Color: #c084fc (violet).
+- `openingLines`: world XY via edge-midpoint + direction vector in world space; Z via `elevYToWorldZ`; `widthM × heightM` rectangle in wall plane. Color: #fb923c (orange).
+- Legend bar extended; `__dumpWireframe` DEV function extended (soffits by side, openings by id).
+
+### Verification
+
+- Piece 1: stray line gone; floor rings, ceiling rings, verticals, roof ring with overhang, notch — all correct.
+- Piece 2: 2 soffits (N+W, 0.3048m) verified visually. 0 openings — correct for fixture. Opening path dump/code-verified; **VISUAL verification DEFERRED** (#55) until a test opening is placed.
+
+### Architecture reminders
+
+- `deriveWireframe` is component-scope, NOT DEV-gated. `__dumpWireframe` is DEV-gated. Split is intentional.
+- `deriveEnumeration` is DEV-only and is NOT called by `deriveWireframe`. Soffit/opening geometry re-derived independently.
+- `pageRefOffsetRef` does NOT exist. All cross-page composition in meters.
+
+### New deferred-register entries
+
+- **#54 — B6 envelope surfaces:** floor/roof/soffit fill with face culling + transparency. Deferred.
+- **#55 — 3D opening-line visual verification:** confirm orange rectangles once a test opening is placed.
+- **#56 — 3D axis nub visibility:** AxesHelper(0.5) too small at fixture scale; cosmetic polish.
 
 ---
 
@@ -1830,7 +1877,10 @@ Only relevant if the sign at exactly zero distance becomes meaningful — not re
     - ~~B4: derivation core~~ — **DONE (Session 30; commit 106d847)**
       deriveEnumeration() + __dumpEnumeration; projectConfigRef; closest-approach reconcile;
       soffit/eave combine; fenestration Z path. Verified against fixture (12 elements).
+    - ~~B5: 3D envelope wireframe~~ — **DONE (Session 31; commits 7c44e24, 622e76d)**
+      deriveWireframe() + ThreeDView.jsx; floor/ceiling rings, verticals, roof ring, soffits, openings (lines only).
+      Piece 1a: AxesHelper overshoot fix. Opening visual deferred (#55).
 
-**Next: Windows/doors Piece 3+4, then B5 (3D render).**
+**Next: windows/doors Pieces 3+4 remain available (off critical path); next critical-path build = project-configuration layer (VISION_SUPPLEMENT §9 step 3).**
 
-After windows/doors → B5 → cross-sections (deferred) → Phase 2 threshold.
+After project-config → windows/doors cleanup → cross-sections (deferred) → Phase 2 threshold.

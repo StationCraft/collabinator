@@ -247,7 +247,8 @@ All 4 render functions call `drawGhostShapes` + `drawAlignHandles` when ghost so
 | 5 | Roof Z derivation (slope rules: ridge → eave perimParent topology → Z) | OPEN — #18, needs R3 |
 | 6 | Opening Z placement (window/door sill/head elevation in world Z) | OPEN — needs element Z model (#7, #19) |
 | 7 | Grade-line above/below-grade interpretation (#41) | OPEN — read-time intersection, R3 |
-| 8 | B3: Roof Plan pages enter ghost/borrow path (same mechanic, settled arch.) | **OPEN — NEXT** |
+| 8 | B3: Roof Plan pages enter ghost/borrow path (same mechanic, settled arch.) | **RESOLVED — B3 (d4e99d8)** |
+| 9 | 3D render: rotatable wireframe (floor/ceiling rings, verticals, roof, soffits, openings) | **RESOLVED — B5 (7c44e24, 622e76d)** |
 
 ---
 
@@ -263,9 +264,21 @@ All 4 render functions call `drawGhostShapes` + `drawAlignHandles` when ghost so
          with 1ft overhang on two edges; elevation page-2 calibrated, live Z (Z@anchor=0.0000).
          Session 27 "Main Floor MISSING scale" resolved — borrow chain confirmed in new fixture.
          Default fixture is now self-contained: no machine path dependency, PDF bundled.        (c5deb8d)
-[ ] B4 — derivation core — ⚠️ BLOCKER: config-store forks unsettled (see §7 note below)
-[ ] B5 — roof Z (slope rules, #18) — needs R3 coordinate model
-[ ] B6 — element-Z openings and grade-line interpretation — R3/Phase 2
+[x] B4 — derivation core — DONE (Session 30; 106d847): deriveEnumeration() + projectConfigRef +
+         closest-approach reconcile + soffit/eave combine + fenestration Z. Console dump only.
+[x] B5 — 3D rotatable wireframe — DONE (Session 31; 7c44e24, 622e76d)
+         Note: BUILD_ROADMAP originally labelled B5="roof Z" (slope rules, #18). That numbering is
+         superseded — roof-Z slope remains deferred (#18, needs R3). B5 here = the 3D render per the
+         final BUILD_ROADMAP. ThreeDView.jsx + deriveWireframe(); floor/ceiling rings + verticals +
+         roof ring + soffits + openings; all lines only; envelope surfaces = B6 (#54, deferred).
+         Gaps that remain open/R3 after B5:
+           gap 5 (roof slope Z, #18) — OPEN, needs R3
+           gap 6 (opening element Z, #19) — OPEN: elevYToWorldZ exercised in openingLines path,
+             but full element-Z model (sill/head stored Z, #7/#19) is still R3
+           gap 7 (grade-line above/below-grade, #41) — OPEN, R3
+[ ] B6 — envelope surfaces (floor/roof/soffit fill, face culling + transparency) — deferred (#54)
+[ ] Roof Z (slope rules, #18) — needs R3 coordinate model
+[ ] Element-Z openings and grade-line interpretation (#41) — R3/Phase 2
 ```
 
 ---

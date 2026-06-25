@@ -621,19 +621,21 @@ A React + Vite app with:
   * **Persistent top-bar snap selector:** single `<select className="snap-increment-select">` in the `.toolbar` div, always visible when `currentPage && pdf`. `disabled={!pageHasScale}` (greyed with tooltip when no scale). Options resolve imperial/metric from `getEffectiveScale(currentPageId)?.displayUnit`. onChange calls `redrawDrawCanvas` in draw mode, `drawEditCanvas` in edit mode. All prior in-toolbar selector instances removed — exactly one selector project-wide.
 
 **Not yet built (next increments):**
-- Windows/doors Piece 3 (three-layer snap) — NEXT
-- Windows/doors Piece 4 (dumb duplicate) — NEXT
+- **Next critical-path build: project-configuration layer (VISION_SUPPLEMENT §9 step 3)** — needs its own planning session.
+- Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
+- Windows/doors Piece 4 (dumb duplicate) — off critical path
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**
-- B4: derivation core — ⚠️ **NEEDS A PLANNING PASS before it is promptable**. The reconcile rules
-  (cantilever/setback) read floor-system/assembly data; §7 recon found NO project-config store exists.
-  Do not start B4 without a dedicated planning session. Fixture prereq also outstanding: Main Floor
-  (page-4) AND roof (page-7) need confirmed scale/alignment + roof needs locked polygons, then
-  re-snapshot. Re-run `__dumpWorld` after both are confirmed to verify multi-floor XY composition.
+- B4: derivation core — **DONE (Session 30; commit 106d847)**: deriveEnumeration() + projectConfigRef;
+  closest-approach reconcile + soffit/eave combine + fenestration Z. Console dump only.
+- B5: 3D envelope wireframe — **DONE (Session 31; commits 7c44e24, 622e76d)**:
+  ThreeDView.jsx + deriveWireframe(); floor/ceiling rings + verticals + roof ring + soffits + openings;
+  lines only (envelope surfaces = B6, deferred #54). Opening visual verify deferred (#55).
+- B6: envelope surfaces (floor/roof/soffit fill + face culling) — deferred (#54)
 - Cross-sections (deferred — windows/doors intentionally builds first)
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
 
-See `WIREFRAME_RECON_REPORT.md` for full gap tracking on B1–B4 wireframe composition seams.
+See `WIREFRAME_RECON_REPORT.md` for full gap tracking on B-series wireframe composition seams.
 
 **Deferred (shelved, not cancelled):**
 - Elevation Piece 3 sub-piece 3: drag individual floor/ceiling lines to edit heights (last-edited-wins) — height editing stays panel-only for now

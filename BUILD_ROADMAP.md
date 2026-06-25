@@ -150,7 +150,25 @@ building."
             pxPerMeter=114.83); roof polygon with 1ft overhang on two edges; elevation page-2
             calibrated with live Z (Z@anchor=0.0000). Verified via __dumpWorld round-trip from
             committed default.
-**Next: Windows/doors Piece 3+4, then B5 (3D render).**
+    [x] B5: 3D envelope wireframe — DONE (Session 31; commits 7c44e24, 622e76d)
+        Piece 1 (7c44e24): deriveWireframe() pure fn (component scope, outside DEV block) returning
+          { floorRings, roofRing, soffitLines, openingLines } in world meters; ThreeDView.jsx component
+          (three.js LineSegments, OrbitControls, PerspectiveCamera, cleanup on unmount); "3D View" toolbar
+          button (gated on getWorldOriginM() non-null); axis mapping worldX→x, worldY→z, worldZ→y(up);
+          floor rings #22d3ee, ceiling rings #f59e0b, walls #94a3b8, roof ring #a78bfa; camera framed to
+          wireframe bbox; AxesHelper(0.5) at world origin.
+        Piece 1a (folded into 7c44e24): AxesHelper(3) → AxesHelper(0.5) — geometry was correct;
+          bug was the helper's 3m Z-arm overshooting the 2.59m Crawlspace footprint. Found after two
+          instrumentation passes that exonerated all ring/vertical/roof geometry paths.
+        Piece 2 (622e76d): soffitLines (re-derived from world bbox vs roof bbox, same 0.05m threshold
+          as deriveEnumeration STEP C; 3 segs/soffit: outer eave edge + 2 returns at eaveZm) and
+          openingLines (per opening: world XY via elevation edge midpoint+direction, Z via elevYToWorldZ,
+          widthM × heightM rectangle in wall plane); soffit #c084fc, openings #fb923c; legend bar extended;
+          __dumpWireframe DEV function extended. 2 soffits (N+W) verified visually; 0 openings in fixture —
+          opening-line VISUAL verification DEFERRED until a test opening is placed (#55).
+          Lines only; envelope surfaces = B6 (deferred, #54).
+**Next: windows/doors Pieces 3+4 remain available (off critical path — VISION_SUPPLEMENT §9);
+next critical-path build = project-configuration layer (§9 step 3).**
 
 ---
 

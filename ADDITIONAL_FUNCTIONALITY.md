@@ -791,6 +791,48 @@ Needs a short planning pass to verify the math is neutral before any code change
 
 **Status:** Deferred. Plan before build; confirm #22 compliance.
 
+### 52. B4 render/panel — console-only derivation output
+
+**Logged:** Session 30, B4 close-out.
+
+**Description:** `deriveEnumeration()` outputs wall-surface classifications, soffits, and fenestration Z to the browser console only (`__dumpEnumeration`). A rendered panel or 3D wireframe display of the enumeration output was deferred.
+
+**Status:** RESOLVED via B5 (Session 31; commits 7c44e24, 622e76d). The 3D wireframe (ThreeDView.jsx + deriveWireframe()) provides the render layer. B4 console dump remains as a DEV-only verification tool alongside the visual. A dedicated annotation panel for the B4 classification tags (cantilever/setback, signed distance) remains deferred → see #53.
+
+---
+
+### 53. B4 cantilever/setback UI annotation (hover label on wall edge)
+**Logged:** Session 30, B4 close-out.
+**Description:** Hover a wall edge on a floor-plan page → show reconcile tag (cantilever / setback / coincident) + signed distance inline. No user input required — read-only derivation display.
+**Why deferred:** Needs a hover-label render pass wired into redrawFrontFaceLayer + drawEditCanvas; minor scope mid-B4. Deferred until panel/render work is active.
+**Status:** Deferred. Design alongside any future derivation annotation panel.
+
+---
+
+### 54. B6: envelope surfaces (3D fill layer)
+**Logged:** Session 31, B5 Piece 2 close-out.
+**Description:** Add rendered surfaces (face meshes) to the 3D wireframe: floor decks, roof deck, wall faces, notch return, soffit fill. Needs face culling + transparency so the line wireframe stays readable underneath.
+**Why deferred:** B5 (line wireframe) is the substrate the surface layer builds on. Surface rendering is presentation polish; the existing line wireframe already serves as a conflict-testable geometry substrate. Off critical path.
+**Status:** Deferred. NOT cancelled. Build after critical-path project-configuration layer.
+
+---
+
+### 55. 3D opening-line visual verification
+**Logged:** Session 31, B5 Piece 2 close-out.
+**Description:** Confirm opening rectangles render correctly in the 3D view. The opening-line code path is built and dump/code-verified, but the fixture has zero openings — no visual confirmation was possible.
+**Why deferred:** No test opening exists in the fixture. Place a test opening on an elevation page in a future session, then open 3D View to confirm the orange rectangle renders at the correct world XY and Z.
+**Status:** Deferred. One small session step once an elevation page has a placed opening.
+
+---
+
+### 56. 3D axis nub visibility
+**Logged:** Session 31, B5 Piece 1a fix.
+**Description:** AxesHelper(0.5) at world origin is not visible at the scale of the fixture (building footprint ~5–8m). The 0.5m arms are correct (they don't overshoot the building edges) but vanish at default camera distance. Minor cosmetic — could resize, offset, or recolor for visibility.
+**Why deferred:** Cosmetic; no geometric impact. The fix that mattered was shrinking from 3m to 0.5m to remove the stray line; visibility is a separate polish item.
+**Status:** Deferred. Low priority cosmetic pass.
+
+---
+
 ### 49. Project-owned PDF persistence (web/multi-machine)
 **Logged:** Session 29, fixture-PDF work.
 **Description:** Once a PDF is uploaded it must live WITH the project, not as a pointer to the
