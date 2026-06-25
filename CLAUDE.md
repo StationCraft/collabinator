@@ -484,6 +484,25 @@ A React + Vite app with:
     `getEffectiveScale` — never raw `pageScalesRef.current`. Anchor floors can borrow their scale;
     a raw read would return undefined → NaN origin → all vertices poisoned.
 
+- **Wireframe composition seam B3 (Session 28; commit d4e99d8):** Roof-plan pages admitted to
+  the existing ghost/borrow path. No new machinery — roof uses the same mechanic as floors.
+  * **`getGhostSourcePageId` gate widened** — admits `category === 'roof-plan'` alongside
+    `'floor-plan'`. `subLabel` requirement relaxed for roof (it is optional free text, not a required
+    known FLOOR_ORDER level). Floors still require a known subLabel.
+  * **Fallback parent scan for roof** — `currentFloorIdx` set to `floorOrder.length` (above all
+    known floors) so the downward scan finds the highest floor with locked shapes. Same loop body
+    as floors; no new code path.
+  * **Scale borrow** — roof resolves `getEffectiveScale` via `pageRefParentRef` chain identically to
+    floors. Confirm-alignment writes `pageRefParentRef[roofPageId] = ghostSrc`; `getEffectiveScale`
+    recurses to the calibrated floor parent. No roof-specific transform offset (B1 meters-composition
+    + trace-over-aligned-ghost identity applies unchanged).
+  * **`__dumpWorld()` extended** — new roof-plan block prints world XY for locked roof wall polygons;
+    reports `[confirmed]` vs `[NOT confirmed — borrow not active]` so fixture-gap state is visible.
+  * **Verified:** with roof page confirmed-borrowed to floor parent, `__dumpWorld` reported
+    `pxPerMeter=59.08 [confirmed]` (was MISSING before). Roof had no locked polygons in fixture;
+    borrow-chain plumbing proven end-to-end.
+  * **Eave projection / roof Z deferred to B4** (needs planning pass first — see notes below).
+
 - **Elevation PDF spatial work — Pieces 1+2 (Step 8 spatial, Session 19; commits 89b7ba2, 2007265):**
   Two-piece interaction for aligning elevation PDFs to floor-plan geometry.
   * **Piece 1 — "Set elevation edge" mode (commit 89b7ba2):** Elevation pages get a "Set elevation
@@ -604,8 +623,12 @@ A React + Vite app with:
 **Not yet built (next increments):**
 - Windows/doors Piece 3 (three-layer snap) — NEXT
 - Windows/doors Piece 4 (dumb duplicate) — NEXT
-- B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — NEXT
-- B4: multi-floor stacking verification via `__dumpWorld` (needs fixture prereq: re-confirm Main Floor alignment and re-snapshot)
+- B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**
+- B4: derivation core — ⚠️ **NEEDS A PLANNING PASS before it is promptable**. The reconcile rules
+  (cantilever/setback) read floor-system/assembly data; §7 recon found NO project-config store exists.
+  Do not start B4 without a dedicated planning session. Fixture prereq also outstanding: Main Floor
+  (page-4) AND roof (page-7) need confirmed scale/alignment + roof needs locked polygons, then
+  re-snapshot. Re-run `__dumpWorld` after both are confirmed to verify multi-floor XY composition.
 - Cross-sections (deferred — windows/doors intentionally builds first)
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)

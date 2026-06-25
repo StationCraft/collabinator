@@ -219,6 +219,15 @@ geometry" approach is **not** being rebuilt.
 - **Five role colors:** ridge dark-red, hip light-orange, valley blue, eave green, rake violet.
 - Undo (Z key + button) heals bisected edges. Delete in role mode applies same heal.
 
+**B3 — Roof in ghost/borrow path (Session 28; commit d4e99d8):**
+Roof-plan pages now enter the existing ghost/confirm-borrow mechanic identically to floor pages.
+`getGhostSourcePageId` gate widened to admit `category === 'roof-plan'`; subLabel requirement relaxed
+(optional free text for roof). Fallback parent scan starts above all FLOOR_ORDER floors and scans down
+to the highest floor with locked shapes. Scale borrow via `getEffectiveScale` chain is unchanged;
+`__dumpWorld` extended to print world XY for roof polygons. No roof-specific offset logic —
+meters-composition + trace-over-aligned-ghost identity from B1 applies unchanged.
+Eave projection / roof Z deferred to B4 (needs planning pass before promptable).
+
 **Still to build (deferred per #18):**
 - Slope rules + Z-derivation (ridge-to-perimeter junction topology exists; elevation
   inference deferred — "eave rising to meet the ridge" needs slope model + XYZ).

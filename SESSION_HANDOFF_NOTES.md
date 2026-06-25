@@ -10,6 +10,26 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+---
+
+## STANDING SESSION-START CHECKLIST (run every session, every fresh working tree)
+
+1. `git pull --ff-only origin main` — confirm clean fast-forward. If NOT clean, STOP.
+2. `git log -1 --oneline` — confirm HEAD hash matches last known-good commit.
+3. **CREATE-IF-MISSING `.claude/settings.local.json`** with exactly:
+   `{"permissions":{"defaultMode":"acceptEdits"}}`
+   This file is **gitignored** — it does NOT travel with clones or new worktrees.
+   Without it, every file edit requires manual approval. This step recurs on every
+   fresh clone or new working tree and must be recreated each time.
+   **OPEN DECISION (carry forward):** un-ignore this file (solo tree, no secrets) vs.
+   keep gitignored + this checklist step. Decide before next build session.
+4. Confirm `VISION_SUPPLEMENT.md` + `WIREFRAME_RECON_REPORT.md` present in working tree.
+5. `npm install` only if `node_modules` is missing or `package.json` changed; skip otherwise.
+
+Report all five, then WAIT for the build prompt.
+
+---
+
 ## SESSION 1 — Full rebuild from the lost App.jsx
 
 ### 1. Tooling & environment notes (not project logic — won't belong in CLAUDE.md)
@@ -1544,6 +1564,64 @@ Re-run "Confirm scale & alignment" on Main Floor in the test fixture and re-snap
 
 ---
 
+## SESSION 28 — B3: wire roof-plan pages into ghost/borrow path
+
+**Branch:** main | **Commit:** d4e99d8
+
+### What was built
+
+**B3 — `getGhostSourcePageId` gate widened for Roof Plan pages (geometry.js)**
+- Gate at line ~291 now admits `category === 'roof-plan'` alongside `'floor-plan'`.
+  `subLabel` required only for floor pages (known FLOOR_ORDER level); roof's is optional free text,
+  so the `!currentPage.subLabel` guard was relaxed for roof.
+- Fallback parent scan: `currentFloorIdx = floorOrder.length` for roof (above all floors);
+  existing downward scan loop finds the highest floor with locked shapes. Zero new loop logic.
+- Scale borrow via `getEffectiveScale` chain is UNCHANGED — roof resolves identically to floors.
+  Confirm-alignment writes `pageRefParentRef[roofPageId] = ghostSrc` as usual.
+- No roof-specific offset or transform logic. B1 meters-composition + trace-over-aligned-ghost
+  identity assumption applies unchanged to roof.
+
+**`__dumpWorld()` extension (App.jsx)**
+- New roof-plan block: iterates `pages.filter(p => p.category === 'roof-plan')`, resolves
+  `getEffectiveScale`, prints world XY for locked wall polygons.
+- Reports `[confirmed]` vs `[NOT confirmed — borrow not active]` so fixture-gap state is legible.
+
+**Verification result:**
+- Before confirm: `[world] roof (page-7): MISSING effective scale — confirm alignment to a floor parent first`
+- After confirm: `[world] roof (page-7) pxPerMeter=59.08 [confirmed]`
+- Roof had no locked polygons in fixture; borrow-chain plumbing proven end-to-end.
+
+### Architecture decisions
+
+- Roof enters the IDENTICAL path as floors — no new machinery per VISION_SUPPLEMENT §9.1.
+- Eave projection / roof Z are deferred to B4, which needs a planning pass first
+  (§7 recon found NO project-config store for the floor-system/assembly data B4 reads).
+
+### Carry-forward loose ends for next session
+
+1. **RECON-REPORT DIFF:** `WIREFRAME_RECON_REPORT.md` at e7911fd was reconstructed by Claude Code
+   from the codebase after the original was lost to context compaction. Diff it against the
+   authoritative original for dropped specifics (CLAUDE.md divergences, openingLabel/label field
+   name, widthM/heightM-not-stored findings, exact line numbers).
+2. **FIXTURE prereq for B4:** Main Floor (page-4) AND roof (page-7) need confirmed scale/alignment;
+   roof needs at least one locked polygon; re-snapshot after both confirmed.
+   `__dumpWorld` multi-floor verification is blocked until this is done.
+3. **Fixture `_version` field:** first `__restoreFixture` this session threw "invalid or missing
+   _version". Check that the fixture JSON has the `_version` key; update fixture if missing.
+4. **GitHub connector:** check Project settings for a connector to auto-sync these five docs with
+   the repo and kill manual re-upload.
+5. **`.claude/settings.local.json` decision:** un-ignore (solo tree, no secrets) vs. keep gitignored
+   + standing checklist. Decide before next build session.
+
+### New deferred-register entries
+
+- **#48 — Align/scale drag visual inversion:** remap corner-handle drag so the PDF appears to hold
+  still and the ghost polygon appears to grow. Actual mechanism (pageTransformsRef) unchanged.
+  ⚠️ NOT purely cosmetic — math mapping changes; needs planning pass to confirm #22 compliance
+  before build. See ADDITIONAL_FUNCTIONALITY.md.
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -1625,7 +1703,8 @@ Re-run "Confirm scale & alignment" on Main Floor in the test fixture and re-snap
 11. **Wireframe composition seams B1+B2 — DONE (Session 27; commit 9e5bd0d)**
     - ~~B1: pageVertexToWorld + getWorldOriginM (world XY in meters)~~ — DONE
     - ~~B2: elevYToWorldZ (world Z in meters)~~ — DONE
-    - **B3: widen getGhostSourcePageId for Roof Plan pages — NEXT**
-    - **B4: fixture prereq (re-confirm Main Floor alignment + re-snapshot) + __dumpWorld multi-floor verify — NEXT**
+    - ~~B3: widen getGhostSourcePageId for Roof Plan pages~~ — DONE (d4e99d8)
+    - **B4: derivation core — ⚠️ NEEDS PLANNING PASS FIRST** (§7 recon: no project-config store
+      for floor-system/assembly data; fixture also needs Main Floor + roof confirmed + re-snapshot)
 
-After windows/doors Pieces 3+4: B3+B4 → cross-sections (deferred) → Phase 2 threshold.
+After windows/doors Pieces 3+4: B4 (after planning) → cross-sections (deferred) → Phase 2 threshold.

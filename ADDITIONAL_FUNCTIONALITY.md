@@ -768,6 +768,31 @@ Feeds window schedule export (anticipated large function). Depends on #44.
 
 ---
 
+### 48. Align/scale drag visual inversion (UX — planning required before build)
+
+**Logged:** Session 28, B3 close-out.
+
+**Description:** During the corner-handle scale drag in align mode (floor-reference align or elevation
+align), the apparent motion is counterintuitive: the PDF background shrinks/grows while the ghost bbox
+handles stay fixed. Inverting the apparent motion would make the PDF appear to hold still while the
+polygon (ghost) appears to grow toward it — matching the mental model of "I'm resizing the floor plan
+to fit the building."
+
+The actual mechanism is UNCHANGED: `pageTransformsRef` (tx/ty/s) is what moves; polygon coordinates
+never change (recalibration-independence invariant #22 is preserved). The visual inversion remaps how
+drag-delta maps to `{tx, ty, s}` — not what is stored.
+
+**⚠️ FLAG — NOT purely cosmetic:** This changes how the drag delta maps to `pageTransformsRef` values.
+Before building, confirm the inverted mapping is still recalibration-safe (#22): the stored `{tx, ty, s}`
+must remain a passive visual-only PDF transform that can be discarded without affecting stored geometry.
+Needs a short planning pass to verify the math is neutral before any code change.
+
+**Why deferred:** Mid-session observation, not blocking anything. Requires planning, not a quick visual flip.
+
+**Status:** Deferred. Plan before build; confirm #22 compliance.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

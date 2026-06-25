@@ -132,9 +132,15 @@ building."
     Composes in METERS (not canvas pixels) — sheet-size dependency dissolved.
     pageRefOffsetRef tried and removed (wrong unit). Scale always resolved via getEffectiveScale.
     __dumpWorld() DEV verification tool added. See WIREFRAME_RECON_REPORT.md for gap tracking.
-    [ ] B3: widen getGhostSourcePageId so Roof Plan pages enter ghost/borrow path — NEXT
-    [ ] B4: re-confirm Main Floor alignment in fixture + re-snapshot; verify __dumpWorld for ≥2 floors
-**Next: Windows/doors Piece 3 (three-layer snap) + Piece 4 (dumb duplicate); B3 (roof into ghost/borrow path). Cross-sections deferred.**
+    [x] B3: widen getGhostSourcePageId so Roof Plan pages enter ghost/borrow path — DONE (d4e99d8)
+        Gate widened to admit 'roof-plan' alongside 'floor-plan'; subLabel not required for roof.
+        Fallback scan starts at floorOrder.length (above all floors) → highest floor with locked shapes.
+        Scale borrow via getEffectiveScale chain identical to floors. __dumpWorld extended with
+        roof-plan block. Verified: pxPerMeter=59.08 [confirmed] after confirm (was MISSING before).
+    [ ] B4: derivation core — ⚠️ NEEDS PLANNING PASS FIRST (no project-config store for
+        floor-system/assembly data; see §7 recon). Fixture prereq: re-confirm Main Floor (page-4) +
+        roof (page-7) alignment, add locked roof polygons, re-snapshot; then verify __dumpWorld ≥2 floors.
+**Next: Windows/doors Piece 3 (three-layer snap) + Piece 4 (dumb duplicate). B4 needs planning before it is promptable. Cross-sections deferred.**
 
 ---
 
