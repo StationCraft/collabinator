@@ -185,6 +185,21 @@ const CONFIG_FIELDS = [
   },
 ]
 
+// ── §3 Output→roles derivation map (coarse starter set; add entries to extend) ──
+const OUTPUT_ROLES = {
+  'f280':       ['hvac-designer', 'energy-advisor'],
+  'h2k':        ['energy-advisor'],
+  'permit-set': ['designer', 'hvac-designer', 'plumber', 'electrician'],
+}
+// Insertion order determines display order in the roles section.
+const ROLE_LABELS = {
+  'designer':      'Designer',
+  'hvac-designer': 'HVAC Designer',
+  'energy-advisor':'Energy Advisor',
+  'plumber':       'Plumber',
+  'electrician':   'Electrician',
+}
+
 function App() {
   const [pdf, setPdf] = useState(null)
   const [pageCount, setPageCount] = useState(0)
@@ -302,7 +317,7 @@ function App() {
   })
   // §9 project-configuration layer; operator-edited project setup.
   // Distinct from projectConfigRef (B4 physical-derivation thresholds).
-  const projectSetupRef = useRef({ values: {} })
+  const projectSetupRef = useRef({ values: {}, roleAssignments: {} })
 
   // §9 accessors — single read/write path to projectSetupRef.values.
   // No re-render tick this piece; Piece 2 adds the panel and whatever tick it needs.
@@ -314,6 +329,29 @@ function App() {
   }
   const setConfigValue = (fieldId, value) => {
     projectSetupRef.current.values[fieldId] = value
+    setProjectSetupTick(t => t + 1)
+  }
+
+  // §9 required-roles derivation — computed view, never stored.
+  // Unions OUTPUT_ROLES across all selected outputs; display order = ROLE_LABELS insertion order.
+  const getRequiredRoles = () => {
+    const selected = getConfigValue('outputs')
+    if (!Array.isArray(selected) || selected.length === 0) return []
+    const seen = new Set()
+    for (const out of selected) {
+      for (const role of (OUTPUT_ROLES[out] ?? [])) seen.add(role)
+    }
+    return Object.keys(ROLE_LABELS).filter(r => seen.has(r))
+  }
+
+  // §9 role assignment accessors — sole read/write path to roleAssignments.
+  const getRoleAssignment = (roleId) => projectSetupRef.current.roleAssignments[roleId] ?? ''
+  const setRoleAssignment = (roleId, name) => {
+    if (name) {
+      projectSetupRef.current.roleAssignments[roleId] = name
+    } else {
+      delete projectSetupRef.current.roleAssignments[roleId]
+    }
     setProjectSetupTick(t => t + 1)
   }
 
@@ -494,7 +532,7 @@ function App() {
     setOpeningDraftKind('window'); setOpeningDraftType(OPENING_TYPES[0]); setOpeningDraftLabel('')
     setOpeningDraftFt(''); setOpeningDraftIn(''); setOpeningDraftHFt(''); setOpeningDraftHIn('')
     setShowDimBasisDialog(false); dimensionBasisRef.current = null; shapeIdCounterRef.current = 0; priorSnapIncrementRef.current = null
-    projectSetupRef.current = { values: {} }
+    projectSetupRef.current = { values: {}, roleAssignments: {} }
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
@@ -5163,6 +5201,38 @@ function App() {
                   })}
                 </div>
               ))}
+
+              {/* ── Required Roles (computed view, §3) ── */}
+              {(() => {
+                const requiredRoles = getRequiredRoles()
+                return (
+                  <div className="fh-zone">
+                    <div className="fh-zone-label">Required Roles</div>
+                    {requiredRoles.length === 0 ? (
+                      <div className="fh-empty">Select required outputs to see roles.</div>
+                    ) : (
+                      requiredRoles.map(roleId => {
+                        const assignment = getRoleAssignment(roleId)
+                        return (
+                          <div key={roleId} className="fh-row ps-field-row">
+                            <div className="fh-field-label ps-field-label">{ROLE_LABELS[roleId]}</div>
+                            <input
+                              type="text"
+                              className="ps-role-input"
+                              placeholder="Assign to…"
+                              value={assignment}
+                              onChange={e => setRoleAssignment(roleId, e.target.value)}
+                            />
+                            {!assignment && (
+                              <div className="ps-role-fallback">(unassigned — owner responsible)</div>
+                            )}
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           )
         })()}
