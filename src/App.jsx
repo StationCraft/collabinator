@@ -261,6 +261,10 @@ function App() {
   const [show3DView, setShow3DView] = useState(false)
   const [wireframeData, setWireframeData] = useState(null)
 
+  // ── Project setup panel (§9 config layer, Piece 2) ──────────────────────────
+  const [showProjectSetup, setShowProjectSetup] = useState(false)
+  const [projectSetupTick, setProjectSetupTick] = useState(0)   // bumped on every setConfigValue write; forces re-render
+
   // ── Floor heights panel (elevation numeric editor, Piece 2) ─────────────────
   const [showFloorHeights, setShowFloorHeights] = useState(false)
   const [floorHeightsTick, setFloorHeightsTick] = useState(0)   // bumped on every floorHeightsRef write; forces re-render
@@ -310,6 +314,7 @@ function App() {
   }
   const setConfigValue = (fieldId, value) => {
     projectSetupRef.current.values[fieldId] = value
+    setProjectSetupTick(t => t + 1)
   }
 
   // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
@@ -4318,6 +4323,15 @@ function App() {
 
         {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <button
+            className={`floor-heights-btn ${showProjectSetup ? 'floor-heights-btn--open' : ''}`}
+            onClick={() => setShowProjectSetup(h => !h)}
+          >
+            {showProjectSetup ? 'Project Setup ✕' : 'Project Setup'}
+          </button>
+        )}
+
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
+          <button
             className={`floor-heights-btn ${showFloorHeights ? 'floor-heights-btn--open' : ''}`}
             onClick={() => setShowFloorHeights(h => !h)}
           >
@@ -5085,6 +5099,73 @@ function App() {
             </div>
           )}
         </aside>
+
+        {showProjectSetup && pdf && (() => {
+          // Derive category order from CONFIG_FIELDS array order (no hardcoded category list).
+          const categories = []
+          const byCategory = {}
+          for (const field of CONFIG_FIELDS) {
+            if (!byCategory[field.category]) {
+              categories.push(field.category)
+              byCategory[field.category] = []
+            }
+            byCategory[field.category].push(field)
+          }
+          void projectSetupTick  // ensure re-render on tick bump
+          return (
+            <div className="fh-panel ps-panel">
+              <div className="fh-panel-head">
+                <span className="fh-panel-title">Project Setup</span>
+                <button className="fh-close-btn" onClick={() => setShowProjectSetup(false)}>✕</button>
+              </div>
+              {categories.map(cat => (
+                <div key={cat} className="fh-zone">
+                  <div className="fh-zone-label">{cat}</div>
+                  {byCategory[cat].map(field => {
+                    const current = getConfigValue(field.id)
+                    return (
+                      <div key={field.id} className="fh-row ps-field-row">
+                        <div className="fh-field-label ps-field-label">{field.label}</div>
+                        {field.multi ? (
+                          <div className="ps-checkbox-group">
+                            {field.options.map(opt => {
+                              const checked = Array.isArray(current) && current.includes(opt.value)
+                              return (
+                                <label key={opt.value} className="ps-checkbox-label">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      const arr = Array.isArray(current) ? [...current] : []
+                                      const next = checked ? arr.filter(v => v !== opt.value) : [...arr, opt.value]
+                                      setConfigValue(field.id, next)
+                                    }}
+                                  />
+                                  {opt.label}
+                                </label>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <select
+                            className="ps-select"
+                            value={current ?? ''}
+                            onChange={e => setConfigValue(field.id, e.target.value || null)}
+                          >
+                            <option value="">— Select —</option>
+                            {field.options.map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          )
+        })()}
 
         {showFloorHeights && pdf && (
           <div className="fh-panel">

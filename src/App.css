@@ -1185,6 +1185,46 @@ canvas {
   width: 100%;
 }
 
+/* ── Project setup panel (§9 config layer) ─────────────────────────────── */
+.ps-panel {
+  /* Inherits fh-panel layout; sits left of fh-panel when both open */
+  right: 300px;
+}
+.ps-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+}
+.ps-field-label {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+.ps-select {
+  width: 100%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  padding: 4px 6px;
+}
+.ps-select option { background: #1e293b; }
+.ps-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ps-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+.ps-checkbox-label input[type="checkbox"] { accent-color: #38bdf8; }
+
 /* DEV-only fixture strip — never visible in production builds */
 .dev-fixture-strip {
   position: fixed;
