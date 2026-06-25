@@ -1486,6 +1486,64 @@ A reference line drawn under snap rules should be scoped as ONE build (draw + sn
 
 ---
 
+## SESSION 27 — Wireframe composition seams B1+B2: pageVertexToWorld + elevYToWorldZ
+
+**Branch:** main | **Commit:** 9e5bd0d
+
+### What was built
+
+**B1 — `getWorldOriginM()` + `pageVertexToWorld(v, pageId)`:**
+- `getWorldOriginM()` — building-fixed XY origin in meters. Re-derived every call, never stored.
+  Finds lowest present floor plan, resolves scale via `getEffectiveScale` (borrow-safe), converts
+  all anchor-floor wall-polygon vertices to meters, returns `{ x: minX, y: minY, originPageId }`.
+- `pageVertexToWorld(v, pageId)` — projects canvas-pixel vertex to world XY in meters; subtracts
+  origin. Returns `{ x, y, z: null }`. Both functions resolve scale via `getEffectiveScale` — never
+  raw `pageScalesRef.current` (a raw read fails if anchor floor borrows scale from parent).
+
+**B2 — `elevYToWorldZ(y, elevPageId)`:**
+Named inverse of `drawElevRefLines` Y→Z formula. Returns world Z in meters.
+`anchorY - y` in pixels ÷ `(0.3048 × pxPerMeter)` → Z in feet → × 0.3048 → meters.
+Implements same formula as `drawElevRefLines` (principle 7.3).
+
+**`window.__dumpWorld()`:** DEV-guarded console test. Prints world XY for all floor-plan wall
+polygons, Z@anchor for elevation pages, MISSING scale warnings.
+
+**`pageRefOffsetRef` REMOVED:** canvas-pixel cross-page offset approach was tried in a first
+implementation and removed as wrong. Do not reintroduce. All cross-page composition is in METERS.
+
+### Diagnostic: separate canvas spaces
+
+Proved during session that each PDF page has a SEPARATE canvas coordinate space (canvas resizes
+per sheet in `renderPage`; `drawGhostShapes` applies no transform). `{0,0}` canvas-pixel offset
+is only accidentally correct when all PDF sheets are the same size. Resolution: compose in meters
+— sheet-size dependency dissolves because 1 meter = `pxPerMeter` pixels regardless of sheet size.
+Identity assumption: cross-page XY is identity because trace-over-ghost bakes registration at draw time.
+
+### Scale-path bug fixed before commit
+
+First meters implementation passed raw `pageScalesRef.current` to `pxToMeters`. If anchor floor
+borrows scale (no own calibration), this returns undefined → NaN origin → all vertices poisoned.
+Fix: `getEffectiveScale(lowestPage.pageId)` first, then `{ [lowestPage.pageId]: scale }` as scalesArg.
+
+### `__dumpWorld` verification result
+
+- Basement (page-3): origin (0,0) ✓; vertex meter magnitudes ✓; Z@anchor = 0 on lowest floor ✓
+- Main Floor (page-4): MISSING effective scale
+- Main Floor miss is a **fixture data gap**: Main Floor has no own scale, no confirmed transform, no
+  `pageRefParentRef` entry in the restored fixture (alignment never confirmed for that page). Not a seam bug.
+
+### B4 fixture prereq (before B4 multi-floor verification)
+
+Re-run "Confirm scale & alignment" on Main Floor in the test fixture and re-snapshot. Then
+`__dumpWorld` will show composition across ≥2 confirmed floors.
+
+### New doc added
+
+`WIREFRAME_RECON_REPORT.md` created — gap tracker for B1–B4 wireframe composition seams
+(§3=B1 resolved, §4=B2 resolved, §5/§6 open).
+
+---
+
 ## CURRENT DEFERRED ITEMS
 
 - **Feet+inches carry-over display bug (low priority):** `2' 12.0"` instead of `3' 0.0"`
@@ -1564,5 +1622,10 @@ A reference line drawn under snap rules should be scoped as ONE build (draw + sn
     - ~~Elevation spatial Piece 4 sub-piece 3: windows/doors Pieces 1+2 (placement layer)~~ — DONE (Session 26)
     - **Elevation spatial Piece 4: windows/doors Piece 3 (three-layer snap) — NEXT**
     - **Elevation spatial Piece 4: windows/doors Piece 4 (dumb duplicate) — NEXT**
+11. **Wireframe composition seams B1+B2 — DONE (Session 27; commit 9e5bd0d)**
+    - ~~B1: pageVertexToWorld + getWorldOriginM (world XY in meters)~~ — DONE
+    - ~~B2: elevYToWorldZ (world Z in meters)~~ — DONE
+    - **B3: widen getGhostSourcePageId for Roof Plan pages — NEXT**
+    - **B4: fixture prereq (re-confirm Main Floor alignment + re-snapshot) + __dumpWorld multi-floor verify — NEXT**
 
-After windows/doors Pieces 3+4: cross-sections (deferred — windows/doors intentionally builds first) → Phase 2 threshold.
+After windows/doors Pieces 3+4: B3+B4 → cross-sections (deferred) → Phase 2 threshold.

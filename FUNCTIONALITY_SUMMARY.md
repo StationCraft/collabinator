@@ -44,6 +44,17 @@ describe what should be built instead, the first time, correctly.
   factory in geometry.js, returning `{ x, y }` today with z absent. R3 adds z in one place only.
 - Per-element identity preserved: no coordinate-coincidence merging (#19).
 
+**B1+B2 world-frame composition seams (built Session 27 — commit 9e5bd0d):**
+- `getWorldOriginM()` — building-fixed XY origin in meters; re-derived every call, never stored.
+  Resolves anchor-floor scale via `getEffectiveScale` (borrow-safe). Returns `{ x, y, originPageId }`.
+- `pageVertexToWorld(v, pageId)` → `{ x, y, z: null }` — canvas-pixel vertex into world meters.
+  Cross-page alignment is identity (trace-over-ghost bakes registration at draw time).
+  Always resolves scale via `getEffectiveScale` — never raw `pageScalesRef.current`.
+- `elevYToWorldZ(y, elevPageId)` → world Z in meters. Implements the same Y↔Z formula as
+  `drawElevRefLines` (principle 7.3 — one function per derived quantity).
+- **`pageRefOffsetRef` does NOT exist.** Canvas-pixel cross-page offset approach was tried and
+  removed. All composition is in METERS. See `WIREFRAME_RECON_REPORT.md` for full gap tracking.
+
 ---
 
 ## 2. Build order (confirmed sequence)

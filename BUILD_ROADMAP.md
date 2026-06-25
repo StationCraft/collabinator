@@ -126,7 +126,15 @@ building."
     geometry.js; all stored-polygon-vertex construction routed through it (R3-ready shape, z absent).
     R3-readiness criteria met: Z-ready vertex shape + no coordinate-coincidence merging (#19).
     Composing pageRefParent chain onto stored geometry = R3, sequenced after.
-**Next: Windows/doors Piece 3 (three-layer snap) and Piece 4 (dumb duplicate). Cross-sections deferred.**
+[x] Wireframe composition seams B1+B2 — DONE (Session 27; commit 9e5bd0d)
+    B1: getWorldOriginM() + pageVertexToWorld(v,pageId) → world XY in meters.
+    B2: elevYToWorldZ(y,elevPageId) → world Z in meters (named inverse of drawElevRefLines).
+    Composes in METERS (not canvas pixels) — sheet-size dependency dissolved.
+    pageRefOffsetRef tried and removed (wrong unit). Scale always resolved via getEffectiveScale.
+    __dumpWorld() DEV verification tool added. See WIREFRAME_RECON_REPORT.md for gap tracking.
+    [ ] B3: widen getGhostSourcePageId so Roof Plan pages enter ghost/borrow path — NEXT
+    [ ] B4: re-confirm Main Floor alignment in fixture + re-snapshot; verify __dumpWorld for ≥2 floors
+**Next: Windows/doors Piece 3 (three-layer snap) + Piece 4 (dumb duplicate); B3 (roof into ghost/borrow path). Cross-sections deferred.**
 
 ---
 

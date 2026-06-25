@@ -459,6 +459,31 @@ A React + Vite app with:
     they share calibration scale and ghost-align visually — no explicit geometry composition needed at R2.
     Composing the pageRefParent chain onto stored coordinates is R3 (explicitly NOT built at R2).
 
+- **Wireframe composition seams B1+B2 (Session 27; commit 9e5bd0d):**
+  Named functions that project stored pixel coordinates into building-fixed world meters.
+  No render change, no behavior change — pure read-time projection seam.
+  * **`getWorldOriginM()`** — building-fixed XY origin in meters. Re-derived every call, never stored.
+    Finds lowest present floor plan, resolves its scale via `getEffectiveScale` (borrow-safe — never
+    reads raw `pageScalesRef.current`), converts all its wall-polygon vertices to meters via
+    `pxToMeters({ [pageId]: scale }, pageId)`, returns `{ x: minX, y: minY, originPageId }`.
+    Returns null if no calibrated anchor floor is present.
+  * **`pageVertexToWorld(v, pageId)`** — projects a canvas-pixel vertex into building-fixed world XY
+    in meters. Uses `getEffectiveScale(pageId)` for scale; subtracts `getWorldOriginM()` bbox origin.
+    Returns `{ x, y, z: null }` — z stays null until R3 adds it via `makeVertex`. Cross-page alignment
+    is IDENTITY: pages share a frame because the user traces over the aligned ghost, baking registration
+    at trace time. An explicit offset re-enters `pageVertexToWorld` if that workflow changes (see comment).
+  * **`elevYToWorldZ(y, elevPageId)`** — named inverse of `drawElevRefLines` Y→Z formula. Returns world
+    Z in meters. `anchorY - y` distance in pixels, divided by `0.3048 × pxPerMeter`, offset by lowest
+    floor Z. Returns null if elevation has no own scale, no resolved edge, or fhZStack is empty. Both
+    `drawElevRefLines` (draw) and `elevYToWorldZ` (export) implement the same formula — principle 7.3.
+  * **`window.__dumpWorld()`** — DEV-guarded console verification tool. Prints world XY for all floor-plan
+    wall polygons; Z@anchor for all elevation pages; MISSING scale warnings per page.
+  * **`pageRefOffsetRef` does NOT exist.** Canvas-pixel offset approach was tried and removed (wrong unit;
+    sheet-size-dependent). Do NOT reintroduce. All cross-page composition happens in meters.
+  * **Scale path rule:** both `getWorldOriginM` and `pageVertexToWorld` resolve scale via
+    `getEffectiveScale` — never raw `pageScalesRef.current`. Anchor floors can borrow their scale;
+    a raw read would return undefined → NaN origin → all vertices poisoned.
+
 - **Elevation PDF spatial work — Pieces 1+2 (Step 8 spatial, Session 19; commits 89b7ba2, 2007265):**
   Two-piece interaction for aligning elevation PDFs to floor-plan geometry.
   * **Piece 1 — "Set elevation edge" mode (commit 89b7ba2):** Elevation pages get a "Set elevation
@@ -579,9 +604,13 @@ A React + Vite app with:
 **Not yet built (next increments):**
 - Windows/doors Piece 3 (three-layer snap) — NEXT
 - Windows/doors Piece 4 (dumb duplicate) — NEXT
+- B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — NEXT
+- B4: multi-floor stacking verification via `__dumpWorld` (needs fixture prereq: re-confirm Main Floor alignment and re-snapshot)
 - Cross-sections (deferred — windows/doors intentionally builds first)
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
 - Primary-reference reassignment UI (primaryReferenceIdRef set-once today; UI to reassign deferred)
+
+See `WIREFRAME_RECON_REPORT.md` for full gap tracking on B1–B4 wireframe composition seams.
 
 **Deferred (shelved, not cancelled):**
 - Elevation Piece 3 sub-piece 3: drag individual floor/ceiling lines to edit heights (last-edited-wins) — height editing stays panel-only for now
