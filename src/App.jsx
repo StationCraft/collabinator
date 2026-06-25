@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import ThreeDView from './ThreeDView.jsx'
 import * as pdfjsLib from 'pdfjs-dist'
 import './App.css'
 import {
@@ -132,6 +133,10 @@ function App() {
 
   // ── Sidebar (Step 4c) ───────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // ── 3D wireframe view ─────────────────────────────────────────────────────
+  const [show3DView, setShow3DView] = useState(false)
+  const [wireframeData, setWireframeData] = useState(null)
 
   // ── Floor heights panel (elevation numeric editor, Piece 2) ─────────────────
   const [showFloorHeights, setShowFloorHeights] = useState(false)
@@ -3391,6 +3396,84 @@ function App() {
   const canApplySplit = !!splitResult
 
 
+  // ── B5: deriveWireframe() ─────────────────────────────────────────────────
+  // Returns plain data for the 3D wireframe view. Pure derivation, no rendering.
+  // floorRings: one entry per locked wall polygon per floor level.
+  // roofRing: first locked wall polygon on any confirmed roof page, or null.
+  // All Z values in METERS. XY in building-fixed world meters (pageVertexToWorld space).
+  // Roof Z assumption: ceilingZ of the highest floor level (slope Z deferred, #18).
+  const deriveWireframe = () => {
+    const origin = getWorldOriginM()
+    if (!origin) return { floorRings: [], roofRing: null }
+
+    const presentLevels = FLOOR_ORDER.filter(level =>
+      pages.some(p => p.category === 'floor-plan' && p.subLabel === level)
+    )
+    const zStack = accumulateZ(floorHeightsRef.current, presentLevels, FLOOR_ORDER)
+
+    const floorPageMap = {}
+    for (const fp of pages.filter(p => p.category === 'floor-plan' && isKnownFloorLabel(p.subLabel))) {
+      if (!floorPageMap[fp.subLabel]) floorPageMap[fp.subLabel] = fp
+    }
+
+    const floorRings = []
+    for (const row of zStack) {
+      const floorPage = floorPageMap[row.level]
+      if (!floorPage) continue
+      if (!getEffectiveScale(floorPage.pageId)) continue
+
+      const wallShapes = completedShapesRef.current.filter(
+        s => s.pageId === floorPage.pageId && s.status === 'locked' && !s.shapeKind
+      )
+      for (const shape of wallShapes) {
+        const verts = []
+        let ok = true
+        for (const v of shape.vertices) {
+          const w = pageVertexToWorld(v, floorPage.pageId)
+          if (!w) { ok = false; break }
+          verts.push({ x: w.x, y: w.y })
+        }
+        if (ok && verts.length >= 3) {
+          floorRings.push({
+            level: row.level,
+            shapeId: shape.id,
+            floorZ: (row.floorZ ?? 0) * 0.3048,
+            ceilingZ: row.ceilingZ != null ? row.ceilingZ * 0.3048 : null,
+            verts,
+          })
+        }
+      }
+    }
+
+    // Roof ring: first confirmed roof page with a locked wall polygon
+    let roofRing = null
+    const topRow = zStack.length > 0 ? zStack[zStack.length - 1] : null
+    const roofZFallback = topRow?.ceilingZ != null ? topRow.ceilingZ * 0.3048 : null
+    for (const rp of pages.filter(p => p.category === 'roof-plan')) {
+      if (!pageTransformsRef.current[rp.pageId]?.confirmed) continue
+      if (!getEffectiveScale(rp.pageId)) continue
+      const roofShapes = completedShapesRef.current.filter(
+        s => s.pageId === rp.pageId && s.status === 'locked' && !s.shapeKind
+      )
+      for (const shape of roofShapes) {
+        const verts = []
+        let ok = true
+        for (const v of shape.vertices) {
+          const w = pageVertexToWorld(v, rp.pageId)
+          if (!w) { ok = false; break }
+          verts.push({ x: w.x, y: w.y })
+        }
+        if (ok && verts.length >= 3) {
+          roofRing = { z: roofZFallback, verts }
+          break
+        }
+      }
+      if (roofRing) break
+    }
+
+    return { floorRings, roofRing }
+  }
+
   // ── Dev fixture: snapshot / restore (DEV only) ───────────────────────────
   if (import.meta.env.DEV) {
     window.__snapshotFixture = async () => {
@@ -3877,6 +3960,28 @@ function App() {
         console.warn('[enum] FINDING: all reconciled edges are "coincident" — bbox-compare may not be detecting the intentional Main Floor offset. bbox-compare only catches midpoints outside the below-floor bbox; a shifted-but-still-overlapping polygon may produce all-coincident results. Consider a per-edge closest-approach rule.')
       }
     }
+
+      window.__dumpWireframe = () => {
+        const wf = deriveWireframe()
+        console.log('[wf] floorRings:', wf.floorRings.length, 'roofRing:', wf.roofRing ? `z=${wf.roofRing.z?.toFixed(3)}m verts=${wf.roofRing.verts.length}` : 'null')
+        for (const r of wf.floorRings) {
+          const fStr = r.floorZ != null ? r.floorZ.toFixed(3) + 'm' : 'null'
+          const cStr = r.ceilingZ != null ? r.ceilingZ.toFixed(3) + 'm' : 'null (heights not entered)'
+          console.log(`  [${r.level}] shapeId=${r.shapeId}  floorZ=${fStr}  ceilingZ=${cStr}  verts=${r.verts.length}`)
+          for (let i = 0; i < r.verts.length; i++) {
+            const v = r.verts[i]
+            console.log(`    v${i}: x=${v.x.toFixed(4)}m  y=${v.y.toFixed(4)}m`)
+          }
+        }
+        if (wf.roofRing) {
+          console.log(`  [roof] z=${wf.roofRing.z?.toFixed(3) ?? 'null'}m  verts=${wf.roofRing.verts.length}`)
+          for (let i = 0; i < wf.roofRing.verts.length; i++) {
+            const v = wf.roofRing.verts[i]
+            console.log(`    v${i}: x=${v.x.toFixed(4)}m  y=${v.y.toFixed(4)}m`)
+          }
+        }
+        return wf
+      }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -3930,6 +4035,15 @@ function App() {
             onClick={() => setShowFloorHeights(h => !h)}
           >
             {showFloorHeights ? 'Floor Heights ✕' : 'Floor Heights'}
+          </button>
+        )}
+
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && !!getWorldOriginM() && (
+          <button
+            className="three-d-btn"
+            onClick={() => { setWireframeData(deriveWireframe()); setShow3DView(true) }}
+          >
+            3D View
           </button>
         )}
 
@@ -5244,6 +5358,10 @@ function App() {
             URL.revokeObjectURL(url)
           }}>SAVE FIXTURE</button>
         </div>
+      )}
+
+      {show3DView && wireframeData && (
+        <ThreeDView wireframe={wireframeData} onClose={() => setShow3DView(false)} />
       )}
     </div>
   )
