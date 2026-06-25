@@ -154,6 +154,7 @@ function App() {
   // ── Reference-layer model (Step 6, sub-step 5) ──────────────────────────────
   const primaryReferenceIdRef = useRef(null)   // pageId of first manually-calibrated page; set once, never overwritten
   const pageRefParentRef = useRef({})          // pageId -> sourcePageId; written at confirm time (Piece B)
+
   const shapeIdCounterRef = useRef(0)          // monotonic id for stable shape identity
   const dimensionBasisRef = useRef(null)       // 'frame' | 'rough-opening' | null (project-level, set once per upload)
   const priorSnapIncrementRef = useRef(null)   // saved increment before opening-placement / opening-edit default
@@ -574,6 +575,57 @@ function App() {
     if (visited.has(parentId)) return null  // cycle guard — now real work (user-defined tree)
     visited.add(pageId)
     return getEffectiveScale(parentId, visited)
+  }
+
+  // Derives the building-fixed world origin in METERS: min-x/min-y corner of the lowest
+  // present floor's wall polygons, each vertex converted through its own page's pxToMeters.
+  // Re-derived on every call — never stored, stable under recalibration (#22).
+  // Returns { x, y, originPageId } in meters, or null if gate not met.
+  const getWorldOriginM = () => {
+    const presentLevels = pages
+      .filter(p => p.category === 'floor-plan' && isKnownFloorLabel(p.subLabel))
+      .map(p => p.subLabel)
+    if (!presentLevels.length) return null
+    const zStack = accumulateZ(floorHeightsRef.current, presentLevels, FLOOR_ORDER)
+    if (!zStack.length) return null
+    const lowestLevel = zStack[0].level
+    const lowestPage = pages.find(p => p.category === 'floor-plan' && p.subLabel === lowestLevel)
+    if (!lowestPage) return null
+    const scale = getEffectiveScale(lowestPage.pageId)
+    if (!scale) return null
+    const shapes = completedShapesRef.current.filter(
+      s => s.pageId === lowestPage.pageId && s.status === 'locked' && !s.shapeKind
+    )
+    if (!shapes.length) return null
+    let minX = Infinity, minY = Infinity
+    const scalesArg = { [lowestPage.pageId]: scale }
+    for (const s of shapes) for (const v of s.vertices) {
+      const mx = pxToMeters(v.x, scalesArg, lowestPage.pageId)
+      const my = pxToMeters(v.y, scalesArg, lowestPage.pageId)
+      if (mx != null && mx < minX) minX = mx
+      if (my != null && my < minY) minY = my
+    }
+    if (!isFinite(minX) || !isFinite(minY)) return null
+    return { x: minX, y: minY, originPageId: lowestPage.pageId }
+  }
+
+  // Projects a canvas-space vertex on pageId into building-fixed world XY in METERS.
+  // Each page converts its own vertices via its own pxToMeters (through effective scale),
+  // then subtracts the meters-expressed building origin. Cross-page alignment is identity
+  // because the user traces on top of the aligned ghost — translation/rotation are baked
+  // into the traced coordinates at trace time. If a future workflow places geometry
+  // out-of-register (not traced over the ghost), an explicit offset would re-enter here.
+  // Z is null here; use elevYToWorldZ for elevation pages.
+  // Returns { x, y, z: null } in meters, or null if scale/origin gate not met.
+  const pageVertexToWorld = (v, pageId) => {
+    const scale = getEffectiveScale(pageId)
+    if (!scale) return null
+    const origin = getWorldOriginM()
+    if (!origin) return null
+    const mx = pxToMeters(v.x, { [pageId]: scale }, pageId)
+    const my = pxToMeters(v.y, { [pageId]: scale }, pageId)
+    if (mx == null || my == null) return null
+    return { x: mx - origin.x, y: my - origin.y, z: null }
   }
 
   const applySnap = (rawPos, lastVertex, useAngle, useDist, pageId) => {
@@ -2604,6 +2656,23 @@ function App() {
     redrawFrontFaceLayer(null)
   }
 
+  // Inverse of the drawElevRefLines Y→Z mapping: given a canvas-pixel Y on an elevation
+  // page, returns the world Z in METERS (uniform with world XY from pageVertexToWorld).
+  // Internal: computes Z in feet (matching floorHeightsRef storage) then converts × 0.3048.
+  // Returns null if the gate (confirmed pxPerMeter + elevationEdge + fhZStack) is not met.
+  // Reads live refs at call time — no frozen scale ratio stored (recalibration-safe, #22).
+  const elevYToWorldZ = (y, elevPageId) => {
+    const elevScale = pageScalesRef.current[elevPageId]
+    if (!elevScale?.pxPerMeter) return null
+    const edgeData = resolveElevEdge(elevPageId)
+    if (!edgeData) return null
+    if (!fhZStack.length) return null
+    const anchorY = elevBaseYRef.current[elevPageId] ?? (edgeData.A.y + edgeData.B.y) / 2
+    const lowestFloorZ = fhZStack[0].floorZ ?? 0  // feet
+    const zFeet = lowestFloorZ + (anchorY - y) / (0.3048 * elevScale.pxPerMeter)
+    return zFeet * 0.3048  // convert to meters for uniform world space
+  }
+
   // Draws horizontal floor/ceiling reference lines on aligned Elevation pages.
   // Reads from closure: currentPageId, pageScalesRef, resolveElevEdge, fhZStack, zoomRef, measureRef.
   const drawElevRefLines = (ctx) => {
@@ -2619,7 +2688,6 @@ function App() {
     const { pxPerMeter } = elevScale
     const zoom = zoomRef.current
     const canvasW = c.width
-    // Anchor: lowest present level's floorZ sits at anchorY (provisional).
     const lowestFloorZ = fhZStack[0].floorZ ?? 0
 
     ctx.save()
@@ -2627,6 +2695,7 @@ function App() {
     ctx.textBaseline = 'bottom'
     for (const row of fhZStack) {
       if (row.floorZ != null) {
+        // Y derived via inverse of elevYToWorldZ: y = anchorY - (Z - lowestFloorZ) * 0.3048 * pxPerMeter
         const y = anchorY - (row.floorZ - lowestFloorZ) * 0.3048 * pxPerMeter
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasW, y)
         ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 1.5 / zoom
@@ -3412,6 +3481,50 @@ function App() {
       setFloorHeightsTick(t => t + 1)
 
       console.log('[fixture] restore complete → page', targetPage, '| shapes:', completedShapesRef.current.length, '| scales:', Object.keys(pageScalesRef.current))
+    }
+
+    // __dumpWorld(): DEV console verification for B1+B2 seams (meters throughout).
+    // Prints world XY (m) for every floor-plan page's wall polygon vertices;
+    // world Z (m) from elevYToWorldZ sampled at the anchor Y of each elevation page;
+    // which page is the world origin; any page missing an effective scale.
+    // Recon "separate canvas spaces" resolved: composition is in meters via each page's
+    // own pxToMeters — sheet size differences do not affect world coordinates.
+    window.__dumpWorld = () => {
+      const origin = getWorldOriginM()
+      if (!origin) { console.warn('[world] gate not met — no lowest-floor locked polygons with scale'); return }
+      console.log(`[world] origin=${origin.originPageId} @ (${origin.x.toFixed(4)}, ${origin.y.toFixed(4)}) m (expect 0,0 for origin page vertices)`)
+
+      // Floor-plan pages: wall polygon vertices as world XY in meters
+      const floorPages = pages.filter(p => p.category === 'floor-plan' && isKnownFloorLabel(p.subLabel))
+      for (const fp of floorPages) {
+        const shapes = completedShapesRef.current.filter(s => s.pageId === fp.pageId && s.status === 'locked' && !s.shapeKind)
+        const scale = getEffectiveScale(fp.pageId)
+        if (!scale) { console.warn(`[world] ${fp.subLabel} (${fp.pageId}): MISSING effective scale`); continue }
+        console.log(`[world] ${fp.subLabel} (${fp.pageId}) pxPerMeter=${scale.pxPerMeter.toFixed(2)}${fp.pageId === origin.originPageId ? ' <- ORIGIN' : ''}`)
+        if (!shapes.length) { console.log('  (no locked wall shapes)'); continue }
+        shapes.forEach((s, si) => {
+          const pts = s.vertices.map(v => {
+            const w = pageVertexToWorld(v, fp.pageId)
+            return w ? `(${w.x.toFixed(3)},${w.y.toFixed(3)})` : 'null'
+          })
+          console.log(`  shape[${si}]:`, pts.join(' '))
+        })
+      }
+
+      // Elevation pages: sample Z at anchorY — must equal lowestFloorZ in meters
+      const elevPages = pages.filter(p => p.category === 'elevation')
+      const expectedAnchorZm = (fhZStack[0]?.floorZ ?? 0) * 0.3048
+      for (const ep of elevPages) {
+        const scale = pageScalesRef.current[ep.pageId]
+        if (!scale?.pxPerMeter) { console.warn(`[world] elev ${ep.subLabel ?? ep.pageId}: no scale`); continue }
+        const edgeData = resolveElevEdge(ep.pageId)
+        if (!edgeData) { console.log(`[world] elev ${ep.subLabel ?? ep.pageId}: no elevation edge`); continue }
+        const anchorY = elevBaseYRef.current[ep.pageId] ?? (edgeData.A.y + edgeData.B.y) / 2
+        const zm = elevYToWorldZ(anchorY, ep.pageId)
+        console.log(`[world] elev ${ep.subLabel ?? ep.pageId} (${ep.pageId}): Z@anchor=${zm?.toFixed(4) ?? 'null'} m (expect ${expectedAnchorZm.toFixed(4)} m)`)
+      }
+
+      if (!floorPages.length && !elevPages.length) console.warn('[world] no categorized floor-plan or elevation pages found')
     }
   }
 
