@@ -1321,6 +1321,12 @@ canvas {
   width: 80px;
 }
 
+.wl-place-btn {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
 /* DEV-only fixture strip — never visible in production builds */
 .dev-fixture-strip {
   position: fixed;

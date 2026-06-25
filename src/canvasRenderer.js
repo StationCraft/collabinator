@@ -30,12 +30,17 @@ function isOpening(shape) {
   return shape.shapeKind === 'window' || shape.shapeKind === 'door'
 }
 
+function isEquipmentItem(shape) {
+  return shape.shapeKind === 'equipment-item'
+}
+
 export function drawLockedShapes(ctx, completedShapes, pageId) {
   completedShapes
     .filter(s => s.pageId === pageId)
     .forEach(shape => {
       if (shape.shapeKind === 'grade-line') return
       if (isOpening(shape)) return
+      if (isEquipmentItem(shape)) return
       const verts = shape.vertices
       if (verts.length < 3) return
       ctx.beginPath()
@@ -141,6 +146,7 @@ export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
     .forEach(shape => {
       if (shape.shapeKind === 'grade-line') return
       if (isOpening(shape)) return
+      if (isEquipmentItem(shape)) return
       const verts = shape.vertices
       if (verts.length < 3) return
 
@@ -269,6 +275,31 @@ export function drawOpeningShapes(ctx, completedShapes, pageId) {
     .filter(s => s.pageId === pageId && isOpening(s) && s.status === 'locked')
     .forEach(shape => {
       drawOpeningPoly(ctx, shape.vertices, 'normal')
+    })
+}
+
+// Draw all locked equipment items for a page as purple circles with initials.
+// radius is constant on screen: EQUIP_RADIUS_PX / zoom.
+const EQUIP_RADIUS_PX = 14
+export function drawEquipmentItemShapes(ctx, completedShapes, pageId, zoom = 1) {
+  const r = EQUIP_RADIUS_PX / zoom
+  completedShapes
+    .filter(s => s.pageId === pageId && isEquipmentItem(s) && s.status === 'locked')
+    .forEach(shape => {
+      const v = shape.vertices[0]
+      if (!v) return
+      ctx.save()
+      ctx.beginPath(); ctx.arc(v.x, v.y, r, 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(124,58,237,0.25)'; ctx.fill()
+      ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 2 / zoom; ctx.stroke()
+      // Initials from itemType (e.g. 'air-handler' → 'AH')
+      const initials = (shape.itemType || '?')
+        .split('-').map(w => w[0]?.toUpperCase() ?? '').join('').slice(0, 2)
+      const fontSize = Math.max(8, 11 / zoom)
+      ctx.font = `bold ${fontSize}px system-ui, sans-serif`
+      ctx.fillStyle = '#7c3aed'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(initials, v.x, v.y)
+      ctx.restore()
     })
 }
 

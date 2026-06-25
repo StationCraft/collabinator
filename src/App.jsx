@@ -9,7 +9,7 @@ import {
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -291,6 +291,10 @@ function App() {
 
   // ── Opening placement (windows/doors, Pieces 1+2) ────────────────────────────
   const [placingOpeningMode, setPlacingOpeningMode] = useState(false)
+  // ── Equipment item placement (§8.2 Part B) ────────────────────────────────────
+  const [placingEquipmentItem, setPlacingEquipmentItem] = useState(false)
+  const [placingItemType, setPlacingItemType] = useState(null)
+  const [placingInstanceKey, setPlacingInstanceKey] = useState(null)
   const [openingCorner1, setOpeningCorner1] = useState(null)           // first-click canvas pos
   const [openingDraftShape, setOpeningDraftShape] = useState(null)     // {vertices, corner1} pending dialog
   const [openingDraftKind, setOpeningDraftKind] = useState('window')   // 'window' | 'door'
@@ -591,6 +595,7 @@ function App() {
     setOpeningDraftKind('window'); setOpeningDraftType(OPENING_TYPES[0]); setOpeningDraftLabel('')
     setOpeningDraftFt(''); setOpeningDraftIn(''); setOpeningDraftHFt(''); setOpeningDraftHIn('')
     setShowDimBasisDialog(false); dimensionBasisRef.current = null; shapeIdCounterRef.current = 0; priorSnapIncrementRef.current = null
+    setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
     projectSetupRef.current = { values: {}, roleAssignments: {} }
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
@@ -641,6 +646,7 @@ function App() {
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
     gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
+    setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
@@ -768,6 +774,7 @@ function App() {
 
   const nextShapeId = () => `sh-${shapeIdCounterRef.current++}`
   const isOpening = (s) => s.shapeKind === 'window' || s.shapeKind === 'door'
+  const isEquipmentItem = (s) => s.shapeKind === 'equipment-item'
 
   const ONE_INCH_M = 0.0254
   const saveAndDefaultSnapIncrement = () => {
@@ -956,6 +963,7 @@ function App() {
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isEquipmentItem(shape)) return
         ctx.save()
         const isDragged = drag && drag.shapeIdx === idx
         const verts = isDragged && drag.previewVerts ? drag.previewVerts : shape.vertices
@@ -965,6 +973,13 @@ function App() {
         ctx.restore()
       })
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+      // Equipment items in move mode: apply drag preview to the moved item
+      const eqMoveShapes = completedShapesRef.current.map((s, idx) => {
+        if (!isEquipmentItem(s)) return s
+        if (drag && drag.shapeIdx === idx && drag.previewVerts) return { ...s, vertices: drag.previewVerts }
+        return s
+      })
+      drawEquipmentItemShapes(ctx, eqMoveShapes, currentPageId, zoomRef.current)
       drawElevRefLines(ctx)
       return
     }
@@ -982,6 +997,7 @@ function App() {
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isEquipmentItem(shape)) return
         ctx.save()
         if (isOpening(shape)) { ctx.globalAlpha = 0.3 } // openings not eligible; dim them
         else if (!eligible.has(idx)) ctx.globalAlpha = 0.2
@@ -1000,6 +1016,7 @@ function App() {
         }
       }
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+      drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
       drawElevRefLines(ctx)
       return
     }
@@ -1016,6 +1033,7 @@ function App() {
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isEquipmentItem(shape)) return
         ctx.save()
         const style = idx === hoverIdx ? 'hover' : 'normal'
         if (isOpening(shape)) drawOpeningPoly(ctx, shape.vertices, style)
@@ -1023,6 +1041,7 @@ function App() {
         ctx.restore()
       })
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+      drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
       drawElevRefLines(ctx)
       return
     }
@@ -1040,6 +1059,7 @@ function App() {
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isEquipmentItem(shape)) return
         ctx.save()
         if (isOpening(shape)) { ctx.globalAlpha = 0.3; drawOpeningPoly(ctx, shape.vertices, 'normal'); ctx.restore(); return }
         if (selIdx !== null && idx !== selIdx) ctx.globalAlpha = 0.2
@@ -1062,6 +1082,7 @@ function App() {
         })
       }
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+      drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
       drawElevRefLines(ctx)
       return
     }
@@ -1077,6 +1098,7 @@ function App() {
       .forEach((shape, shapeIdx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isEquipmentItem(shape)) return
         const verts = (previewOverride && previewOverride.shapeIdx === shapeIdx)
           ? previewOverride.vertices : shape.vertices
         const N = verts.length
@@ -1135,6 +1157,7 @@ function App() {
       })
 
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+    drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
     drawElevRefLines(ctx)
   }
 
@@ -1167,6 +1190,7 @@ function App() {
     let best = null, bestDist = HIT_VERT_DIST
     completedShapesRef.current.forEach((shape, shapeIdx) => {
       if (shape.pageId !== currentPageId) return
+      if (isEquipmentItem(shape)) return
       shape.vertices.forEach((v, vertIdx) => {
         const d = Math.hypot(pos.x - v.x, pos.y - v.y)
         if (d < bestDist) { bestDist = d; best = { shapeIdx, vertIdx } }
@@ -1180,6 +1204,7 @@ function App() {
     completedShapesRef.current.forEach((shape, shapeIdx) => {
       if (shape.pageId !== currentPageId) return
       if (shape.shapeKind === 'grade-line') return
+      if (isEquipmentItem(shape)) return
       const verts = shape.vertices
       for (let segIdx = 0; segIdx < verts.length; segIdx++) {
         const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
@@ -1191,8 +1216,18 @@ function App() {
 
   const hitTestShapeBody = (pos) => {
     const shapes = completedShapesRef.current
+    const EQUIP_HIT_RADIUS = 14
+    // Equipment items: proximity to single vertex (checked first, top-to-bottom in z-order)
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      if (!isEquipmentItem(shapes[i])) continue
+      if (shapes[i].pageId !== currentPageId) continue
+      const v = shapes[i].vertices[0]
+      if (v && Math.hypot(pos.x - v.x, pos.y - v.y) <= EQUIP_HIT_RADIUS) return i
+    }
+    // Polygons and openings: pointInPolygon
     for (let i = shapes.length - 1; i >= 0; i--) {
       if (shapes[i].shapeKind === 'grade-line') continue
+      if (isEquipmentItem(shapes[i])) continue
       if (shapes[i].pageId === currentPageId && pointInPolygon(pos, shapes[i].vertices)) return i
     }
     return null
@@ -1705,6 +1740,31 @@ function App() {
   const handleMeasureClick = (e) => {
     // Align mode: drag is the gesture; suppress clicks.
     if (alignMode) return
+    // Equipment item placement: single click places the item
+    if (placingEquipmentItem) {
+      if (panDidDragRef.current) { panDidDragRef.current = false; return }
+      const pos = getCanvasPos(e)
+      const snapped = applySnap(pos, pos, false, snapDist, currentPageId)
+      completedShapesRef.current = [
+        ...completedShapesRef.current,
+        {
+          id: nextShapeId(),
+          shapeKind: 'equipment-item',
+          itemType: placingItemType,
+          instanceKey: placingInstanceKey,
+          pageId: currentPageId,
+          status: 'locked',
+          vertices: [makeVertex(snapped.x, snapped.y)],
+          obligationState: {},
+        },
+      ]
+      setPlacingEquipmentItem(false)
+      setPlacingItemType(null)
+      setPlacingInstanceKey(null)
+      setWorklistTick(t => t + 1)
+      redrawFrontFaceLayer(null)
+      return
+    }
     // Opening placement: two-click rectangle (corner1 → corner2 → dialog)
     if (placingOpeningMode && !openingDraftShape) {
       if (panDidDragRef.current) { panDidDragRef.current = false; return }
@@ -1803,10 +1863,12 @@ function App() {
         const pos = getCanvasPos(e)
         const idx = hitTestShapeBody(pos)
         if (idx !== null) {
+          const wasEquipment = isEquipmentItem(completedShapesRef.current[idx])
           pushUndo()
           completedShapesRef.current = completedShapesRef.current.filter((_, i) => i !== idx)
           deleteHoverIdxRef.current = null
           setEditCursor('default')
+          if (wasEquipment) setWorklistTick(t => t + 1)
           drawEditCanvas()
         }
         return
@@ -2162,6 +2224,7 @@ function App() {
         drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
         drawOpeningShapes(ctx, completedShapesRef.current, currentPageId)
         drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+        drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
         drawElevRefLines(ctx)
         const snapped = applySnap(pos, openingCorner1, false, snapDist, currentPageId)
         const verts = makeRectVerts(openingCorner1, snapped)
@@ -2281,6 +2344,7 @@ function App() {
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
     drawOpeningShapes(ctx, completedShapesRef.current, pageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, pageId)
+    drawEquipmentItemShapes(ctx, completedShapesRef.current, pageId, zoomRef.current)
 
     // Start-vertex snap highlight: pre-first-vertex window only
     if (vertices.length === 0 && mousePos && drawStartSnapRef.current) {
@@ -2369,6 +2433,7 @@ function App() {
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
     drawOpeningShapes(ctx, completedShapesRef.current, pageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, pageId)
+    drawEquipmentItemShapes(ctx, completedShapesRef.current, pageId, zoomRef.current)
     const verts = shape.vertices
     ctx.beginPath(); ctx.moveTo(verts[0].x, verts[0].y)
     for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
@@ -2400,6 +2465,7 @@ function App() {
       drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawOpeningShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
+      drawEquipmentItemShapes(ctx2, completedShapesRef.current, getPageId(currentPage), zoomRef.current)
     }
     if (pendingGrade) {
       setGradeLineDrawing(true)
@@ -2539,6 +2605,7 @@ function App() {
       drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawOpeningShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
+      drawEquipmentItemShapes(ctx2, completedShapesRef.current, getPageId(currentPage), zoomRef.current)
     }
   }
 
@@ -2718,6 +2785,7 @@ function App() {
     ctx.clearRect(0, 0, c.width, c.height)
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+    drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
     drawPerimRoles(ctx)
     const graph = roofGraphRef.current
     graph.edges.forEach(edge => {
@@ -2762,6 +2830,7 @@ function App() {
     ctx.clearRect(0, 0, c.width, c.height)
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+    drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
     drawPerimRoles(ctx)
     const graph = roofGraphRef.current
     graph.edges.forEach(edge => {
@@ -2988,6 +3057,7 @@ function App() {
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
     drawOpeningShapes(ctx, completedShapesRef.current, currentPageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+    drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
     const seg = resolveFrontFaceSegment()
     if (seg && frontFace && frontFace.pageId === currentPageId) {
       drawSegmentHighlight(ctx, seg.a, seg.b, 'front')
@@ -3093,6 +3163,10 @@ function App() {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         if (calibMode) exitCalibMode()
+        else if (placingEquipmentItem) {
+          setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
+          redrawFrontFaceLayer(null)
+        }
         else if (reviewShape || roofShapeDraft) discardShape()
         else if (roofLineMode) {
           if (roofChainStartId) { setRoofChainStartId(null); drawRoofGraphCanvas(null, null) }
@@ -3149,7 +3223,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState, gradeLineDrawing])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState, gradeLineDrawing, placingEquipmentItem])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -3487,7 +3561,15 @@ function App() {
   // worklistTick read here ensures re-render when spawning config fields are written.
   void worklistTick
   const deriveWorklist = () => {
+    // Index already-placed equipment items by instanceKey (first placed wins)
+    const placedByKey = {}
+    for (const s of completedShapesRef.current) {
+      if (isEquipmentItem(s) && s.status === 'locked' && !placedByKey[s.instanceKey]) {
+        placedByKey[s.instanceKey] = s
+      }
+    }
     const toPlace = []
+    const obligations = []
     for (const field of CONFIG_FIELDS) {
       if (!field.spawns) continue
       const val = getConfigValue(field.id)
@@ -3496,11 +3578,27 @@ function App() {
         const itemDef = ITEM_TYPES.find(it => it.type === type)
         const label = itemDef?.label ?? type
         for (let i = 1; i <= count; i++) {
-          toPlace.push({ type, label, instanceKey: `${type}#${i}` })
+          const instanceKey = `${type}#${i}`
+          const placed = placedByKey[instanceKey]
+          if (placed) {
+            if (itemDef) {
+              for (const ob of itemDef.obligations) {
+                obligations.push({
+                  placedId: placed.id,
+                  instanceKey,
+                  itemLabel: label,
+                  ...ob,
+                  satisfiedValue: (placed.obligationState || {})[ob.id] ?? null,
+                })
+              }
+            }
+          } else {
+            toPlace.push({ type, label, instanceKey })
+          }
         }
       }
     }
-    return { toPlace, obligations: [] }
+    return { toPlace, obligations }
   }
 
   const fhOutstanding = presentFloorLevels.flatMap(level => {
@@ -3627,6 +3725,7 @@ function App() {
   // ── Elevation edge mode (Step 8, Piece 1) ────────────────────────────────────
   const currentPageCategory = pages.find(p => p.pageId === currentPageId)?.category
   const isElevationPage = currentPageCategory === 'elevation'
+  const isPlanOrRoofPage = currentPageCategory === 'floor-plan' || currentPageCategory === 'roof-plan'
   // Floor plan pages with at least one locked shape, ordered by FLOOR_ORDER then pageNum.
   const elevEdgeFloorCandidates = pages
     .filter(p => p.category === 'floor-plan' &&
@@ -4400,8 +4499,22 @@ function App() {
         const obligs = def ? def.obligations.map(o => `${o.id}(${o.kind},blocked=${o.blocked})`).join(', ') : 'unknown type'
         console.log(`  ${item.instanceKey}  label="${item.label}"  obligations: ${obligs}`)
       }
-      if (result.toPlace.length === 0) console.log('  (empty — no spawning fields selected)')
-      console.log('[worklist] obligations array (Part A):', result.obligations)
+      if (result.toPlace.length === 0) console.log('  (empty — no spawning fields selected, or all placed)')
+      // Placed items with world XY
+      const placed = completedShapesRef.current.filter(s => isEquipmentItem(s) && s.status === 'locked')
+      console.log(`[worklist] placed items (${placed.length}):`)
+      for (const s of placed) {
+        const v = s.vertices[0]
+        const world = v ? pageVertexToWorld(v, s.pageId) : null
+        const worldStr = world ? `world=(${world.x.toFixed(3)}, ${world.y.toFixed(3)})` : 'world=N/A'
+        const obligs = Object.entries(s.obligationState || {}).map(([k, v]) => `${k}=${v}`).join(', ') || '(none)'
+        console.log(`  ${s.id}  ${s.instanceKey}  page=${s.pageId}  ${worldStr}  obligations: ${obligs}`)
+      }
+      console.log(`[worklist] obligations (${result.obligations.length}):`)
+      for (const ob of result.obligations) {
+        const sat = ob.satisfiedValue ? `✓ ${ob.satisfiedValue}` : (ob.blocked ? '🔒 blocked' : '— not set')
+        console.log(`  ${ob.instanceKey} / ${ob.id}  [${ob.kind}]  ${sat}`)
+      }
     }
   }
 
@@ -4686,6 +4799,7 @@ function App() {
                 drawLockedShapes(ctx2, completedShapesRef.current, currentPageId)
                 drawOpeningShapes(ctx2, completedShapesRef.current, currentPageId)
                 drawGradeLineShapes(ctx2, completedShapesRef.current, currentPageId)
+                drawEquipmentItemShapes(ctx2, completedShapesRef.current, currentPageId, zoomRef.current)
               }
               drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
               setDrawMode(true)
@@ -5590,12 +5704,18 @@ function App() {
 
         {showWorklist && pdf && (() => {
           void worklistTick
-          const { toPlace } = deriveWorklist()
-          // Collect unique item types in toPlace order (deduped, preserving first occurrence order)
-          const seenTypes = []
-          for (const item of toPlace) {
-            if (!seenTypes.includes(item.type)) seenTypes.push(item.type)
+          const { toPlace, obligations } = deriveWorklist()
+          // Derive placed-item groups from obligations (preserving instanceKey order)
+          const placedGroupKeys = []
+          const placedGroupMap = {}
+          for (const ob of obligations) {
+            if (!placedGroupMap[ob.instanceKey]) {
+              placedGroupKeys.push(ob.instanceKey)
+              placedGroupMap[ob.instanceKey] = { instanceKey: ob.instanceKey, itemLabel: ob.itemLabel, placedId: ob.placedId, obs: [] }
+            }
+            placedGroupMap[ob.instanceKey].obs.push(ob)
           }
+          const canPlace = isPlanOrRoofPage && getEffectiveScale(currentPageId) && !calibMode && !drawMode && !editMode && !categorizeMode && !placingOpeningMode
           return (
             <div className="fh-panel wl-panel">
               <div className="fh-panel-head">
@@ -5607,30 +5727,41 @@ function App() {
               <div className="fh-zone">
                 <div className="fh-zone-label">Items to Place</div>
                 {toPlace.length === 0 ? (
-                  <div className="fh-empty wl-all-done">No items to place ✓</div>
+                  <div className="fh-empty wl-all-done">All items placed ✓</div>
                 ) : (
                   <ul className="fh-outstanding-list wl-toplace-list">
                     {toPlace.map(item => (
                       <li key={item.instanceKey} className="fh-outstanding-item wl-toplace-item">
                         <span className="wl-item-label">{item.label}</span>
-                        <span className="wl-tag">to place</span>
+                        <button
+                          className="snap-btn wl-place-btn"
+                          disabled={!canPlace}
+                          title={!isPlanOrRoofPage ? 'Navigate to a floor-plan or roof-plan page to place' : !getEffectiveScale(currentPageId) ? 'Set scale on this page first' : ''}
+                          onClick={() => {
+                            setShowWorklist(false)
+                            setPlacingItemType(item.type)
+                            setPlacingInstanceKey(item.instanceKey)
+                            setPlacingEquipmentItem(true)
+                          }}
+                        >
+                          Place
+                        </button>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
 
-              {/* ── Blocked obligations preview (per type, Part A stand-in for per-placed-item in Part B) ── */}
-              {seenTypes.length > 0 && (
+              {/* ── Placed item obligations ── */}
+              {placedGroupKeys.length > 0 && (
                 <div className="fh-zone">
-                  <div className="fh-zone-label">Obligations Preview</div>
-                  {seenTypes.map(type => {
-                    const def = ITEM_TYPES.find(it => it.type === type)
-                    if (!def) return null
+                  <div className="fh-zone-label">Placed Items</div>
+                  {placedGroupKeys.map(key => {
+                    const g = placedGroupMap[key]
                     return (
-                      <div key={type} className="wl-oblig-group">
-                        <div className="wl-oblig-group-label">{def.label}</div>
-                        {def.obligations.map(ob => (
+                      <div key={key} className="wl-oblig-group">
+                        <div className="wl-oblig-group-label">{g.itemLabel} <span style={{ opacity: 0.55, fontWeight: 400 }}>({g.instanceKey})</span></div>
+                        {g.obs.map(ob => (
                           <div key={ob.id} className={`wl-oblig-row${ob.blocked ? ' wl-oblig-row--blocked' : ''}`}>
                             {ob.blocked ? (
                               <>
@@ -5638,19 +5769,30 @@ function App() {
                                 <span className="wl-oblig-label">{ob.label}</span>
                                 <span className="wl-oblig-note">{ob.note}</span>
                               </>
-                            ) : (
-                              <>
-                                <span className="wl-oblig-label">{ob.label}</span>
-                                {ob.kind === 'property' && ob.options && (
-                                  <select className="ps-select wl-prop-select" disabled defaultValue="">
-                                    <option value="" disabled>— place item first —</option>
-                                    {ob.options.map(opt => (
-                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                  </select>
-                                )}
-                              </>
-                            )}
+                            ) : ob.kind === 'property' && ob.options ? (
+                              <div style={{ flex: 1 }}>
+                                <div className="wl-oblig-label">{ob.label}</div>
+                                <select
+                                  className="ps-select wl-prop-select"
+                                  style={{ opacity: 1 }}
+                                  value={ob.satisfiedValue ?? ''}
+                                  onChange={e => {
+                                    const val = e.target.value || null
+                                    completedShapesRef.current = completedShapesRef.current.map(s =>
+                                      s.id === g.placedId
+                                        ? { ...s, obligationState: { ...(s.obligationState || {}), [ob.id]: val } }
+                                        : s
+                                    )
+                                    setWorklistTick(t => t + 1)
+                                  }}
+                                >
+                                  <option value="">— Select —</option>
+                                  {ob.options.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -5666,7 +5808,7 @@ function App() {
         <div
           className="canvas-stack"
           ref={canvasWrapperRef}
-          style={{ cursor: isPanning ? 'grabbing' : (!drawMode && !calibMode && !editMode && !roofLineMode && !placingOpeningMode && currentPage ? 'grab' : undefined) }}
+          style={{ cursor: isPanning ? 'grabbing' : (!drawMode && !calibMode && !editMode && !roofLineMode && !placingOpeningMode && !placingEquipmentItem && currentPage ? 'grab' : undefined) }}
         >
           <div
             ref={canvasWorldRef}
@@ -5689,7 +5831,7 @@ function App() {
             <canvas
               ref={measureRef}
               className="measure-canvas"
-              style={{ cursor: (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode || placingOpeningMode) ? 'crosshair' : undefined }}
+              style={{ cursor: (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode || placingOpeningMode || placingEquipmentItem) ? 'crosshair' : undefined }}
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}
