@@ -44,7 +44,7 @@ export default function ThreeDView({ wireframe, onClose }) {
 
     scene.add(new THREE.AxesHelper(0.5))
 
-    const { floorRings, roofRing } = wireframe
+    const { floorRings, roofRing, soffitLines = [], openingLines = [] } = wireframe
 
     // Track bounds to frame camera
     const box = new THREE.Box3()
@@ -80,6 +80,32 @@ export default function ThreeDView({ wireframe, onClose }) {
       const roofZ = roofRing.z ?? boxCenter.y
       const roofPts = roofRing.verts.map(v => { const p = toVec(v.x, v.y, roofZ); expandBox(p); return p })
       addLineLoop(scene, roofPts, 0xa78bfa)    // roof ring: purple
+    }
+
+    // Soffit lines: #c084fc (light violet, distinct from roof ring purple)
+    if (soffitLines.length) {
+      const positions = []
+      for (const seg of soffitLines) {
+        const a = toVec(seg.from.x, seg.from.y, seg.from.z); expandBox(a)
+        const b = toVec(seg.to.x,   seg.to.y,   seg.to.z);   expandBox(b)
+        positions.push(a.x, a.y, a.z, b.x, b.y, b.z)
+      }
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+      scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xc084fc })))
+    }
+
+    // Opening lines: #fb923c (orange, distinct from amber ceiling rings)
+    if (openingLines.length) {
+      const positions = []
+      for (const seg of openingLines) {
+        const a = toVec(seg.from.x, seg.from.y, seg.from.z); expandBox(a)
+        const b = toVec(seg.to.x,   seg.to.y,   seg.to.z);   expandBox(b)
+        positions.push(a.x, a.y, a.z, b.x, b.y, b.z)
+      }
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+      scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xfb923c })))
     }
 
     // Frame camera to fit the wireframe
@@ -135,6 +161,8 @@ export default function ThreeDView({ wireframe, onClose }) {
         <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>■ ceiling</span>
         <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>■ walls</span>
         <span style={{ color: '#a78bfa', fontSize: '0.75rem' }}>■ roof</span>
+        <span style={{ color: '#c084fc', fontSize: '0.75rem' }}>■ soffit</span>
+        <span style={{ color: '#fb923c', fontSize: '0.75rem' }}>■ openings</span>
         <span style={{ color: '#64748b', fontSize: '0.7rem', marginLeft: 8 }}>drag to rotate · scroll to zoom · right-drag to pan</span>
         <button
           onClick={onClose}

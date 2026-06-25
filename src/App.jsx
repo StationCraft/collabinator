@@ -3471,7 +3471,116 @@ function App() {
       if (roofRing) break
     }
 
-    return { floorRings, roofRing }
+    // ── Soffit lines ────────────────────────────────────────────────────────
+    // Re-derives wall/roof bboxes using the same source data as B4 deriveEnumeration STEP C.
+    // soffitLines: flat array of { side, from:{x,y,z}, to:{x,y,z} } in world meters.
+    // Each active soffit produces 3 segments: outer eave + 2 returns to wall edge.
+    const worldBboxOf = (pageId) => {
+      const shapes = completedShapesRef.current.filter(
+        s => s.pageId === pageId && s.status === 'locked' && !s.shapeKind
+      )
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+      for (const s of shapes) for (const v of s.vertices) {
+        const w = pageVertexToWorld(v, pageId)
+        if (!w) continue
+        if (w.x < minX) minX = w.x; if (w.x > maxX) maxX = w.x
+        if (w.y < minY) minY = w.y; if (w.y > maxY) maxY = w.y
+      }
+      return isFinite(minX) ? { minX, maxX, minY, maxY } : null
+    }
+
+    const soffitLines = []
+    const soffitThr = projectConfigRef.current.soffitCombineThresholdM ?? 0.05
+    const eaveZm = topRow?.ceilingZ != null ? topRow.ceilingZ * 0.3048 : null
+    const highestLevel = presentLevels.length > 0 ? presentLevels[presentLevels.length - 1] : null
+    const wallPageForSoffit = highestLevel ? floorPageMap[highestLevel] : null
+
+    if (eaveZm != null && wallPageForSoffit) {
+      const wallBbox = worldBboxOf(wallPageForSoffit.pageId)
+      for (const rp of pages.filter(p => p.category === 'roof-plan')) {
+        if (!pageTransformsRef.current[rp.pageId]?.confirmed) continue
+        const roofBbox = worldBboxOf(rp.pageId)
+        if (!roofBbox || !wallBbox) continue
+
+        const Z = eaveZm
+        const candidates = [
+          { side: 'north', proj: wallBbox.minY - roofBbox.minY,
+            outerA: { x: roofBbox.minX, y: roofBbox.minY, z: Z }, outerB: { x: roofBbox.maxX, y: roofBbox.minY, z: Z },
+            retLA:  { x: roofBbox.minX, y: roofBbox.minY, z: Z }, retLB:  { x: roofBbox.minX, y: wallBbox.minY, z: Z },
+            retRA:  { x: roofBbox.maxX, y: roofBbox.minY, z: Z }, retRB:  { x: roofBbox.maxX, y: wallBbox.minY, z: Z } },
+          { side: 'south', proj: roofBbox.maxY - wallBbox.maxY,
+            outerA: { x: roofBbox.minX, y: roofBbox.maxY, z: Z }, outerB: { x: roofBbox.maxX, y: roofBbox.maxY, z: Z },
+            retLA:  { x: roofBbox.minX, y: roofBbox.maxY, z: Z }, retLB:  { x: roofBbox.minX, y: wallBbox.maxY, z: Z },
+            retRA:  { x: roofBbox.maxX, y: roofBbox.maxY, z: Z }, retRB:  { x: roofBbox.maxX, y: wallBbox.maxY, z: Z } },
+          { side: 'west',  proj: wallBbox.minX - roofBbox.minX,
+            outerA: { x: roofBbox.minX, y: roofBbox.minY, z: Z }, outerB: { x: roofBbox.minX, y: roofBbox.maxY, z: Z },
+            retLA:  { x: roofBbox.minX, y: roofBbox.minY, z: Z }, retLB:  { x: wallBbox.minX, y: roofBbox.minY, z: Z },
+            retRA:  { x: roofBbox.minX, y: roofBbox.maxY, z: Z }, retRB:  { x: wallBbox.minX, y: roofBbox.maxY, z: Z } },
+          { side: 'east',  proj: roofBbox.maxX - wallBbox.maxX,
+            outerA: { x: roofBbox.maxX, y: roofBbox.minY, z: Z }, outerB: { x: roofBbox.maxX, y: roofBbox.maxY, z: Z },
+            retLA:  { x: roofBbox.maxX, y: roofBbox.minY, z: Z }, retLB:  { x: wallBbox.maxX, y: roofBbox.minY, z: Z },
+            retRA:  { x: roofBbox.maxX, y: roofBbox.maxY, z: Z }, retRB:  { x: wallBbox.maxX, y: roofBbox.maxY, z: Z } },
+        ]
+        for (const { side, proj, outerA, outerB, retLA, retLB, retRA, retRB } of candidates) {
+          if (proj > soffitThr) {
+            soffitLines.push({ side, from: outerA, to: outerB })
+            soffitLines.push({ side, from: retLA,  to: retLB  })
+            soffitLines.push({ side, from: retRA,  to: retRB  })
+          }
+        }
+      }
+    }
+
+    // ── Opening lines ────────────────────────────────────────────────────────
+    // For each opening (window/door) on an elevation page with confirmed scale + edge:
+    // compute its world XY from the canvas X position relative to the elevation edge midpoint,
+    // world Z from elevYToWorldZ, then build a 4-segment rectangle in the wall plane.
+    // openingLines: flat array of { id, from:{x,y,z}, to:{x,y,z} } in world meters.
+    const openingLines = []
+    for (const ep of pages.filter(p => p.category === 'elevation')) {
+      const elevScale = pageScalesRef.current[ep.pageId]
+      if (!elevScale?.pxPerMeter) continue
+      const edgeData = resolveElevEdge(ep.pageId)
+      if (!edgeData) continue
+
+      const wA = pageVertexToWorld(edgeData.A, edgeData.sourcePageId)
+      const wB = pageVertexToWorld(edgeData.B, edgeData.sourcePageId)
+      if (!wA || !wB) continue
+
+      const edgeDx = wB.x - wA.x, edgeDy = wB.y - wA.y
+      const edgeLen = Math.hypot(edgeDx, edgeDy)
+      if (edgeLen < 0.001) continue
+      const dirX = edgeDx / edgeLen, dirY = edgeDy / edgeLen
+      const wMidX = (wA.x + wB.x) / 2, wMidY = (wA.y + wB.y) / 2
+      const midPxX = (edgeData.A.x + edgeData.B.x) / 2
+
+      const openings = completedShapesRef.current.filter(
+        s => s.pageId === ep.pageId && s.status === 'locked' && isOpening(s)
+      )
+      for (const op of openings) {
+        if (!op.widthM || !op.heightM) continue
+        const centX = op.vertices.reduce((sum, v) => sum + v.x, 0) / op.vertices.length
+        const centY = op.vertices.reduce((sum, v) => sum + v.y, 0) / op.vertices.length
+        const hOffsetM = (centX - midPxX) / elevScale.pxPerMeter
+        const worldZm = elevYToWorldZ(centY, ep.pageId)
+        if (worldZm == null) continue
+
+        const cx = wMidX + dirX * hOffsetM, cy = wMidY + dirY * hOffsetM
+        const hw = op.widthM / 2, hh = op.heightM / 2
+        const TL = { x: cx - dirX*hw, y: cy - dirY*hw, z: worldZm + hh }
+        const TR = { x: cx + dirX*hw, y: cy + dirY*hw, z: worldZm + hh }
+        const BR = { x: cx + dirX*hw, y: cy + dirY*hw, z: worldZm - hh }
+        const BL = { x: cx - dirX*hw, y: cy - dirY*hw, z: worldZm - hh }
+        openingLines.push(
+          { id: op.id, from: TL, to: TR },
+          { id: op.id, from: TR, to: BR },
+          { id: op.id, from: BR, to: BL },
+          { id: op.id, from: BL, to: TL },
+        )
+      }
+    }
+
+    return { floorRings, roofRing, soffitLines, openingLines }
   }
 
   // ── Dev fixture: snapshot / restore (DEV only) ───────────────────────────
@@ -3963,7 +4072,8 @@ function App() {
 
       window.__dumpWireframe = () => {
         const wf = deriveWireframe()
-        console.log('[wf] floorRings:', wf.floorRings.length, 'roofRing:', wf.roofRing ? `z=${wf.roofRing.z?.toFixed(3)}m verts=${wf.roofRing.verts.length}` : 'null')
+        console.log('[wf] floorRings:', wf.floorRings.length, 'roofRing:', wf.roofRing ? `z=${wf.roofRing.z?.toFixed(3)}m verts=${wf.roofRing.verts.length}` : 'null',
+          '| soffitLines:', wf.soffitLines.length, '| openingLines:', wf.openingLines.length)
         for (const r of wf.floorRings) {
           const fStr = r.floorZ != null ? r.floorZ.toFixed(3) + 'm' : 'null'
           const cStr = r.ceilingZ != null ? r.ceilingZ.toFixed(3) + 'm' : 'null (heights not entered)'
@@ -3979,6 +4089,27 @@ function App() {
             const v = wf.roofRing.verts[i]
             console.log(`    v${i}: x=${v.x.toFixed(4)}m  y=${v.y.toFixed(4)}m`)
           }
+        }
+        if (wf.soffitLines.length) {
+          console.log('[wf] --- soffit lines ---')
+          const bySide = {}
+          for (const seg of wf.soffitLines) { (bySide[seg.side] = bySide[seg.side] || []).push(seg) }
+          for (const [side, segs] of Object.entries(bySide)) {
+            console.log(`  [soffit ${side}] ${segs.length} segments:`)
+            for (const s of segs)
+              console.log(`    (${s.from.x.toFixed(3)},${s.from.y.toFixed(3)},${s.from.z.toFixed(3)}) → (${s.to.x.toFixed(3)},${s.to.y.toFixed(3)},${s.to.z.toFixed(3)})`)
+          }
+        } else {
+          console.log('[wf] soffitLines: 0 (no confirmed roof or no projection > threshold)')
+        }
+        if (wf.openingLines.length) {
+          console.log('[wf] --- opening lines ---')
+          const byId = {}
+          for (const seg of wf.openingLines) { (byId[seg.id] = byId[seg.id] || []).push(seg) }
+          for (const [id, segs] of Object.entries(byId))
+            console.log(`  opening ${id}: ${segs.length} segments`)
+        } else {
+          console.log('[wf] openingLines: 0 (no openings on elevation pages — correct for default fixture)')
         }
         return wf
       }
