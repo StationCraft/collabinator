@@ -159,7 +159,9 @@ const CONFIG_FIELDS = [
       { value: 'heat-pump-ducted', label: 'Ducted heat pump' },
     ],
     multi: false,
-    spawns: null,
+    spawns: (v) => v === 'heat-pump-ducted'
+      ? [{ type: 'air-handler', count: 1 }, { type: 'outdoor-unit', count: 1 }]
+      : [],
   },
   {
     id: 'cooling',
@@ -181,7 +183,59 @@ const CONFIG_FIELDS = [
       { value: 'erv', label: 'ERV (energy recovery ventilator)' },
     ],
     multi: false,
-    spawns: null,
+    spawns: (v) => (v === 'hrv' || v === 'erv') ? [{ type: 'hrv-unit', count: 1 }] : [],
+  },
+  {
+    id: 'bath-fans',
+    category: 'Equipment',
+    label: 'Bath fans',
+    kind: 'count',
+    multi: false,
+    spawns: (n) => Number(n) > 0 ? [{ type: 'bath-fan', count: Number(n) }] : [],
+  },
+]
+
+// ── §8.2 Item-type obligation table ─────────────────────────────────────────
+// Each entry: { type, label, obligations: [{id, label, kind, blocked, note?, options?}] }
+// kind is open-set: 'placement' | 'run' | 'property' (extend by adding entries here).
+// Labels with "(plumber)/(electrician)/(envelope)" are descriptive only — role-blind this build.
+const ITEM_TYPES = [
+  {
+    type: 'air-handler',
+    label: 'Air Handler',
+    obligations: [
+      { id: 'lineset-endpoint', label: 'Lineset endpoint',            kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'condensate-drain', label: 'Condensate drain (plumber)',  kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'power',            label: 'Power (electrician)',         kind: 'run',      blocked: true,  note: 'requires coordination' },
+    ],
+  },
+  {
+    type: 'outdoor-unit',
+    label: 'Outdoor Unit',
+    obligations: [
+      { id: 'lineset-to-handler', label: 'Lineset to air handler',   kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'power',              label: 'Power (electrician)',       kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'mount-type',         label: 'Mount type',               kind: 'property', blocked: false,
+        options: [{ value: 'ground', label: 'Ground' }, { value: 'wall', label: 'Wall' }] },
+    ],
+  },
+  {
+    type: 'bath-fan',
+    label: 'Bath Fan',
+    obligations: [
+      { id: 'power',            label: 'Power (electrician)',         kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'vent-to-exterior', label: 'Vent to exterior (envelope)', kind: 'run',      blocked: true,  note: 'requires coordination' },
+    ],
+  },
+  {
+    type: 'hrv-unit',
+    label: 'HRV/ERV Unit',
+    obligations: [
+      { id: 'supply-exhaust-duct', label: 'Supply/exhaust ducting',      kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'exterior-vent',       label: 'Exterior vents ×2 (envelope)', kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'power',               label: 'Power (electrician)',          kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'condensate-drain',    label: 'Condensate drain (plumber)',   kind: 'run',      blocked: true,  note: 'requires coordination' },
+    ],
   },
 ]
 
@@ -279,6 +333,9 @@ function App() {
   // ── Project setup panel (§9 config layer, Piece 2) ──────────────────────────
   const [showProjectSetup, setShowProjectSetup] = useState(false)
   const [projectSetupTick, setProjectSetupTick] = useState(0)   // bumped on every setConfigValue write; forces re-render
+  // ── §8.2 Worklist panel ──────────────────────────────────────────────────────
+  const [showWorklist, setShowWorklist] = useState(false)
+  const [worklistTick, setWorklistTick] = useState(0)           // bumped on every spawning config field write; forces re-render
 
   // ── Floor heights panel (elevation numeric editor, Piece 2) ─────────────────
   const [showFloorHeights, setShowFloorHeights] = useState(false)
@@ -325,11 +382,13 @@ function App() {
     const field = CONFIG_FIELDS.find(f => f.id === fieldId)
     const stored = projectSetupRef.current.values[fieldId]
     if (stored !== undefined) return stored
+    if (field?.kind === 'count') return 0
     return field?.multi ? [] : null
   }
   const setConfigValue = (fieldId, value) => {
     projectSetupRef.current.values[fieldId] = value
     setProjectSetupTick(t => t + 1)
+    setWorklistTick(t => t + 1)
   }
 
   // §9 required-roles derivation — computed view, never stored.
@@ -3424,6 +3483,26 @@ function App() {
   )
   const fhZStack = accumulateZ(floorHeightsRef.current, presentFloorLevels, FLOOR_ORDER)
   const fhTopLevel = presentFloorLevels.length > 0 ? presentFloorLevels[presentFloorLevels.length - 1] : null
+  // ── §8.2 Worklist derivation ─────────────────────────────────────────────────
+  // worklistTick read here ensures re-render when spawning config fields are written.
+  void worklistTick
+  const deriveWorklist = () => {
+    const toPlace = []
+    for (const field of CONFIG_FIELDS) {
+      if (!field.spawns) continue
+      const val = getConfigValue(field.id)
+      const spawnList = field.spawns(val)
+      for (const { type, count } of spawnList) {
+        const itemDef = ITEM_TYPES.find(it => it.type === type)
+        const label = itemDef?.label ?? type
+        for (let i = 1; i <= count; i++) {
+          toPlace.push({ type, label, instanceKey: `${type}#${i}` })
+        }
+      }
+    }
+    return { toPlace, obligations: [] }
+  }
+
   const fhOutstanding = presentFloorLevels.flatMap(level => {
     const entry = floorHeightsRef.current[level] || {}
     const items = []
@@ -4312,6 +4391,18 @@ function App() {
       }
       console.log('[setup] raw values:', JSON.stringify(projectSetupRef.current.values))
     }
+
+    window.__dumpWorklist = () => {
+      const result = deriveWorklist()
+      console.log(`[worklist] toPlace (${result.toPlace.length} items):`)
+      for (const item of result.toPlace) {
+        const def = ITEM_TYPES.find(it => it.type === item.type)
+        const obligs = def ? def.obligations.map(o => `${o.id}(${o.kind},blocked=${o.blocked})`).join(', ') : 'unknown type'
+        console.log(`  ${item.instanceKey}  label="${item.label}"  obligations: ${obligs}`)
+      }
+      if (result.toPlace.length === 0) console.log('  (empty — no spawning fields selected)')
+      console.log('[worklist] obligations array (Part A):', result.obligations)
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -4374,6 +4465,15 @@ function App() {
             onClick={() => setShowFloorHeights(h => !h)}
           >
             {showFloorHeights ? 'Floor Heights ✕' : 'Floor Heights'}
+          </button>
+        )}
+
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
+          <button
+            className={`floor-heights-btn wl-btn ${showWorklist ? 'floor-heights-btn--open' : ''}`}
+            onClick={() => setShowWorklist(h => !h)}
+          >
+            {showWorklist ? 'Worklist ✕' : 'Worklist'}
           </button>
         )}
 
@@ -5164,7 +5264,16 @@ function App() {
                     return (
                       <div key={field.id} className="fh-row ps-field-row">
                         <div className="fh-field-label ps-field-label">{field.label}</div>
-                        {field.multi ? (
+                        {field.kind === 'count' ? (
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            className="ps-select ps-count-input"
+                            value={current ?? 0}
+                            onChange={e => setConfigValue(field.id, Math.max(0, parseInt(e.target.value) || 0))}
+                          />
+                        ) : field.multi ? (
                           <div className="ps-checkbox-group">
                             {field.options.map(opt => {
                               const checked = Array.isArray(current) && current.includes(opt.value)
@@ -5478,6 +5587,80 @@ function App() {
             )}
           </div>
         )}
+
+        {showWorklist && pdf && (() => {
+          void worklistTick
+          const { toPlace } = deriveWorklist()
+          // Collect unique item types in toPlace order (deduped, preserving first occurrence order)
+          const seenTypes = []
+          for (const item of toPlace) {
+            if (!seenTypes.includes(item.type)) seenTypes.push(item.type)
+          }
+          return (
+            <div className="fh-panel wl-panel">
+              <div className="fh-panel-head">
+                <span className="fh-panel-title">Worklist</span>
+                <button className="fh-close-btn" onClick={() => setShowWorklist(false)}>✕</button>
+              </div>
+
+              {/* ── Items to place ── */}
+              <div className="fh-zone">
+                <div className="fh-zone-label">Items to Place</div>
+                {toPlace.length === 0 ? (
+                  <div className="fh-empty wl-all-done">No items to place ✓</div>
+                ) : (
+                  <ul className="fh-outstanding-list wl-toplace-list">
+                    {toPlace.map(item => (
+                      <li key={item.instanceKey} className="fh-outstanding-item wl-toplace-item">
+                        <span className="wl-item-label">{item.label}</span>
+                        <span className="wl-tag">to place</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* ── Blocked obligations preview (per type, Part A stand-in for per-placed-item in Part B) ── */}
+              {seenTypes.length > 0 && (
+                <div className="fh-zone">
+                  <div className="fh-zone-label">Obligations Preview</div>
+                  {seenTypes.map(type => {
+                    const def = ITEM_TYPES.find(it => it.type === type)
+                    if (!def) return null
+                    return (
+                      <div key={type} className="wl-oblig-group">
+                        <div className="wl-oblig-group-label">{def.label}</div>
+                        {def.obligations.map(ob => (
+                          <div key={ob.id} className={`wl-oblig-row${ob.blocked ? ' wl-oblig-row--blocked' : ''}`}>
+                            {ob.blocked ? (
+                              <>
+                                <span className="wl-lock">🔒</span>
+                                <span className="wl-oblig-label">{ob.label}</span>
+                                <span className="wl-oblig-note">{ob.note}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="wl-oblig-label">{ob.label}</span>
+                                {ob.kind === 'property' && ob.options && (
+                                  <select className="ps-select wl-prop-select" disabled defaultValue="">
+                                    <option value="" disabled>— place item first —</option>
+                                    {ob.options.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
       <div className={`canvas-wrapper ${currentPage ? 'visible' : ''}`}>
         <div

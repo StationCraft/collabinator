@@ -1240,6 +1240,87 @@ canvas {
   font-style: italic;
 }
 
+/* ── §8.2 Worklist panel ─────────────────────────────────────────────────── */
+.wl-btn { background: #7c3aed; }
+.wl-btn:hover { background: #8b5cf6; }
+.wl-btn.floor-heights-btn--open { background: #4c1d95; }
+
+.wl-panel {
+  right: 600px;  /* sits left of ps-panel (300px) and fh-panel (0px) */
+}
+
+.wl-all-done { color: #4ade80; }
+
+.wl-toplace-list { flex-direction: column; }
+.wl-toplace-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.wl-item-label {
+  font-size: 0.82rem;
+  color: #fbbf24;
+  flex: 1;
+}
+.wl-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.wl-oblig-group {
+  margin-bottom: 10px;
+}
+.wl-oblig-group-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 4px;
+  padding-left: 2px;
+}
+.wl-oblig-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+}
+.wl-oblig-row--blocked {
+  opacity: 0.45;
+}
+.wl-lock {
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+.wl-oblig-label {
+  flex: 1;
+  color: #cbd5e1;
+}
+.wl-oblig-note {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-style: italic;
+  white-space: nowrap;
+}
+.wl-prop-select {
+  margin-top: 4px;
+  width: 100%;
+  opacity: 0.55;
+}
+
+.ps-count-input {
+  width: 80px;
+}
+
 /* DEV-only fixture strip — never visible in production builds */
 .dev-fixture-strip {
   position: fixed;
