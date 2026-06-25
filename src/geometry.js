@@ -288,7 +288,12 @@ export function getAnchorFloor(pages) {
 //   pageRefParent: optional map { [pageId]: parentPageId } written at confirm time
 export function getGhostSourcePageId(pages, currentPageId, completedShapes, floorOrder, pageRefParent) {
   const currentPage = pages.find(p => p.pageId === currentPageId)
-  if (!currentPage || currentPage.category !== 'floor-plan' || !currentPage.subLabel) return null
+  const isFloorPage = currentPage?.category === 'floor-plan'
+  const isRoofPage = currentPage?.category === 'roof-plan'
+  // Roof pages admit with no subLabel requirement (subLabel is optional free text for roof).
+  // Floor pages require a known subLabel.
+  if (!currentPage || (!isFloorPage && !isRoofPage)) return null
+  if (isFloorPage && !currentPage.subLabel) return null
 
   // If a confirmed parent is stored, use it directly (primary-reference tree).
   const storedParent = pageRefParent && pageRefParent[currentPageId]
@@ -297,8 +302,10 @@ export function getGhostSourcePageId(pages, currentPageId, completedShapes, floo
     if (hasLocked) return storedParent
   }
 
-  const currentFloorIdx = floorOrder.indexOf(currentPage.subLabel)
-  if (currentFloorIdx === -1) return null // not a known floor label
+  // Floor pages: scan downward from current FLOOR_ORDER position.
+  // Roof pages: scan from top of FLOOR_ORDER downward (roof sits above all known floors).
+  const currentFloorIdx = isFloorPage ? floorOrder.indexOf(currentPage.subLabel) : floorOrder.length
+  if (isFloorPage && currentFloorIdx === -1) return null // not a known floor label
 
   // Fallback: scan downward through FLOOR_ORDER to suggest the nearest lower floor.
   for (let i = currentFloorIdx - 1; i >= 0; i--) {

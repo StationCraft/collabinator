@@ -3524,7 +3524,25 @@ function App() {
         console.log(`[world] elev ${ep.subLabel ?? ep.pageId} (${ep.pageId}): Z@anchor=${zm?.toFixed(4) ?? 'null'} m (expect ${expectedAnchorZm.toFixed(4)} m)`)
       }
 
-      if (!floorPages.length && !elevPages.length) console.warn('[world] no categorized floor-plan or elevation pages found')
+      // Roof-plan pages: wall polygon vertices as world XY in meters (same path as floor pages)
+      const roofPages = pages.filter(p => p.category === 'roof-plan')
+      for (const rp of roofPages) {
+        const shapes = completedShapesRef.current.filter(s => s.pageId === rp.pageId && s.status === 'locked' && !s.shapeKind)
+        const scale = getEffectiveScale(rp.pageId)
+        if (!scale) { console.warn(`[world] roof (${rp.pageId}): MISSING effective scale — confirm alignment to a floor parent first`); continue }
+        const confirmed = pageTransformsRef.current[rp.pageId]?.confirmed
+        console.log(`[world] roof (${rp.pageId}) pxPerMeter=${scale.pxPerMeter.toFixed(2)}${confirmed ? ' [confirmed]' : ' [NOT confirmed — borrow not active]'}`)
+        if (!shapes.length) { console.log('  (no locked roof wall shapes)'); continue }
+        shapes.forEach((s, si) => {
+          const pts = s.vertices.map(v => {
+            const w = pageVertexToWorld(v, rp.pageId)
+            return w ? `(${w.x.toFixed(3)},${w.y.toFixed(3)})` : 'null'
+          })
+          console.log(`  shape[${si}]:`, pts.join(' '))
+        })
+      }
+
+      if (!floorPages.length && !elevPages.length && !roofPages.length) console.warn('[world] no categorized floor-plan, elevation, or roof-plan pages found')
     }
   }
 
