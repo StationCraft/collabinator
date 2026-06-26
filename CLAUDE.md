@@ -637,8 +637,28 @@ A React + Vite app with:
   * **ThreeDView.jsx:** `runLines` rendered by category (grey = uncharacterized, amber = lineset); legend entries added.
   * **Fenced (#64–68):** envelope-crossing detection, multi-hop cascade, slope/per-vertex Z, conflict checks, role-wiring.
 
+- **§8.3 Build 1 — run slot storage shape (Session 35; commits 7c921ff, 607f6be, 2feb3e5):** Run shapes now carry
+  THREE co-present layers:
+  * `vertices: [{x,y}]` — raw geometry for uniform iterators (no shapeKind guard on many call sites; dropping this layer crashes them)
+  * `pointSlots: [{id:'ps-N', x, y, itemRef:string|null}]` — identity + endpoint-binding layer, one per vertex
+  * `spanSlots: [{id:'ss-N', category:string|null}]` — characterization layer, one per consecutive vertex pair
+  * **Invariant:** `vertices[i].x === pointSlots[i].x && vertices[i].y === pointSlots[i].y` for all i. Verified by `window.__dumpRuns()`.
+  * `psCounterRef` / `ssCounterRef` monotonic counters; `nextPsId()` / `nextSsId()` helpers; cleared on PDF upload.
+  * `buildCharacterizedRun` uses `pointSlots` for itemRef binding; `clearRunSatisfaction`, `hitTestShapeBody`, delete sub-mode all updated.
+  * `deriveWireframe` runLines reads `run.pointSlots[i]` for XY.
+  * `__restoreFixture` defensive skip drops pre-Build-1 runs (no `pointSlots`).
+  * **Build 1 regression lesson:** dropping `vertices` broke 10+ uniform iterators with no shapeKind guard. Fix = add a layer, never replace raw geometry. Storage-shape changes must be additive.
+
+- **§8.3 Build 2 — profile table + derived solids (Session 35; commits a961430, cba3932):**
+  * **Profile table (module-level constants, base-case v1):** `SEGMENT_PROFILES` (lineset → `{sweep:'extrude-circle', diameterM:0.025}`, duct → `{sweep:'extrude-rect', widthM:0.150, heightM:0.150}`), `SEGMENT_PROFILE_FALLBACK`, `POINT_PROFILES` (air-handler/outdoor-unit/bath-fan/hrv-unit block dims). Comment: "BASE-CASE CONSTANTS. v1 placeholder dimensions. A later config-driven size layer replaces these reads at this seam (principle 5.2); do not hardcode these numbers anywhere else."
+  * **`deriveWireframe` extended:** returns `solids:[]` alongside existing keys. One `{kind:'cylinder', from, to, radiusM, color}` per spanSlot per run; one `{kind:'block', center, wM, dM, hM, color}` per placed equipment item. Pure parameter objects; no three.js in the derive fn. Z resolution for equipment is the identical 4-line scalar-Z lookup used by runLines. Equipment block `center.z = equipZ + hM/2` so block sits ON the level.
+  * **ThreeDView two-effect architecture:** main effect (dep `[wireframe]`) builds scene, renders all meshes (including solids), stores solid `THREE.Mesh` objects in `solidMeshesRef`. Toggle effect (dep `[showSolids]`) only flips `.visible` on stored meshes — camera, controls, and all other scene objects completely untouched on toggle.
+  * `MeshBasicMaterial` (no scene light required), `opacity:0.45`, `side:DoubleSide`. Cylinder via `CylinderGeometry`, oriented by `Quaternion.setFromUnitVectors(yAxis, dir)`.
+  * Solids toggle button (`Solids ✓` / `Solids`) in header; equipment `■` legend entry (purple 0x8b5cf6); `window.__dumpSolids()` DEV hook.
+  * Lineset tube r=12.5mm is correct-but-small (honest 1" placeholder). Display-scale option deferred (#70). Duct profile present, no pair-map entry yet (#71).
+
 **Not yet built (next increments):**
-- **Next critical-path build: project-configuration layer (VISION_SUPPLEMENT §9 step 3)** — needs its own planning session.
+- **Next critical-path build: planning pass needed** — §8.2 step 5 or next §9 extension.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
 - Windows/doors Piece 4 (dumb duplicate) — off critical path
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**
@@ -690,9 +710,19 @@ completedShapesRef.current = Array<{
   // Grade-line shapes carry NO binding fields. Endpoints may be snapped to corners or the
   // lowest-floor reference line as drawing aids, but nothing is stored. Above/below-grade
   // meaning is derived at read-time by intersecting the polyline against the wall polygon (#41).
-  // Run paths carry endpoint-item and category fields:
-  endpointItems?: { start: string|null, end: string|null },  // stable 'sh-N' ids of endpoint equipment items (or null)
-  category?: string|null,       // e.g. 'lineset'; null = uncharacterized. Set at commit if both ends map.
+  // Run paths carry THREE co-present layers (§8.3 Build 1):
+  //   vertices[]      — raw geometry for uniform iterators (no shapeKind guard on many call sites)
+  //   pointSlots[]    — identity + endpoint-binding layer
+  //   spanSlots[]     — characterization layer
+  // Invariant: vertices[i].x === pointSlots[i].x for all i. Verified by window.__dumpRuns().
+  // endpointItems and category are LEGACY fields — superseded by pointSlots/spanSlots but may
+  // linger on old fixture shapes. New code reads from slots only.
+  pointSlots?: Array<{ id: string, x: number, y: number, itemRef: string|null }>,
+                                // 'ps-N' id; itemRef = 'sh-N' of endpoint equipment item or null
+  spanSlots?: Array<{ id: string, category: string|null }>,
+                                // 'ss-N' id; one per consecutive vertex pair; category null = uncharacterized
+  endpointItems?: { start: string|null, end: string|null },  // legacy; use pointSlots[0].itemRef / pointSlots[last].itemRef
+  category?: string|null,       // legacy; use spanSlots[i].category
   // Opening shapes (window/door) carry additional fields:
   openingType?: string,         // from OPENING_TYPES (e.g. 'Casement', 'Fixed')
   label?: string,               // free-text label (e.g. 'W1', user-supplied)
@@ -777,6 +807,35 @@ pageTransformsRef.current[pageId] = {
 ```
 shapeIdCounterRef.current = number  // monotonic counter; nextShapeId() returns 'sh-N' and increments
 // Cleared on PDF upload. Every shape in completedShapesRef carries id: 'sh-N'.
+```
+
+**Run slot identity counters** (added Session 35 — §8.3 Build 1):
+```
+psCounterRef.current = number  // nextPsId() returns 'ps-N'; one per run vertex (pointSlot)
+ssCounterRef.current = number  // nextSsId() returns 'ss-N'; one per consecutive vertex pair (spanSlot)
+// Both cleared on PDF upload.
+```
+
+**§8.3 Profile table** (added Session 35 — §8.3 Build 2; module-level constants in App.jsx):
+```
+SEGMENT_PROFILES[category] = { sweep: 'extrude-circle'|'extrude-rect', diameterM?, widthM?, heightM? }
+  // Keyed by RUN_PAIR_MAP category string. 'duct' entry present, no pair-map entry resolves to it yet (#71).
+SEGMENT_PROFILE_FALLBACK = { sweep: 'extrude-circle', diameterM: 0.025, fallback: true }
+  // Used when spanSlot.category is null or unknown.
+POINT_PROFILES[itemType] = { sweep: 'placed-block', wM, dM, hM }
+  // Keyed by equipment itemType string.
+// BASE-CASE CONSTANTS. Config-driven size layer replaces reads at this seam (principle 5.2).
+```
+
+**deriveWireframe solids return** (added Session 35 — §8.3 Build 2):
+```
+// Returned as solids:[] alongside floorRings/roofRing/soffitLines/openingLines/runLines.
+// Never stored; recomputed each call.
+{ id, kind:'cylinder', from:{x,y,z}, to:{x,y,z}, radiusM, color }   // extrude-circle → span solid
+{ id, kind:'box-swept', from:{x,y,z}, to:{x,y,z}, widthM, heightM, color } // extrude-rect → span solid
+{ id, kind:'block', center:{x,y,z}, wM, dM, hM, color }             // placed-block → equipment solid
+// color is a hex integer (0xf59e0b amber, 0x9ca3af grey, 0x6b7280 dark-grey, 0x8b5cf6 purple).
+// Z is scalar (same floor/roof Z as runLines). Equipment block center.z = floorZ + hM/2 (sits ON level).
 ```
 
 **Dimension-basis setting** (added Session 26, opening placement):
@@ -1039,4 +1098,17 @@ The user has a separate Claude.ai Project called "Collabinator" containing:
   — drop your real test PDF there on a fresh clone). Snapshot with
   `copy(JSON.stringify(window.__snapshotFixture()))`. LOAD FIXTURE and SAVE FIXTURE buttons
   are live in the DEV strip (Session 22; #31 done).
+- **Storage-shape changes must add a layer, not replace (Session 35 lesson):** when a shape
+  grows a new identity layer (`pointSlots`), keep the raw geometry layer (`vertices`). Many
+  uniform iterators (getVisibleVertices, snapshotShapes, etc.) have no shapeKind guard and
+  will crash if `vertices` is absent. "Add a layer" is safe; "replace raw geometry" is a
+  breaking change that compiles clean and crashes at runtime.
+- **Compile-clean is NOT the verification line; a failed check is NOT a passed check (Session 35,
+  reinforced):** Two real bugs (Build 1 regression, camera-reset on toggle) survived clean
+  builds and were only found by explicit browser verification with stated pass/fail checks.
+  State each check explicitly; confirm each before committing; never telescope "probably fine."
+- **`window.__dumpRuns()` and `window.__dumpSolids()` are standing invariant checkers:** run
+  `__dumpRuns()` after any run-storage change (confirms `vertices[i] ↔ pointSlots[i]` MATCH);
+  run `__dumpSolids()` to inspect derived geometry parameters. Both live in the DEV block in
+  App.jsx and tree-shake from production.
 

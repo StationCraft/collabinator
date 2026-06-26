@@ -10,6 +10,55 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 35 — §8.3 Build 1 + Build 2: run slot storage + profile/solids (2026-06-26)
+
+**Branch:** main | **Commits:** 7c921ff (Build 1 slot storage), 607f6be (Build 1 fix), 2feb3e5 (__dumpRuns invariant), a961430 (Build 2 profile+solids), cba3932 (log cleanup) — all pushed to origin.
+
+### What was built
+
+**§8.3 READ-ONLY RECON (first):** Five questions answered before writing code — confirmed deriveWireframe contract, ThreeDView consumption, Z application path (scalar from zStack/roofZFallback), equipment completely absent from 3D (no geometry anywhere), and run interior vertices are anonymous bend-points in storage (no identity until Build 1).
+
+**§8.3 Build 1 — slot storage shape (7c921ff + 607f6be):**
+- Run shapes migrated from flat `vertices/endpointItems/category` to carrying BOTH:
+  - `pointSlots: [{id:'ps-N', x, y, itemRef:string|null}]` — identity + characterization layer, one per vertex
+  - `spanSlots: [{id:'ss-N', category:string|null}]` — one per consecutive vertex pair
+  - `vertices: [{x,y}]` — raw geometry layer restored (see regression below); invariant: `vertices[i].x === pointSlots[i].x` for all i
+- `psCounterRef` / `ssCounterRef` monotonic counters; `nextPsId()` / `nextSsId()` helpers; both cleared on PDF upload.
+- `buildCharacterizedRun` rewrote to use `pointSlots` — builds `newPointSlots` with itemRef, `newSpanSlots` with category; spreads `...run` so vertices flow through.
+- `clearRunSatisfaction`, `hitTestShapeBody`, delete sub-mode all updated to read `pointSlots`/`spanSlots`.
+- `deriveWireframe` runLines: reads `run.pointSlots[i]` for XY (not `run.vertices`).
+- `__restoreFixture`: defensive skip drops pre-Build-1 runs (no `pointSlots`) instead of crashing.
+- `__dumpRuns()` extended with per-run `vertCount`, `slotCount`, `MATCH/MISMATCH`, and `positions-agree` boolean.
+
+**Build 1 regression and fix (607f6be):** Initial Build 1 dropped `vertices` from run shapes. Caused two crash sites: `getVisibleVertices` (`.flatMap(s => s.vertices)` no guard — crash on every mouse-move) and `snapshotShapes` (`.vertices.map()` no guard — crash on every delete/undo). Fix: restore `vertices` as raw geometry alongside slots. Uniform iterators get a real array; slots remain authoritative for identity/characterization. Browser-verified: `MATCH` and `positions-agree=true` confirmed.
+
+**§8.3 Build 2 — profile table + derived solids (a961430 + cba3932):**
+- `SEGMENT_PROFILES` (lineset → `{sweep:'extrude-circle', diameterM:0.025}`, duct → `{sweep:'extrude-rect', widthM:0.150, heightM:0.150}`), `SEGMENT_PROFILE_FALLBACK`, `POINT_PROFILES` (air-handler/outdoor-unit/bath-fan/hrv-unit block dims) — all module-level constants with "BASE-CASE CONSTANTS, config-read seam comment."
+- `deriveWireframe` extended: returns `solids:[]` — one `cylinder`/`box-swept` per spanSlot per run (profile from `SEGMENT_PROFILES[spanCat] ?? fallback`); one `block` per equipment item (profile from `POINT_PROFILES[shape.itemType]`). Pure parameter objects; no three.js. Z resolution for equipment uses identical 4-line scalar-Z lookup as runLines (not a parallel path).
+- Equipment block `center.z = equipZ + hM/2` so block sits ON the level, not through it.
+- `ThreeDView.jsx` split into two effects: main effect (dep `[wireframe]`) builds scene, renders all meshes (including solids), stores solid meshes in `solidMeshesRef`; toggle effect (dep `[showSolids]`) only flips `.visible`. Camera never resets on toggle.
+- `MeshBasicMaterial` (no scene light needed), `opacity:0.45`, `side:DoubleSide`.
+- Solids toggle button in header; equipment `■` legend entry (purple 0x8b5cf6).
+- `window.__dumpSolids()` DEV hook: calls `deriveWireframe()` and prints kind/radiusM/length/center per solid.
+- Build 2 fix (camera reset on toggle) identified and fixed before commit. Lineset cylinder geometry confirmed correct-but-small (r=12.5mm, ~1" honest placeholder); not inflated.
+
+### Architecture decisions locked this session
+
+- **Add-a-layer-not-replace:** when a storage shape grows a new identity layer (`pointSlots`), keep the raw geometry layer (`vertices`) so uniform iterators (which have no shapeKind guard) continue to work. Removing raw geometry is a breaking change disguised as a refactor.
+- **`vertices` invariant:** `vertices[i].x === pointSlots[i].x && vertices[i].y === pointSlots[i].y` for all i. `__dumpRuns()` checks this; run it after any run-storage change.
+- **Compile-clean ≠ verification; failed-check ≠ passed-check.** Two real bugs survived a clean build this session (the regression and the camera reset). Browser verification with explicit checks is the only close-out line.
+- **Inline noisy logs → window.__ hooks:** per-open `console.log` converted to `__dumpSolids()` callable hook following `__dumpRuns()` pattern.
+- **Profile table is the config-read seam:** `SEGMENT_PROFILES`/`POINT_PROFILES` are base-case constants with explicit seam comment. Downstream config-driven size layer replaces reads here only (principle 5.2). Never hardcode profile dimensions elsewhere.
+- **Derived solids are never stored:** recomputed each `deriveWireframe` call. Parameter objects only; no three.js in the derive fn.
+- **Duct category has a profile but no run currently resolves to 'duct':** profile present for when `RUN_PAIR_MAP` gains a duct entry. Not a dead-code warning — it's deliberate forward-proofing.
+
+### Invariant checkers added
+
+- `window.__dumpRuns()` — prints per-run: vertCount, slotCount, MATCH/MISMATCH, positions-agree=true/false, pointSlot detail with itemRef.
+- `window.__dumpSolids()` — calls `deriveWireframe()`, prints kind/radiusM/widthM/heightM/length/center for each solid.
+
+---
+
 ## SESSION 34 — §8.2 step 4: Runs as 3D paths (v1) (2026-06-25)
 
 **Branch:** main | **Commit:** 6d3dc3c — pushed to origin.

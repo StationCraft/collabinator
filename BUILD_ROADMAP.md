@@ -216,12 +216,27 @@ building."
     zStack); ThreeDView renders run lines by category with legend entries.
     Fenced: #64–68 (envelope-crossing, multi-hop cascade, slope/per-vertex Z, conflict checks,
     role-wiring) — all logged in ADDITIONAL_FUNCTIONALITY.md.
-    Browser verification: PENDING (Ben verifies characterization, worklist flip, deletion reversal,
-    3D line at level Z).
+    Browser verification: DONE (Session 35 open; characterization, worklist flip, deletion reversal,
+    3D line at level Z all confirmed against fixture).
 
-**Next critical-path build = §8.2 step 5 or §8.3 (planning pass needed). Windows/doors Pieces 3+4
-remain off-critical-path.
-§8.3 (3D Reconstruction Profile) remains sequenced AFTER runs.**
+[x] §8.3 Build 1: run slot storage shape — DONE (Session 35; commits 7c921ff, 607f6be, 2feb3e5)
+    Run shapes now carry BOTH raw geometry (vertices:[{x,y}]) AND identity/characterization layers
+    (pointSlots:[{id:'ps-N',x,y,itemRef}] + spanSlots:[{id:'ss-N',category}]).
+    vertices invariant: vertices[i].x === pointSlots[i].x for all i — verified by __dumpRuns().
+    Build 1 regression (dropping vertices from runs broke all uniform iterators) diagnosed and
+    fixed in 607f6be. __dumpRuns() extended with MATCH/MISMATCH + positions-agree check.
+
+[x] §8.3 Build 2: profile table + derived solids — DONE (Session 35; commits a961430, cba3932)
+    SEGMENT_PROFILES / SEGMENT_PROFILE_FALLBACK / POINT_PROFILES base-case constants (module-level,
+    config-read seam comment). deriveWireframe returns solids:[] — cylinder/box-swept per spanSlot,
+    block per equipment item; pure parameter objects. ThreeDView two-effect architecture: main
+    effect builds scene (dep [wireframe]); toggle effect only flips .visible on solidMeshesRef
+    (dep [showSolids]) — camera never resets on toggle. window.__dumpSolids() DEV hook.
+    Browser verified: amber tubes correct geometry (r=12.5mm, honest 1" placeholder); purple
+    blocks on-level; toggle no camera reset; all regression guards pass.
+
+**Next critical-path build = §9 project-configuration layer or §8.2 step 5 (planning pass needed).
+Windows/doors Pieces 3+4 remain off-critical-path.**
 
 ---
 

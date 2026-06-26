@@ -987,6 +987,44 @@ worklist but are not wired to the §9 role layer.
 
 ---
 
+### 69. Panel consolidation UI (worklist + floor-heights + project-setup)
+**Category:** UI / panel management
+**Logged:** Session 35 close-out.
+**Description:** Three right-side overlay panels (worklist, floor-heights, project-setup) each
+open independently via toolbar buttons. As the panel count grows they can overlap and require
+explicit close discipline. A future UI pass should consolidate into a single right-side drawer
+or tabbed panel, with only one open at a time. No core functionality impact — pure UI/layout
+polish.
+**Status:** Deferred to a UI polish session after core functionality is complete.
+
+---
+
+### 70. Display-scale option for small solids (§8.3 Build 2)
+**Category:** 3D view / solids
+**Logged:** Session 35 (§8.3 Build 2 browser verify).
+**Description:** The lineset tube (radiusM=0.0125, ~1") is geometrically correct but reads as
+near-hairline against a multi-metre building envelope. The honest base-case placeholder must
+NOT be inflated to improve legibility. A future option could offer a "display scale" multiplier
+for solid geometry (e.g. 3× visual for thin tubes) that is clearly labelled as non-dimensional
+and does not affect derived quantities. Requires planning pass on where the multiplier lives
+(profile table vs. ThreeDView render param) and whether it persists across sessions.
+**Status:** Deferred. Legibility-by-fake-dimension is a planning decision, not a code fix.
+
+---
+
+### 71. Duct category has a profile but no run currently resolves to 'duct'
+**Category:** Run paths / profile table
+**Logged:** Session 35 (§8.3 Build 2 close-out).
+**Description:** `SEGMENT_PROFILES` contains a duct entry (`sweep:'extrude-rect', widthM:0.150,
+heightM:0.150`) as deliberate forward-proofing. No entry in `RUN_PAIR_MAP` currently maps any
+pair to `category:'duct'`, so the duct profile is never read. When a duct run type is added
+to RUN_PAIR_MAP (one new row, no engine change per principle 5.3), the duct solid will render
+automatically. No code change needed at that point for the profile itself.
+**Status:** Forward-proofed. Track as a reminder that the duct solid profile exists and is
+ready when the pair-map entry is authored.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass
