@@ -2803,10 +2803,13 @@ function App() {
     if (!openingDraftShape) return
     const scale = getEffectiveScale(currentPageId)
     let vertices = openingDraftShape.vertices
+    let storedWidthM = null, storedHeightM = null
     if (scale) {
       const wM = parseFtIn(openingDraftFt, openingDraftIn)
       const hM = parseFtIn(openingDraftHFt, openingDraftHIn)
       if (wM > 0 && hM > 0) {
+        storedWidthM = wM
+        storedHeightM = hM
         const wPx = wM * scale.pxPerMeter
         const hPx = hM * scale.pxPerMeter
         const c1 = openingDraftShape.corner1
@@ -2822,7 +2825,9 @@ function App() {
         status: 'locked',
         shapeKind: openingDraftKind,
         openingType: openingDraftType,
-        openingLabel: openingDraftLabel,
+        label: openingDraftLabel,
+        widthM: storedWidthM,
+        heightM: storedHeightM,
         dimBasis: dimensionBasisRef.current,
       },
     ]
