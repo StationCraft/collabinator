@@ -202,9 +202,25 @@ building."
       place, world XY via __dumpWorklist(), move updates XY, delete returns to toPlace (#22
       recalibration-independence confirmed: marker stays pinned to PDF on rescale).
 
-**Next critical-path build = §8.2 step 4: Runs as 3D paths — drawing ducts/drains/circuits
-between placed equipment items. This is what un-blocks the run-kind obligations (currently all
-locked/🔒). Windows/doors Pieces 3+4 remain off-critical-path.
+[x] §8.2 step 4: Runs as 3D paths (v1) — DONE (Session 34; commit 6d3dc3c)
+    RUN_PAIR_MAP module-level pair→category table (seed: air-handler↔outdoor-unit → lineset);
+    resolveRunPairEntry() pure lookup; shapeKind:'run' in completedShapesRef (grade-line precedent,
+    pixels only via makeVertex); persisted uncharacterized state (new model — no prior precedent);
+    buildCharacterizedRun() + clearRunSatisfaction() immutable helpers; commitRun() derives
+    endpoints at commit time (fresh proximity check, Z-undo-safe); "Draw run" button (floor/roof
+    pages, confirmed scale); purple hover ring on equipment snap; finish-anywhere ≥2 verts;
+    drawRunPaths() wired into all 14 render paths; run exclusions in hitTestVertices/hitTestSegments/
+    getEligibleShapes/all 5 drawEditCanvas loops/drawLockedShapes/drawGhostShapes; delete sub-mode
+    reverses characterization on run delete AND on equipment-item delete; worklist "✓ Connected"
+    on satisfied run obligations; deriveWireframe extended with runLines (scalar Z from floor/roof
+    zStack); ThreeDView renders run lines by category with legend entries.
+    Fenced: #64–68 (envelope-crossing, multi-hop cascade, slope/per-vertex Z, conflict checks,
+    role-wiring) — all logged in ADDITIONAL_FUNCTIONALITY.md.
+    Browser verification: PENDING (Ben verifies characterization, worklist flip, deletion reversal,
+    3D line at level Z).
+
+**Next critical-path build = §8.2 step 5 or §8.3 (planning pass needed). Windows/doors Pieces 3+4
+remain off-critical-path.
 §8.3 (3D Reconstruction Profile) remains sequenced AFTER runs.**
 
 ---

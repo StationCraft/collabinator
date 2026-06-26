@@ -447,7 +447,7 @@ The Project Setup panel (§9) drives a derived worklist of mechanical/electrical
 - Placed items rendered as purple circles with type-initials (zoom-compensated). Wired into all 14 render paths.
 
 **Obligations (three kinds):**
-- `run` — cross-trade coordination required (plumbing, electrical, envelope); rendered blocked+🔒 in all states. Un-blocked by §8.2 step 4 (runs as 3D paths — not yet built).
+- `run` — cross-trade coordination required (plumbing, electrical, envelope); rendered blocked+🔒 until a run path connects both endpoints. Shows "✓ Connected" (green) when satisfied. See §8.2 step 4 below.
 - `property` — self-contained attribute set on the item itself (e.g., outdoor unit mount-type: ground/wall). Live `<select>` enabled once the item is placed; written back to `obligationState` on the shape.
 - `placement` — reserved kind for future placement-constraint obligations.
 - Obligation labels with trade tags ((plumber)/(electrician)/(envelope)) are descriptive only — not wired to §9 role model (role-blind this build).
@@ -462,6 +462,37 @@ The Project Setup panel (§9) drives a derived worklist of mechanical/electrical
 { id:'sh-N', shapeKind:'equipment-item', itemType:'air-handler'|'outdoor-unit'|'bath-fan'|'hrv-unit',
   instanceKey:'type#N', pageId, status:'locked', vertices:[{x,y}],
   obligationState:{ [obligationId]: satisfiedValue } }
+```
+
+---
+
+## 10b. Run paths — §8.2 step 4 (Session 34)
+
+Open polylines connecting placed equipment items. A run is a **path**, not a shape or polygon.
+
+**Key model (new — no prior precedent):**
+- A run **persists in uncharacterized state** — committed to storage immediately, even with loose ends or an unmapped pair.
+- Resting states: grey dashed (uncharacterized), solid amber (lineset / characterized).
+- Category is **endpoint-derived** from the pair of item-types at the two ends — never menu-selected.
+
+**`RUN_PAIR_MAP`** — module-level unordered pair→category table:
+- `{air-handler, outdoor-unit} → lineset` — satisfies `lineset-endpoint` on the air-handler and `lineset-to-handler` on the outdoor-unit.
+- Adding a run type = one data row, no engine change.
+
+**Draw interaction:** "Draw run" button on floor/roof pages with confirmed scale. Reuses draw-mode plumbing. Finish-anywhere ≥2 vertices (Enter or "Finish run"). Purple ring on equipment-item snap hover.
+
+**Characterization:** When committed with both endpoints on items in the map — assigns category, writes `obligationState[obligationId] = runId` on both items. Worklist shows "✓ Connected" (green).
+
+**Reversal:** Delete the run → obligations revert to blocked. Delete an endpoint item → connected characterized runs lose characterization, surviving endpoint obligations revert.
+
+**`drawRunPaths`:** Wired into all 14 render paths. Excluded from all polygon ops (insert/split/combine/ghost).
+
+**3D view:** Run lines appear in ThreeDView at the page's scalar floor Z (same zStack level as the floor plan page). Grey = uncharacterized, amber = lineset.
+
+**Data stored per run:**
+```
+{ id:'sh-N', shapeKind:'run', vertices:[{x,y}], pageId, status:'locked',
+  endpointItems:{ start:'sh-N'|null, end:'sh-N'|null }, category:'lineset'|null }
 ```
 
 ---

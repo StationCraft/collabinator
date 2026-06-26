@@ -10,6 +10,42 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 34 — §8.2 step 4: Runs as 3D paths (v1) (2026-06-25)
+
+**Branch:** main | **Commit:** 6d3dc3c — pushed to origin.
+
+### What was built
+
+**§8.2 step 4 — run-path model, full piece:**
+
+- **`RUN_PAIR_MAP` + `resolveRunPairEntry`** module-level (App.jsx): unordered pair→category table. Seeded with one entry: `{air-handler, outdoor-unit} → lineset`, satisfying `lineset-endpoint` (air-handler) and `lineset-to-handler` (outdoor-unit) using real ids from ITEM_TYPES. Adding a new run type = one new data row only (principle 5.3).
+- **Storage:** `shapeKind: 'run'` in `completedShapesRef` (grade-line precedent — single open-polyline array, no separate ref). Stored fields: `{ id, shapeKind:'run', vertices, pageId, status:'locked', endpointItems:{start, end}, category }`. Vertices via `makeVertex` (pixels, recalibration-independent).
+- **Persisted uncharacterized state (headline new model):** A run commits to `completedShapesRef` in deliberately-incomplete state and survives page-nav and reload. No prior precedent in the codebase.
+- **`runDrawing` useState** + **`runItemSnapRef`** useRef — draw state and live equipment snap target (visual only; no binding until commit).
+- **`findEquipSnapTarget(pos)`** — 14px equipment proximity check, current page only.
+- **`buildCharacterizedRun(run, currentShapes)`** — immutable; resolves pair map from endpoint items; writes `obligationState[obligationId] = runId` on BOTH endpoint items; returns `{ run: finalRun, updatedShapes }`.
+- **`clearRunSatisfaction(run, currentShapes)`** — immutable reversal; called on run delete and on equipment-item delete that has connected characterized runs.
+- **`commitRun()`** — derives endpoint items at commit time via fresh proximity check; calls `buildCharacterizedRun`; bumps `worklistTick`. Enter key and "Finish run" button both commit.
+- **Draw interaction:** "Draw run" button (floor/roof pages, confirmed scale, no other active mode) enters `drawMode + runDrawing`. Purple ring on equipment-item hover. Finish-anywhere ≥2 vertices. Close-snap suppressed for runs. Wall-vertex `drawStartSnapRef` suppressed for runs (equipment-only snap).
+- **Delete sub-mode:** extended to handle `wasRun` (reverse characterization) and `wasEquipment` (reverse characterization on all connected characterized runs, then null their category/endpoints). `worklistTick` bumped for either.
+- **`hitTestShapeBody`:** extended with run segment proximity check (between equipment check and polygon check).
+- **Exclusions:** `hitTestVertices`, `hitTestSegments`, `getEligibleShapes`, all 5 `drawEditCanvas` forEach loops — all skip runs. `drawLockedShapes` and `drawGhostShapes` in canvasRenderer.js also skip runs.
+- **`drawRunPaths(ctx, completedShapes, pageId)`** exported from canvasRenderer.js: grey dashed (uncharacterized), solid amber (lineset), endpoint dots. Wired into all 14 render paths.
+- **Worklist panel:** run obligations with `satisfiedValue !== null` render "✓ Connected" (green) before the blocked check — so a connected run obligation shows satisfied, not 🔒.
+- **`deriveWireframe` extended:** `runLines` array — one segment per vertex pair per run; scalar Z from `zStack.floorZ` (floor plans) or `roofZFallback` (roof plans); `{ id, category, from, to }`. Return updated to include `runLines`; null-return also includes it.
+- **ThreeDView.jsx:** destructures `runLines`; renders by category group (grey 0x9ca3af = uncharacterized, amber 0xf59e0b = lineset); legend entries added.
+- **Fenced items logged:** ADDITIONAL_FUNCTIONALITY.md #64–68 (envelope-crossing detection, multi-hop cascade, slope/per-vertex Z, conflict checks, role-wiring).
+
+### Architecture decisions locked this session
+
+- **Run is a PATH, not a shape** — vocabulary enforced in all code comments, labels, and this doc.
+- **Endpoint binding at COMMIT TIME** (not per-click) — fresh proximity re-check when "Finish run" fires; handles Z-undo correctly with no per-click tracking refs.
+- **Uncharacterized IS the stable resting state** — no distinction between "one loose end" vs "unmapped pair" in storage or rendering; both are grey.
+- **Satisfaction is two-sided and reverses** — `clearRunSatisfaction` restores both endpoint obligations to null on any disconnect path; no orphan satisfaction.
+- **`deriveWorklist()` mechanism unchanged** — it reads `obligationState` each call; the run model writes/clears `obligationState` directly; no engine change needed.
+
+---
+
 ## SESSION 33 — §8.2 config-driven worklist, Parts A + B (2026-06-25)
 
 **Branch:** main | **Commits:** 4635e59 (Part A), 6ae5f53 (Part B), 0a962f5 (UX fixes) — all on origin.

@@ -620,6 +620,23 @@ A React + Vite app with:
   * **1" snap default on placement and edit:** `saveAndDefaultSnapIncrement()` saves `priorSnapIncrementRef.current` and sets `snapIncrementRef`/`snapIncrement` to `ONE_INCH_M = 0.0254m`. Called on "Place opening" entry and on "Edit Shapes" entry when the page has any locked opening. `restoreSnapIncrement()` restores the prior value on both `discardOpening`/`confirmOpening` (placement) and `exitEditMode` (edit).
   * **Persistent top-bar snap selector:** single `<select className="snap-increment-select">` in the `.toolbar` div, always visible when `currentPage && pdf`. `disabled={!pageHasScale}` (greyed with tooltip when no scale). Options resolve imperial/metric from `getEffectiveScale(currentPageId)?.displayUnit`. onChange calls `redrawDrawCanvas` in draw mode, `drawEditCanvas` in edit mode. All prior in-toolbar selector instances removed — exactly one selector project-wide.
 
+- **Run paths — §8.2 step 4 (Session 34; commit 6d3dc3c):** Endpoint-derived open polylines connecting placed equipment items.
+  * **`RUN_PAIR_MAP`** — module-level unordered pair→category table. Seed entry: `{air-handler, outdoor-unit} → lineset`, satisfying `lineset-endpoint` (air-handler side) and `lineset-to-handler` (outdoor-unit side). Adding a run type = one data row (principle 5.3, no engine change).
+  * **`resolveRunPairEntry(typeA, typeB)`** — pure lookup; unordered match.
+  * **Storage:** `shapeKind: 'run'` in `completedShapesRef` (grade-line precedent). Fields: `{ id, shapeKind:'run', vertices, pageId, status:'locked', endpointItems:{start,end}, category }`. Vertices via `makeVertex` (pixels, recalibration-independent).
+  * **Persisted uncharacterized state (new model — no prior precedent):** A run commits to storage immediately in deliberately-incomplete state. Resting states: grey dashed (loose ends OR unmapped pair), solid category-color (both ends match map entry). Survives page-nav and reload.
+  * **Endpoint binding at commit time** — fresh `findEquipSnapTarget` proximity check when "Finish run" fires; Z-undo-safe.
+  * **`buildCharacterizedRun(run, currentShapes)`** — immutable; resolves pair map; writes `obligationState[obligationId] = runId` on BOTH endpoint items; returns `{run: finalRun, updatedShapes}`.
+  * **`clearRunSatisfaction(run, currentShapes)`** — immutable reversal; called on run delete and on equipment-item delete (connected runs lose characterization, surviving endpoint obligations reversed).
+  * **Draw interaction:** "Draw run" button (floor/roof pages, confirmed scale, no other active mode); finish-anywhere ≥2 vertices; purple ring on equipment-item hover (`runItemSnapRef`); wall-vertex snap suppressed; close-snap suppressed.
+  * **Delete sub-mode:** `wasRun` branch reverses characterization; `wasEquipment` branch reverses all connected characterized runs. `worklistTick` bumped for either.
+  * **Exclusions:** runs excluded from `hitTestVertices`, `hitTestSegments`, `getEligibleShapes`, all 5 `drawEditCanvas` forEach loops, `drawLockedShapes`, `drawGhostShapes`. Run segment proximity added to `hitTestShapeBody`.
+  * **`drawRunPaths(ctx, completedShapes, pageId)`** — exported from canvasRenderer.js; wired into all 14 render paths.
+  * **Worklist:** run obligations with `satisfiedValue !== null` show "✓ Connected" (green).
+  * **`deriveWireframe`:** `runLines` array added; scalar Z from `zStack.floorZ` (floor) or `roofZFallback` (roof).
+  * **ThreeDView.jsx:** `runLines` rendered by category (grey = uncharacterized, amber = lineset); legend entries added.
+  * **Fenced (#64–68):** envelope-crossing detection, multi-hop cascade, slope/per-vertex Z, conflict checks, role-wiring.
+
 **Not yet built (next increments):**
 - **Next critical-path build: project-configuration layer (VISION_SUPPLEMENT §9 step 3)** — needs its own planning session.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
@@ -667,12 +684,15 @@ completedShapesRef.current = Array<{
   vertices: [{x, y}],           // canvas-pixel coordinates
   status: 'reviewing' | 'locked',
   pageId: string,               // e.g. "page-1"
-  shapeKind?: 'grade-line' | 'window' | 'door',
+  shapeKind?: 'grade-line' | 'window' | 'door' | 'run',
                                 // absent = closed wall polygon (default); 'grade-line' = open reference polyline;
-                                // 'window'|'door' = opening rectangle (Pieces 1+2)
+                                // 'window'|'door' = opening rectangle; 'run' = open run path (§8.2 step 4)
   // Grade-line shapes carry NO binding fields. Endpoints may be snapped to corners or the
   // lowest-floor reference line as drawing aids, but nothing is stored. Above/below-grade
   // meaning is derived at read-time by intersecting the polyline against the wall polygon (#41).
+  // Run paths carry endpoint-item and category fields:
+  endpointItems?: { start: string|null, end: string|null },  // stable 'sh-N' ids of endpoint equipment items (or null)
+  category?: string|null,       // e.g. 'lineset'; null = uncharacterized. Set at commit if both ends map.
   // Opening shapes (window/door) carry additional fields:
   openingType?: string,         // from OPENING_TYPES (e.g. 'Casement', 'Fixed')
   label?: string,               // free-text label (e.g. 'W1', user-supplied)
