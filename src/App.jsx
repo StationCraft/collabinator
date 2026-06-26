@@ -4532,6 +4532,23 @@ function App() {
       }
     }
 
+    // __dumpSolids(): inspect solids derived by deriveWireframe for §8.3 Build 2.
+    window.__dumpSolids = () => {
+      const wf = deriveWireframe()
+      const { solids = [] } = wf
+      if (!solids.length) { console.log('[solids] none derived'); return }
+      for (const s of solids) {
+        if (s.kind === 'cylinder' || s.kind === 'box-swept') {
+          const dx = s.to.x - s.from.x, dy = s.to.y - s.from.y
+          const len = Math.sqrt(dx * dx + dy * dy).toFixed(4)
+          const extra = s.kind === 'cylinder' ? `radiusM=${s.radiusM}` : `widthM=${s.widthM} heightM=${s.heightM}`
+          console.log(`[solids] ${s.id}  kind=${s.kind}  ${extra}  length=${len}m  category-color=${s.color.toString(16)}`)
+        } else if (s.kind === 'block') {
+          console.log(`[solids] ${s.id}  kind=block  wM=${s.wM} dM=${s.dM} hM=${s.hM}  center=(${s.center.x.toFixed(3)}, ${s.center.y.toFixed(3)}, ${s.center.z.toFixed(3)})m`)
+        }
+      }
+    }
+
     // ── B4: deriveEnumeration() ────────────────────────────────────────────────
     // Returns an array of envelope elements (wall-surface, roof-plane, soffit, window, door).
     // Every derived quantity is a named property on the element — never a transient in render code (§7.3).

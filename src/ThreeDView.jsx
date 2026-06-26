@@ -159,10 +159,6 @@ export default function ThreeDView({ wireframe, onClose }) {
           const dir = new THREE.Vector3().subVectors(to3, from3)
           const length = dir.length()
 
-          if (import.meta.env.DEV) {
-            console.log(`[solids] ${solid.id}  kind=${solid.kind}  radiusM=${solid.radiusM ?? 'n/a'}  length=${length.toFixed(4)}m`)
-          }
-
           if (length < 0.001) { mat.dispose(); continue }
           const mid = new THREE.Vector3().addVectors(from3, to3).multiplyScalar(0.5)
           dir.normalize()
