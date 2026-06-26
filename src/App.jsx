@@ -391,6 +391,8 @@ function App() {
   const pageRefParentRef = useRef({})          // pageId -> sourcePageId; written at confirm time (Piece B)
 
   const shapeIdCounterRef = useRef(0)          // monotonic id for stable shape identity
+  const psCounterRef = useRef(0)               // point-slot id counter (ps-N)
+  const ssCounterRef = useRef(0)               // span-slot id counter (ss-N)
   const dimensionBasisRef = useRef(null)       // 'frame' | 'rough-opening' | null (project-level, set once per upload)
   const priorSnapIncrementRef = useRef(null)   // saved increment before opening-placement / opening-edit default
   // B4: project-level physical derivation config (§5.3 — base case of extensible model; no UI yet)
@@ -623,7 +625,7 @@ function App() {
     setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
     setOpeningDraftKind('window'); setOpeningDraftType(OPENING_TYPES[0]); setOpeningDraftLabel('')
     setOpeningDraftFt(''); setOpeningDraftIn(''); setOpeningDraftHFt(''); setOpeningDraftHIn('')
-    setShowDimBasisDialog(false); dimensionBasisRef.current = null; shapeIdCounterRef.current = 0; priorSnapIncrementRef.current = null
+    setShowDimBasisDialog(false); dimensionBasisRef.current = null; shapeIdCounterRef.current = 0; psCounterRef.current = 0; ssCounterRef.current = 0; priorSnapIncrementRef.current = null
     setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
     projectSetupRef.current = { values: {}, roleAssignments: {} }
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
@@ -803,6 +805,8 @@ function App() {
   // ── Drawing ──────────────────────────────────────────────────────────────
 
   const nextShapeId = () => `sh-${shapeIdCounterRef.current++}`
+  const nextPsId    = () => `ps-${psCounterRef.current++}`
+  const nextSsId    = () => `ss-${ssCounterRef.current++}`
   const isOpening = (s) => s.shapeKind === 'window' || s.shapeKind === 'door'
   const isEquipmentItem = (s) => s.shapeKind === 'equipment-item'
   const isRun = (s) => s.shapeKind === 'run'
@@ -867,25 +871,32 @@ function App() {
   // Returns { run: finalRun, updatedShapes } — immutable, no mutation of inputs.
   const buildCharacterizedRun = (run, currentShapes) => {
     const EQUIP_HIT_RADIUS = 14
-    const verts = run.vertices
-    if (verts.length < 2) return { run, updatedShapes: currentShapes }
-    const findItemAtVertex = (v) => {
+    const slots = run.pointSlots
+    if (!slots || slots.length < 2) return { run, updatedShapes: currentShapes }
+    const findItemAtSlot = (slot) => {
       for (let i = currentShapes.length - 1; i >= 0; i--) {
         const s = currentShapes[i]
         if (!isEquipmentItem(s) || s.pageId !== run.pageId) continue
         const iv = s.vertices[0]
-        if (iv && Math.hypot(v.x - iv.x, v.y - iv.y) <= EQUIP_HIT_RADIUS) return s
+        if (iv && Math.hypot(slot.x - iv.x, slot.y - iv.y) <= EQUIP_HIT_RADIUS) return s
       }
       return null
     }
-    const startItem = findItemAtVertex(verts[0])
-    const endItem   = findItemAtVertex(verts[verts.length - 1])
+    const startItem = findItemAtSlot(slots[0])
+    const endItem   = findItemAtSlot(slots[slots.length - 1])
     const startId = startItem ? startItem.id : null
     const endId   = endItem   ? endItem.id   : null
     const entry = (startItem && endItem)
       ? resolveRunPairEntry(startItem.itemType, endItem.itemType)
       : null
-    const finalRun = { ...run, endpointItems: { start: startId, end: endId }, category: entry ? entry.category : null }
+    // Write itemRef into endpoint point-slots; write category into every span-slot
+    const newPointSlots = slots.map((ps, i) => {
+      if (i === 0 && startId) return { ...ps, itemRef: startId }
+      if (i === slots.length - 1 && endId) return { ...ps, itemRef: endId }
+      return ps
+    })
+    const newSpanSlots = run.spanSlots.map(ss => ({ ...ss, category: entry ? entry.category : null }))
+    const finalRun = { ...run, pointSlots: newPointSlots, spanSlots: newSpanSlots }
     if (!entry) return { run: finalRun, updatedShapes: currentShapes }
     // Write satisfaction into both endpoint items
     const updatedShapes = currentShapes.map(s => {
@@ -906,10 +917,12 @@ function App() {
   // Reverse the satisfaction a characterized run wrote to its endpoint items.
   // Accepts the shapes array to mutate-immutably. Returns updated shapes.
   const clearRunSatisfaction = (run, currentShapes) => {
-    if (!run.category) return currentShapes
-    const entry = RUN_PAIR_MAP.find(e => e.category === run.category)
+    const category = run.spanSlots?.[0]?.category ?? null
+    if (!category) return currentShapes
+    const entry = RUN_PAIR_MAP.find(e => e.category === category)
     if (!entry) return currentShapes
-    const { start, end } = run.endpointItems || {}
+    const start = run.pointSlots?.[0]?.itemRef ?? null
+    const end   = run.pointSlots?.[run.pointSlots.length - 1]?.itemRef ?? null
     return currentShapes.map(s => {
       if (!isEquipmentItem(s)) return s
       if (s.id !== start && s.id !== end) return s
@@ -1365,9 +1378,10 @@ function App() {
     for (let i = shapes.length - 1; i >= 0; i--) {
       if (!isRun(shapes[i])) continue
       if (shapes[i].pageId !== currentPageId) continue
-      const verts = shapes[i].vertices
-      for (let j = 0; j < verts.length - 1; j++) {
-        if (distToSegment(pos, verts[j], verts[j + 1]) <= HIT_SEG_DIST) return i
+      const slots = shapes[i].pointSlots
+      if (!slots) continue
+      for (let j = 0; j < slots.length - 1; j++) {
+        if (distToSegment(pos, slots[j], slots[j + 1]) <= HIT_SEG_DIST) return i
       }
     }
     // Polygons and openings: pointInPolygon
@@ -2015,33 +2029,35 @@ function App() {
           const wasRun = isRun(target)
           pushUndo()
           let shapes = completedShapesRef.current
-          if (wasRun && target.category) {
+          if (wasRun && target.spanSlots?.[0]?.category) {
             // Reverse satisfaction on both endpoint items before removing the run
             shapes = clearRunSatisfaction(target, shapes)
           }
           if (wasEquipment) {
             // Reverse characterization of any runs on this page that connected to this item
             const deletedId = target.id
-            shapes = shapes.map(s => {
-              if (!isRun(s) || s.pageId !== currentPageId) return s
-              if (s.endpointItems?.start !== deletedId && s.endpointItems?.end !== deletedId) return s
-              if (!s.category) return { ...s, endpointItems: { start: s.endpointItems.start === deletedId ? null : s.endpointItems.start, end: s.endpointItems.end === deletedId ? null : s.endpointItems.end } }
-              // Clear satisfaction on the surviving endpoint before losing characterization
-              const entry = RUN_PAIR_MAP.find(e => e.category === s.category)
-              const survivingId = s.endpointItems.start === deletedId ? s.endpointItems.end : s.endpointItems.start
-              if (entry && survivingId) {
-                const survivor = shapes.find(sh => sh.id === survivingId && isEquipmentItem(sh))
-                if (survivor) {
-                  // Handled via clearRunSatisfaction below; just null category + endpoint
-                }
-              }
-              return { ...s, category: null, endpointItems: { start: s.endpointItems.start === deletedId ? null : s.endpointItems.start, end: s.endpointItems.end === deletedId ? null : s.endpointItems.end } }
-            })
-            // Clear satisfaction on surviving endpoints for runs that were characterized
-            const runsAffected = completedShapesRef.current.filter(s => isRun(s) && s.pageId === currentPageId && s.category && (s.endpointItems?.start === deletedId || s.endpointItems?.end === deletedId))
+            const isEndpoint = (s) =>
+              s.pointSlots?.[0]?.itemRef === deletedId ||
+              s.pointSlots?.[s.pointSlots.length - 1]?.itemRef === deletedId
+            // First: clear obligation satisfaction on surviving endpoint items for characterized runs
+            const runsAffected = completedShapesRef.current.filter(s =>
+              isRun(s) && s.pageId === currentPageId && s.spanSlots?.[0]?.category && isEndpoint(s)
+            )
             for (const r of runsAffected) {
               shapes = clearRunSatisfaction(r, shapes)
             }
+            // Then: null itemRef on the deleted-item endpoint and clear all span categories
+            shapes = shapes.map(s => {
+              if (!isRun(s) || s.pageId !== currentPageId) return s
+              if (!isEndpoint(s)) return s
+              const newPointSlots = s.pointSlots.map((ps, i) =>
+                (i === 0 || i === s.pointSlots.length - 1) && ps.itemRef === deletedId
+                  ? { ...ps, itemRef: null }
+                  : ps
+              )
+              const newSpanSlots = s.spanSlots.map(ss => ss.category ? { ...ss, category: null } : ss)
+              return { ...s, pointSlots: newPointSlots, spanSlots: newSpanSlots }
+            })
           }
           completedShapesRef.current = shapes.filter((_, i) => i !== idx)
           deleteHoverIdxRef.current = null
@@ -2709,14 +2725,15 @@ function App() {
   const commitRun = () => {
     const verts = drawVerticesRef.current
     if (verts.length < 2) return
+    const pointSlots = verts.map(v => ({ id: nextPsId(), x: v.x, y: v.y, itemRef: null }))
+    const spanSlots  = verts.slice(0, -1).map(() => ({ id: nextSsId(), category: null }))
     const draftRun = {
       id: nextShapeId(),
       shapeKind: 'run',
-      vertices: verts.map(v => makeVertex(v.x, v.y)),
+      pointSlots,
+      spanSlots,
       pageId: currentPageId,
       status: 'locked',
-      endpointItems: { start: null, end: null },
-      category: null,
     }
     const { run: finalRun, updatedShapes } = buildCharacterizedRun(draftRun, completedShapesRef.current)
     completedShapesRef.current = [...updatedShapes, finalRun]
@@ -4179,7 +4196,9 @@ function App() {
     // Both characterized and uncharacterized runs appear.
     const runLines = []
     for (const run of completedShapesRef.current) {
-      if (run.shapeKind !== 'run' || run.status !== 'locked' || run.vertices.length < 2) continue
+      if (run.shapeKind !== 'run' || run.status !== 'locked') continue
+      const slots = run.pointSlots
+      if (!slots || slots.length < 2) continue
       const page = pages.find(p => p.pageId === run.pageId)
       if (!page) continue
       // Resolve scalar Z for the run's page
@@ -4190,13 +4209,13 @@ function App() {
       } else if (page.category === 'roof-plan') {
         runZ = roofZFallback
       }
-      for (let i = 0; i < run.vertices.length - 1; i++) {
-        const wA = pageVertexToWorld(run.vertices[i], run.pageId)
-        const wB = pageVertexToWorld(run.vertices[i + 1], run.pageId)
+      for (let i = 0; i < slots.length - 1; i++) {
+        const wA = pageVertexToWorld(slots[i], run.pageId)
+        const wB = pageVertexToWorld(slots[i + 1], run.pageId)
         if (!wA || !wB) continue
         runLines.push({
           id: run.id,
-          category: run.category ?? null,
+          category: run.spanSlots[i]?.category ?? null,
           from: { x: wA.x, y: wA.y, z: runZ },
           to:   { x: wB.x, y: wB.y, z: runZ },
         })
@@ -4394,6 +4413,24 @@ function App() {
       }
 
       if (!floorPages.length && !elevPages.length && !roofPages.length) console.warn('[world] no categorized floor-plan, elevation, or roof-plan pages found')
+    }
+
+    // __dumpRuns(): slot-structure verification for §8.3 Build 1.
+    window.__dumpRuns = () => {
+      const runs = completedShapesRef.current.filter(r => r.shapeKind === 'run' && r.status === 'locked')
+      if (!runs.length) { console.log('[runs] none placed'); return }
+      for (const run of runs) {
+        const cat = run.spanSlots?.[0]?.category ?? '(uncharacterized)'
+        console.log(`[runs] ${run.id}  category=${cat}  page=${run.pageId}`)
+        run.pointSlots.forEach((ps, i) => {
+          const ref = ps.itemRef ? ` → ${ps.itemRef}` : ''
+          console.log(`  [${i}] ${ps.id}  (${ps.x.toFixed(1)}, ${ps.y.toFixed(1)})${ref}`)
+          if (i < run.spanSlots.length) {
+            const ss = run.spanSlots[i]
+            console.log(`       ${ss.id}  category=${ss.category ?? '—'}`)
+          }
+        })
+      }
     }
 
     // ── B4: deriveEnumeration() ────────────────────────────────────────────────

@@ -315,22 +315,23 @@ const RUN_CATEGORY_COLORS = {
 export function drawRunPaths(ctx, completedShapes, pageId) {
   const runs = completedShapes.filter(s => s.pageId === pageId && s.shapeKind === 'run' && s.status === 'locked')
   for (const run of runs) {
-    const verts = run.vertices
-    if (verts.length < 2) continue
-    const isCharacterized = !!run.category
-    const color = isCharacterized ? (RUN_CATEGORY_COLORS[run.category] ?? '#6b7280') : '#9ca3af'
+    const slots = run.pointSlots
+    if (!slots || slots.length < 2) continue
+    const category = run.spanSlots?.[0]?.category ?? null
+    const isCharacterized = !!category
+    const color = isCharacterized ? (RUN_CATEGORY_COLORS[category] ?? '#6b7280') : '#9ca3af'
     ctx.save()
     ctx.strokeStyle = color
     ctx.lineWidth = isCharacterized ? 2.5 : 1.5
     ctx.lineJoin = 'round'; ctx.lineCap = 'round'
     if (!isCharacterized) ctx.setLineDash([6, 4])
     ctx.beginPath()
-    ctx.moveTo(verts[0].x, verts[0].y)
-    for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
+    ctx.moveTo(slots[0].x, slots[0].y)
+    for (let i = 1; i < slots.length; i++) ctx.lineTo(slots[i].x, slots[i].y)
     ctx.stroke()
     ctx.setLineDash([])
     ctx.fillStyle = color
-    for (const v of [verts[0], verts[verts.length - 1]]) {
+    for (const v of [slots[0], slots[slots.length - 1]]) {
       ctx.beginPath(); ctx.arc(v.x, v.y, 3, 0, Math.PI * 2); ctx.fill()
     }
     ctx.restore()
