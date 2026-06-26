@@ -180,9 +180,32 @@ building."
     Forks settled (planning): A=separate ref; B=coarse output→roles map, sub-rules later; C=operator panel
       now (full-page form deferred, ADDITIONAL_FUNCTIONALITY #57); D=2 assembly opts/category;
       E=equipment lite, inert (spawns hook empty, reserved for §8.2).
-**Next critical-path build = config-driven layer/worklist system (§8.2) — generates the to-place
-worklist from equipment selections; fills the CONFIG_FIELDS spawns hook. Windows/doors Pieces 3+4
-remain off-critical-path (§9).**
+[x] Config-driven worklist system (§8.2) — DONE (Session 33; commits 4635e59, 6ae5f53, 0a962f5)
+    Part A (4635e59): ITEM_TYPES table (4 types: air-handler, outdoor-unit, bath-fan, hrv-unit);
+      spawns hook filled as function (value)=>[{type,count}] on space-heating / ventilation /
+      bath-fans fields; new 'count' descriptor kind on bath-fans; deriveWorklist() pure computed
+      fn (fresh every render, never stored — fh-outstanding precedent); worklistTick re-render;
+      worklist panel (purple, right:600px) with to-place list and blocked-obligation preview;
+      __dumpWorklist() DEV tool. Console-verified: 5 items, correct obligation output.
+    Part B (6ae5f53): isEquipmentItem helper; drawEquipmentItemShapes export (purple circle +
+      initials, zoom-compensated) wired into all 14 render paths (5 edit sub-modes, 5 named draw
+      fns, 4 inline repaints); single-click placement on floor-plan OR roof-plan pages; point shape
+      stored as shapeKind:'equipment-item' in completedShapesRef (single vertex, pixels only,
+      recalibration-independent via pageVertexToWorld); deriveWorklist() subtracts placed items by
+      instanceKey from toPlace, populates per-placed obligations with live property <select>;
+      three obligation kinds: run (blocked, 🔒), property (live-editable once placed), placement
+      (reserved); move/delete via Edit Shapes; excluded from insert/split/combine via isEquipmentItem
+      guards; __dumpWorklist() extended with world XY + obligationState.
+    UX fixes (0a962f5): bath-fans count input uses psCountDrafts string-draft so field clears
+      freely (0 renders as empty); delete sub-mode hover ring for equipment markers (red, 18px).
+    Verified in browser: place on floor-plan, place on roof-plan, mount-type select live after
+      place, world XY via __dumpWorklist(), move updates XY, delete returns to toPlace (#22
+      recalibration-independence confirmed: marker stays pinned to PDF on rescale).
+
+**Next critical-path build = §8.2 step 4: Runs as 3D paths — drawing ducts/drains/circuits
+between placed equipment items. This is what un-blocks the run-kind obligations (currently all
+locked/🔒). Windows/doors Pieces 3+4 remain off-critical-path.
+§8.3 (3D Reconstruction Profile) remains sequenced AFTER runs.**
 
 ---
 

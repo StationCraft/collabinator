@@ -431,6 +431,41 @@ penetrations (e.g., bathroom exhaust vents) at their correct location based on s
 
 ---
 
+## 10a. Config-driven equipment worklist (§8.2 — Session 33)
+
+The Project Setup panel (§9) drives a derived worklist of mechanical/electrical equipment items to be placed on the drawings.
+
+**Config → spawn → place model:**
+- `CONFIG_FIELDS` entries carry a `spawns(value) => [{type, count}]` function hook. Filled on: `space-heating` (heat-pump-ducted → air-handler + outdoor-unit), `ventilation` (hrv/erv → hrv-unit), `bath-fans` (`kind:'count'` numeric field → N × bath-fan).
+- `ITEM_TYPES` table defines four item types (air-handler, outdoor-unit, bath-fan, hrv-unit), each with an obligation list.
+- `deriveWorklist()` is computed fresh every render: calls all spawns functions, subtracts already-placed items by `instanceKey`, returns `{ toPlace, obligations }`. Never stored.
+
+**Placement:**
+- Worklist panel (purple button) shows to-place rows with a Place button per row.
+- Place button gated to floor-plan and roof-plan pages with confirmed scale.
+- Single click places the item as `shapeKind:'equipment-item'` in `completedShapesRef`: a one-vertex point shape storing pixels only. World meters derived on demand via `pageVertexToWorld` — recalibration-independent.
+- Placed items rendered as purple circles with type-initials (zoom-compensated). Wired into all 14 render paths.
+
+**Obligations (three kinds):**
+- `run` — cross-trade coordination required (plumbing, electrical, envelope); rendered blocked+🔒 in all states. Un-blocked by §8.2 step 4 (runs as 3D paths — not yet built).
+- `property` — self-contained attribute set on the item itself (e.g., outdoor unit mount-type: ground/wall). Live `<select>` enabled once the item is placed; written back to `obligationState` on the shape.
+- `placement` — reserved kind for future placement-constraint obligations.
+- Obligation labels with trade tags ((plumber)/(electrician)/(envelope)) are descriptive only — not wired to §9 role model (role-blind this build).
+
+**Edit Shapes compatibility:**
+- Equipment items support Move and Delete sub-modes.
+- Deleting an item returns it to the worklist `toPlace` (worklistTick bumped).
+- Equipment items are excluded from insert-vertex, split, and combine (polygon-only ops) via `isEquipmentItem` guard.
+
+**Data stored per equipment item:**
+```
+{ id:'sh-N', shapeKind:'equipment-item', itemType:'air-handler'|'outdoor-unit'|'bath-fan'|'hrv-unit',
+  instanceKey:'type#N', pageId, status:'locked', vertices:[{x,y}],
+  obligationState:{ [obligationId]: satisfiedValue } }
+```
+
+---
+
 ## 11. Important scope note — structural plane only (for now)
 
 Everything traced in this phase (floor plans, elevations, roof) represents the

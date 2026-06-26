@@ -843,6 +843,54 @@ accessors port directly into the form as one section.
 
 ---
 
+### 58. Config field-interdependency / dependency-rule layer
+**Logged:** Session 33.
+**Description:** Fields constrain and drive each other across three cases: (a) utilities/energy-sources-at-site gate which equipment options are valid/offered; (b) selecting a ducted heat pump for space-heating auto-fills cooling = heat pump (not a separate user choice); (c) spawn-dedup so a shared appliance (heat pump as both heat + cool source) spawns its items ONCE, not once per triggering field. First case of cross-field rules in the §9 config layer — currently all fields are flat/independent. Upstream of the spawn engine; does NOT change placement or rendering.
+**Why deferred:** Adds significant cross-field logic complexity mid-session; current flat model is correct for distinct equipment combos. Revisit when the config schema is more complete or a real cross-field case blocks a user task.
+**Status:** Deferred.
+
+---
+
+### 59. Utilities / energy-sources-at-site config fields
+**Logged:** Session 33.
+**Description:** Project-info fields capturing available fuels/utilities at the site (gas, electric, heat-pump-eligible, etc.) that feed the dependency-rule layer (#58 above) — gating which equipment options are offered. Corresponds to VISION_SUPPLEMENT §3. May fold into #58 as its data half rather than shipping as a separate build.
+**Why deferred:** Dependency-rule layer (#58) must be designed first; utilities fields are input to those rules, not standalone.
+**Status:** Deferred; likely builds as part of #58.
+
+---
+
+### 60. Dual-fuel space-heating option
+**Logged:** Session 33.
+**Description:** `space-heating = 'dual-fuel'` (ducted heat pump + gas furnace backup): spawns air-handler + outdoor-unit + furnace. A `furnace` item-type would carry its own obligations (gas line, flue/combustion-venting, condensate drain, power). Pure data addition to ITEM_TYPES + spawns — no engine change. Buildable any time after Session 33.
+**Why deferred:** Out of scope for the §8.2 two-type spawns proof-of-concept. No behavior gap now; no current project uses dual-fuel.
+**Status:** Deferred; data-only addition when needed.
+
+---
+
+### 61. Cross-trade obligation → §9 role wiring
+**Logged:** Session 33.
+**Description:** The descriptive trade tags on run obligations ((plumber)/(electrician)/(envelope)) become real owner-role assignments tied to the §9 role model. Currently label-only text with no link to `roleAssignments` in `projectSetupRef`. When wired, the correct role from `ROLE_LABELS`/`getRequiredRoles()` would be derived from the obligation and the obligation row would show the assigned person's name.
+**Why deferred:** Role-blind model is correct for the placement proof-of-concept; the trade tags describe who needs to coordinate, not a data relationship today. Full role-wiring belongs after the obligation model is more complete (runs + paths built).
+**Status:** Deferred; label-only for now.
+
+---
+
+### 62. Floor-plan-derived bath-fan count
+**Logged:** Session 33.
+**Description:** The bath-fans count (currently manual numeric entry in the Project Setup panel) sourced from floor-plan room detection instead — count bathrooms/wet rooms, auto-populate the field. Same downstream quantity input to spawns, different upstream source. Layer-on, not rebuild.
+**Why deferred:** Room detection requires semantic floor-plan analysis not yet built. Manual entry is correct fallback.
+**Status:** Deferred.
+
+---
+
+### 63. Spreadsheet-derived data-flow source
+**Logged:** Session 33.
+**Description:** Ben has a separate spreadsheet-built project encoding input/output data flows (half-baked). Future source to mine for config schema, equipment/dependency rules, and export field mappings. Likely the AUTHORING SOURCE for the dependency-rule layer (#58) rather than a separate effort — once the spreadsheet is baked, drop into Project + run a recon session before building #58. Nothing actioned now.
+**Why deferred:** Spreadsheet not ready; no action until Ben signals it's complete enough to mine.
+**Status:** Deferred; flag when spreadsheet is baked.
+
+---
+
 ### 49. Project-owned PDF persistence (web/multi-machine)
 **Logged:** Session 29, fixture-PDF work.
 **Description:** Once a PDF is uploaded it must live WITH the project, not as a pointer to the

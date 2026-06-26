@@ -10,6 +10,51 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 33 — §8.2 config-driven worklist, Parts A + B (2026-06-25)
+
+**Branch:** main | **Commits:** 4635e59 (Part A), 6ae5f53 (Part B), 0a962f5 (UX fixes) — all on origin.
+
+### What was built
+
+**Part A (4635e59) — data model + worklist panel:**
+- ITEM_TYPES module-level table (4 types: air-handler, outdoor-unit, bath-fan, hrv-unit) each with obligation list (run/property kinds).
+- `spawns` hook on CONFIG_FIELDS filled as a FUNCTION `(value) => [{type, count}, ...]` on space-heating, ventilation, and new bath-fans fields.
+- New `kind: 'count'` descriptor on bath-fans field (numeric entry, separate from multi/single-select).
+- `deriveWorklist()` pure computed function in render scope — derived fresh every render from config gap minus placed items; never stored (mirror of fhOutstanding precedent).
+- `worklistTick` useState(0) bumped in `setConfigValue` so panel re-derives on every spawning-field change.
+- Worklist panel (purple button, right:600px overlay) — to-place list + blocked-obligation preview; obligations grayed+🔒 (run) or property select disabled.
+- `__dumpWorklist()` DEV console fn. Verified in Ben's browser: 5 items, correct obligation output.
+
+**Part B (6ae5f53) — canvas placement + render wiring:**
+- `isEquipmentItem(s)` helper in both App.jsx and canvasRenderer.js.
+- `drawEquipmentItemShapes(ctx, shapes, pageId, zoom)` export in canvasRenderer.js — purple circle + type-initials, zoom-compensated radius — wired into **14 render paths** (5 edit sub-modes, 5 named draw functions, 4 inline repaints).
+- Single-click placement on floor-plan OR roof-plan pages. Point shape: `{ id, shapeKind:'equipment-item', itemType, instanceKey, pageId, status:'locked', vertices:[makeVertex(x,y)], obligationState:{} }`.
+- Pixels stored; world meters derived on demand via `pageVertexToWorld` — recalibration-independence (#22) browser-verified this session.
+- Place button per worklist row; worklist closes on Place click; crosshair cursor during placement.
+- `deriveWorklist()` extended: subtracts placed items by instanceKey from toPlace; populates per-placed obligations with live property `<select>` (mount-type enabled once outdoor unit placed).
+- Equipment items: move/delete editable via existing Edit Shapes suite; excluded from insert-vertex / split / combine via isEquipmentItem guards; hitTestShapeBody extended with 14px proximity check.
+- `worklistTick` bumped after delete → item returns to toPlace immediately.
+- Placement state cleared on PDF upload and page navigation.
+
+**UX fixes (0a962f5):**
+- Bath-fans count input: `psCountDrafts` string-draft map so field clears freely (0 shows as empty; onBlur normalizes; `Number(n)` coercion in spawns unchanged).
+- Delete sub-mode: red hover ring (18px / zoom, #dc2626) drawn over hovered equipment markers to match polygon delete-hover affordance.
+
+### Architecture decisions locked this session
+
+- **spawns is a FUNCTION** `(value) => [{type, count}]`, not a static map — required so count-driven bath-fans can pass a numeric value.
+- **Worklist is DERIVED** (`deriveWorklist()`), never stored — fh-outstanding pattern. Only placed items are stored (completedShapesRef as shapeKind:'equipment-item').
+- **Placed equipment items store PIXELS** (single vertex); world meters re-derive through `pageVertexToWorld` — recalibration-independence (#22) confirmed in browser (marker stays pinned to PDF on rescale).
+- **Obligation kinds are an open/extensible set** (run/property/placement), switched on kind — not a baked enum. New kinds are data additions.
+- **Obligations are role-blind this build** — cross-trade tags ((plumber)/(electrician)/(envelope)) are descriptive label text only, not wired to §9 roles.
+- **Placement is editable via Edit Shapes** (move/delete) but excluded from polygon-only ops (insert/split/combine) via isEquipmentItem guards.
+
+### IMPORTANT field-model finding
+
+The CONFIG_FIELDS model has **separate** `space-heating` and `cooling` fields (NOT a combined heating-cooling field). "Ducted heat pump" = `space-heating` field, value `heat-pump-ducted`. This matters for:
+- Any future cooling-side spawn wiring (e.g., cooling='heat-pump' auto-derived from space-heating selection)
+- The heat-pump→cooling autofill item logged as ADDITIONAL_FUNCTIONALITY this session
+
 ---
 
 ## STANDING SESSION-START CHECKLIST (run every session, every fresh working tree)
