@@ -2730,6 +2730,7 @@ function App() {
     const draftRun = {
       id: nextShapeId(),
       shapeKind: 'run',
+      vertices: verts.map(v => makeVertex(v.x, v.y)),   // raw geometry; mirrors pointSlots[i].{x,y}
       pointSlots,
       spanSlots,
       pageId: currentPageId,
@@ -4274,7 +4275,9 @@ function App() {
       if (!obj || obj._version !== 1) { console.error('[fixture] invalid or missing _version field'); return }
 
       // 1. Restore all refs immediately (before any async work)
-      completedShapesRef.current   = obj.completedShapes   ?? []
+      // Drop any run shapes from pre-Build-1 fixtures that lack pointSlots (old shape).
+      const rawShapes = obj.completedShapes ?? []
+      completedShapesRef.current = rawShapes.filter(s => s.shapeKind !== 'run' || Array.isArray(s.pointSlots))
       pageScalesRef.current        = obj.pageScales        ?? {}
       pageGridOriginRef.current    = obj.pageGridOrigin    ?? {}
       pageIdMapRef.current         = obj.pageIdMap         ?? {}
