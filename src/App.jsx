@@ -4418,13 +4418,20 @@ function App() {
       if (!floorPages.length && !elevPages.length && !roofPages.length) console.warn('[world] no categorized floor-plan, elevation, or roof-plan pages found')
     }
 
-    // __dumpRuns(): slot-structure verification for §8.3 Build 1.
+    // __dumpRuns(): slot-structure + vertices invariant verification for §8.3 Build 1.
     window.__dumpRuns = () => {
       const runs = completedShapesRef.current.filter(r => r.shapeKind === 'run' && r.status === 'locked')
       if (!runs.length) { console.log('[runs] none placed'); return }
       for (const run of runs) {
         const cat = run.spanSlots?.[0]?.category ?? '(uncharacterized)'
+        const vertCount = run.vertices?.length ?? 'MISSING'
+        const slotCount = run.pointSlots?.length ?? 'MISSING'
+        const lenMatch = vertCount === slotCount ? 'MATCH' : `MISMATCH (vertices=${vertCount} slots=${slotCount})`
+        const posAgree = (typeof vertCount === 'number' && typeof slotCount === 'number' && vertCount === slotCount)
+          ? run.vertices.every((v, i) => v.x === run.pointSlots[i].x && v.y === run.pointSlots[i].y)
+          : false
         console.log(`[runs] ${run.id}  category=${cat}  page=${run.pageId}`)
+        console.log(`       vertCount=${vertCount}  slotCount=${slotCount}  ${lenMatch}  positions-agree=${posAgree}`)
         run.pointSlots.forEach((ps, i) => {
           const ref = ps.itemRef ? ` → ${ps.itemRef}` : ''
           console.log(`  [${i}] ${ps.id}  (${ps.x.toFixed(1)}, ${ps.y.toFixed(1)})${ref}`)
