@@ -337,6 +337,7 @@ function App() {
   // ── Project setup panel (§9 config layer, Piece 2) ──────────────────────────
   const [showProjectSetup, setShowProjectSetup] = useState(false)
   const [projectSetupTick, setProjectSetupTick] = useState(0)   // bumped on every setConfigValue write; forces re-render
+  const [psCountDrafts, setPsCountDrafts] = useState({})        // { [fieldId]: string } — raw text draft for kind:'count' inputs
   // ── §8.2 Worklist panel ──────────────────────────────────────────────────────
   const [showWorklist, setShowWorklist] = useState(false)
   const [worklistTick, setWorklistTick] = useState(0)           // bumped on every spawning config field write; forces re-render
@@ -1042,6 +1043,21 @@ function App() {
       })
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
       drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
+      // Hover ring for hovered equipment item in delete mode
+      if (hoverIdx !== null) {
+        const hs = completedShapesRef.current[hoverIdx]
+        if (hs && isEquipmentItem(hs) && hs.pageId === currentPageId) {
+          const v = hs.vertices[0]
+          if (v) {
+            const r = 18 / zoomRef.current
+            ctx.save()
+            ctx.beginPath(); ctx.arc(v.x, v.y, r, 0, Math.PI * 2)
+            ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3 / zoomRef.current; ctx.globalAlpha = 0.9
+            ctx.stroke()
+            ctx.restore()
+          }
+        }
+      }
       drawElevRefLines(ctx)
       return
     }
@@ -5384,8 +5400,16 @@ function App() {
                             min="0"
                             step="1"
                             className="ps-select ps-count-input"
-                            value={current ?? 0}
-                            onChange={e => setConfigValue(field.id, Math.max(0, parseInt(e.target.value) || 0))}
+                            value={psCountDrafts[field.id] ?? (current === 0 ? '' : String(current))}
+                            onChange={e => {
+                              const raw = e.target.value
+                              setPsCountDrafts(prev => ({ ...prev, [field.id]: raw }))
+                              setConfigValue(field.id, Math.max(0, parseInt(raw) || 0))
+                            }}
+                            onBlur={e => {
+                              const n = Math.max(0, parseInt(e.target.value) || 0)
+                              setPsCountDrafts(prev => ({ ...prev, [field.id]: n === 0 ? '' : String(n) }))
+                            }}
                           />
                         ) : field.multi ? (
                           <div className="ps-checkbox-group">
