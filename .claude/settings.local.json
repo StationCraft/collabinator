@@ -1,1 +1,10 @@
-{"permissions":{"defaultMode":"acceptEdits","allow":["Bash","PowerShell"]}}
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "PowerShell",
+      "mcp__Claude_Preview__preview_start"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}

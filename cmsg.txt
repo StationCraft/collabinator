@@ -1,0 +1,11 @@
+﻿§9 config layer Piece 3: output→roles derivation + role assignment UI
+
+OUTPUT_ROLES map and ROLE_LABELS const (module-level, plain data).
+getRequiredRoles(): pure computed function, unions OUTPUT_ROLES across selected outputs,
+ordered by ROLE_LABELS insertion order. Never stored.
+roleAssignments: {} added to projectSetupRef alongside values; reset on upload.
+getRoleAssignment / setRoleAssignment accessors; setRoleAssignment bumps projectSetupTick.
+Required Roles section in ps-panel: live-recomputed on every render; text input per role;
+unassigned roles show owner-fallback marker. Completes config-layer build (§9 Pieces 1-3).
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>

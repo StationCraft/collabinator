@@ -44,7 +44,7 @@ export default function ThreeDView({ wireframe, onClose }) {
 
     scene.add(new THREE.AxesHelper(0.5))
 
-    const { floorRings, roofRing, soffitLines = [], openingLines = [] } = wireframe
+    const { floorRings, roofRing, soffitLines = [], openingLines = [], runLines = [] } = wireframe
 
     // Track bounds to frame camera
     const box = new THREE.Box3()
@@ -108,6 +108,28 @@ export default function ThreeDView({ wireframe, onClose }) {
       scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xfb923c })))
     }
 
+    // Run lines: grey for uncharacterized, amber for lineset
+    if (runLines.length) {
+      const groups = {}
+      for (const seg of runLines) {
+        const key = seg.category ?? '__uncharacterized'
+        if (!groups[key]) groups[key] = []
+        groups[key].push(seg)
+      }
+      for (const [cat, segs] of Object.entries(groups)) {
+        const color = cat === '__uncharacterized' ? 0x9ca3af : cat === 'lineset' ? 0xf59e0b : 0x6b7280
+        const positions = []
+        for (const seg of segs) {
+          const a = toVec(seg.from.x, seg.from.y, seg.from.z ?? 0); expandBox(a)
+          const b = toVec(seg.to.x,   seg.to.y,   seg.to.z ?? 0);   expandBox(b)
+          positions.push(a.x, a.y, a.z, b.x, b.y, b.z)
+        }
+        const geo = new THREE.BufferGeometry()
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+        scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color })))
+      }
+    }
+
     // Frame camera to fit the wireframe
     if (!box.isEmpty()) {
       const center = new THREE.Vector3()
@@ -163,6 +185,8 @@ export default function ThreeDView({ wireframe, onClose }) {
         <span style={{ color: '#a78bfa', fontSize: '0.75rem' }}>■ roof</span>
         <span style={{ color: '#c084fc', fontSize: '0.75rem' }}>■ soffit</span>
         <span style={{ color: '#fb923c', fontSize: '0.75rem' }}>■ openings</span>
+        <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>■ run</span>
+        <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>■ lineset</span>
         <span style={{ color: '#64748b', fontSize: '0.7rem', marginLeft: 8 }}>drag to rotate · scroll to zoom · right-drag to pan</span>
         <button
           onClick={onClose}

@@ -39,6 +39,7 @@ export function drawLockedShapes(ctx, completedShapes, pageId) {
     .filter(s => s.pageId === pageId)
     .forEach(shape => {
       if (shape.shapeKind === 'grade-line') return
+      if (shape.shapeKind === 'run') return
       if (isOpening(shape)) return
       if (isEquipmentItem(shape)) return
       const verts = shape.vertices
@@ -145,6 +146,7 @@ export function drawGhostShapes(ctx, completedShapes, ghostPageId) {
     .filter(s => s.pageId === ghostPageId && s.status === 'locked')
     .forEach(shape => {
       if (shape.shapeKind === 'grade-line') return
+      if (shape.shapeKind === 'run') return
       if (isOpening(shape)) return
       if (isEquipmentItem(shape)) return
       const verts = shape.vertices
@@ -301,6 +303,38 @@ export function drawEquipmentItemShapes(ctx, completedShapes, pageId, zoom = 1) 
       ctx.fillText(initials, v.x, v.y)
       ctx.restore()
     })
+}
+
+// Run-path category colors (2D canvas). Uncharacterized = neutral grey.
+const RUN_CATEGORY_COLORS = {
+  lineset: '#f59e0b',  // amber — refrigerant line
+}
+
+// Draw all locked run paths for a page. Grey dashed = uncharacterized; solid amber = categorized.
+// Runs are open polylines; they never close and enclose no area.
+export function drawRunPaths(ctx, completedShapes, pageId) {
+  const runs = completedShapes.filter(s => s.pageId === pageId && s.shapeKind === 'run' && s.status === 'locked')
+  for (const run of runs) {
+    const verts = run.vertices
+    if (verts.length < 2) continue
+    const isCharacterized = !!run.category
+    const color = isCharacterized ? (RUN_CATEGORY_COLORS[run.category] ?? '#6b7280') : '#9ca3af'
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.lineWidth = isCharacterized ? 2.5 : 1.5
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+    if (!isCharacterized) ctx.setLineDash([6, 4])
+    ctx.beginPath()
+    ctx.moveTo(verts[0].x, verts[0].y)
+    for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.fillStyle = color
+    for (const v of [verts[0], verts[verts.length - 1]]) {
+      ctx.beginPath(); ctx.arc(v.x, v.y, 3, 0, Math.PI * 2); ctx.fill()
+    }
+    ctx.restore()
+  }
 }
 
 // Build a CSS transform string for a per-page PDF alignment transform.

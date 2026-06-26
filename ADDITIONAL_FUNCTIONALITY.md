@@ -929,6 +929,64 @@ stays as the fallback for the no-edge-set case.
 
 ---
 
+### 64. Run-path envelope-crossing detection
+**Category:** Run paths (§8.2 step 4 follow-on)
+**Logged:** Session 34 (§8.2 step 4 build), fenced per spec.
+**Description:** When a run path crosses the building envelope plane (e.g. an exhaust duct crossing
+a wall), the system should auto-detect the crossing and either prompt for a penetration element or
+auto-spawn a run representing the penetration. This is the "envelope-interaction engine" discussed
+in the vision supplement — it requires run path geometry to be intersected against wall polygon
+edges in world space.
+**Why deferred:** Requires world-space geometry intersection engine not yet built. Sequenced after
+the full run-path model is verified in the browser.
+**Status:** Deferred. Do not build until run paths are complete and browser-verified.
+
+---
+
+### 65. Multi-hop cascade (run obligations spawning further obligations)
+**Category:** Run paths (§8.2 step 4 follow-on)
+**Logged:** Session 34 (§8.2 step 4 build), fenced per spec.
+**Description:** A characterized run (e.g. a lineset) might spawn further obligations — e.g. a
+lineset endpoint obligates a refrigerant line access panel. This is a multi-hop cascade where
+satisfying one obligation creates a new one.
+**Why deferred:** Requires extension to RUN_PAIR_MAP + obligation cascade engine. The current
+obligation model is strictly two-sided (pair of placed items). Multi-hop is a new layer on top.
+**Status:** Deferred. Keep RUN_PAIR_MAP data-additive; the engine change is self-contained.
+
+---
+
+### 66. Run-path slope / drops / per-vertex Z
+**Category:** Run paths (§8.2 step 4 follow-on)
+**Logged:** Session 34 (§8.2 step 4 build), fenced per spec.
+**Description:** Real MEP runs slope (condensate drains, exhaust ducts). Per-vertex Z and slope
+calculation would require either: (a) Z-entry per vertex from a cross-section page, or (b) rule-
+based slope inference from endpoint elevations. Current model uses a single scalar Z from the page
+level — correct for v1 horizontal runs.
+**Why deferred:** No coordinate seam for per-vertex Z on plan-page geometry at this phase. R3
+adds z to makeVertex; that is the correct entry point.
+**Status:** Deferred to R3 / Phase 2.
+
+---
+
+### 67. Run-path conflict / clearance checks
+**Category:** Run paths (§8.2 step 4 follow-on)
+**Logged:** Session 34 (§8.2 step 4 build), fenced per spec.
+**Description:** Checking whether runs conflict with structural members, other runs, or envelope
+elements. Requires world-space 3D proximity engine.
+**Status:** Deferred to Phase 2.
+
+---
+
+### 68. Run-path role-wiring (trade tags on runs)
+**Category:** Run paths (§8.2 step 4 follow-on)
+**Logged:** Session 34 (§8.2 step 4 build), fenced per spec.
+**Description:** Associating a trade role (electrician, plumber, HVAC) with each run category,
+and surfacing this in the project-setup role panel. Currently run categories appear in the
+worklist but are not wired to the §9 role layer.
+**Status:** Deferred. Wire RUN_PAIR_MAP.category → OUTPUT_ROLES when roles layer is extended.
+
+---
+
 ## Review checkpoints
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass

@@ -9,7 +9,7 @@ import {
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -239,6 +239,31 @@ const ITEM_TYPES = [
   },
 ]
 
+// ── §8.2 step 4: Run-path pair→category map ─────────────────────────────────
+// Keyed on the unordered pair of the two endpoint item-types. The category is
+// assigned to the run when both ends connect. satisfies[] names the obligation ids
+// on each endpoint item that this run satisfies (read from ITEM_TYPES above).
+// Adding a new run type = one new row here; no engine change (principle 5.3).
+const RUN_PAIR_MAP = [
+  {
+    pair: ['air-handler', 'outdoor-unit'],
+    category: 'lineset',
+    satisfies: [
+      { itemType: 'air-handler',  obligationId: 'lineset-endpoint' },
+      { itemType: 'outdoor-unit', obligationId: 'lineset-to-handler' },
+    ],
+  },
+]
+
+// Resolve the pair→category map entry for an unordered pair of item-types.
+// Returns the matching entry or null if the pair is not in the map.
+function resolveRunPairEntry(typeA, typeB) {
+  return RUN_PAIR_MAP.find(e => {
+    const [p0, p1] = e.pair
+    return (typeA === p0 && typeB === p1) || (typeA === p1 && typeB === p0)
+  }) ?? null
+}
+
 // ── §3 Output→roles derivation map (coarse starter set; add entries to extend) ──
 const OUTPUT_ROLES = {
   'f280':       ['hvac-designer', 'energy-advisor'],
@@ -287,6 +312,7 @@ function App() {
   const [showGradeLinePrompt, setShowGradeLinePrompt] = useState(false)  // "Trace grade line?" Q shown during polygon review
   const [gradeLinePending, setGradeLinePending] = useState(false)         // user answered Yes; start grade-line mode after polygon confirm
   const [gradeLineDrawing, setGradeLineDrawing] = useState(false)         // actively tracing the grade line
+  const [runDrawing, setRunDrawing] = useState(false)                     // actively tracing a run path
   // Bound wall-vertex identities for first + last grade-line endpoint (piece 2, A1 strict).
 
   // ── Opening placement (windows/doors, Pieces 1+2) ────────────────────────────
@@ -502,6 +528,7 @@ function App() {
   const drawStartSnapRef = useRef(null)
   const gradeEndSnapRef = useRef(null)       // wall-vertex snap for the last grade-line vertex
   const gradeFloorLineSnapRef = useRef(null) // lowest-floor reference-line snap {x,y} (2c)
+  const runItemSnapRef = useRef(null)        // live equipment-item snap during run-path draw (visual only)
 
   // ── Zoom / pan ────────────────────────────────────────────────────────────
   const MIN_ZOOM = 0.1
@@ -591,6 +618,7 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
+    setRunDrawing(false); runItemSnapRef.current = null
     gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
     setOpeningDraftKind('window'); setOpeningDraftType(OPENING_TYPES[0]); setOpeningDraftLabel('')
@@ -645,6 +673,7 @@ function App() {
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
+    setRunDrawing(false); runItemSnapRef.current = null
     gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
     setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
@@ -776,6 +805,7 @@ function App() {
   const nextShapeId = () => `sh-${shapeIdCounterRef.current++}`
   const isOpening = (s) => s.shapeKind === 'window' || s.shapeKind === 'door'
   const isEquipmentItem = (s) => s.shapeKind === 'equipment-item'
+  const isRun = (s) => s.shapeKind === 'run'
 
   const ONE_INCH_M = 0.0254
   const saveAndDefaultSnapIncrement = () => {
@@ -794,6 +824,7 @@ function App() {
   const exitDrawMode = () => {
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
+    setRunDrawing(false); runItemSnapRef.current = null
     drawVerticesRef.current = []; setDrawVertexCount(0)
     mousePosRef.current = null; drawStartSnapRef.current = null; gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     snapIncrementRef.current = 0.1524; setSnapIncrement(0.1524)
@@ -814,6 +845,84 @@ function App() {
         ? s.vertices.map((v, vertIdx) => ({ x: v.x, y: v.y, shapeIdx, vertIdx }))
         : []
     )
+
+  // ── Run-path helpers (§8.2 step 4) ──────────────────────────────────────────
+
+  // Find the equipment item (if any) within EQUIP_HIT_RADIUS of pos on the current page.
+  // Used during run draw mousemove for the live visual snap indicator.
+  const findEquipSnapTarget = (pos) => {
+    const EQUIP_HIT_RADIUS = 14
+    const shapes = completedShapesRef.current
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const s = shapes[i]
+      if (!isEquipmentItem(s) || s.pageId !== currentPageId) continue
+      const v = s.vertices[0]
+      if (v && Math.hypot(pos.x - v.x, pos.y - v.y) <= EQUIP_HIT_RADIUS) return s
+    }
+    return null
+  }
+
+  // Given a new (uncommitted) run and the current shapes array, characterize the run if its
+  // endpoint items are in the pair→category map, writing satisfaction into both endpoint items.
+  // Returns { run: finalRun, updatedShapes } — immutable, no mutation of inputs.
+  const buildCharacterizedRun = (run, currentShapes) => {
+    const EQUIP_HIT_RADIUS = 14
+    const verts = run.vertices
+    if (verts.length < 2) return { run, updatedShapes: currentShapes }
+    const findItemAtVertex = (v) => {
+      for (let i = currentShapes.length - 1; i >= 0; i--) {
+        const s = currentShapes[i]
+        if (!isEquipmentItem(s) || s.pageId !== run.pageId) continue
+        const iv = s.vertices[0]
+        if (iv && Math.hypot(v.x - iv.x, v.y - iv.y) <= EQUIP_HIT_RADIUS) return s
+      }
+      return null
+    }
+    const startItem = findItemAtVertex(verts[0])
+    const endItem   = findItemAtVertex(verts[verts.length - 1])
+    const startId = startItem ? startItem.id : null
+    const endId   = endItem   ? endItem.id   : null
+    const entry = (startItem && endItem)
+      ? resolveRunPairEntry(startItem.itemType, endItem.itemType)
+      : null
+    const finalRun = { ...run, endpointItems: { start: startId, end: endId }, category: entry ? entry.category : null }
+    if (!entry) return { run: finalRun, updatedShapes: currentShapes }
+    // Write satisfaction into both endpoint items
+    const updatedShapes = currentShapes.map(s => {
+      if (!isEquipmentItem(s)) return s
+      if (s.id !== startId && s.id !== endId) return s
+      let newObState = null
+      for (const { itemType, obligationId } of entry.satisfies) {
+        if (s.itemType === itemType) {
+          if (!newObState) newObState = { ...(s.obligationState || {}) }
+          newObState[obligationId] = finalRun.id
+        }
+      }
+      return newObState ? { ...s, obligationState: newObState } : s
+    })
+    return { run: finalRun, updatedShapes }
+  }
+
+  // Reverse the satisfaction a characterized run wrote to its endpoint items.
+  // Accepts the shapes array to mutate-immutably. Returns updated shapes.
+  const clearRunSatisfaction = (run, currentShapes) => {
+    if (!run.category) return currentShapes
+    const entry = RUN_PAIR_MAP.find(e => e.category === run.category)
+    if (!entry) return currentShapes
+    const { start, end } = run.endpointItems || {}
+    return currentShapes.map(s => {
+      if (!isEquipmentItem(s)) return s
+      if (s.id !== start && s.id !== end) return s
+      let newObState = null
+      for (const { itemType, obligationId } of entry.satisfies) {
+        if (s.itemType === itemType && (s.obligationState || {})[obligationId] === run.id) {
+          if (!newObState) newObState = { ...(s.obligationState || {}) }
+          newObState[obligationId] = null
+        }
+      }
+      return newObState ? { ...s, obligationState: newObState } : s
+    })
+  }
 
   // Returns the canvas-pixel Y of the lowest-floor reference line for the current elevation page,
   // or null if the gate (edge + scale + fhZStack) is not met. Same formula as drawElevRefLines.
@@ -965,6 +1074,7 @@ function App() {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
         if (isEquipmentItem(shape)) return
+        if (isRun(shape)) return
         ctx.save()
         const isDragged = drag && drag.shapeIdx === idx
         const verts = isDragged && drag.previewVerts ? drag.previewVerts : shape.vertices
@@ -974,6 +1084,7 @@ function App() {
         ctx.restore()
       })
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+      drawRunPaths(ctx, completedShapesRef.current, currentPageId)
       // Equipment items in move mode: apply drag preview to the moved item
       const eqMoveShapes = completedShapesRef.current.map((s, idx) => {
         if (!isEquipmentItem(s)) return s
@@ -998,6 +1109,7 @@ function App() {
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isRun(shape)) return
         if (isEquipmentItem(shape)) return
         ctx.save()
         if (isOpening(shape)) { ctx.globalAlpha = 0.3 } // openings not eligible; dim them
@@ -1017,6 +1129,7 @@ function App() {
         }
       }
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+      drawRunPaths(ctx, completedShapesRef.current, currentPageId)
       drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
       drawElevRefLines(ctx)
       return
@@ -1034,6 +1147,7 @@ function App() {
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isRun(shape)) return
         if (isEquipmentItem(shape)) return
         ctx.save()
         const style = idx === hoverIdx ? 'hover' : 'normal'
@@ -1042,6 +1156,7 @@ function App() {
         ctx.restore()
       })
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+      drawRunPaths(ctx, completedShapesRef.current, currentPageId)
       drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
       // Hover ring for hovered equipment item in delete mode
       if (hoverIdx !== null) {
@@ -1075,6 +1190,7 @@ function App() {
       completedShapesRef.current.forEach((shape, idx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isRun(shape)) return
         if (isEquipmentItem(shape)) return
         ctx.save()
         if (isOpening(shape)) { ctx.globalAlpha = 0.3; drawOpeningPoly(ctx, shape.vertices, 'normal'); ctx.restore(); return }
@@ -1098,6 +1214,7 @@ function App() {
         })
       }
       drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+      drawRunPaths(ctx, completedShapesRef.current, currentPageId)
       drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
       drawElevRefLines(ctx)
       return
@@ -1114,6 +1231,7 @@ function App() {
       .forEach((shape, shapeIdx) => {
         if (shape.pageId !== currentPageId) return
         if (shape.shapeKind === 'grade-line') return
+        if (isRun(shape)) return
         if (isEquipmentItem(shape)) return
         const verts = (previewOverride && previewOverride.shapeIdx === shapeIdx)
           ? previewOverride.vertices : shape.vertices
@@ -1173,6 +1291,7 @@ function App() {
       })
 
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+    drawRunPaths(ctx, completedShapesRef.current, currentPageId)
     drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
     drawElevRefLines(ctx)
   }
@@ -1207,6 +1326,7 @@ function App() {
     completedShapesRef.current.forEach((shape, shapeIdx) => {
       if (shape.pageId !== currentPageId) return
       if (isEquipmentItem(shape)) return
+      if (isRun(shape)) return
       shape.vertices.forEach((v, vertIdx) => {
         const d = Math.hypot(pos.x - v.x, pos.y - v.y)
         if (d < bestDist) { bestDist = d; best = { shapeIdx, vertIdx } }
@@ -1221,6 +1341,7 @@ function App() {
       if (shape.pageId !== currentPageId) return
       if (shape.shapeKind === 'grade-line') return
       if (isEquipmentItem(shape)) return
+      if (isRun(shape)) return
       const verts = shape.vertices
       for (let segIdx = 0; segIdx < verts.length; segIdx++) {
         const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
@@ -1240,10 +1361,20 @@ function App() {
       const v = shapes[i].vertices[0]
       if (v && Math.hypot(pos.x - v.x, pos.y - v.y) <= EQUIP_HIT_RADIUS) return i
     }
+    // Runs: segment proximity (open polylines have no body to hit-test via pointInPolygon)
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      if (!isRun(shapes[i])) continue
+      if (shapes[i].pageId !== currentPageId) continue
+      const verts = shapes[i].vertices
+      for (let j = 0; j < verts.length - 1; j++) {
+        if (distToSegment(pos, verts[j], verts[j + 1]) <= HIT_SEG_DIST) return i
+      }
+    }
     // Polygons and openings: pointInPolygon
     for (let i = shapes.length - 1; i >= 0; i--) {
       if (shapes[i].shapeKind === 'grade-line') continue
       if (isEquipmentItem(shapes[i])) continue
+      if (isRun(shapes[i])) continue
       if (shapes[i].pageId === currentPageId && pointInPolygon(pos, shapes[i].vertices)) return i
     }
     return null
@@ -1879,12 +2010,43 @@ function App() {
         const pos = getCanvasPos(e)
         const idx = hitTestShapeBody(pos)
         if (idx !== null) {
-          const wasEquipment = isEquipmentItem(completedShapesRef.current[idx])
+          const target = completedShapesRef.current[idx]
+          const wasEquipment = isEquipmentItem(target)
+          const wasRun = isRun(target)
           pushUndo()
-          completedShapesRef.current = completedShapesRef.current.filter((_, i) => i !== idx)
+          let shapes = completedShapesRef.current
+          if (wasRun && target.category) {
+            // Reverse satisfaction on both endpoint items before removing the run
+            shapes = clearRunSatisfaction(target, shapes)
+          }
+          if (wasEquipment) {
+            // Reverse characterization of any runs on this page that connected to this item
+            const deletedId = target.id
+            shapes = shapes.map(s => {
+              if (!isRun(s) || s.pageId !== currentPageId) return s
+              if (s.endpointItems?.start !== deletedId && s.endpointItems?.end !== deletedId) return s
+              if (!s.category) return { ...s, endpointItems: { start: s.endpointItems.start === deletedId ? null : s.endpointItems.start, end: s.endpointItems.end === deletedId ? null : s.endpointItems.end } }
+              // Clear satisfaction on the surviving endpoint before losing characterization
+              const entry = RUN_PAIR_MAP.find(e => e.category === s.category)
+              const survivingId = s.endpointItems.start === deletedId ? s.endpointItems.end : s.endpointItems.start
+              if (entry && survivingId) {
+                const survivor = shapes.find(sh => sh.id === survivingId && isEquipmentItem(sh))
+                if (survivor) {
+                  // Handled via clearRunSatisfaction below; just null category + endpoint
+                }
+              }
+              return { ...s, category: null, endpointItems: { start: s.endpointItems.start === deletedId ? null : s.endpointItems.start, end: s.endpointItems.end === deletedId ? null : s.endpointItems.end } }
+            })
+            // Clear satisfaction on surviving endpoints for runs that were characterized
+            const runsAffected = completedShapesRef.current.filter(s => isRun(s) && s.pageId === currentPageId && s.category && (s.endpointItems?.start === deletedId || s.endpointItems?.end === deletedId))
+            for (const r of runsAffected) {
+              shapes = clearRunSatisfaction(r, shapes)
+            }
+          }
+          completedShapesRef.current = shapes.filter((_, i) => i !== idx)
           deleteHoverIdxRef.current = null
           setEditCursor('default')
-          if (wasEquipment) setWorklistTick(t => t + 1)
+          if (wasEquipment || wasRun) setWorklistTick(t => t + 1)
           drawEditCanvas()
         }
         return
@@ -1904,7 +2066,7 @@ function App() {
     } else if (drawMode && !reviewShape) {
       const rawPos = getCanvasPos(e)
       const verts = drawVerticesRef.current
-      if (verts.length >= 3 && !gradeLineDrawing) {
+      if (verts.length >= 3 && !gradeLineDrawing && !runDrawing) {
         const first = verts[0]
         const dx = rawPos.x - first.x, dy = rawPos.y - first.y
         if (Math.sqrt(dx * dx + dy * dy) <= CLOSE_SNAP_RADIUS) {
@@ -1924,15 +2086,25 @@ function App() {
       let finalPos
       if (verts.length === 0) {
         const snapHit = !e.shiftKey && drawStartSnapRef.current
-        const floorLineSnap0 = !snapHit && gradeLineDrawing && gradeFloorLineSnapRef.current
+        const runItemSnap0 = !snapHit && runDrawing && !e.shiftKey && runItemSnapRef.current
+        const floorLineSnap0 = !snapHit && !runItemSnap0 && gradeLineDrawing && gradeFloorLineSnapRef.current
         finalPos = snapHit
           ? { x: snapHit.x, y: snapHit.y }
-          : floorLineSnap0
-            ? { x: floorLineSnap0.x, y: floorLineSnap0.y }
-            : snapToGrid(rawPos, currentPageId)
+          : runItemSnap0
+            ? { x: runItemSnap0.vertices[0].x, y: runItemSnap0.vertices[0].y }
+            : floorLineSnap0
+              ? { x: floorLineSnap0.x, y: floorLineSnap0.y }
+              : snapToGrid(rawPos, currentPageId)
         drawStartSnapRef.current = null
+        runItemSnapRef.current = null
         gradeFloorLineSnapRef.current = null
       } else {
+        // Run-path: snap to equipment item position if close, else normal grid snap.
+        if (runDrawing) {
+          const itemSnap = !e.shiftKey && runItemSnapRef.current
+          finalPos = itemSnap ? { x: itemSnap.vertices[0].x, y: itemSnap.vertices[0].y } : (function(){ const { pos } = computeFinalSnapPos(rawPos, verts, useAngleNow, snapDist, currentPageId); return pos }())
+          runItemSnapRef.current = null
+        } else
         // Grade-line: snap to wall corner or floor line affects vertex POSITION only (no binding).
         if (gradeLineDrawing) {
           const endSnap = !e.shiftKey && gradeEndSnapRef.current
@@ -2240,6 +2412,7 @@ function App() {
         drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
         drawOpeningShapes(ctx, completedShapesRef.current, currentPageId)
         drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+        drawRunPaths(ctx, completedShapesRef.current, currentPageId)
         drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
         drawElevRefLines(ctx)
         const snapped = applySnap(pos, openingCorner1, false, snapDist, currentPageId)
@@ -2257,7 +2430,7 @@ function App() {
       // During grade-line drawing: use wall-only snap (with identity) on both
       // first vertex AND every subsequent vertex (the last placed will be end-bound).
       if (drawVerticesRef.current.length === 0) {
-        if (!e.shiftKey) {
+        if (!e.shiftKey && !runDrawing) {
           const candidates = gradeLineDrawing
             ? getWallVerticesWithId(currentPageId)
             : getVisibleVertices(currentPageId)
@@ -2270,6 +2443,10 @@ function App() {
         } else {
           drawStartSnapRef.current = null
         }
+      }
+      // Run-path: track equipment-item snap on every move for the live purple ring.
+      if (runDrawing) {
+        runItemSnapRef.current = findEquipSnapTarget(pos) || null
       }
       // Grade-line: also track wall snap for subsequent (end) vertices.
       if (gradeLineDrawing && drawVerticesRef.current.length >= 1) {
@@ -2360,6 +2537,7 @@ function App() {
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
     drawOpeningShapes(ctx, completedShapesRef.current, pageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, pageId)
+    drawRunPaths(ctx, completedShapesRef.current, pageId)
     drawEquipmentItemShapes(ctx, completedShapesRef.current, pageId, zoomRef.current)
 
     // Start-vertex snap highlight: pre-first-vertex window only
@@ -2382,6 +2560,14 @@ function App() {
       ctx.beginPath(); ctx.arc(sv.x, sv.y, 9, 0, Math.PI * 2)
       ctx.fillStyle = '#dc2626'; ctx.fill()
       ctx.strokeStyle = 'white'; ctx.lineWidth = 2.5; ctx.stroke()
+    }
+    // Run-path: purple ring on live equipment-item snap target.
+    if (runDrawing && mousePos && runItemSnapRef.current) {
+      const sv = runItemSnapRef.current.vertices[0]
+      if (sv) {
+        ctx.beginPath(); ctx.arc(sv.x, sv.y, 14, 0, Math.PI * 2)
+        ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2.5; ctx.stroke()
+      }
     }
 
     if (vertices.length >= 2) {
@@ -2449,6 +2635,7 @@ function App() {
     drawLockedShapes(ctx, completedShapesRef.current, pageId)
     drawOpeningShapes(ctx, completedShapesRef.current, pageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, pageId)
+    drawRunPaths(ctx, completedShapesRef.current, pageId)
     drawEquipmentItemShapes(ctx, completedShapesRef.current, pageId, zoomRef.current)
     const verts = shape.vertices
     ctx.beginPath(); ctx.moveTo(verts[0].x, verts[0].y)
@@ -2481,6 +2668,7 @@ function App() {
       drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawOpeningShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
+      drawRunPaths(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawEquipmentItemShapes(ctx2, completedShapesRef.current, getPageId(currentPage), zoomRef.current)
     }
     if (pendingGrade) {
@@ -2514,6 +2702,28 @@ function App() {
     drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
     setGradeLineDrawing(false)
     gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
+    redrawDrawCanvas(null, [], snapAngle, snapDist, currentPageId)
+  }
+
+  // Commit the in-progress run path. Characterizes automatically by proximity to endpoint items.
+  const commitRun = () => {
+    const verts = drawVerticesRef.current
+    if (verts.length < 2) return
+    const draftRun = {
+      id: nextShapeId(),
+      shapeKind: 'run',
+      vertices: verts.map(v => makeVertex(v.x, v.y)),
+      pageId: currentPageId,
+      status: 'locked',
+      endpointItems: { start: null, end: null },
+      category: null,
+    }
+    const { run: finalRun, updatedShapes } = buildCharacterizedRun(draftRun, completedShapesRef.current)
+    completedShapesRef.current = [...updatedShapes, finalRun]
+    drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
+    runItemSnapRef.current = null
+    setRunDrawing(false)
+    setWorklistTick(t => t + 1)
     redrawDrawCanvas(null, [], snapAngle, snapDist, currentPageId)
   }
 
@@ -2621,6 +2831,7 @@ function App() {
       drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawOpeningShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
+      drawRunPaths(ctx2, completedShapesRef.current, getPageId(currentPage))
       drawEquipmentItemShapes(ctx2, completedShapesRef.current, getPageId(currentPage), zoomRef.current)
     }
   }
@@ -2801,6 +3012,7 @@ function App() {
     ctx.clearRect(0, 0, c.width, c.height)
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+    drawRunPaths(ctx, completedShapesRef.current, currentPageId)
     drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
     drawPerimRoles(ctx)
     const graph = roofGraphRef.current
@@ -2846,6 +3058,7 @@ function App() {
     ctx.clearRect(0, 0, c.width, c.height)
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+    drawRunPaths(ctx, completedShapesRef.current, currentPageId)
     drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
     drawPerimRoles(ctx)
     const graph = roofGraphRef.current
@@ -3073,6 +3286,7 @@ function App() {
     drawLockedShapes(ctx, completedShapesRef.current, currentPageId)
     drawOpeningShapes(ctx, completedShapesRef.current, currentPageId)
     drawGradeLineShapes(ctx, completedShapesRef.current, currentPageId)
+    drawRunPaths(ctx, completedShapesRef.current, currentPageId)
     drawEquipmentItemShapes(ctx, completedShapesRef.current, currentPageId, zoomRef.current)
     const seg = resolveFrontFaceSegment()
     if (seg && frontFace && frontFace.pageId === currentPageId) {
@@ -3210,6 +3424,9 @@ function App() {
             exitSubMode()
           } else exitEditMode()
         }
+      }
+      if (runDrawing && e.key === 'Enter') {
+        if (drawVerticesRef.current.length >= 2) commitRun(); return
       }
       if (gradeLineDrawing && e.key === 'Enter') {
         commitGradeLine(); return
@@ -3780,7 +3997,7 @@ function App() {
   // Roof Z assumption: ceilingZ of the highest floor level (slope Z deferred, #18).
   const deriveWireframe = () => {
     const origin = getWorldOriginM()
-    if (!origin) return { floorRings: [], roofRing: null }
+    if (!origin) return { floorRings: [], roofRing: null, soffitLines: [], openingLines: [], runLines: [] }
 
     const presentLevels = FLOOR_ORDER.filter(level =>
       pages.some(p => p.category === 'floor-plan' && p.subLabel === level)
@@ -3956,7 +4173,37 @@ function App() {
       }
     }
 
-    return { floorRings, roofRing, soffitLines, openingLines }
+    // ── Run lines ────────────────────────────────────────────────────────────
+    // One segment per consecutive vertex pair per run. Z is scalar from the page's
+    // floor level (or roofZFallback for roof-plan pages); no per-vertex Z.
+    // Both characterized and uncharacterized runs appear.
+    const runLines = []
+    for (const run of completedShapesRef.current) {
+      if (run.shapeKind !== 'run' || run.status !== 'locked' || run.vertices.length < 2) continue
+      const page = pages.find(p => p.pageId === run.pageId)
+      if (!page) continue
+      // Resolve scalar Z for the run's page
+      let runZ = null
+      if (page.category === 'floor-plan' && page.subLabel) {
+        const row = zStack.find(r => r.level === page.subLabel)
+        if (row?.floorZ != null) runZ = row.floorZ * 0.3048
+      } else if (page.category === 'roof-plan') {
+        runZ = roofZFallback
+      }
+      for (let i = 0; i < run.vertices.length - 1; i++) {
+        const wA = pageVertexToWorld(run.vertices[i], run.pageId)
+        const wB = pageVertexToWorld(run.vertices[i + 1], run.pageId)
+        if (!wA || !wB) continue
+        runLines.push({
+          id: run.id,
+          category: run.category ?? null,
+          from: { x: wA.x, y: wA.y, z: runZ },
+          to:   { x: wB.x, y: wB.y, z: runZ },
+        })
+      }
+    }
+
+    return { floorRings, roofRing, soffitLines, openingLines, runLines }
   }
 
   // ── Dev fixture: snapshot / restore (DEV only) ───────────────────────────
@@ -4815,6 +5062,7 @@ function App() {
                 drawLockedShapes(ctx2, completedShapesRef.current, currentPageId)
                 drawOpeningShapes(ctx2, completedShapesRef.current, currentPageId)
                 drawGradeLineShapes(ctx2, completedShapesRef.current, currentPageId)
+                drawRunPaths(ctx2, completedShapesRef.current, currentPageId)
                 drawEquipmentItemShapes(ctx2, completedShapesRef.current, currentPageId, zoomRef.current)
               }
               drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
@@ -4823,6 +5071,19 @@ function App() {
             }}
           >
             Redraw grade line
+          </button>
+        )}
+
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isPlanOrRoofPage && !placingOpeningMode && pageHasScale && (
+          <button
+            className="snap-btn"
+            onClick={() => {
+              drawVerticesRef.current = []; setDrawVertexCount(0); mousePosRef.current = null
+              setDrawMode(true)
+              setRunDrawing(true)
+            }}
+          >
+            Draw run
           </button>
         )}
 
@@ -4984,7 +5245,13 @@ function App() {
                     </>
                   ) : null
                 })()}
-                {gradeLineDrawing ? (() => {
+                {runDrawing ? (
+                  <>
+                    <span className="review-status">Run path — click to trace · Z to undo · Enter or Finish when done</span>
+                    <button className="btn-primary" onClick={commitRun} disabled={drawVertexCount < 2}>Finish run</button>
+                    <button className="calib-cancel" onClick={exitDrawMode}>Cancel</button>
+                  </>
+                ) : gradeLineDrawing ? (() => {
                   return (
                     <>
                       <span className="review-status">Grade line — click to trace · Z to undo · Enter or Finish when done</span>
@@ -5786,8 +6053,13 @@ function App() {
                       <div key={key} className="wl-oblig-group">
                         <div className="wl-oblig-group-label">{g.itemLabel} <span style={{ opacity: 0.55, fontWeight: 400 }}>({g.instanceKey})</span></div>
                         {g.obs.map(ob => (
-                          <div key={ob.id} className={`wl-oblig-row${ob.blocked ? ' wl-oblig-row--blocked' : ''}`}>
-                            {ob.blocked ? (
+                          <div key={ob.id} className={`wl-oblig-row${ob.blocked && !ob.satisfiedValue ? ' wl-oblig-row--blocked' : ''}`}>
+                            {ob.kind === 'run' && ob.satisfiedValue !== null ? (
+                              <>
+                                <span className="wl-oblig-label">{ob.label}</span>
+                                <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.78rem' }}>✓ Connected</span>
+                              </>
+                            ) : ob.blocked ? (
                               <>
                                 <span className="wl-lock">🔒</span>
                                 <span className="wl-oblig-label">{ob.label}</span>
