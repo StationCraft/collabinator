@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
@@ -23,10 +23,19 @@ function addLineLoop(scene, pts3, color) {
 
 export default function ThreeDView({ wireframe, onClose }) {
   const mountRef = useRef(null)
+  const [showSolids, setShowSolids] = useState(true)
+  // Stable refs so the solid-toggle effect can find the meshes without re-running the scene setup.
+  const solidMeshesRef = useRef([])
 
+  // ── Main scene effect: runs only when wireframe changes.
+  // Builds scene, adds ALL meshes (including solid meshes), sets up camera once.
+  // Solid meshes are stored in solidMeshesRef so the toggle effect can flip .visible
+  // without touching the camera or controls.
   useEffect(() => {
     const el = mountRef.current
     if (!el) return
+
+    solidMeshesRef.current = []   // reset on each wireframe rebuild
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x0f172a)
@@ -44,7 +53,7 @@ export default function ThreeDView({ wireframe, onClose }) {
 
     scene.add(new THREE.AxesHelper(0.5))
 
-    const { floorRings, roofRing, soffitLines = [], openingLines = [], runLines = [] } = wireframe
+    const { floorRings, roofRing, soffitLines = [], openingLines = [], runLines = [], solids = [] } = wireframe
 
     // Track bounds to frame camera
     const box = new THREE.Box3()
@@ -130,7 +139,67 @@ export default function ThreeDView({ wireframe, onClose }) {
       }
     }
 
-    // Frame camera to fit the wireframe
+    // §8.3 Build 2: Solid meshes. All solid meshes are added here (visible = showSolids initial value)
+    // and stored in solidMeshesRef. The toggle effect flips .visible without touching the camera.
+    if (solids.length) {
+      const yAxis = new THREE.Vector3(0, 1, 0)
+      for (const solid of solids) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: solid.color,
+          transparent: true,
+          opacity: 0.45,
+          side: THREE.DoubleSide,
+        })
+
+        let mesh = null
+
+        if (solid.kind === 'cylinder' || solid.kind === 'box-swept') {
+          const from3 = toVec(solid.from.x, solid.from.y, solid.from.z ?? 0)
+          const to3   = toVec(solid.to.x,   solid.to.y,   solid.to.z ?? 0)
+          const dir = new THREE.Vector3().subVectors(to3, from3)
+          const length = dir.length()
+
+          if (import.meta.env.DEV) {
+            console.log(`[solids] ${solid.id}  kind=${solid.kind}  radiusM=${solid.radiusM ?? 'n/a'}  length=${length.toFixed(4)}m`)
+          }
+
+          if (length < 0.001) { mat.dispose(); continue }
+          const mid = new THREE.Vector3().addVectors(from3, to3).multiplyScalar(0.5)
+          dir.normalize()
+
+          let geo
+          if (solid.kind === 'cylinder') {
+            geo = new THREE.CylinderGeometry(solid.radiusM, solid.radiusM, length, 8)
+          } else {
+            geo = new THREE.BoxGeometry(solid.widthM, length, solid.heightM)
+          }
+          mesh = new THREE.Mesh(geo, mat)
+          mesh.position.copy(mid)
+          // Rotate from default Y-axis to the from→to direction
+          const q = new THREE.Quaternion().setFromUnitVectors(yAxis, dir)
+          mesh.quaternion.copy(q)
+          expandBox(mid)
+
+        } else if (solid.kind === 'block') {
+          const ctr = toVec(solid.center.x, solid.center.y, solid.center.z ?? 0)
+          // BoxGeometry: wM (world X) × hM (world Z → THREE Y) × dM (world Y → THREE Z)
+          const geo = new THREE.BoxGeometry(solid.wM, solid.hM, solid.dM)
+          mesh = new THREE.Mesh(geo, mat)
+          mesh.position.copy(ctr)
+          expandBox(ctr)
+        } else {
+          mat.dispose()
+        }
+
+        if (mesh) {
+          mesh.visible = showSolids
+          scene.add(mesh)
+          solidMeshesRef.current.push(mesh)
+        }
+      }
+    }
+
+    // Frame camera to fit the wireframe (runs once per wireframe change, never on toggle)
     if (!box.isEmpty()) {
       const center = new THREE.Vector3()
       box.getCenter(center)
@@ -173,11 +242,19 @@ export default function ThreeDView({ wireframe, onClose }) {
         if (obj.material) obj.material.dispose()
       })
     }
-  }, [wireframe])
+  }, [wireframe])  // ← wireframe only; showSolids handled by the effect below
+
+  // ── Solids toggle effect: only flips .visible on existing solid meshes.
+  // Camera, controls, and all other scene objects are completely untouched.
+  useEffect(() => {
+    for (const mesh of solidMeshesRef.current) {
+      mesh.visible = showSolids
+    }
+  }, [showSolids])
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 16px', background: '#1e293b', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 16px', background: '#1e293b', flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.9rem' }}>3D Wireframe</span>
         <span style={{ color: '#22d3ee', fontSize: '0.75rem' }}>■ floor</span>
         <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>■ ceiling</span>
@@ -187,6 +264,21 @@ export default function ThreeDView({ wireframe, onClose }) {
         <span style={{ color: '#fb923c', fontSize: '0.75rem' }}>■ openings</span>
         <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>■ run</span>
         <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>■ lineset</span>
+        <span style={{ color: '#8b5cf6', fontSize: '0.75rem' }}>■ equipment</span>
+        <button
+          onClick={() => setShowSolids(s => !s)}
+          style={{
+            background: showSolids ? '#334155' : '#1e293b',
+            border: '1px solid #475569',
+            color: '#e2e8f0',
+            padding: '2px 10px',
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontSize: '0.8rem',
+          }}
+        >
+          {showSolids ? 'Solids ✓' : 'Solids'}
+        </button>
         <span style={{ color: '#64748b', fontSize: '0.7rem', marginLeft: 8 }}>drag to rotate · scroll to zoom · right-drag to pan</span>
         <button
           onClick={onClose}

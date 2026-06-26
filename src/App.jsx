@@ -239,6 +239,22 @@ const ITEM_TYPES = [
   },
 ]
 
+// ── §8.3 Build 2: Profile table ─────────────────────────────────────────────
+// BASE-CASE CONSTANTS. v1 placeholder dimensions. A later config-driven size layer
+// replaces these reads at this seam (principle 5.2); do not hardcode these numbers
+// anywhere else.
+const SEGMENT_PROFILES = {
+  lineset: { sweep: 'extrude-circle', diameterM: 0.025 },
+  duct:    { sweep: 'extrude-rect',   widthM: 0.150, heightM: 0.150 },
+}
+const SEGMENT_PROFILE_FALLBACK = { sweep: 'extrude-circle', diameterM: 0.025, fallback: true }
+const POINT_PROFILES = {
+  'air-handler':  { sweep: 'placed-block', wM: 0.600, dM: 0.600, hM: 0.900 },
+  'outdoor-unit': { sweep: 'placed-block', wM: 0.900, dM: 0.900, hM: 0.750 },
+  'bath-fan':     { sweep: 'placed-block', wM: 0.250, dM: 0.250, hM: 0.200 },
+  'hrv-unit':     { sweep: 'placed-block', wM: 0.700, dM: 0.500, hM: 0.400 },
+}
+
 // ── §8.2 step 4: Run-path pair→category map ─────────────────────────────────
 // Keyed on the unordered pair of the two endpoint item-types. The category is
 // assigned to the run when both ends connect. satisfies[] names the obligation ids
@@ -4015,7 +4031,7 @@ function App() {
   // Roof Z assumption: ceilingZ of the highest floor level (slope Z deferred, #18).
   const deriveWireframe = () => {
     const origin = getWorldOriginM()
-    if (!origin) return { floorRings: [], roofRing: null, soffitLines: [], openingLines: [], runLines: [] }
+    if (!origin) return { floorRings: [], roofRing: null, soffitLines: [], openingLines: [], runLines: [], solids: [] }
 
     const presentLevels = FLOOR_ORDER.filter(level =>
       pages.some(p => p.category === 'floor-plan' && p.subLabel === level)
@@ -4223,7 +4239,80 @@ function App() {
       }
     }
 
-    return { floorRings, roofRing, soffitLines, openingLines, runLines }
+    // ── §8.3 Build 2: Derive solids (segment tubes + equipment blocks) ─────────
+    // Pure parameter objects; no three.js geometry constructed here.
+    const solidColorForCat = (cat) => {
+      if (!cat) return 0x9ca3af
+      if (cat === 'lineset') return 0xf59e0b
+      return 0x6b7280
+    }
+    const solids = []
+
+    // Segment solids: one cylinder/box-swept per spanSlot per run.
+    // Reuses the same page/Z resolution as runLines above.
+    for (const run of completedShapesRef.current) {
+      if (run.shapeKind !== 'run' || run.status !== 'locked') continue
+      const slots = run.pointSlots
+      if (!slots || slots.length < 2) continue
+      const page = pages.find(p => p.pageId === run.pageId)
+      if (!page) continue
+      let runZ = null
+      if (page.category === 'floor-plan' && page.subLabel) {
+        const row = zStack.find(r => r.level === page.subLabel)
+        if (row?.floorZ != null) runZ = row.floorZ * 0.3048
+      } else if (page.category === 'roof-plan') {
+        runZ = roofZFallback
+      }
+      for (let i = 0; i < slots.length - 1; i++) {
+        const wA = pageVertexToWorld(slots[i], run.pageId)
+        const wB = pageVertexToWorld(slots[i + 1], run.pageId)
+        if (!wA || !wB) continue
+        const spanCat = run.spanSlots[i]?.category ?? null
+        const profile = SEGMENT_PROFILES[spanCat] ?? SEGMENT_PROFILE_FALLBACK
+        const color = solidColorForCat(spanCat)
+        const from = { x: wA.x, y: wA.y, z: runZ }
+        const to   = { x: wB.x, y: wB.y, z: runZ }
+        if (profile.sweep === 'extrude-circle') {
+          solids.push({ id: `${run.id}-seg${i}`, kind: 'cylinder', from, to, radiusM: profile.diameterM / 2, color })
+        } else if (profile.sweep === 'extrude-rect') {
+          solids.push({ id: `${run.id}-seg${i}`, kind: 'box-swept', from, to, widthM: profile.widthM, heightM: profile.heightM, color })
+        }
+      }
+    }
+
+    // Point solids: one block per placed equipment item on derivable pages.
+    for (const shape of completedShapesRef.current) {
+      if (shape.shapeKind !== 'equipment-item' || shape.status !== 'locked') continue
+      if (!shape.vertices || shape.vertices.length < 1) continue
+      const page = pages.find(p => p.pageId === shape.pageId)
+      if (!page) continue
+      // Identical scalar-Z resolution to runLines / segment solids above.
+      let equipZ = null
+      if (page.category === 'floor-plan' && page.subLabel) {
+        const row = zStack.find(r => r.level === page.subLabel)
+        if (row?.floorZ != null) equipZ = row.floorZ * 0.3048
+      } else if (page.category === 'roof-plan') {
+        equipZ = roofZFallback
+      }
+      if (equipZ === null) continue
+      const profile = POINT_PROFILES[shape.itemType]
+      if (!profile) continue
+      const wV = pageVertexToWorld(shape.vertices[0], shape.pageId)
+      if (!wV) continue
+      // center.z = floor Z + half-height so the block sits ON the level, not through it
+      const centerZ = equipZ + profile.hM / 2
+      solids.push({
+        id: `${shape.id}-block`,
+        kind: 'block',
+        center: { x: wV.x, y: wV.y, z: centerZ },
+        wM: profile.wM,
+        dM: profile.dM,
+        hM: profile.hM,
+        color: 0x8b5cf6,
+      })
+    }
+
+    return { floorRings, roofRing, soffitLines, openingLines, runLines, solids }
   }
 
   // ── Dev fixture: snapshot / restore (DEV only) ───────────────────────────
