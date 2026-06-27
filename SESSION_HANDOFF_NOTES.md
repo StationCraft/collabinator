@@ -10,6 +10,68 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 40 — Beat 4: panel consolidation (#69) — tabbed side-panel container (2026-06-27)
+
+**Branch:** main | **Commit:** 145d807 — pushed to origin.
+
+### What was built
+
+One consolidated right-side container replacing four independent absolute-positioned overlay panels
+(Project Setup, Floor Heights, Worklist, Envelope). Layout/shell only — zero functional change to
+any panel's content or behavior.
+
+**State changes (App.jsx):**
+- `showProjectSetup`, `showFloorHeights`, `showWorklist`, `showEnumeration` useState → removed.
+  Replaced by `showSidebar` (bool), `activeTabId` (string, init `'project-setup'`), `sidebarWidth`
+  (number, init 300), `sidebarWidthRef` (useRef 300).
+- Four show* values are now derived constants: `showProjectSetup = showSidebar && activeTabId === 'project-setup'` etc.
+- Legacy setters defined as `() => setShowSidebar(false)` so existing ✕ buttons and Place-button
+  close logic work unchanged.
+- `SIDEBAR_TABS` module-level constant (order: Project Setup, Worklist, Floor Heights, Envelope).
+
+**Container (JSX):** Single `<div className="side-panel-container">` replaces four separate panel
+divs. Contains: drag-resize handle, tab bar, `.side-panel-content` div with conditional renders of
+all four panels (existing fh-panel JSX preserved verbatim inside, including fh-panel-head).
+
+**Two layout modes** driven by `sidebarWidth >= 520` (the wide-mode breakpoint):
+- **Narrow (< 520px):** tab bar is a vertical flex column of four clickable label bars. All four
+  labels always visible; active is highlighted; content fills below.
+- **Wide (≥ 520px):** tab bar becomes a horizontal flex row (standard browser-style tabs across
+  top, active underline). Same activeTabId drives both; switching mode does NOT change active panel.
+
+**Drag-to-resize:** mousedown on left-edge handle attaches mousemove/mouseup to document;
+`newW = clamp(300, startW - Δx, 80vw)`. Updates both `sidebarWidthRef.current` and
+`setSidebarWidth` for immediate DOM update and React re-render. Width persists across
+close/reopen within the session. **Cross-session persistence deferred — no localStorage in
+this codebase. Needs a storage decision before implementing.**
+
+**Toolbar gate:** `!calibMode && !drawMode && !editMode && !categorizeMode` applied to BOTH the
+Panels toolbar button AND the container render — entering a mode hides the container entirely
+(not just the button).
+
+**CSS:** New `.side-panel-container`, `.side-panel-resize-handle`, `.side-panel-tab-bar`,
+`.side-panel-tab`, `.side-panel-content` rules added. `.side-panel-content .fh-panel` override
+resets all absolute-positioning rules so the existing fh-panel divs flow naturally inside the
+container. Dead rules removed: `.ps-panel right:300px`, `.wl-panel right:600px`,
+`.enum-panel right:900px`, `.wl-btn`/`.enum-btn` color rules.
+
+### Verified (preview server 5175)
+a. Open sidebar → narrow mode: four stacked labels, Project Setup expanded at bottom ✓  
+b. Click each label → correct panel switches in, others collapse above ✓  
+c. All four panel contents render correctly (Floor Heights inputs, Worklist Place buttons,
+   Project Setup selects, Envelope enumeration) ✓  
+d. Drag wider past 520px → wide mode (horizontal tabs), same active panel; drag back → narrow reverts ✓  
+e. Close sidebar, reopen → width and last-active tab both preserved ✓  
+f. Reload → width resets to 300px (no cross-session persistence; flagged) ✓ / ⚠ flagged  
+g. Enter draw mode → container hidden, "Panels" button hidden; exit draw mode → both reappear ✓  
+
+### Forward
+Beat 4 complete. Next: Beat 2b (gating fields — awaits Ben's #75 authoring pass) or the
+#79 envelope penetration subsystem (gated on #74/#75). Cross-session panel-width persistence
+needs a storage decision when desired.
+
+---
+
 ## SESSION 39 — Envelope Penetration Subsystem: architecture settled (#79); no build (2026-06-26)
 
 **Type:** Intensive planning session (no code). Docs-only commit.

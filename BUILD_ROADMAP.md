@@ -307,11 +307,12 @@ is arranged so most beats are things Ben can see.
     "envelope" obligations (vent-to-exterior, exterior-vent) have trades:[] — no role in
     ROLE_LABELS maps to envelope work (#78 to add role or reclassify).
 
-[ ] BEAT 4 (deferred to END of pre-Phase-2 run) — Panel consolidation  [size 3]
-    #69 MOVED LATER (Session 36 decision). Consolidation wants to happen ONCE, after the
-    panel count stabilizes. Beats 2-3 may add/change panel content; consolidating now would
-    force a re-consolidation later. Feels like a quick win but has a short shelf life if done
-    early. Do it when the panels have stopped changing.
+[x] BEAT 4 — Panel consolidation (#69)  [DONE — Session 40, commit 145d807]
+    Four independent overlay panels → one tabbed side-panel container. Narrow (< 520px):
+    vertical stacked accordion labels. Wide (≥ 520px): horizontal browser-style tabs.
+    Drag-to-resize left edge handle (300px min, 80vw max). Width persists within session;
+    cross-session persistence deferred (no localStorage in codebase — needs decision).
+    Toolbar gate applies to both the button and the container render.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,

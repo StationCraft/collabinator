@@ -665,11 +665,12 @@ A React + Vite app with:
     `deriveEnumeration` STEP D. Browser-verified: real values in dump + orange rectangle in 3D View (#55 done).
   * **Envelope panel (7d939c3):** `showEnumeration` + `enumerationTick` state; `deriveEnumeration()` hoisted out
     of the `if (import.meta.env.DEV)` guard into component render scope (was inaccessible from JSX);
-    `window.__dumpEnumeration` re-wrapped in a new DEV guard. "Envelope" button (teal, same toolbar gate as
-    Worklist/Floor Heights); `enum-panel` at `right:900px`. Panel groups by kind (Wall Surfaces / Soffits /
+    `window.__dumpEnumeration` re-wrapped in a new DEV guard. Panel groups by kind (Wall Surfaces / Soffits /
     Windows / Doors); named fields per element (width, height, Z, bearing, reconcile tag with color); no
     recomputation in panel (§7.3 honored); empty state message. `enumerationTick` bumped on shape lock/delete,
     floor-height writes, and page nav. Browser-verified: 13 elements match `__dumpEnumeration()` (#52 done).
+    NOTE: originally at `right:900px` as a standalone overlay; now housed in the consolidated side-panel
+    container (#69 — Session 40). The `showEnumeration` derived flag and panel JSX are unchanged.
 
 **Not yet built (next increments):**
 - **Next critical-path build: planning pass needed** — §8.2 step 5 or next §9 extension.
@@ -929,12 +930,28 @@ fresh each render. Implements the §3 "required roles derive from chosen outputs
 `projectSetupTick` / `setProjectSetupTick` — `useState(0)` integer; bumped inside both `setConfigValue`
 and `setRoleAssignment` to force re-render after every ref write.
 
-**Operator panel (`ps-panel`):** `showProjectSetup` useState toggle; toolbar button gated by
-`{pdf && !calibMode && !drawMode && !editMode && !categorizeMode}` (identical to floor-heights button).
-Panel renders as an absolute overlay (`.fh-panel .ps-panel`) at `right: 300px`. Fields `.map()`ed from
-`CONFIG_FIELDS` grouped by `.category`; category order derived from array order (no hardcoded list).
-`multi:false` → `<select>` with placeholder. `multi:true` → checkbox group. "Required Roles" section
-below: calls `getRequiredRoles()` each render; text input per role bound to `getRoleAssignment`/`setRoleAssignment`;
+**Consolidated side-panel container (#69 — Session 40; commit 145d807):**
+  All four right-side panels (Project Setup, Worklist, Floor Heights, Envelope) now live inside a
+  single `<div className="side-panel-container">`. ONE "Panels" button (same toolbar gate: `!calibMode &&
+  !drawMode && !editMode && !categorizeMode`) opens/closes.
+  - State: `showSidebar`, `activeTabId` (init `'project-setup'`), `sidebarWidth` (300px), `sidebarWidthRef`.
+    The four `show*` constants are derived: `showProjectSetup = showSidebar && activeTabId === 'project-setup'` etc.
+    Legacy `setShow*` setters = `() => setShowSidebar(false)` (existing ✕ buttons and Place-button closes unchanged).
+    `SIDEBAR_TABS` module-level constant; order = Project Setup → Worklist → Floor Heights → Envelope.
+  - **Narrow mode (< 520px):** vertical flex column of four label bars — all always visible; active highlighted;
+    panel content fills below.
+  - **Wide mode (≥ 520px):** horizontal tab row across top with active underline (`side-panel-tab-bar--wide` CSS class
+    driven by `sidebarWidth >= 520`).
+  - **Drag-to-resize:** `.side-panel-resize-handle` on left edge; `clamp(300, startW − Δx, 80vw)`;
+    `sidebarWidthRef.current` + `setSidebarWidth` updated live. Width persists within session.
+    Cross-session persistence deferred (no localStorage in codebase — decision needed before implementing).
+  - CSS: `.side-panel-content .fh-panel` resets absolute positioning via `!important` overrides;
+    existing fh-panel div JSX preserved verbatim inside the container. Dead CSS removed: `.ps-panel right:300px`,
+    `.wl-panel right:600px`, `.enum-panel right:900px`, `.wl-btn`/`.enum-btn` rules.
+
+**Project Setup panel fields (§9):** Fields `.map()`ed from `CONFIG_FIELDS` grouped by `.category`; category order
+derived from array order (no hardcoded list). `multi:false` → `<select>` with placeholder. `multi:true` → checkbox group.
+"Required Roles" section below: calls `getRequiredRoles()` each render; text input per role bound to `getRoleAssignment`/`setRoleAssignment`;
 unassigned roles show "(unassigned — owner responsible)" fallback marker.
 
 **Primary-reference tree** (added sub-step 5):

@@ -1125,9 +1125,9 @@ PDF bytes) packages and travels — see #49/#50.
 - **#55 (3D opening visual verification) PULLED FORWARD into Beat 1**, paired with #52. Placing
   one test opening fires both the 3D opening-render path and the enumeration fenestration branch
   on real data for the first time. Double duty, smallest item with a visible payoff.
-- **#69 (panel consolidation) PUSHED to END of pre-Phase-2 run (Beat 4).** Consolidation wants
-  to happen once, after panel count stabilizes. Beats 2-3 may add/change panel content; early
-  consolidation forces a re-consolidation. Short shelf life if done now.
+- **#69 (panel consolidation) DONE — Session 40, commit 145d807.** Four independent panels →
+  one tabbed side-panel container with narrow (accordion) / wide (horizontal tabs) modes and
+  drag-to-resize. Cross-session width persistence deferred pending a storage decision.
 - **§7.3 named-derived-quantity discipline flagged as VIGILANCE at Beat 1**: the enumeration panel
   is the first non-renderer consumer of derived quantities. Not a build to pull forward — a rule
   to honor at the exact session it first pays. Confirm quantities read from one named function per

@@ -521,6 +521,34 @@ line as the final exterior face.
 
 ---
 
+## 13a. Consolidated side-panel container (#69 — Session 40)
+
+The four right-side overlay panels (Project Setup, Worklist, Floor Heights, Envelope) are
+housed in a single `<div className="side-panel-container">`. One "Panels" toolbar button
+(gated the same as the old four: `!calibMode && !drawMode && !editMode && !categorizeMode`)
+opens/closes the container.
+
+**State:** `showSidebar` (bool) + `activeTabId` ('project-setup' | 'worklist' | 'floor-heights'
+| 'envelope') + `sidebarWidth` (number, 300px default) + `sidebarWidthRef` (useRef). The four
+legacy `show*` values are derived constants (e.g., `showProjectSetup = showSidebar && activeTabId
+=== 'project-setup'`). Legacy `setShow*` setters are thin wrappers → `setShowSidebar(false)`.
+
+**Layout modes** (driven by `sidebarWidth >= 520`):
+- **Narrow (< 520px):** `side-panel-tab-bar` is a vertical flex column — four stacked label bars,
+  all always visible; active is highlighted; panel content fills below.
+- **Wide (≥ 520px):** `side-panel-tab-bar--wide` makes it a horizontal row of tabs with an active
+  underline — browser-style tab UI. Switching mode does not change active panel.
+
+**Drag-to-resize:** `.side-panel-resize-handle` on the left edge; drag left = wider, right =
+narrower; clamped 300px–80vw. Width and last-active tab persist across close/reopen within the
+session. Cross-session persistence deferred (no localStorage pattern in the codebase).
+
+**CSS override:** `.side-panel-content .fh-panel` resets all absolute-positioning properties
+(`position:relative`, `right:auto`, `height:auto`, `width:100%`, etc.) so existing fh-panel
+divs flow naturally inside the container. All panel content JSX is preserved verbatim.
+
+---
+
 ## 13. Explicitly deferred / abandoned approaches (do not reintroduce)
 
 - Vertex-drag and break-point insertion directly on **inherited/reference** geometry —
