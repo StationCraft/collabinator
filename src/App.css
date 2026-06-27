@@ -1327,6 +1327,43 @@ canvas {
   flex-shrink: 0;
 }
 
+/* ── Envelope panel (#52) ───────────────────────────────────────────────── */
+.enum-btn { background: #0e7490; }
+.enum-btn:hover { background: #0891b2; }
+.enum-btn.floor-heights-btn--open { background: #164e63; }
+
+.enum-panel {
+  right: 900px;  /* sits left of wl-panel (600px), ps-panel (300px), fh-panel (0px) */
+}
+
+.enum-row {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding: 6px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.enum-row-title {
+  font-size: 0.80rem;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+.enum-row-detail {
+  font-size: 0.74rem;
+  color: #94a3b8;
+}
+.enum-tag-reconcile {
+  font-size: 0.68rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  align-self: flex-start;
+  background: rgba(100,116,139,0.25);
+  color: #94a3b8;
+}
+.enum-tag-reconcile[data-tag="coincident"] { background: rgba(34,197,94,0.15); color: #4ade80; }
+.enum-tag-reconcile[data-tag="setback"]    { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.enum-tag-reconcile[data-tag="cantilever"] { background: rgba(248,113,113,0.15); color: #f87171; }
+
 /* DEV-only fixture strip — never visible in production builds */
 .dev-fixture-strip {
   position: fixed;

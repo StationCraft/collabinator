@@ -383,6 +383,8 @@ function App() {
   // ── §8.2 Worklist panel ──────────────────────────────────────────────────────
   const [showWorklist, setShowWorklist] = useState(false)
   const [worklistTick, setWorklistTick] = useState(0)           // bumped on every spawning config field write; forces re-render
+  const [showEnumeration, setShowEnumeration] = useState(false)
+  const [enumerationTick, setEnumerationTick] = useState(0)     // bumped on shape lock/delete and floor-height writes; forces re-render
 
   // ── Floor heights panel (elevation numeric editor, Piece 2) ─────────────────
   const [showFloorHeights, setShowFloorHeights] = useState(false)
@@ -2079,6 +2081,7 @@ function App() {
           deleteHoverIdxRef.current = null
           setEditCursor('default')
           if (wasEquipment || wasRun) setWorklistTick(t => t + 1)
+          setEnumerationTick(t => t + 1)
           drawEditCanvas()
         }
         return
@@ -2690,6 +2693,7 @@ function App() {
       ...completedShapesRef.current,
       { id: nextShapeId(), vertices: reviewShape.vertices, pageId: currentPageId, status: 'locked' },
     ]
+    setEnumerationTick(t => t + 1)
     const pendingGrade = gradeLinePending
     setReviewShape(null); drawVerticesRef.current = []; setDrawVertexCount(0)
     setShowGradeLinePrompt(false); setGradeLinePending(false)
@@ -3894,11 +3898,13 @@ function App() {
     const cur = floorHeightsRef.current[level] || { floorToCeiling: null, floorSystemAbove: null }
     floorHeightsRef.current[level] = { ...cur, [field]: value }
     setFloorHeightsTick(t => t + 1)
+    setEnumerationTick(t => t + 1)
   }
   const setFloorHeightFields = (level, fieldsObj) => {
     const cur = floorHeightsRef.current[level] || { floorToCeiling: null, floorSystemAbove: null }
     floorHeightsRef.current[level] = { ...cur, ...fieldsObj }
     setFloorHeightsTick(t => t + 1)
+    setEnumerationTick(t => t + 1)
   }
   const validateCeiling = (ftc, fsa) => {
     if (ftc == null || ftc <= 0) return 'Ceiling height must be greater than 0.'
@@ -4446,6 +4452,7 @@ function App() {
       // 5. Bump ticks to force dependent repaints (alignTick drives pdf-align-layer, floorHeightsTick drives ref lines)
       setAlignTick(t => t + 1)
       setFloorHeightsTick(t => t + 1)
+      setEnumerationTick(t => t + 1)
 
       console.log('[fixture] restore complete → page', targetPage, '| shapes:', completedShapesRef.current.length, '| scales:', Object.keys(pageScalesRef.current))
     }
@@ -4554,11 +4561,14 @@ function App() {
       }
     }
 
-    // ── B4: deriveEnumeration() ────────────────────────────────────────────────
-    // Returns an array of envelope elements (wall-surface, roof-plane, soffit, window, door).
-    // Every derived quantity is a named property on the element — never a transient in render code (§7.3).
-    // Reads refs at call time; never stores meters (recalibration-safe, #22).
-    const deriveEnumeration = () => {
+  }
+
+  // ── B4: deriveEnumeration() ──────────────────────────────────────────────
+  // Returns an array of envelope elements (wall-surface, soffit, window, door).
+  // Every derived quantity is a named property on the element — never a transient in render code (§7.3).
+  // Reads refs at call time; never stores meters (recalibration-safe, #22).
+  // Defined outside the DEV block so it is callable from render-time JSX (#52 panel).
+  const deriveEnumeration = () => {
       const elements = []
       const origin = getWorldOriginM()
       if (!origin) return elements
@@ -4758,8 +4768,9 @@ function App() {
       }
 
       return elements
-    }
+  }
 
+  if (import.meta.env.DEV) {
     // __dumpEnumeration(): B4 console verification — enumerate all envelope elements with size + orientation.
     // Verbose: every element printed individually with full geometry + reconcile tag.
     // Extends __dumpWorld pattern (§7.1, §7.3). DEV-only; tree-shaken in production.
@@ -5008,6 +5019,15 @@ function App() {
             onClick={() => setShowWorklist(h => !h)}
           >
             {showWorklist ? 'Worklist ✕' : 'Worklist'}
+          </button>
+        )}
+
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
+          <button
+            className={`floor-heights-btn enum-btn ${showEnumeration ? 'floor-heights-btn--open' : ''}`}
+            onClick={() => setShowEnumeration(h => !h)}
+          >
+            {showEnumeration ? 'Envelope ✕' : 'Envelope'}
           </button>
         )}
 
@@ -6253,6 +6273,58 @@ function App() {
                     )
                   })}
                 </div>
+              )}
+            </div>
+          )
+        })()}
+
+        {showEnumeration && pdf && (() => {
+          void enumerationTick
+          const elements = deriveEnumeration()
+          const byKind = {}
+          for (const el of elements) {
+            if (!byKind[el.kind]) byKind[el.kind] = []
+            byKind[el.kind].push(el)
+          }
+          const KIND_ORDER = ['wall-surface', 'soffit', 'window', 'door']
+          const KIND_LABELS = { 'wall-surface': 'Wall Surfaces', soffit: 'Soffits', window: 'Windows', door: 'Doors' }
+          const fmtM = v => v != null ? v.toFixed(3) + ' m' : '—'
+          const fmtDeg = v => v != null ? v.toFixed(1) + '°' : '—'
+          return (
+            <div className="fh-panel enum-panel">
+              <div className="fh-panel-head">
+                <span className="fh-panel-title">Envelope</span>
+                <button className="fh-close-btn" onClick={() => setShowEnumeration(false)}>✕</button>
+              </div>
+
+              {elements.length === 0 ? (
+                <div className="fh-empty">No envelope elements derived yet. Categorize pages, set floor heights, and lock geometry first.</div>
+              ) : (
+                KIND_ORDER.filter(k => byKind[k]?.length).map(kind => (
+                  <div key={kind} className="fh-zone">
+                    <div className="fh-zone-label">{KIND_LABELS[kind]} ({byKind[kind].length})</div>
+                    {byKind[kind].map(el => (
+                      <div key={el.id} className="enum-row">
+                        {kind === 'wall-surface' && (<>
+                          <div className="enum-row-title">{el.floorLevel} · {fmtDeg(el.orientationDeg)} bearing</div>
+                          <div className="enum-row-detail">w {fmtM(el.widthM)} · h {fmtM(el.heightM)}</div>
+                          <div className="enum-row-detail">floorZ {fmtM(el.floorZm)} · ceilZ {fmtM(el.ceilingZm)}</div>
+                          {el.reconcile && <div className="enum-row-tag enum-tag-reconcile" data-tag={el.reconcile}>{el.reconcile}{el.signedDistM != null ? ` ${el.signedDistM >= 0 ? '+' : ''}${el.signedDistM.toFixed(3)}m` : ''}</div>}
+                        </>)}
+                        {kind === 'soffit' && (<>
+                          <div className="enum-row-title">{el.side} overhang</div>
+                          <div className="enum-row-detail">projection {fmtM(el.projectionM)} · span {fmtM(el.spanM)}</div>
+                          <div className="enum-row-detail">eaveZ {fmtM(el.eaveZm)}</div>
+                        </>)}
+                        {(kind === 'window' || kind === 'door') && (<>
+                          <div className="enum-row-title">{el.label || '(unlabelled)'} · {el.openingType || '—'}</div>
+                          <div className="enum-row-detail">w {fmtM(el.widthM)} · h {fmtM(el.heightM)}</div>
+                          <div className="enum-row-detail">worldZ {fmtM(el.worldZm)} · {el.dimBasis || '—'}</div>
+                        </>)}
+                      </div>
+                    ))}
+                  </div>
+                ))
               )}
             </div>
           )
