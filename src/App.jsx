@@ -197,26 +197,29 @@ const CONFIG_FIELDS = [
 ]
 
 // ── §8.2 Item-type obligation table ─────────────────────────────────────────
-// Each entry: { type, label, obligations: [{id, label, kind, blocked, note?, options?}] }
+// Each entry: { type, label, obligations: [{id, label, kind, blocked, trades, note?, options?}] }
 // kind is open-set: 'placement' | 'run' | 'property' (extend by adding entries here).
-// Labels with "(plumber)/(electrician)/(envelope)" are descriptive only — role-blind this build.
+// trades: string[] — role ids from ROLE_LABELS. For run-kind obligations the category-level
+// trade in RUN_PAIR_MAP is authoritative when the obligation id appears in satisfies[]; the
+// trades here are the fallback for run categories not yet in the pair map (#68).
+// "envelope" obligations have no role in ROLE_LABELS today — trades:[] (D3 fork; #78 to add role).
 const ITEM_TYPES = [
   {
     type: 'air-handler',
     label: 'Air Handler',
     obligations: [
-      { id: 'lineset-endpoint', label: 'Lineset endpoint',            kind: 'run',      blocked: true,  note: 'requires coordination' },
-      { id: 'condensate-drain', label: 'Condensate drain (plumber)',  kind: 'run',      blocked: true,  note: 'requires coordination' },
-      { id: 'power',            label: 'Power (electrician)',         kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'lineset-endpoint', label: 'Lineset endpoint',            kind: 'run',      blocked: true,  trades: ['hvac-designer'],                    note: 'requires coordination' },
+      { id: 'condensate-drain', label: 'Condensate drain (plumber)',  kind: 'run',      blocked: true,  trades: ['plumber'],                           note: 'requires coordination' },
+      { id: 'power',            label: 'Power (electrician)',         kind: 'run',      blocked: true,  trades: ['electrician'],                       note: 'requires coordination' },
     ],
   },
   {
     type: 'outdoor-unit',
     label: 'Outdoor Unit',
     obligations: [
-      { id: 'lineset-to-handler', label: 'Lineset to air handler',   kind: 'run',      blocked: true,  note: 'requires coordination' },
-      { id: 'power',              label: 'Power (electrician)',       kind: 'run',      blocked: true,  note: 'requires coordination' },
-      { id: 'mount-type',         label: 'Mount type',               kind: 'property', blocked: false,
+      { id: 'lineset-to-handler', label: 'Lineset to air handler',   kind: 'run',      blocked: true,  trades: ['hvac-designer'],                    note: 'requires coordination' },
+      { id: 'power',              label: 'Power (electrician)',       kind: 'run',      blocked: true,  trades: ['electrician'],                       note: 'requires coordination' },
+      { id: 'mount-type',         label: 'Mount type',               kind: 'property', blocked: false, trades: ['hvac-designer', 'designer'],
         options: [{ value: 'ground', label: 'Ground' }, { value: 'wall', label: 'Wall' }] },
     ],
   },
@@ -224,18 +227,18 @@ const ITEM_TYPES = [
     type: 'bath-fan',
     label: 'Bath Fan',
     obligations: [
-      { id: 'power',            label: 'Power (electrician)',         kind: 'run',      blocked: true,  note: 'requires coordination' },
-      { id: 'vent-to-exterior', label: 'Vent to exterior (envelope)', kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'power',            label: 'Power (electrician)',         kind: 'run',      blocked: true,  trades: ['electrician'],                       note: 'requires coordination' },
+      { id: 'vent-to-exterior', label: 'Vent to exterior (envelope)', kind: 'run',      blocked: true,  trades: [],                                   note: 'requires coordination' },
     ],
   },
   {
     type: 'hrv-unit',
     label: 'HRV/ERV Unit',
     obligations: [
-      { id: 'supply-exhaust-duct', label: 'Supply/exhaust ducting',      kind: 'run',      blocked: true,  note: 'requires coordination' },
-      { id: 'exterior-vent',       label: 'Exterior vents ×2 (envelope)', kind: 'run',      blocked: true,  note: 'requires coordination' },
-      { id: 'power',               label: 'Power (electrician)',          kind: 'run',      blocked: true,  note: 'requires coordination' },
-      { id: 'condensate-drain',    label: 'Condensate drain (plumber)',   kind: 'run',      blocked: true,  note: 'requires coordination' },
+      { id: 'supply-exhaust-duct', label: 'Supply/exhaust ducting',       kind: 'run',  blocked: true,  trades: ['hvac-designer', 'energy-advisor'],  note: 'requires coordination' },
+      { id: 'exterior-vent',       label: 'Exterior vents ×2 (envelope)', kind: 'run',  blocked: true,  trades: [],                                   note: 'requires coordination' },
+      { id: 'power',               label: 'Power (electrician)',           kind: 'run',  blocked: true,  trades: ['electrician'],                       note: 'requires coordination' },
+      { id: 'condensate-drain',    label: 'Condensate drain (plumber)',    kind: 'run',  blocked: true,  trades: ['plumber'],                           note: 'requires coordination' },
     ],
   },
 ]
@@ -265,6 +268,7 @@ const RUN_PAIR_MAP = [
   {
     pair: ['air-handler', 'outdoor-unit'],
     category: 'lineset',
+    trade: 'hvac-designer',
     satisfies: [
       { itemType: 'air-handler',  obligationId: 'lineset-endpoint' },
       { itemType: 'outdoor-unit', obligationId: 'lineset-to-handler' },
@@ -3898,11 +3902,22 @@ function App() {
         if (placed) {
           if (itemDef) {
             for (const ob of itemDef.obligations) {
+              // Resolve ownerRoles: for run obligations, category-level trade from RUN_PAIR_MAP
+              // takes priority (authoritative); fall back to obligation-level trades for run
+              // categories not yet in the pair map. Property obligations use trades directly.
+              let ownerRoles
+              if (ob.kind === 'run') {
+                const mapEntry = RUN_PAIR_MAP.find(e => e.satisfies.some(s => s.obligationId === ob.id))
+                ownerRoles = mapEntry?.trade ? [mapEntry.trade] : (ob.trades ?? [])
+              } else {
+                ownerRoles = ob.trades ?? []
+              }
               obligations.push({
                 placedId: placed.id,
                 instanceKey,
                 itemLabel: label,
                 ...ob,
+                ownerRoles,
                 satisfiedValue: (placed.obligationState || {})[ob.id] ?? null,
               })
             }
@@ -4983,7 +4998,8 @@ function App() {
       console.log(`[worklist] obligations (${result.obligations.length}):`)
       for (const ob of result.obligations) {
         const sat = ob.satisfiedValue ? `✓ ${ob.satisfiedValue}` : (ob.blocked ? '🔒 blocked' : '— not set')
-        console.log(`  ${ob.instanceKey} / ${ob.id}  [${ob.kind}]  ${sat}`)
+        const owners = ob.ownerRoles.length ? ob.ownerRoles.map(r => ROLE_LABELS[r] ?? r).join(', ') : '(unassigned)'
+        console.log(`  ${ob.instanceKey} / ${ob.id}  [${ob.kind}]  ${sat}  ownerRoles=[${ob.ownerRoles.join(',')}] → ${owners}`)
       }
     }
   }
@@ -6271,19 +6287,33 @@ function App() {
                     return (
                       <div key={key} className="wl-oblig-group">
                         <div className="wl-oblig-group-label">{g.itemLabel} <span style={{ opacity: 0.55, fontWeight: 400 }}>({g.instanceKey})</span></div>
-                        {g.obs.map(ob => (
+                        {g.obs.map(ob => {
+                          const ownerLine = ob.ownerRoles.length > 0
+                            ? `${ob.ownerRoles.length === 1 ? 'Owner' : 'Owners'}: ${ob.ownerRoles.map(r => ROLE_LABELS[r] ?? r).join(', ')}`
+                            : null
+                          return (
                           <div key={ob.id} className={`wl-oblig-row${ob.blocked && !ob.satisfiedValue ? ' wl-oblig-row--blocked' : ''}`}>
                             {ob.kind === 'run' && ob.satisfiedValue !== null ? (
-                              <>
-                                <span className="wl-oblig-label">{ob.label}</span>
-                                <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.78rem' }}>✓ Connected</span>
-                              </>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span className="wl-oblig-label">{ob.label}</span>
+                                  <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.78rem' }}>✓ Connected</span>
+                                </div>
+                                {ownerLine
+                                  ? <div className="wl-oblig-owner">{ownerLine}</div>
+                                  : <div className="wl-oblig-owner wl-oblig-owner--none">Owner: unassigned</div>}
+                              </div>
                             ) : ob.blocked ? (
-                              <>
-                                <span className="wl-lock">🔒</span>
-                                <span className="wl-oblig-label">{ob.label}</span>
-                                <span className="wl-oblig-note">{ob.note}</span>
-                              </>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span className="wl-lock">🔒</span>
+                                  <span className="wl-oblig-label">{ob.label}</span>
+                                  <span className="wl-oblig-note">{ob.note}</span>
+                                </div>
+                                {ownerLine
+                                  ? <div className="wl-oblig-owner">{ownerLine}</div>
+                                  : <div className="wl-oblig-owner wl-oblig-owner--none">Owner: unassigned</div>}
+                              </div>
                             ) : ob.kind === 'property' && ob.options ? (
                               <div style={{ flex: 1 }}>
                                 <div className="wl-oblig-label">{ob.label}</div>
@@ -6306,10 +6336,14 @@ function App() {
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                   ))}
                                 </select>
+                                {ownerLine
+                                  ? <div className="wl-oblig-owner">{ownerLine}</div>
+                                  : <div className="wl-oblig-owner wl-oblig-owner--none">Owner: unassigned</div>}
                               </div>
                             ) : null}
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )
                   })}

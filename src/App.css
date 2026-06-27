@@ -1316,6 +1316,15 @@ canvas {
   width: 100%;
   opacity: 0.55;
 }
+.wl-oblig-owner {
+  font-size: 0.68rem;
+  color: #475569;
+  margin-top: 2px;
+  font-style: italic;
+}
+.wl-oblig-owner--none {
+  color: #374151;
+}
 
 .ps-count-input {
   width: 80px;
