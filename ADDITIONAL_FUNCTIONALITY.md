@@ -740,19 +740,37 @@ Feeds window schedule export (anticipated large function). Depends on #44.
 
 ---
 
-### 46. Window-schedule import + place-from-list
-
-**Logged:** Session 26, windows/doors Pieces 1+2 close-out.
-
-**Description:** Recognize and import an existing window-or-door schedule table from the plan set. Let the user place units directly from the imported list onto elevations (click an entry → appears ready to align) instead of drawing each from scratch. Imported entries autofill the display label.
-
-**Cross-references:**
-- **#28 (PDF visual analysis):** recognizing a schedule table is the same recognition problem as page categorization and geometry identification — strong candidate to build under the analysis-first layer when #28 is scoped.
-- **#44 (component model):** an imported schedule entry is effectively a component definition; import likely populates the component library directly.
-
-**Why deferred:** Requires #28 (PDF recognition) and #44 (component model). Import/export round-trip should be designed together.
-
-**Status:** Deferred. Revisit alongside #28 and #44.
+### 46. Window-schedule import + place-from-list ("Additional" placement category) — SUPERSEDES #85
+**Logged:** Session 26. **Amended:** Session 40.
+**Description:** Recognize/import a window-or-door schedule and place units directly from the
+imported list onto elevations — click an entry -> drop a pre-sized opening (position from
+click, size/type/label/attributes pre-filled) rather than draw each. UI home: a new
+"Additional" placement category beside the worklist to-place items, mirroring that UX.
+Imported entries autofill label AND carry tracked performance attributes (Uw, SHGC, U-value,
+R-value, glass Ug/g) that feed the F280/H2K energy model — these live in the #45 attribute
+set, computed downstream as spreadsheet columns, NOT in-app calc.
+**Two-stage shape (Session 40):** (1) RECOGNITION/INGESTION — PDF window package ->
+structured rows; the hard, manufacturer-variable part = #28 (PDF recognition), possibly OCR.
+(2) PLACEMENT — structured rows -> "Additional" queue -> pre-sized one-click drop; rides the
+Session-26 openings model. The placement half can be built against a STRUCTURED input (a
+schedule spreadsheet / WEW-style payload, #83) BEFORE #28 exists — first slice that decouples
+the easy half from the hard half.
+**Controlled-vocabulary fork:** supplier system/type names will NOT match the fixed
+OPENING_TYPES five. Import must MAP supplier types onto the five or TEACH new types — settle
+when scoped. The WEW reference doc's vocabularies are the example set.
+**Reference material (Session 40):** WEW_Integration_Interface_Reference.docx — interface
+spec for a live WEW window system: API contract (/api/quote, QuoteSubmission payload for
+Client/Project/Windows/EntranceDoors/PatioDoors), controlled vocabularies, verified schedule
+column map (A-Q inputs, R+ formula-driven), INTAKE cell map, performance outputs (computed
+Uw/SHGC/R/RO + H2K rollup as cleanest read surface). Window packages + window spreadsheet to
+be loaded to Project (not yet as of Session 40). Structured-input source for the first-slice
+placement build + attribute schema.
+**Cross-references:** #28 (recognition), #44 (component model — imported entry ~ component
+definition), #45 (window-as-assembly + performance attributes), #83 (spreadsheet interop).
+**Why deferred:** Recognition needs #28; full feature needs #44/#45. Placement-first-slice
+needs a stable structured-input contract + the openings model (have it).
+**Status:** Deferred. Re-surfaced + amended Session 40. Retire #85 — folded here. First
+scopable slice = place-from-structured-list once a window spreadsheet/payload is loaded.
 
 ---
 
@@ -997,7 +1015,12 @@ open independently via toolbar buttons. As the panel count grows they can overla
 explicit close discipline. A future UI pass should consolidate into a single right-side drawer
 or tabbed panel, with only one open at a time. No core functionality impact — pure UI/layout
 polish.
-**Status:** Deferred to a UI polish session after core functionality is complete.
+**Status:** DONE — Session 40, Beat 4. Commits 145d807 (build) + 965c386 (docs).
+Consolidated the four right-side panels (Project Setup / Worklist / Floor Heights /
+Envelope) into one container: accordion when narrow (stacked labels, expanded one anchors
+to bottom), left-to-right tabs when wide (>=520px), drag-to-resize left edge; last-active
+tab + width persist across close/reopen (session-only, see #86). Adaptive task-layer
+version = #84.
 
 ---
 
@@ -1198,3 +1221,53 @@ PDF bytes) packages and travels — see #49/#50.
 **Description:** A penetration detail occupies area of an assembly and is a thermal bridge with a heat-loss value. #79 stores the thermal-bridge SLOT on the detail now; this entry covers the quantification + the analysis output that consumes it (significant thermal bridges across the building). Explicitly NOT a code-compliance path: more advanced than H2K / F280 require; insignificant for compliance, significant for overall building thermal understanding.
 **Why deferred:** Property residence exists from #79 (§5.3); the calculation + advanced-analysis consumer build later. Not on any compliance interpreter.
 **Status:** Deferred; slot stored in #79, no compliance dependency.
+
+---
+
+### 83. Spreadsheet output / form-autofill — Collabinator data -> existing client spreadsheets & overall project sheet
+**Category:** Export / projection / interop. **Logged:** Session 40.
+**Description:** Collabinator's coordinated data model is the source; spreadsheets are an
+OUTPUT target. Ben already uses client spreadsheets/forms holding client data, window
+information, geometry, and some reusable pages. Two flavors, same direction (app -> sheet):
+(a) autofill Collabinator-derived data into Ben's existing per-form spreadsheets;
+(b) preferred — autofill into a single overall PROJECT spreadsheet that the per-forms
+project from. Pure derived projection (same family as the #79 trade-plan-set export and #80
+order-sheet), NOT a data source to mine and NOT the #75 rule-authoring gate — flow is
+app->sheet, not sheet->rules.
+**Why deferred:** Export subsystem; needs the data model populated first (Phase 2+). Keep
+derived data projection-friendly meanwhile. Distinct from #80 (supplier order-sheet) — this
+is general form/field autofill into Ben's own templates.
+**Status:** Deferred; builds as a projection once the data model is populated.
+
+---
+
+### 84. Adaptive task-layer-aware sidebar (UX layer over #69 tabbed shell)
+**Category:** UI / UX / panel management. **Logged:** Session 40.
+**Description:** Refinement on top of the #69 consolidated sidebar. The static shell (#69)
+gives stacked tabs / wide-mode tab row + resize. This entry makes it adaptive: the sidebar
+reads the TASK LAYER the user is in and auto-organizes — promoting the relevant panel,
+filling remaining space with the next-most-likely tool for that layer, whole panel scrolling.
+Needs two concepts the app lacks: (a) a "current task layer" the UI can consume; (b) a
+tool-likelihood ranking per layer. Layers ON the #69 shell; does not change its bones.
+**Why deferred:** Two new subsystems beyond a layout pass. #69 is the honest base case; the
+adaptive logic sits on it without rework.
+**Status:** Deferred; explore after #69 shell is in real use.
+
+---
+
+### 85. SUPERSEDED by #46 (Session 40).
+
+---
+
+### 86. Cross-session UI-preference persistence (sidebar width, active tab, panel state)
+**Category:** Persistence / UI. **Logged:** Session 40.
+**Description:** The #69 sidebar width + active tab persist across close/reopen within a
+session but reset on reload — the app has NO localStorage/sessionStorage; nothing survives
+reload (the dev fixture doesn't either). This covers cross-session persistence of UI prefs.
+Deliberately NOT solved at #69 time: bolting localStorage onto one width slider ahead of a
+real persistence decision is a precedent that pairs with project save/load (#48-family) and
+would be half-torn-out. Decide as a subsystem — what persists, where, alongside project
+serialization.
+**Why deferred:** Architecture decision (pairs with #48), not UI polish. Session-only width
+is the honest base case.
+**Status:** Deferred; decide alongside project save/load.
