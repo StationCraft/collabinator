@@ -671,6 +671,17 @@ A React + Vite app with:
     floor-height writes, and page nav. Browser-verified: 13 elements match `__dumpEnumeration()` (#52 done).
     NOTE: originally at `right:900px` as a standalone overlay; now housed in the consolidated side-panel
     container (#69 — Session 40). The `showEnumeration` derived flag and panel JSX are unchanged.
+  * **Envelope area slice (Session 41):** `grossAreaM2`, `netAreaM2`, `openingAreaM2`,
+    `associatedOpeningIds`, `openingOverflow` added as named fields on every `wall-surface` element
+    in STEP A. Opening→wall-surface association built via `openingsByWallId` map (keyed by wall-surface
+    `id`), populated before STEP A by reading `elevationEdgeRef` for each elevation page — each
+    elevation's reference edge identifies the specific `(shape.id, segmentIndex, floorLevel)` triple
+    that owns all openings on that elevation page. `grossAreaM2 = widthM × heightM` (null if no floor
+    height). `netAreaM2 = max(0, grossAreaM2 − openingAreaM2)`. `openingOverflow: true` if openings
+    exceed gross. `__dumpEnumeration` extended with per-surface partition lines and a summary block
+    (PASS/FAIL count). Envelope panel shows area row per wall surface. Browser-verified (10/10 PASS,
+    net total = gross total − opening total). Limitation #88: all openings on a multi-story elevation
+    associate to the reference-edge floor level only.
 
 **Not yet built (next increments):**
 - **Next critical-path build: planning pass needed** — §8.2 step 5 or next §9 extension.
@@ -679,6 +690,11 @@ A React + Vite app with:
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**
 - B4: derivation core — **DONE (Session 30; commit 106d847)**: deriveEnumeration() + projectConfigRef;
   closest-approach reconcile + soffit/eave combine + fenestration Z. Console dump only.
+- **Envelope area slice — DONE (Session 41)**: grossAreaM2 / netAreaM2 / openingAreaM2 added as named
+  fields on every wall-surface element in deriveEnumeration() STEP A; opening→wall-surface association
+  via elevationEdgeRef reference-edge key; per-surface partition assertion in __dumpEnumeration;
+  Envelope panel shows gross/net/opening area per wall surface. See #87 (whole-envelope closure
+  invariant) and #88 (multi-story elevation opening association) in ADDITIONAL_FUNCTIONALITY.md.
 - **§9 project-configuration layer — DONE (Session 32; commits 4cca140, eb82eba, a049854)**:
   Three-piece build; browser-verified. Distinct from B4 `projectConfigRef` (physical-derivation thresholds).
   See "§9 Project-configuration layer" data-structures section below for full detail.

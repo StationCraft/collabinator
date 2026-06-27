@@ -10,6 +10,56 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 41 — Envelope area slice: gross/net/opening area as named derived quantities (2026-06-27)
+
+**Branch:** main | **Commits:** (see code commit below) — pushed to origin.
+
+### What was built
+
+Gross area, net area, and opening area added as named fields on every `wall-surface` element
+emitted by `deriveEnumeration()`. Opening→wall-surface association built. Per-surface partition
+check added to `__dumpEnumeration`. Envelope panel updated to display area rows.
+
+**Opening association (new `openingsByWallId` map, before STEP A):**
+- For each elevation page with a stored `elevationEdgeRef`, reads the reference shape id,
+  segment index, and floor level to build a deterministic wall-surface id key.
+- All locked openings (window/door) with `widthM` and `heightM` set on that elevation page
+  are grouped under that key.
+- Limitation logged as #88: all openings on a multi-story elevation associate to the
+  reference-edge floor level only; openings at other Z levels are not yet separated by floor.
+
+**Area fields on every wall-surface element (STEP A):**
+- `grossAreaM2 = widthM × heightM` (null if `heightM` null — floor height not entered)
+- `openingAreaM2` = sum of `widthM × heightM` for all associated openings (0 if none)
+- `netAreaM2 = max(0, grossAreaM2 − openingAreaM2)` (null if grossAreaM2 null)
+- `openingOverflow: true` (undefined otherwise) — flag when openings exceed gross (bad data)
+- `associatedOpeningIds: string[]` — opening shape ids for traceability
+
+**`__dumpEnumeration` extended:**
+- Each wall-surface log line now prints gross / net / opening area and a per-surface
+  partition assertion (`PASS`/`FAIL`).
+- New area + partition summary block at end: PASS count, FAIL count, N/A count, totals.
+
+**Envelope panel:** new area row per wall surface showing gross, net, opening subtraction,
+overflow flag. Null-safe: shows "(set floor height)" dimmed when grossAreaM2 is null.
+
+**Whole-envelope closure invariant NOT built** — logged as #87 in ADDITIONAL_FUNCTIONALITY.md.
+Gated on missing surface kinds (roof-plane area, floor-over-unheated, party walls).
+
+### Verified (preview server 5175, fixture-elevation.json + synthetic window injection)
+a. gross = widthM × heightM spot-check: 6.858 × 2.4384 = 16.723 m² ✓  
+b. No-opening surfaces: net = gross, openingAreaM2 = 0 ✓  
+c. Surface with injected window (1.2 × 0.9 m): net = 16.723 − 1.08 = 15.643 m²; partition PASS ✓  
+d. All synthetic null-height cases: grossAreaM2 = null, netAreaM2 = null, no NaN ✓  
+e. `__dumpEnumeration` summary: 10 PASS, 0 FAIL, 0 N/A; gross total 68.47 m² ✓  
+
+### Forward
+Assemblies onto surfaces: next slice is assembly-type assignment per surface (the `assemblyId`
+attach layer). See ASSEMBLIES_RECON_REPORT.md for candidate attach points. Extend
+CONFIG_FIELDS options with `thicknessM` + `controlLayerM` data is also a candidate.
+
+---
+
 ## SESSION 40 — Beat 4: panel consolidation (#69) — tabbed side-panel container (2026-06-27)
 
 **Branch:** main | **Commit:** 145d807 — pushed to origin.

@@ -1271,3 +1271,34 @@ serialization.
 **Why deferred:** Architecture decision (pairs with #48), not UI polish. Session-only width
 is the honest base case.
 **Status:** Deferred; decide alongside project save/load.
+
+---
+
+### 87. Whole-envelope closure invariant
+**Category:** Derivation / Validation. **Logged:** Session 41 (area slice).
+**Description:** Sum of ALL envelope sub-areas (walls, roof planes, floors-over-unheated,
+party walls, openings, penetrations) should equal the total building-envelope area —
+gap-free and overlap-free. This is the completeness check that proves the enumeration is
+accounting for every surface metre. Session 41 built only the per-wall-surface partition
+(gross = net + openings); the whole-envelope invariant is gated on surface kinds that don't
+exist yet: roof-plane area, floor-over-unheated area, party walls, rim/band areas.
+**Why deferred:** Missing surface kinds (roof plane, exposed floor, party wall) must exist
+before the sum is meaningful. Building a partial sum and calling it "closure" would be
+misleading.
+**Status:** Deferred; revisit after roof-plane and floor-over-unheated area surfaces are added.
+
+---
+
+### 88. Multi-story elevation opening association
+**Category:** Derivation / Association. **Logged:** Session 41 (area slice).
+**Description:** Openings on a multi-story elevation page are currently all associated with
+the single floor-plan wall segment used as the elevation's reference edge (the segment set
+via "Set elevation edge"). In a multi-story building, a window at the 2nd-floor Z level
+should ideally associate with a 2nd-floor wall surface, not the Main Floor reference edge
+segment. Fixing this requires either (a) per-opening Z-based floor-level lookup against
+the full wall-surface set for that elevation's orientation, or (b) a multi-level elevation
+geometry model where each floor gets its own reference edge.
+**Why deferred:** Current fixture has single-story data only; the limitation has no visible
+impact yet. The association model used today (one reference edge per elevation page) is the
+only unambiguous per-segment join available in the current data model.
+**Status:** Deferred; address when a multi-story fixture exposes the limitation.

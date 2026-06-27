@@ -314,6 +314,17 @@ is arranged so most beats are things Ben can see.
     cross-session persistence deferred (no localStorage in codebase — needs decision).
     Toolbar gate applies to both the button and the container render.
 
+[x] ASSEMBLIES ONTO SURFACES — Area slice  [DONE — Session 41]
+    Gross/net/opening area as named derived quantities on every wall-surface element.
+    Opening→wall-surface association via elevationEdgeRef reference-edge key (one reference
+    edge per elevation page; all openings on that page attributed to that wall surface).
+    Per-surface partition check (gross = net + openings) in __dumpEnumeration; 10/10 PASS
+    on fixture. Envelope panel displays area row per wall surface. Limitation #88 logged
+    (multi-story elevation: all openings associate to reference-edge floor level only).
+    Whole-envelope closure invariant logged as #87 — gated on missing surface kinds.
+    NEXT: assembly-type assignment per surface (assemblyId attach layer); extend
+    CONFIG_FIELDS options with thicknessM + controlLayerM data.
+
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
     responsible-party primitive, PENETRATION_DETAIL_RULES engine, derived trade-plan-set export —
