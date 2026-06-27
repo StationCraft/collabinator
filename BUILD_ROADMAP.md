@@ -313,6 +313,14 @@ is arranged so most beats are things Ben can see.
     force a re-consolidation later. Feels like a quick win but has a short shelf life if done
     early. Do it when the panels have stopped changing.
 
+[ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
+    Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
+    responsible-party primitive, PENETRATION_DETAIL_RULES engine, derived trade-plan-set export —
+    all settled (see ADDITIONAL_FUNCTIONALITY #79). BUILD GATED on #74 (data-driven rule layer)
+    + #75 (spreadsheet authoring pass). Spun off #80 (supplier catalogue), #81 (trade-assignment
+    model), #82 (thermal-bridge). Build prompt is authored when #74/#75 unblock — do not sequence
+    before then.
+
 [ ] LARGE / SEPARATE CHAT — Differential slot population  [size ~7, wide error bars]
     The payoff of the Session-35 slot model: filling individual point-slots and span-slots
     with different profiles (fitting at an interior bend, size change mid-run) vs the uniform

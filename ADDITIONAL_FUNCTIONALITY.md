@@ -1110,7 +1110,7 @@ PDF bytes) packages and travels — see #49/#50.
 **Logged:** Session 38 (Beat 3 D3 finding).
 **Description:** Two obligations — `vent-to-exterior` on bath-fan and `exterior-vent` on HRV/ERV — carry the parenthetical "(envelope)" in their label, indicating they involve a building-envelope penetration. ROLE_LABELS has no "envelope" or "general contractor" role today, so both obligations resolve to `trades: []` and display "Owner: unassigned" in the worklist. Options: (a) add an 'envelope' or 'contractor' role to ROLE_LABELS and reclassify; (b) map envelope work to 'designer' (who specifies penetration details); (c) leave unassigned and treat as a reminder for the designer to coordinate. Decision requires input on who in the BC residential workflow owns envelope-penetration specifications.
 **Why deferred:** D3 rule — no role invented; gap reported. Requires product decision on role vocabulary.
-**Status:** Deferred; show as "Owner: unassigned" until resolved.
+**Status:** RESOLVED THROUGH #79 (Session 39). These obligations ARE penetrations (a bath-fan vent / HRV exterior-vent crossing the envelope). They carry responsible-party SCOPES derived by the penetration rules (exterior-cladding always; framing-blocking if backing required; air-barrier-continuity if poly interaction), resolved to a named party via #81. No standalone "envelope" role is invented. Remains "unassigned" in the worklist until #79 builds.
 
 ---
 
@@ -1144,39 +1144,57 @@ PDF bytes) packages and travels — see #49/#50.
 
 ---
 
-### 79. Envelope penetration subsystem — rule-generated detail list + trade-specific exportable plan-set layers (FOUNDING-PRINCIPLE ANCHOR; intensive planning required)
+### 79. Envelope penetration subsystem — rule-generated coded detail + derived trade-plan-set export (FOUNDING-PRINCIPLE ANCHOR; architecture settled Session 39)
 **Category:** Envelope / DPM / export layers / program architecture (Vision §6 export, lines 213–219, 257; §5.3)
-**Logged:** Session 38. Flagged by Ben as a FOUNDING ARCHITECTURAL PRINCIPLE, not a feature — escalate to a dedicated intensive planning session before any build.
-**Description:** Envelope penetrations are not a single-owner obligation. They are a GENERATED,
-CONDITIONAL DEPENDENCY SET: a penetration ties through a rule set to auto-generate a list of
-required DETAILS, and each detail derives its own role set from envelope-system parameters and
-the specific condition — e.g. framer IF backing required, cladding crew ALWAYS, insulator IF the
-detail has interior air-barrier interaction. The role set is derived from a combination of
-system-wide envelope settings, not statically tagged on the obligation. This is the same
-conditional-spawn machinery as the equipment cross-field rules (Beat 2) and the data-driven rule
-layer (#74) — envelope obligations are a consumer of that rule layer, authored from envelope-system
-inputs.
-**Why it is high-impact (Ben's framing):**
-- The envelope detail list is an ADDITIONAL EXPORTABLE LAYER over the PDF. One of the "export layer
-  sets" becomes a TRADE-SPECIFIC PLAN SET: each trade receives their own plans plus the envelope
-  details that affect them. Envelope details affect EVERY trade — so this layer touches all of them.
-  Connects directly to Vision §6 (any layer combination exported to clean PDF; penetrations page +
-  QR to the penetration register, lines 213–219, 257).
-- This is the architecture thesis in miniature: clean data structure lets outputs SCALE
-  EXPONENTIALLY with each data layer added. Paired with plan VISUAL RECOGNITION (Claude/GPT-4o
-  vision assist, Vision §13) + USER-GUIDED INPUT CATEGORIZATION, small input effort returns large
-  value. This is WHY the data-structure discipline matters more than any single visible feature —
-  envelope penetrations are the clearest demonstration of the payoff.
-**Dependencies / relationships:** #74 (data-driven dependency-rule layer — the home for envelope
-condition→role rules); #63 (Ben's spreadsheet as authoring source for the rules); Beat 3's
-trade→role structure (the substrate the derived roles attach to); ROLE_LABELS will likely need
-NET-NEW on-site trade roles not in today's five (framer, cladding crew, insulator) — a known
-expansion, NOT to be added until this subsystem is scoped; Vision §6 export model; the DPM
-(penetration spawns obligations exactly as equipment placement does).
-**Process note (Ben, Session 38):** the in-depth planning session pattern (settle architecture
-before building) WILL need to be REPEATED along the way to build full understanding of the eventual
-program outcome — this is expected and correct, not redundant. This entry is the trigger for the
-next such intensive session (target: a dedicated session, possibly next morning).
-**Status:** PLANNING ANCHOR — do not build. Escalate to intensive planning session. Beat 3's
-envelope obligations correctly remain trades:[] / "unassigned" until this subsystem is designed;
-that placeholder is HONEST, not a gap to patch.
+**Logged:** Session 38. **Architecture settled:** Session 39 (intensive planning, no build).
+
+**ENTITY MODEL (settled):**
+- **Penetration** — a DERIVED entity, not authored. Two sources, one unified entity, origin-blind downstream: `source: 'run' | 'item'`. Run-sourced = a 3D run-spine crossing an envelope plane (intersection point IS the location, spine-vs-plane). Item-sourced = a placed item declared to penetrate (its point-spine supplies the location). Stores location (X/Y/Z) + the set of crossings.
+- **Crossing** — one (penetration × assembly-plane × layer) tuple. Carries which layer + `exposure: 'interior' | 'exterior'`. Planes exist as both interior and exterior; some penetrations cross interior-only, some cross both. Interior+exterior modelled together from the start (not exterior-first).
+- **Detail** — ONE coordinated coded detail per penetration (NOT one-per-layer; NOT one-per-trade). Per-layer treatments are FACETS within the single detail. One detail on the plan.
+- **Three-way derivation:** detail code = (assembly parameters: which layers exist & what they are) × (project-wide envelope settings: WRB type, air-barrier strategy, cladding type, penetration treatment) × (the interacting item: duct/pipe/etc, type & size). None of the three stores the detail; it is computed through the rule seam (§5.1).
+- **Generic tier is the base; supplier is refinement.** The detail resolves first to generic parameters ("exterior membrane WRB — loose" vs "self-adhered", "interior air/vapour control — poly"). Fully valid and complete with NO supplier. Supplier selection (SIGA-style) is an OPTIONAL layer resolving the generic type to specific products + order sheet. Supplier integration is NEVER a prerequisite (§5.3).
+- **Detail RESIDES ON THE ASSEMBLY as an area-occupying sub-region** (like a specialised assembly-zone, §6.4 discipline): distinct identity, derived at read-time, host assembly NEVER fragmented (§5.1.2, §6.2/#19). Carries two stored-now / consumer-deferred slots: (a) **occupied area** (will net against / sub-divide envelope-area outputs — integration deferred); (b) **thermal-bridge value** (building-understanding metric, deferred quantification; explicitly NOT a compliance / H2K / F280 feed — it is more advanced than those require).
+
+**FACETS & RESPONSIBLE PARTY (settled):**
+- Each per-layer facet carries a **responsible party** — born holding a responsibility SCOPE at detail-generation (e.g. air-barrier-continuity, exterior-cladding, framing-blocking), resolved DOWNSTREAM to a named party via the project trade-assignment map. ONE slot: starts as scope, ends as person. Term is "responsible party" (not "person" — there is no person at birth; not "role").
+- Facet also carries material-category + the plan-amendment it generates (e.g. blocking note → framing plan).
+- Penetration rules emit responsible-party SCOPES only; they NEVER reference concrete roles/people. The trade→responsible-party→person resolution is a separate model (see #81). NO ROLE_LABELS edit happens in the #79 build.
+
+**RULE ENGINE (settled):**
+- **`PENETRATION_DETAIL_RULES`** — a DISTINCT rule engine, separate schema from Beat 2a's `CONFIG_CROSS_FIELD_RULES`. Reads the three-way combine; OUTPUT is an AUTOFILL GENERATOR producing a complete, PREFILLED, EDITABLE coded detail (per-layer facets w/ responsible-party scope + material-category + plan-amendment). User edits properties on the generated result.
+- Shares #74's data-source + authoring pipeline (spreadsheet #63, parsed at load) but sits BESIDE CONFIG_CROSS_FIELD_RULES as a second rule type, not inside it. Forcing the three-way-combine-in / coded-detail-out shape into the flat `{when, apply}` config schema would be a §5.3 tear-out.
+- **Auto-prompt is parameter-completeness-driven, NOT crossing-driven.** If project parameters fully define the detail → resolves silently, complete. If underspecified (e.g. supplier unset, an open gasket choice) → auto-prompt fires with a prefill to confirm or a final selection to make (§5.2: geometry+params propose, deliberate input is authoritative, prompt is the correction surface only when needed).
+
+**EXPORT — TRADE-SPECIFIC PLAN SET (settled):**
+- A trade-plan-set is a PURELY DERIVED projection (§5.4): filter detail facets by responsible party + a layer selection, at export time. NO stored authored "plan set" artifact (would drift from the model). Customizability layer-on: a useful filter may be SAVED as a named filter spec (stores the filter only, never the rendered set) — same pattern as the reference-override picker.
+- Envelope details affect EVERY trade, so this layer touches all of them — the clearest demonstration of the architecture thesis: clean data structure → outputs scale per layer added.
+- **Penetration register + QR:** QR = Quick Response code. QR is PER-PENETRATION — each detail on the exported paper plan carries its own QR linking to its register entry. The register entry behind the QR holds the spec, materials, and supplier order line if resolved, AND a VIDEO of how that specific coded detail is accomplished (install method), playable on the device when scanned off the paper plan. The penetrations PAGE is the index. Per-penetration makes per-page a free layer-on (Vision §6 + the penetration-register/video-link model, lines 213–219, 257).
+- **Interior/exterior output split is a FUTURE read-time division** — a later parse separating the interior detail from the exterior for output. NOT a decision now and NOT a reason to fragment the stored single detail.
+
+**Dependencies / build gate:** #74 (data-driven rule layer — home for the rules) and #75 (spreadsheet authoring pass) are PREREQUISITES. #79 build does NOT start until both are ready. Spun-off subsystems: #80 (supplier-catalogue integration), #81 (trade-assignment model), #82 (thermal-bridge quantification). Beat 3's `ownerRoles` is the substrate the responsible-party resolution extends. The DPM (penetration spawns obligations exactly as equipment placement does). Vision §6 export model.
+**Status:** ARCHITECTURE SETTLED (Session 39) — still DO NOT BUILD; gated on #74 + #75. The build prompt is written when #74/#75 unblock, not before.
+
+---
+
+### 80. Supplier-catalogue integration — detail-type → product + order-sheet resolution
+**Category:** Envelope / supplier / export. **Logged:** Session 39 (spun off #79).
+**Description:** Optional refinement layer over the generic penetration-detail tier (#79). A supplier (e.g. SIGA) has its product catalogue designed into the system; selecting that supplier autopopulates the generic detail-types with specific products AND a prefilled order sheet. Envelope-area outputs link to the same quantities. The detail stores a generic detail-TYPE + parameters, never a product; the supplier catalogue is an INTERPRETER (§6.9 pattern) resolving type → SKU + quantity + order line. Generic tier is fully functional without any supplier (§5.3 base case).
+**Why deferred:** Large self-contained subsystem (catalogue ingestion, per-supplier product mapping, order-sheet generation). #79 designs the seam (detail-type, never product); the catalogue builds later.
+**Status:** Deferred; seam designed in #79.
+
+---
+
+### 81. Trade → responsible-party → person assignment model (many-to-many, parameter-derived)
+**Category:** Roles / DPM / project config. **Logged:** Session 39 (spun off #79; full realization of Beat 3 Fork B).
+**Description:** Roles are derived from TRADE, not authored as a fixed ROLE_LABELS list. Many-to-many: one team member may hold several responsible-party scopes (e.g. builder = framer + air-barrier + exterior-cladding); one scope may split across people. WHICH trade fulfills a given responsibility is itself PARAMETER-DERIVED, not fixed: "exterior cladding" may resolve to a mason, stucco crew, or carpentry crew per the project's cladding-type parameter. Model = (a) a responsibility-scope vocabulary the rules emit; (b) a project-level trade-assignment map (scope → trade/member, many-to-many); (c) read-time resolution: obligation's responsibility-scope × project assignment → owner; person-name is the last hop. Obligations NEVER store who — they store the required scope. Extends Beat 3's derived `ownerRoles` + the deferred person-name lookup (Fork B).
+**Why deferred:** Separate definition exercise; the scope vocabulary + assignment-map UI + parameter-driven trade resolution are their own build. #79 emits responsibility SCOPES only and references no concrete roles/people, so #79 is unblocked by this being deferred.
+**Status:** Deferred; #79 emits the scope primitive this model later resolves.
+
+---
+
+### 82. Thermal-bridge quantification at penetrations (advanced building-understanding)
+**Category:** Envelope / analysis. **Logged:** Session 39 (spun off #79).
+**Description:** A penetration detail occupies area of an assembly and is a thermal bridge with a heat-loss value. #79 stores the thermal-bridge SLOT on the detail now; this entry covers the quantification + the analysis output that consumes it (significant thermal bridges across the building). Explicitly NOT a code-compliance path: more advanced than H2K / F280 require; insignificant for compliance, significant for overall building thermal understanding.
+**Why deferred:** Property residence exists from #79 (§5.3); the calculation + advanced-analysis consumer build later. Not on any compliance interpreter.
+**Status:** Deferred; slot stored in #79, no compliance dependency.

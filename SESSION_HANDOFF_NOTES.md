@@ -10,6 +10,42 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 39 — Envelope Penetration Subsystem: architecture settled (#79); no build (2026-06-26)
+
+**Type:** Intensive planning session (no code). Docs-only commit.
+
+### What was settled
+Full entity + rule + export model for the envelope penetration subsystem (#79), the founding-principle
+anchor logged Session 38. See ADDITIONAL_FUNCTIONALITY #79 for the complete settled model. Headlines:
+- Penetration = derived entity, dual-source (run-spine crossing OR placed item), origin-blind downstream.
+- ONE coordinated coded detail per penetration; per-layer treatments are facets; one detail on the plan.
+- Three-way derivation: assembly params × project envelope settings × interacting item → detail code.
+- Generic tier is the base; supplier (SIGA-style) is optional refinement, never a prerequisite.
+- Detail resides ON THE ASSEMBLY as an area-occupying sub-region; stores occupied-area + thermal-bridge
+  slots now, consumers deferred. Thermal bridge is building-understanding, NOT a compliance feed.
+- Each facet carries a RESPONSIBLE PARTY: born as a scope, resolved downstream to a named party.
+- PENETRATION_DETAIL_RULES = distinct engine (autofill generator, editable prefill), beside
+  CONFIG_CROSS_FIELD_RULES under #74's data roof, separate schema. Auto-prompt fires only on
+  parameter underspecification.
+- Trade-plan-set export = purely derived projection (filter facets by responsible party + layers),
+  with optional saved named filters. QR per-penetration; penetrations page is the index.
+- QR per-penetration links to a register entry holding spec + materials + (if resolved) order line
+  AND a video of how that coded detail is installed, scanned off the paper plan. Page is the index.
+
+### Spun-off register entries
+#80 supplier-catalogue integration · #81 trade→responsible-party→person assignment model ·
+#82 thermal-bridge quantification. #78 marked resolved-through-#79.
+
+### Build gate
+#79 build does NOT start until #74 (data-driven rule layer) AND #75 (spreadsheet authoring pass)
+are ready. This session produced architecture + register entries only; the build prompt is authored
+when #74/#75 unblock.
+
+### Forward
+Next visible beat unchanged (Beat 4 panel consolidation, or Beat 2b if #75 lands). #79 waits on #74/#75.
+
+---
+
 ## SESSION 38 — Beat 3: trade→role structure + role-only owner render (#68 + #61) (2026-06-26)
 
 **Branch:** main | **Commit:** 1aae356 — pushed to origin.
