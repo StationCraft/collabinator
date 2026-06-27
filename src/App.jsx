@@ -168,8 +168,9 @@ const CONFIG_FIELDS = [
     category: 'Equipment',
     label: 'Cooling',
     options: [
-      { value: 'central-ac', label: 'Central A/C' },
-      { value: 'none',       label: 'None' },
+      { value: 'heat-pump-ducted', label: 'Ducted heat pump (heating + cooling)' },
+      { value: 'central-ac',       label: 'Central A/C' },
+      { value: 'none',             label: 'None' },
     ],
     multi: false,
     spawns: null,
@@ -293,6 +294,31 @@ const ROLE_LABELS = {
   'energy-advisor':'Energy Advisor',
   'plumber':       'Plumber',
   'electrician':   'Electrician',
+}
+
+// ── Cross-field config resolver (#58 b/c seam — forward-proofs #74) ────────────
+// Pure function: takes raw projectSetupRef.current.values, returns a resolved copy
+// where cross-field implications have been applied. Both deriveWorklist and the
+// Project Setup panel render call this before reading config values.
+//
+// RULE SET — hand-authored; replace contents only when #74 builds a data-driven layer.
+// Rule format: { id, when(raw): bool, apply(raw): partialValues }
+const CONFIG_CROSS_FIELD_RULES = [
+  {
+    // When space-heating is a ducted heat pump and the user hasn't explicitly set cooling,
+    // prefill cooling to match. Never clobbers a user-set (non-null) cooling value.
+    id: 'heat-pump-ducted-implies-cooling',
+    when: (raw) => raw['space-heating'] === 'heat-pump-ducted' && (raw['cooling'] == null),
+    apply: () => ({ cooling: 'heat-pump-ducted' }),
+  },
+]
+
+function resolveEffectiveConfig(rawValues) {
+  const resolved = { ...rawValues }
+  for (const rule of CONFIG_CROSS_FIELD_RULES) {
+    if (rule.when(resolved)) Object.assign(resolved, rule.apply(resolved))
+  }
+  return resolved
 }
 
 function App() {
@@ -428,7 +454,9 @@ function App() {
   const projectSetupRef = useRef({ values: {}, roleAssignments: {} })
 
   // §9 accessors — single read/write path to projectSetupRef.values.
-  // No re-render tick this piece; Piece 2 adds the panel and whatever tick it needs.
+  // Returns RAW stored value — what the user actually chose. Callers that need the
+  // engine-resolved value (cross-field rules applied) call resolveEffectiveConfig
+  // themselves. Two honest, separately-inspectable truths.
   const getConfigValue = (fieldId) => {
     const field = CONFIG_FIELDS.find(f => f.id === fieldId)
     const stored = projectSetupRef.current.values[fieldId]
@@ -3844,33 +3872,43 @@ function App() {
         placedByKey[s.instanceKey] = s
       }
     }
-    const toPlace = []
-    const obligations = []
+
+    // Collect raw spawn requests from all fields, then dedup by type.
+    // Dedup rule: two fields requesting the same item type means one shared physical unit —
+    // take the MAX count requested (not additive). Shared appliances appear once in the worklist.
+    const resolvedCfg = resolveEffectiveConfig(projectSetupRef.current.values)
+    const maxCountByType = {}
     for (const field of CONFIG_FIELDS) {
       if (!field.spawns) continue
-      const val = getConfigValue(field.id)
+      const val = resolvedCfg[field.id] ?? getConfigValue(field.id)  // resolved view for spawn logic
       const spawnList = field.spawns(val)
       for (const { type, count } of spawnList) {
-        const itemDef = ITEM_TYPES.find(it => it.type === type)
-        const label = itemDef?.label ?? type
-        for (let i = 1; i <= count; i++) {
-          const instanceKey = `${type}#${i}`
-          const placed = placedByKey[instanceKey]
-          if (placed) {
-            if (itemDef) {
-              for (const ob of itemDef.obligations) {
-                obligations.push({
-                  placedId: placed.id,
-                  instanceKey,
-                  itemLabel: label,
-                  ...ob,
-                  satisfiedValue: (placed.obligationState || {})[ob.id] ?? null,
-                })
-              }
+        maxCountByType[type] = Math.max(maxCountByType[type] ?? 0, count)
+      }
+    }
+
+    const toPlace = []
+    const obligations = []
+    for (const [type, count] of Object.entries(maxCountByType)) {
+      const itemDef = ITEM_TYPES.find(it => it.type === type)
+      const label = itemDef?.label ?? type
+      for (let i = 1; i <= count; i++) {
+        const instanceKey = `${type}#${i}`
+        const placed = placedByKey[instanceKey]
+        if (placed) {
+          if (itemDef) {
+            for (const ob of itemDef.obligations) {
+              obligations.push({
+                placedId: placed.id,
+                instanceKey,
+                itemLabel: label,
+                ...ob,
+                satisfiedValue: (placed.obligationState || {})[ob.id] ?? null,
+              })
             }
-          } else {
-            toPlace.push({ type, label, instanceKey })
           }
+        } else {
+          toPlace.push({ type, label, instanceKey })
         }
       }
     }
@@ -5825,6 +5863,9 @@ function App() {
             byCategory[field.category].push(field)
           }
           void projectSetupTick  // ensure re-render on tick bump
+          // Resolved config for display: cross-field rules applied (e.g. auto-fill).
+          // getConfigValue (raw) is still used by onChange/onBlur writes — they store user intent.
+          const resolvedPanelCfg = resolveEffectiveConfig(projectSetupRef.current.values)
           return (
             <div className="fh-panel ps-panel">
               <div className="fh-panel-head">
@@ -5835,7 +5876,7 @@ function App() {
                 <div key={cat} className="fh-zone">
                   <div className="fh-zone-label">{cat}</div>
                   {byCategory[cat].map(field => {
-                    const current = getConfigValue(field.id)
+                    const current = resolvedPanelCfg[field.id] ?? getConfigValue(field.id)
                     return (
                       <div key={field.id} className="fh-row ps-field-row">
                         <div className="fh-field-label ps-field-label">{field.label}</div>
