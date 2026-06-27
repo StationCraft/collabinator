@@ -998,6 +998,98 @@ canvas {
 }
 .fh-close-btn:hover { color: #f1f5f9; }
 
+/* ── Consolidated side-panel container (#69) ───────────────────────────────── */
+.side-panel-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.93);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #e2e8f0;
+  border-radius: 6px 0 0 6px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.side-panel-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 56px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 0 4px 4px 0;
+  cursor: ew-resize;
+  z-index: 10;
+}
+.side-panel-resize-handle:hover { background: rgba(255,255,255,0.28); }
+
+/* Tab bar — narrow: vertical stacked bars; wide: horizontal row */
+.side-panel-tab-bar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.side-panel-tab-bar--wide {
+  flex-direction: row;
+}
+
+.side-panel-tab {
+  flex: 1;
+  padding: 7px 10px 7px 18px; /* 18px left gives room for the resize handle */
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.side-panel-tab-bar--wide .side-panel-tab {
+  border-bottom: 3px solid transparent;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  text-align: center;
+  padding: 8px 12px;
+}
+.side-panel-tab:last-child { border-bottom: none; }
+.side-panel-tab-bar--wide .side-panel-tab:last-child { border-right: none; }
+.side-panel-tab:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
+.side-panel-tab--active { color: #f1f5f9 !important; background: rgba(255,255,255,0.1) !important; }
+.side-panel-tab-bar--wide .side-panel-tab--active { border-bottom-color: #60a5fa !important; }
+
+/* Content area — scrolls vertically; only active panel renders */
+.side-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 24px;
+}
+
+/* Reset fh-panel absolute layout when nested inside the container */
+.side-panel-content .fh-panel {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  height: auto !important;
+  width: 100% !important;
+  z-index: auto !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  overflow-y: visible !important;
+  padding: 0 !important;
+  display: block !important;
+}
+
 .fh-empty {
   font-size: 0.82rem;
   color: #94a3b8;
@@ -1186,10 +1278,6 @@ canvas {
 }
 
 /* ── Project setup panel (§9 config layer) ─────────────────────────────── */
-.ps-panel {
-  /* Inherits fh-panel layout; sits left of fh-panel when both open */
-  right: 300px;
-}
 .ps-field-row {
   display: flex;
   flex-direction: column;
@@ -1241,14 +1329,6 @@ canvas {
 }
 
 /* ── §8.2 Worklist panel ─────────────────────────────────────────────────── */
-.wl-btn { background: #7c3aed; }
-.wl-btn:hover { background: #8b5cf6; }
-.wl-btn.floor-heights-btn--open { background: #4c1d95; }
-
-.wl-panel {
-  right: 600px;  /* sits left of ps-panel (300px) and fh-panel (0px) */
-}
-
 .wl-all-done { color: #4ade80; }
 
 .wl-toplace-list { flex-direction: column; }
@@ -1337,14 +1417,6 @@ canvas {
 }
 
 /* ── Envelope panel (#52) ───────────────────────────────────────────────── */
-.enum-btn { background: #0e7490; }
-.enum-btn:hover { background: #0891b2; }
-.enum-btn.floor-heights-btn--open { background: #164e63; }
-
-.enum-panel {
-  right: 900px;  /* sits left of wl-panel (600px), ps-panel (300px), fh-panel (0px) */
-}
-
 .enum-row {
   border-top: 1px solid rgba(255,255,255,0.07);
   padding: 6px 2px;

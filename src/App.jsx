@@ -325,6 +325,13 @@ function resolveEffectiveConfig(rawValues) {
   return resolved
 }
 
+const SIDEBAR_TABS = [
+  { id: 'project-setup', label: 'Project Setup' },
+  { id: 'worklist',      label: 'Worklist' },
+  { id: 'floor-heights', label: 'Floor Heights' },
+  { id: 'envelope',      label: 'Envelope' },
+]
+
 function App() {
   const [pdf, setPdf] = useState(null)
   const [pageCount, setPageCount] = useState(0)
@@ -406,20 +413,30 @@ function App() {
   const [show3DView, setShow3DView] = useState(false)
   const [wireframeData, setWireframeData] = useState(null)
 
+  // ── Consolidated side-panel container (#69) ──────────────────────────────────
+  const [showSidebar, setShowSidebar] = useState(false)
+  const [activeTabId, setActiveTabId] = useState('project-setup')
+  const [sidebarWidth, setSidebarWidth] = useState(300)
+  const sidebarWidthRef = useRef(300)
+  // Derived flags — existing panel conditionals read these unchanged
+  const showProjectSetup = showSidebar && activeTabId === 'project-setup'
+  const showFloorHeights = showSidebar && activeTabId === 'floor-heights'
+  const showWorklist     = showSidebar && activeTabId === 'worklist'
+  const showEnumeration  = showSidebar && activeTabId === 'envelope'
+  // Legacy setters: all call sites pass false → close the sidebar
+  const setShowProjectSetup = () => setShowSidebar(false)
+  const setShowFloorHeights = () => setShowSidebar(false)
+  const setShowWorklist     = () => setShowSidebar(false)
+  const setShowEnumeration  = () => setShowSidebar(false)
   // ── Project setup panel (§9 config layer, Piece 2) ──────────────────────────
-  const [showProjectSetup, setShowProjectSetup] = useState(false)
-  const [projectSetupTick, setProjectSetupTick] = useState(0)   // bumped on every setConfigValue write; forces re-render
-  const [psCountDrafts, setPsCountDrafts] = useState({})        // { [fieldId]: string } — raw text draft for kind:'count' inputs
-  // ── §8.2 Worklist panel ──────────────────────────────────────────────────────
-  const [showWorklist, setShowWorklist] = useState(false)
-  const [worklistTick, setWorklistTick] = useState(0)           // bumped on every spawning config field write; forces re-render
-  const [showEnumeration, setShowEnumeration] = useState(false)
-  const [enumerationTick, setEnumerationTick] = useState(0)     // bumped on shape lock/delete and floor-height writes; forces re-render
-
+  const [projectSetupTick, setProjectSetupTick] = useState(0)
+  const [psCountDrafts, setPsCountDrafts] = useState({})
+  // ── §8.2 Worklist / Envelope panels ─────────────────────────────────────────
+  const [worklistTick, setWorklistTick] = useState(0)
+  const [enumerationTick, setEnumerationTick] = useState(0)
   // ── Floor heights panel (elevation numeric editor, Piece 2) ─────────────────
-  const [showFloorHeights, setShowFloorHeights] = useState(false)
-  const [floorHeightsTick, setFloorHeightsTick] = useState(0)   // bumped on every floorHeightsRef write; forces re-render
-  const [fhExpandedLevel, setFhExpandedLevel] = useState(null)  // level string whose floor-system control is expanded
+  const [floorHeightsTick, setFloorHeightsTick] = useState(0)
+  const [fhExpandedLevel, setFhExpandedLevel] = useState(null)
   const [fhCustomActive, setFhCustomActive] = useState(false)   // true when Custom input is shown within expanded level
   const [fhCustomVal, setFhCustomVal] = useState('')            // raw string from custom field in INCHES
   const [fhCustomSheathing, setFhCustomSheathing] = useState(false) // "add sheathing+drywall" checkbox
@@ -5051,37 +5068,10 @@ function App() {
 
         {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <button
-            className={`floor-heights-btn ${showProjectSetup ? 'floor-heights-btn--open' : ''}`}
-            onClick={() => setShowProjectSetup(h => !h)}
+            className={`floor-heights-btn${showSidebar ? ' floor-heights-btn--open' : ''}`}
+            onClick={() => setShowSidebar(h => !h)}
           >
-            {showProjectSetup ? 'Project Setup ✕' : 'Project Setup'}
-          </button>
-        )}
-
-        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
-          <button
-            className={`floor-heights-btn ${showFloorHeights ? 'floor-heights-btn--open' : ''}`}
-            onClick={() => setShowFloorHeights(h => !h)}
-          >
-            {showFloorHeights ? 'Floor Heights ✕' : 'Floor Heights'}
-          </button>
-        )}
-
-        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
-          <button
-            className={`floor-heights-btn wl-btn ${showWorklist ? 'floor-heights-btn--open' : ''}`}
-            onClick={() => setShowWorklist(h => !h)}
-          >
-            {showWorklist ? 'Worklist ✕' : 'Worklist'}
-          </button>
-        )}
-
-        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
-          <button
-            className={`floor-heights-btn enum-btn ${showEnumeration ? 'floor-heights-btn--open' : ''}`}
-            onClick={() => setShowEnumeration(h => !h)}
-          >
-            {showEnumeration ? 'Envelope ✕' : 'Envelope'}
+            {showSidebar ? 'Panels ✕' : 'Panels'}
           </button>
         )}
 
@@ -5867,7 +5857,42 @@ function App() {
           )}
         </aside>
 
-        {showProjectSetup && pdf && (() => {
+        {showSidebar && pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (() => {
+          const isWide = sidebarWidth >= 520
+          return (
+            <div className="side-panel-container" style={{ width: sidebarWidth }}>
+              {/* Drag-to-resize handle on left edge */}
+              <div
+                className="side-panel-resize-handle"
+                onMouseDown={e => {
+                  e.preventDefault()
+                  const startX = e.clientX; const startW = sidebarWidthRef.current
+                  const onMove = ev => {
+                    const newW = Math.min(Math.max(300, startW - (ev.clientX - startX)), window.innerWidth * 0.8)
+                    sidebarWidthRef.current = newW; setSidebarWidth(newW)
+                  }
+                  const onUp = () => {
+                    document.removeEventListener('mousemove', onMove)
+                    document.removeEventListener('mouseup', onUp)
+                  }
+                  document.addEventListener('mousemove', onMove)
+                  document.addEventListener('mouseup', onUp)
+                }}
+              />
+              {/* Tab bar — narrow: vertical stacked bars; wide (≥520px): horizontal row */}
+              <div className={`side-panel-tab-bar${isWide ? ' side-panel-tab-bar--wide' : ''}`}>
+                {SIDEBAR_TABS.map(tab => (
+                  <button
+                    key={tab.id}
+                    className={`side-panel-tab${activeTabId === tab.id ? ' side-panel-tab--active' : ''}`}
+                    onClick={() => setActiveTabId(tab.id)}
+                  >{tab.label}</button>
+                ))}
+              </div>
+              {/* Content area — only the active panel renders */}
+              <div className="side-panel-content">
+
+                {showProjectSetup && pdf && (() => {
           // Derive category order from CONFIG_FIELDS array order (no hardcoded category list).
           const categories = []
           const byCategory = {}
@@ -6401,6 +6426,11 @@ function App() {
                   </div>
                 ))
               )}
+            </div>
+          )
+        })()}
+
+              </div>{/* /side-panel-content */}
             </div>
           )
         })()}
