@@ -657,6 +657,20 @@ A React + Vite app with:
   * Solids toggle button (`Solids ✓` / `Solids`) in header; equipment `■` legend entry (purple 0x8b5cf6); `window.__dumpSolids()` DEV hook.
   * Lineset tube r=12.5mm is correct-but-small (honest 1" placeholder). Display-scale option deferred (#70). Duct profile present, no pair-map entry yet (#71).
 
+- **Session 36 Beat 1 — opening storage fix + 3D loop + Envelope panel (#55 + #52; commits 961d098, 7d939c3):**
+  * **Storage fix (961d098):** `confirmOpening` was discarding user-entered dimensions after sizing the pixel
+    rectangle — `widthM`/`heightM` were never stored; `openingLabel` stored but `op.label` read by both consumers.
+    Fix: capture `storedWidthM`/`storedHeightM` from `parseFtIn` before vertex resize; store as `widthM`/`heightM`;
+    rename field to `label`. This was the first live execution of `deriveWireframe` openingLines and
+    `deriveEnumeration` STEP D. Browser-verified: real values in dump + orange rectangle in 3D View (#55 done).
+  * **Envelope panel (7d939c3):** `showEnumeration` + `enumerationTick` state; `deriveEnumeration()` hoisted out
+    of the `if (import.meta.env.DEV)` guard into component render scope (was inaccessible from JSX);
+    `window.__dumpEnumeration` re-wrapped in a new DEV guard. "Envelope" button (teal, same toolbar gate as
+    Worklist/Floor Heights); `enum-panel` at `right:900px`. Panel groups by kind (Wall Surfaces / Soffits /
+    Windows / Doors); named fields per element (width, height, Z, bearing, reconcile tag with color); no
+    recomputation in panel (§7.3 honored); empty state message. `enumerationTick` bumped on shape lock/delete,
+    floor-height writes, and page nav. Browser-verified: 13 elements match `__dumpEnumeration()` (#52 done).
+
 **Not yet built (next increments):**
 - **Next critical-path build: planning pass needed** — §8.2 step 5 or next §9 extension.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
@@ -669,7 +683,7 @@ A React + Vite app with:
   See "§9 Project-configuration layer" data-structures section below for full detail.
 - B5: 3D envelope wireframe — **DONE (Session 31; commits 7c44e24, 622e76d)**:
   ThreeDView.jsx + deriveWireframe(); floor/ceiling rings + verticals + roof ring + soffits + openings;
-  lines only (envelope surfaces = B6, deferred #54). Opening visual verify deferred (#55).
+  lines only (envelope surfaces = B6, deferred #54). Opening 3D render path verified Session 36 (#55 done).
 - B6: envelope surfaces (floor/roof/soffit fill + face culling) — deferred (#54)
 - Cross-sections (deferred — windows/doors intentionally builds first)
 - Slope rules + Z-derivation for roof (needs coordinate model — see #18)
@@ -725,9 +739,9 @@ completedShapesRef.current = Array<{
   category?: string|null,       // legacy; use spanSlots[i].category
   // Opening shapes (window/door) carry additional fields:
   openingType?: string,         // from OPENING_TYPES (e.g. 'Casement', 'Fixed')
-  label?: string,               // free-text label (e.g. 'W1', user-supplied)
-  widthM?: number,              // overall width in meters (user-entered, display-unit-independent)
-  heightM?: number,             // overall height in meters (user-entered, display-unit-independent)
+  label?: string,               // free-text label (e.g. 'W1', user-supplied). Stored as 'label' (NOT 'openingLabel' — old name, removed Session 36)
+  widthM?: number,              // overall width in meters — from authoritative user-entered ft+in (parseFtIn); null if no scale at placement
+  heightM?: number,             // overall height in meters — same source; null if no scale at placement
   dimBasis?: 'frame' | 'rough-opening', // copied from dimensionBasisRef at confirm time
   // Roof-plan pages only (wall polygons, not grade lines):
   roofType?: 'flat' | 'sloped' | null,

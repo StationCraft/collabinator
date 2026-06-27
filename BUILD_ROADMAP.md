@@ -115,8 +115,22 @@ building."
           1" default snap on placement + Edit Shapes entry when openings present (priorSnapIncrementRef
           save/restore); persistent top-bar snap selector (one selector, always visible, disabled when
           no scale; prior in-toolbar selectors removed). Browser-verified.
-    [ ] Windows/doors Piece 3 — three-layer snap (NEXT)
-    [ ] Windows/doors Piece 4 — dumb duplicate (NEXT)
+    [x] Windows/doors Beat 1 — storage fix + 3D loop + enumeration panel (Session 36; commits 961d098, 7d939c3)
+        Fix (961d098): confirmOpening was discarding user-entered dimensions after sizing the pixel
+          rectangle. widthM/heightM never stored → deriveWireframe skipped every opening (guard
+          `!op.widthM||!op.heightM`); deriveEnumeration emitted null for both. openingLabel renamed
+          to label to match both consumers. storedWidthM/storedHeightM captured from parseFtIn
+          before vertex resize. The 3D openingLines render path and STEP D fenestration branch had
+          NEVER fired on live data — this was the first execution. Browser-verified: __dumpEnumeration
+          showed real widthM/heightM/worldZm; orange opening rectangle visible in 3D View (#55 done).
+        Envelope panel (7d939c3): showEnumeration + enumerationTick state; deriveEnumeration()
+          hoisted out of the DEV guard into component render scope (was scoped to if(DEV) — invisible
+          from JSX); window.__dumpEnumeration re-wrapped in new DEV guard; enum-btn (teal) + enum-panel
+          (right:900px) CSS; panel groups by kind (Wall Surfaces/Soffits/Windows/Doors) with named
+          fields per element — no recomputation in panel (§7.3 honored); reconcile tags color-coded
+          via data-tag; empty state message. Browser-verified: 13 elements match __dumpEnumeration (#52 done).
+    [ ] Windows/doors Piece 3 — three-layer snap (off critical path)
+    [ ] Windows/doors Piece 4 — dumb duplicate (off critical path)
     [ ] Cross-sections (DEFERRED — windows/doors intentionally builds first)
 [x] Pixels→real-world coordinate foundation — DONE (R2 / Path 3; Session 18; commits 040e371, 71e01ca)
     Approach: Path 3 / 3-minimal (supersedes the 4a/store-meters-natively scope from Session 17).
@@ -235,8 +249,70 @@ building."
     Browser verified: amber tubes correct geometry (r=12.5mm, honest 1" placeholder); purple
     blocks on-level; toggle no camera reset; all regression guards pass.
 
-**Next critical-path build = §9 project-configuration layer or §8.2 step 5 (planning pass needed).
-Windows/doors Pieces 3+4 remain off-critical-path.**
+---
+
+## SEQUENCED TRACK TO PHASE 2 (set Session 36)
+
+**Governing sequencing principle (Session 36):** Do not stack invisible-infrastructure
+builds back-to-back. The recent stretch (slot model, enumeration engine) was correct
+architecture that produced little or no on-screen change — which reads as "no progress"
+to a visual, results-driven owner even though the work was sound. Remedy is ORDER, not
+more building: bracket each invisible build with a visible-payoff beat. The track below
+is arranged so most beats are things Ben can see.
+
+```
+[ ] BEAT 1 (VISIBLE) — Windows/doors 3D loop + enumeration render  [size ~5, paired]
+    Pair #55 + #52, built as ONE session (both make already-built computation visible):
+    - #55: place a test opening in the fixture; confirm it renders in 3D (orange rect at
+      correct world XY/Z) AND fires the enumeration fenestration branch (STEP D) on real data.
+    - #52: put deriveEnumeration() output on screen — a deliberately-dumb v1 geometry list
+      panel first (rows of elements + size/orientation); sorting/grouping is later polish.
+    Payoff: place opening -> see it in 3D -> see it appear as a row in a real geometry list.
+    Highest visible-progress-per-hour available in the remaining sequence. Also closes the
+    "where did the geometry output go" confusion (it was console-only via __dumpEnumeration).
+    §7.3 VIGILANCE: the enumeration panel is the FIRST non-renderer consumer of derived
+    quantities. Confirm each quantity is read from ONE named function attached to its element,
+    not recomputed in panel code. Cheap to honor now, expensive to retrofit.
+
+[ ] BEAT 2 (INVISIBLE, bracketed) — Config field-interdependency layer  [size ~6]
+    #58 + #59 built together (#59 is the data half of #58 — same model, same file):
+    - utilities/energy-sources-at-site fields (gate which equipment options are offered)
+    - heat-pump-ducted space-heating auto-fills cooling = heat pump
+    - spawn-dedup: a shared appliance spawns its items ONCE, not per triggering field
+    First cross-field logic in the config layer; upstream of the spawn engine; does NOT
+    change placement or rendering. The named next critical-path link (§9 dependency chain).
+    Split #58/#59 ONLY if the rule engine proves fiddly enough to want proving on existing
+    fields first — a live recon judgment, not a pre-commitment.
+
+[ ] BEAT 3 (VISIBLE) — Cross-trade obligation -> role wiring  [size ~4]
+    #68 + #61: descriptive trade tags ((plumber)/(electrician)) become real links to the
+    §9 role model; obligation rows show the assigned person's name. Visible change, advances
+    the coordination/buy-in story. Sits after the config layer so roles wire to a more
+    complete obligation set.
+
+[ ] BEAT 4 (deferred to END of pre-Phase-2 run) — Panel consolidation  [size 3]
+    #69 MOVED LATER (Session 36 decision). Consolidation wants to happen ONCE, after the
+    panel count stabilizes. Beats 2-3 may add/change panel content; consolidating now would
+    force a re-consolidation later. Feels like a quick win but has a short shelf life if done
+    early. Do it when the panels have stopped changing.
+
+[ ] LARGE / SEPARATE CHAT — Differential slot population  [size ~7, wide error bars]
+    The payoff of the Session-35 slot model: filling individual point-slots and span-slots
+    with different profiles (fitting at an interior bend, size change mid-run) vs the uniform
+    tube. Most visible 3D progress AND most likely to fracture into sub-forks. Deserves its
+    own room to think. Do NOT pair with Beat 2 (two risky builds back-to-back = fracture risk).
+    NOTE: this is POPULATION, not rebuild — the slot structure already supports it.
+```
+
+**Off-critical-path (unchanged):** windows/doors Pieces 3+4 (three-layer snap, dumb duplicate)
+remain available but are not on this track.
+
+**Fenced / Phase-2-gated (do NOT pull into this track):** #64 envelope-crossing, #65 multi-hop
+cascade, #66 per-vertex Z/slope, #67 conflict/clearance, spine taxonomy, duct transitions,
+region-spines, DXF export, 6.6 floor-system structural population. The deferral register is
+holding; none of these carries weight on the near beats. #66/R3 (per-vertex z-seam) is the
+deferral with the longest reach — it will likely define the boundary of "Phase 1 done" — but
+is correctly fenced and should NOT be pulled forward.
 
 ---
 

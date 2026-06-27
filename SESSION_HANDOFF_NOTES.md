@@ -10,6 +10,33 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 36 — Beat 1: opening storage fix + 3D loop (#55) + Envelope panel (#52) (2026-06-26)
+
+**Branch:** main | **Commits:** 961d098 (opening storage fix), 7d939c3 (Envelope panel) — both pushed to origin.
+
+### What was built
+
+**Beat 1 read-only recon (first):** Full static trace of opening placement → storage → 3D render path → enumeration STEP D. Found two bugs in `confirmOpening`: (1) `widthM`/`heightM` never stored — `deriveWireframe` guard `!op.widthM || !op.heightM` skipped every opening, making the orange 3D lines a dead code path; (2) `openingLabel` stored but `op.label` read by both consumers. Confirmed fixture already has an elevation page with confirmed scale + edge, so placing one opening would fire both paths.
+
+**Piece 1 — opening storage fix + first live execution (961d098):**
+- `confirmOpening`: capture `storedWidthM`/`storedHeightM` from `parseFtIn` before vertex resize; store as `widthM`/`heightM` on shape object; rename `openingLabel` → `label`. No other code used `openingLabel` (confirmed by grep).
+- Placed test window on fixture elevation page; `__dumpEnumeration()` showed `widthM=1.4478m, heightM=1.4224m, worldZm=2.2397m` (all real, not null). 3D View showed orange opening rectangle. First live execution of both `openingLines` render path and `STEP D` fenestration branch.
+- Ben re-snapshots fixture after this commit (test opening now part of standard scenario).
+
+**Piece 2 — Envelope panel (7d939c3):**
+- `deriveEnumeration()` was inside `if (import.meta.env.DEV)` block — inaccessible from JSX, causing `ReferenceError` on panel render. Hoisted to component render scope; `window.__dumpEnumeration` re-wrapped in new DEV guard.
+- `showEnumeration` + `enumerationTick` state (mirrors Worklist pattern). Tick bumped on shape lock/delete, floor-height writes, page nav.
+- "Envelope" toolbar button (teal `enum-btn`); `enum-panel` at `right:900px`. Panel groups by kind (Wall Surfaces / Soffits / Windows / Doors); named fields per element; reconcile tags color-coded via `data-tag`; empty state message. All quantities read from named element fields — no recomputation (§7.3).
+- Browser-verified: 13 elements, matches `__dumpEnumeration()` output exactly.
+
+### Key lesson reinforced
+`deriveEnumeration` being inside the DEV guard compiled clean and Vite ran the dev server without a parse error — the `ReferenceError` only appeared at runtime when the panel tried to call it. Compile-clean is NOT the verification line.
+
+### Forward
+Beat 2 planning needed. Next candidates: §8.2 step 5, opening Piece 3/4, or panel consolidation (#69 deferred to Beat 4). Ben to re-upload the five docs to the Project.
+
+---
+
 ## SESSION 35 — §8.3 Build 1 + Build 2: run slot storage + profile/solids (2026-06-26)
 
 **Branch:** main | **Commits:** 7c921ff (Build 1 slot storage), 607f6be (Build 1 fix), 2feb3e5 (__dumpRuns invariant), a961430 (Build 2 profile+solids), cba3932 (log cleanup) — all pushed to origin.

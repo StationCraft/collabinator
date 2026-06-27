@@ -797,7 +797,7 @@ Needs a short planning pass to verify the math is neutral before any code change
 
 **Description:** `deriveEnumeration()` outputs wall-surface classifications, soffits, and fenestration Z to the browser console only (`__dumpEnumeration`). A rendered panel or 3D wireframe display of the enumeration output was deferred.
 
-**Status:** RESOLVED via B5 (Session 31; commits 7c44e24, 622e76d). The 3D wireframe (ThreeDView.jsx + deriveWireframe()) provides the render layer. B4 console dump remains as a DEV-only verification tool alongside the visual. A dedicated annotation panel for the B4 classification tags (cantilever/setback, signed distance) remains deferred → see #53.
+**Status:** DONE — Session 36, Beat 1 (commit 7d939c3). "Envelope" panel added: right-side overlay calling deriveEnumeration() at render time; groups by kind (Wall Surfaces / Soffits / Windows / Doors); shows named fields per element (widths, heights, Z values, bearing, reconcile tags color-coded); no recomputation in panel (§7.3). deriveEnumeration() hoisted out of the DEV guard so it is callable from JSX. __dumpEnumeration remains as a DEV verification tool. Browser-verified: 13 elements match dump output.
 
 ---
 
@@ -821,7 +821,7 @@ Needs a short planning pass to verify the math is neutral before any code change
 **Logged:** Session 31, B5 Piece 2 close-out.
 **Description:** Confirm opening rectangles render correctly in the 3D view. The opening-line code path is built and dump/code-verified, but the fixture has zero openings — no visual confirmation was possible.
 **Why deferred:** No test opening exists in the fixture. Place a test opening on an elevation page in a future session, then open 3D View to confirm the orange rectangle renders at the correct world XY and Z.
-**Status:** Deferred. One small session step once an elevation page has a placed opening.
+**Status:** DONE — Session 36, Beat 1. Storage fix (widthM/heightM/label) landed first; then placed test opening on fixture elevation page; orange rectangle confirmed visible in 3D View. First live execution of the openingLines render path.
 
 ---
 
@@ -1025,7 +1025,73 @@ ready when the pair-map entry is authored.
 
 ---
 
-## Review checkpoints
+### 72. Multiple loadable DEV fixtures (fixture picker)
+**Category:** DEV tooling / testing
+**Logged:** Session 36.
+**Description:** Today there is ONE dev fixture (one do-everything scenario, restored via
+`__restoreFixture` / snapshotted via `__snapshotFixture`, bundled PDF in `documents[]`). As the
+feature set grows, the single fixture both mutates to test new features AND serves as the
+regression scenario for old ones — a tension. Target: multiple named fixtures (e.g. minimal
+"openings", "runs", full "everything"), each the smallest scenario that exercises its feature,
+selectable from the DEV strip. DATA LAYER IS ALREADY THERE: snapshots are plain JSON and the
+bundled-PDF structure is already a `documents[]` array (built that way per #50 so multi-doc
+generalizes as a layer-on). What's missing is only the UI/UX: the LOAD FIXTURE button becomes a
+picker; decisions needed on where fixtures are stored/named, and whether they ship in-repo or
+stay local (current single fixture PDF is gitignored).
+**Why deferred:** Not needed for Beat 1 — an opening can be added to the existing fixture
+additively and re-snapshotted without disturbing the run/slot scenario. Building a picker now
+solves a problem not yet felt, at the cost of delaying visible payoff.
+**Revisit trigger:** If a build's recon shows the single fixture genuinely cannot host a new
+test scenario without disturbing an existing one (Beat 1 recon A5 is the first check). That is
+real evidence the single-fixture model is binding; reprioritize then with a concrete reason.
+**Status:** Deferred; data layer ready, picker UI is the build.
+
+---
+
+### 73. Platform infrastructure — auth, profiles, project persistence (the "expected SaaS stuff")
+**Category:** Platform / persistence (Vision §3)
+**Logged:** Session 36.
+**Description:** The program will eventually need the standard web-app substrate: user login/auth,
+a user profile with saved settings/preferences, and PROJECTS that persist server-side and can be
+recalled across sessions and machines. This is the large subsystem implied by VISION_SUPPLEMENT
+§3 (project-configuration layer) and already partially anticipated by #49 (project-owned PDF
+persistence — PDF bytes travel WITH the project, not as a machine-local path) and #50 (multiple
+PDFs per project). Currently ALL state is in-memory only, lost on reload; git-on-origin is the
+ONLY durability and it's developer-facing, not user-facing. This entry is the umbrella for the
+whole persistence/identity layer; #49 and #50 are sub-pieces of it.
+**Why deferred:** This is a Phase-2+ subsystem (backend, storage, identity) orthogonal to the
+geometry/modeling work that is the current focus. The geometry model is being built deliberately
+in a serialization-friendly way (refs are plain data, snapshots are JSON) so the persistence layer
+is a layer-on, not a rebuild — which is exactly why it can safely wait.
+**Planning notes captured (Session 36, to expand):** serialization-readiness of the current data
+model is the key precondition and is being maintained; the snapshot/restore machinery is the local
+proof-of-concept of project serialize/deserialize; auth+profile is conventional and low-architectural-
+risk; the interesting design question is how a project's full state (geometry + transforms + config +
+PDF bytes) packages and travels — see #49/#50.
+**Status:** Deferred to Phase 2+. Umbrella entry; keep the data model serialization-friendly meanwhile.
+
+---
+
+## Session 36 repositioning notes (sequencing decisions — see BUILD_ROADMAP "SEQUENCED TRACK TO PHASE 2")
+
+- **#52 (enumeration render) PULLED FORWARD into Beat 1**, paired with #55. Rationale: it is
+  not really "future" — it is the visible half of an already-built, already-verified feature
+  (deriveEnumeration is console-only via __dumpEnumeration). Leaving it deferred is what created
+  the owner's "where did the geometry output go" confusion. Outsized weight relative to its size:
+  converts a finished-but-invisible subsystem into something visible and trustable. Ship a dumb
+  v1 list first; sorting/grouping is later polish.
+- **#55 (3D opening visual verification) PULLED FORWARD into Beat 1**, paired with #52. Placing
+  one test opening fires both the 3D opening-render path and the enumeration fenestration branch
+  on real data for the first time. Double duty, smallest item with a visible payoff.
+- **#69 (panel consolidation) PUSHED to END of pre-Phase-2 run (Beat 4).** Consolidation wants
+  to happen once, after panel count stabilizes. Beats 2-3 may add/change panel content; early
+  consolidation forces a re-consolidation. Short shelf life if done now.
+- **§7.3 named-derived-quantity discipline flagged as VIGILANCE at Beat 1**: the enumeration panel
+  is the first non-renderer consumer of derived quantities. Not a build to pull forward — a rule
+  to honor at the exact session it first pays. Confirm quantities read from one named function per
+  element, never recomputed in panel code.
+
+---
 
 - [ ] After this chat's goal is complete (`BUILD_ROADMAP.md` Step 4 done) — quick pass
       to see if any entries are now small enough to fold into a dedicated polish
