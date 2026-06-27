@@ -4675,6 +4675,35 @@ function App() {
       const cfg = projectConfigRef.current
       const thr = cfg.soffitCombineThresholdM ?? 0.05
 
+      // ── Opening association map — built before STEP A ─────────────────────────
+      // Each elevation page has one reference edge (elevationEdgeRef). All openings
+      // on that page are associated with the specific wall surface identified by the
+      // triple (refShape.id, segmentIndex, floorLevel). This is the only unambiguous
+      // per-segment join the current data model supports.
+      //
+      // LIMITATION: all openings on a multi-story elevation are attributed to the
+      // single reference-edge wall surface on the reference-edge floor level. Openings
+      // visible in the elevation but belonging to other floor levels cannot be mapped
+      // to separate wall surfaces without multi-level elevation geometry (deferred).
+      const openingsByWallId = {}
+      for (const ep of pages.filter(p => p.category === 'elevation')) {
+        const stored = elevationEdgeRef.current[ep.pageId]
+        if (!stored) continue
+        const refShape = completedShapesRef.current[stored.shapeIndex]
+        if (!refShape) continue
+        const srcPage = pages.find(p => p.pageId === stored.sourcePageId)
+        if (!srcPage || !isKnownFloorLabel(srcPage.subLabel)) continue
+        const refLevel = srcPage.subLabel
+        const wallId = `wall-${refShape.id}-seg${stored.segmentIndex}-${refLevel.replace(/\s/g, '_')}`
+        const elevOpenings = completedShapesRef.current.filter(
+          s => s.pageId === ep.pageId && s.status === 'locked' && isOpening(s) &&
+               s.widthM != null && s.heightM != null
+        )
+        if (elevOpenings.length === 0) continue
+        if (!openingsByWallId[wallId]) openingsByWallId[wallId] = []
+        openingsByWallId[wallId].push(...elevOpenings)
+      }
+
       // ── STEP A: Wall surfaces — each polygon edge lifted to floor Z ──────────
       for (let li = 0; li < zStack.length; li++) {
         const row = zStack[li]
@@ -4750,8 +4779,15 @@ function App() {
               }
             }
 
+            const wallId = `wall-${shape.id}-seg${si}-${row.level.replace(/\s/g, '_')}`
+            const assocOpenings = openingsByWallId[wallId] ?? []
+            const openingAreaM2 = assocOpenings.reduce((sum, op) => sum + op.widthM * op.heightM, 0)
+            const grossAreaM2 = heightM != null ? widthM * heightM : null
+            const netAreaM2 = grossAreaM2 != null ? Math.max(0, grossAreaM2 - openingAreaM2) : null
+            const openingOverflow = grossAreaM2 != null && openingAreaM2 > grossAreaM2 ? true : undefined
+
             elements.push({
-              id: `wall-${shape.id}-seg${si}-${row.level.replace(/\s/g, '_')}`,
+              id: wallId,
               kind: 'wall-surface',
               floorLevel: row.level,
               pageId: floorPage.pageId,
@@ -4764,6 +4800,11 @@ function App() {
               ceilingZm,
               reconcile,
               signedDistM,
+              grossAreaM2,
+              netAreaM2,
+              openingAreaM2,
+              associatedOpeningIds: assocOpenings.map(op => op.id),
+              openingOverflow,
             })
           }
         }
@@ -4883,10 +4924,20 @@ function App() {
           const dStr = el.signedDistM != null
             ? `${el.signedDistM >= 0 ? '+' : ''}${el.signedDistM.toFixed(4)}m (${el.signedDistM < 0 ? 'inside' : 'outside'} floor-below)`
             : 'n/a'
+          const gStr = el.grossAreaM2 != null ? el.grossAreaM2.toFixed(4) + 'm²' : 'null (no floor height)'
+          const nStr = el.netAreaM2   != null ? el.netAreaM2.toFixed(4)   + 'm²' : 'null'
+          const oaStr = el.openingAreaM2.toFixed(4) + 'm²' + (el.associatedOpeningIds.length ? ` (${el.associatedOpeningIds.length} opening${el.associatedOpeningIds.length > 1 ? 's' : ''})` : '')
+          // Partition assertion: gross == net + openingArea within epsilon
+          const partitionOk = el.grossAreaM2 == null
+            ? null  // can't check without gross
+            : Math.abs(el.grossAreaM2 - (el.netAreaM2 ?? 0) - el.openingAreaM2) < 0.0001
+          const partStr = partitionOk == null ? 'N/A (no gross)' : (partitionOk ? 'PASS' : 'FAIL')
           console.log(
             `  ${el.id}\n` +
             `    page:${el.pageId}  floor:${el.floorLevel}\n` +
             `    width=${wStr}  height=${hStr}\n` +
+            `    gross=${gStr}  net=${nStr}  openings=${oaStr}\n` +
+            `    partition gross==net+openings: ${partStr}${el.openingOverflow ? '  ⚠ openingOverflow' : ''}\n` +
             `    floorZ=${fStr}  ceilingZ=${cStr}  bearing=${oStr}\n` +
             `    signedDist=${dStr}\n` +
             `    reconcile: ${rStr}`
@@ -4930,6 +4981,24 @@ function App() {
       if (allCoincident && wallEls.some(e => e.reconcile)) {
         console.warn('[enum] FINDING: all reconciled edges are "coincident" — bbox-compare may not be detecting the intentional Main Floor offset. bbox-compare only catches midpoints outside the below-floor bbox; a shifted-but-still-overlapping polygon may produce all-coincident results. Consider a per-edge closest-approach rule.')
       }
+
+      // ── Area + partition summary ─────────────────────────────────────────────
+      console.log('[enum] --- area + partition summary (wall-surfaces only) ---')
+      let partFail = 0, partPass = 0, partNa = 0
+      for (const el of wallEls) {
+        if (el.grossAreaM2 == null) { partNa++; continue }
+        const ok = Math.abs(el.grossAreaM2 - (el.netAreaM2 ?? 0) - el.openingAreaM2) < 0.0001
+        if (ok) partPass++; else { partFail++; console.error(`  FAIL: ${el.id}  gross=${el.grossAreaM2.toFixed(4)} net=${el.netAreaM2?.toFixed(4)} openings=${el.openingAreaM2.toFixed(4)}`) }
+      }
+      console.log(`  partition check: ${partPass} PASS  ${partFail} FAIL  ${partNa} N/A (no floor height)`)
+      const totalGross = wallEls.reduce((s, e) => s + (e.grossAreaM2 ?? 0), 0)
+      const totalNet   = wallEls.reduce((s, e) => s + (e.netAreaM2   ?? 0), 0)
+      const totalOA    = wallEls.reduce((s, e) => s + (e.openingAreaM2 ?? 0), 0)
+      const withGross  = wallEls.filter(e => e.grossAreaM2 != null).length
+      const overflow   = wallEls.filter(e => e.openingOverflow).length
+      console.log(`  gross total=${totalGross.toFixed(4)}m² (${withGross}/${wallEls.length} surfaces have height)`)
+      console.log(`  net total=${totalNet.toFixed(4)}m²  opening total=${totalOA.toFixed(4)}m²`)
+      if (overflow) console.warn(`  ⚠ ${overflow} surface(s) have openingOverflow (openings exceed gross area — bad data)`)
     }
 
       window.__dumpWireframe = () => {
@@ -6409,6 +6478,17 @@ function App() {
                           <div className="enum-row-title">{el.floorLevel} · {fmtDeg(el.orientationDeg)} bearing</div>
                           <div className="enum-row-detail">w {fmtM(el.widthM)} · h {fmtM(el.heightM)}</div>
                           <div className="enum-row-detail">floorZ {fmtM(el.floorZm)} · ceilZ {fmtM(el.ceilingZm)}</div>
+                          {el.grossAreaM2 != null ? (
+                            <div className="enum-row-detail">
+                              gross {el.grossAreaM2.toFixed(3)} m²
+                              {el.openingAreaM2 > 0
+                                ? ` · net ${el.netAreaM2?.toFixed(3)} m² (−${el.openingAreaM2.toFixed(3)} openings)`
+                                : ' · net = gross'}
+                              {el.openingOverflow && ' ⚠ overflow'}
+                            </div>
+                          ) : (
+                            <div className="enum-row-detail" style={{opacity:0.5}}>area — (set floor height)</div>
+                          )}
                           {el.reconcile && <div className="enum-row-tag enum-tag-reconcile" data-tag={el.reconcile}>{el.reconcile}{el.signedDistM != null ? ` ${el.signedDistM >= 0 ? '+' : ''}${el.signedDistM.toFixed(3)}m` : ''}</div>}
                         </>)}
                         {kind === 'soffit' && (<>
