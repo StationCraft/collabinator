@@ -10,6 +10,44 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 38 — Beat 3: trade→role structure + role-only owner render (#68 + #61) (2026-06-26)
+
+**Branch:** main | **Commit:** 1aae356 — pushed to origin.
+
+### What was built
+
+**Read-only recon (Beat 3 prep):** Full static trace confirmed trade tags were English prose baked into `ob.label` strings ("Condensate drain (plumber)") — no structured field. The §9 role model (ROLE_LABELS, roleAssignments, person-assignment UI) already existed from Session 32. The gap was one-sided: obligation→role mapping had zero structure.
+
+**`trades: string[]` on ITEM_TYPES obligations:** Every obligation entry now carries a `trades` field with role ids from ROLE_LABELS. Multi-trade where genuinely warranted: `mount-type` gets `['hvac-designer', 'designer']` (clearance + setback/aesthetics), `supply-exhaust-duct` gets `['hvac-designer', 'energy-advisor']` (HRV ducting = HVAC spec + appears in h2k/f280 energy model). Two obligations left at `trades: []`: `vent-to-exterior` and `exterior-vent` — "(envelope)" has no role in ROLE_LABELS (#78).
+
+**`trade` scalar on RUN_PAIR_MAP:** `lineset` entry gets `trade: 'hvac-designer'` — category-level, authoritative for run obligations in the map (takes priority over obligation-level `trades`).
+
+**`ownerRoles` derived in `deriveWorklist`:** For run-kind obligations: check RUN_PAIR_MAP.satisfies for the obligation id → use category `trade` if found, else fall back to `ob.trades`. For property obligations: use `ob.trades` directly. Result is `ownerRoles: string[]` attached to each obligation object.
+
+**Worklist row render:** Secondary `.wl-oblig-owner` line in all three obligation branches (satisfied run / blocked / property): "Owner: X" for one, "Owners: A, B" for many, "Owner: unassigned" for empty. Role label via ROLE_LABELS — NO person-name lookup from roleAssignments (deferred per fork B).
+
+**`__dumpWorklist` updated:** Each obligation log line now shows `ownerRoles=[...]` and the resolved label string.
+
+### Fork B deferred
+Person-name lookup (reads `projectSetupRef.current.roleAssignments[roleId]`) was explicitly deferred. The BUILD_ROADMAP Beat 3 line originally said "show the assigned person's name" — amended to reflect role-label-only this build.
+
+### Unresolved trade gap (#78)
+"envelope" obligations (bath-fan vent-to-exterior, HRV exterior-vent) have `trades: []` because ROLE_LABELS has no envelope/contractor role. These show "Owner: unassigned" in the worklist. Logged as #78 in ADDITIONAL_FUNCTIONALITY.
+
+### Verification (browser — preview server 5175)
+Injected minimal fixture (4 placed equipment items, page-1 Main Floor + scale). Read DOM directly:
+- `outdoor-unit#1 / mount-type` → `Owners: HVAC Designer, Designer` ✓ (multi-trade)
+- `hrv-unit#1 / supply-exhaust-duct` → `Owners: HVAC Designer, Energy Advisor` ✓ (multi-trade)
+- `air-handler#1 / condensate-drain` → `Owner: Plumber` ✓ (single trade)
+- `air-handler#1 / lineset-endpoint` → `Owner: HVAC Designer` ✓ (from RUN_PAIR_MAP category)
+- `hrv-unit#1 / exterior-vent` → `Owner: unassigned` ✓ (empty trades, envelope gap)
+- No person names visible anywhere ✓
+
+### Forward
+Beat 2b (gating fields) still pending Ben's #75 authoring pass. Beat 4 (panel consolidation) is next visible beat. #78 (envelope role) and #61-person (person-name on row) are follow-ons.
+
+---
+
 ## SESSION 37 — Beat 2a: config cross-field rules — resolveEffectiveConfig seam + auto-fill + spawn-dedup (2026-06-26)
 
 **Branch:** main | **Commit:** f5553fa — pushed to origin.

@@ -869,10 +869,11 @@ accessors port directly into the form as one section.
 ---
 
 ### 61. Cross-trade obligation → §9 role wiring
-**Logged:** Session 33.
-**Description:** The descriptive trade tags on run obligations ((plumber)/(electrician)/(envelope)) become real owner-role assignments tied to the §9 role model. Currently label-only text with no link to `roleAssignments` in `projectSetupRef`. When wired, the correct role from `ROLE_LABELS`/`getRequiredRoles()` would be derived from the obligation and the obligation row would show the assigned person's name.
-**Why deferred:** Role-blind model is correct for the placement proof-of-concept; the trade tags describe who needs to coordinate, not a data relationship today. Full role-wiring belongs after the obligation model is more complete (runs + paths built).
-**Status:** Deferred; label-only for now.
+**Logged:** Session 33. **Partially done:** Session 38 (Beat 3, commit 1aae356).
+**Description:** The descriptive trade tags on run obligations ((plumber)/(electrician)/(envelope)) become real owner-role assignments tied to the §9 role model.
+**What Beat 3 built:** `trades: string[]` on ITEM_TYPES obligation defs; `trade:` scalar on RUN_PAIR_MAP categories; `ownerRoles` derived at worklist time; obligation rows show the role LABEL ("Owner: HVAC Designer"). Person-name lookup (reads roleAssignments) is the remaining piece.
+**Remaining:** Show the assigned person's name from `projectSetupRef.current.roleAssignments[roleId]` alongside or replacing the role label. One-line addition once the team decides the exact display order (label + name vs name only).
+**Status:** Role-label display done. Person-name follow-on deferred (fork B from Session 38).
 
 ---
 
@@ -1094,6 +1095,22 @@ PDF bytes) packages and travels — see #49/#50.
 **Description:** A gas furnace is itself an air handler — it provides the air distribution function. Under the current model, `furnace-gas` for space-heating spawns nothing (no air-handler, no outdoor-unit), while `heat-pump-ducted` spawns both. This is incomplete: a gas furnace project still needs an air handler (the furnace IS the air handler) and the obligation model should reflect that. Full treatment: furnace-gas spawns a `furnace` item-type with its own obligations (gas line, flue/combustion-venting, condensate drain, power); the air-distribution role is recognized as shared across equipment types. Pairs with #60 (dual-fuel, which explicitly requires furnace + heat-pump outdoor-unit), and with #74 (data-driven rules, which is the long-term home for equipment-topology logic).
 **Why deferred:** Equipment-topology nuance; Beat 2a's current behavior (air-handler spawns for heat-pump only) is incomplete-but-not-wrong as a cross-field-rules proof. Deferred to a dedicated equipment-setup session.
 **Status:** Deferred; pairs with #60 and #74.
+
+---
+
+### 77. Worklist classification / suggest-revision routing / registered-interest acknowledgment
+**Logged:** Session 38 scope boundary.
+**Description:** Downstream routing from obligation state: when an obligation is unresolvable (e.g. conflicting trades, envelope penetration needs design decision), route it to a classification queue or generate a "suggest revision" flag to the appropriate role. Registered-interest acknowledgment: once a role-holder acknowledges an obligation row, record the acknowledgment so it drops off the worklist for that role. Full coordination/buy-in story; requires the trade→role wiring (Beat 3) as prerequisite.
+**Why deferred:** Beat 3 built the structural wiring. Routing and acknowledgment are the next coordination layer.
+**Status:** Deferred; Beat 3 prerequisite done.
+
+---
+
+### 78. Envelope role gap — vent-to-exterior and exterior-vent obligations unowned
+**Logged:** Session 38 (Beat 3 D3 finding).
+**Description:** Two obligations — `vent-to-exterior` on bath-fan and `exterior-vent` on HRV/ERV — carry the parenthetical "(envelope)" in their label, indicating they involve a building-envelope penetration. ROLE_LABELS has no "envelope" or "general contractor" role today, so both obligations resolve to `trades: []` and display "Owner: unassigned" in the worklist. Options: (a) add an 'envelope' or 'contractor' role to ROLE_LABELS and reclassify; (b) map envelope work to 'designer' (who specifies penetration details); (c) leave unassigned and treat as a reminder for the designer to coordinate. Decision requires input on who in the BC residential workflow owns envelope-penetration specifications.
+**Why deferred:** D3 rule — no role invented; gap reported. Requires product decision on role vocabulary.
+**Status:** Deferred; show as "Owner: unassigned" until resolved.
 
 ---
 

@@ -452,7 +452,7 @@ The Project Setup panel (§9) drives a derived worklist of mechanical/electrical
 - `run` — cross-trade coordination required (plumbing, electrical, envelope); rendered blocked+🔒 until a run path connects both endpoints. Shows "✓ Connected" (green) when satisfied. See §8.2 step 4 below.
 - `property` — self-contained attribute set on the item itself (e.g., outdoor unit mount-type: ground/wall). Live `<select>` enabled once the item is placed; written back to `obligationState` on the shape.
 - `placement` — reserved kind for future placement-constraint obligations.
-- Obligation labels with trade tags ((plumber)/(electrician)/(envelope)) are descriptive only — not wired to §9 role model (role-blind this build).
+- **Trade→role wiring (Beat 3, Session 38, commit 1aae356):** Obligation defs now carry `trades: string[]` (role ids from ROLE_LABELS). RUN_PAIR_MAP entries carry `trade:` (category-level scalar). `deriveWorklist` resolves `ownerRoles: string[]` per obligation (run: category trade → ob.trades fallback; property: ob.trades). Each worklist obligation row shows a secondary "Owner: X" / "Owners: A, B" / "Owner: unassigned" line. Role label only — person-name from roleAssignments is a deferred follow-on (#61). "envelope" obligations have `trades: []` — no ROLE_LABELS entry for envelope work (#78).
 
 **Edit Shapes compatibility:**
 - Equipment items support Move and Delete sub-modes.

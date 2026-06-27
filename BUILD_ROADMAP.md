@@ -298,11 +298,14 @@ is arranged so most beats are things Ben can see.
     source data exists = redesign when it lands. Ben signals readiness.
     If Beat 2b is blocked, go to Beat 3 next.
 
-[ ] BEAT 3 (VISIBLE) — Cross-trade obligation -> role wiring  [size ~4]
-    #68 + #61: descriptive trade tags ((plumber)/(electrician)) become real links to the
-    §9 role model; obligation rows show the assigned person's name. Visible change, advances
-    the coordination/buy-in story. Sits after the config layer so roles wire to a more
-    complete obligation set.
+[x] BEAT 3 (VISIBLE) — Cross-trade obligation -> role wiring  [commit 1aae356]
+    #68 + #61: descriptive trade tags ((plumber)/(electrician)) structured as `trades:[]`
+    on ITEM_TYPES obligations; `trade:` scalar on RUN_PAIR_MAP categories. ownerRoles derived
+    at worklist time; rows show "Owner: X" / "Owners: A, B" / "Owner: unassigned".
+    NOTE: rows show the ROLE LABEL only (e.g. "HVAC Designer"), NOT the assigned person's
+    name — person-name lookup (reads roleAssignments) deferred per Session 38 fork B.
+    "envelope" obligations (vent-to-exterior, exterior-vent) have trades:[] — no role in
+    ROLE_LABELS maps to envelope work (#78 to add role or reclassify).
 
 [ ] BEAT 4 (deferred to END of pre-Phase-2 run) — Panel consolidation  [size 3]
     #69 MOVED LATER (Session 36 decision). Consolidation wants to happen ONCE, after the

@@ -877,6 +877,18 @@ DISTINCT from B4 `projectConfigRef` (which holds physical-derivation thresholds 
 - **Spawn dedup:** `deriveWorklist` collects all `{type, count}` into `maxCountByType`, merges by type
   via `Math.max` (shared appliance = max needed, not additive). Builds to-place/obligations from deduped set.
 
+**Beat 3 — trade→role wiring (Session 38; commit 1aae356):**
+- **`trades: string[]`** on every ITEM_TYPES obligation definition. Role ids from ROLE_LABELS. Multi-trade
+  where genuinely warranted: `mount-type` → `['hvac-designer', 'designer']`; `supply-exhaust-duct` →
+  `['hvac-designer', 'energy-advisor']`. "envelope" obligations (`vent-to-exterior`, `exterior-vent`) → `[]`
+  — no ROLE_LABELS entry maps to envelope work (#78 open).
+- **`trade: string`** scalar on each RUN_PAIR_MAP entry (category-level; authoritative for run obligations
+  in the map, overrides obligation-level `trades`). `lineset` → `'hvac-designer'`.
+- **`ownerRoles: string[]`** derived per obligation in `deriveWorklist`: run obligations check RUN_PAIR_MAP
+  category first, fall back to `ob.trades`; property obligations use `ob.trades` directly.
+- **Worklist row render:** `.wl-oblig-owner` secondary line — "Owner: X" / "Owners: A, B" / "Owner: unassigned".
+  Role LABEL only (via ROLE_LABELS); person-name lookup from `roleAssignments` deferred (#61 follow-on).
+
 ```
 projectSetupRef.current = {
   values: { [fieldId: string]: string | string[] | null },
