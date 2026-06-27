@@ -1141,3 +1141,42 @@ PDF bytes) packages and travels — see #49/#50.
 - [ ] Final review once Phase 1's toolkit is fully built and tested against real plan
       sets — use this list deliberately to chase down edge cases, rather than
       reactively mid-feature.
+
+---
+
+### 79. Envelope penetration subsystem — rule-generated detail list + trade-specific exportable plan-set layers (FOUNDING-PRINCIPLE ANCHOR; intensive planning required)
+**Category:** Envelope / DPM / export layers / program architecture (Vision §6 export, lines 213–219, 257; §5.3)
+**Logged:** Session 38. Flagged by Ben as a FOUNDING ARCHITECTURAL PRINCIPLE, not a feature — escalate to a dedicated intensive planning session before any build.
+**Description:** Envelope penetrations are not a single-owner obligation. They are a GENERATED,
+CONDITIONAL DEPENDENCY SET: a penetration ties through a rule set to auto-generate a list of
+required DETAILS, and each detail derives its own role set from envelope-system parameters and
+the specific condition — e.g. framer IF backing required, cladding crew ALWAYS, insulator IF the
+detail has interior air-barrier interaction. The role set is derived from a combination of
+system-wide envelope settings, not statically tagged on the obligation. This is the same
+conditional-spawn machinery as the equipment cross-field rules (Beat 2) and the data-driven rule
+layer (#74) — envelope obligations are a consumer of that rule layer, authored from envelope-system
+inputs.
+**Why it is high-impact (Ben's framing):**
+- The envelope detail list is an ADDITIONAL EXPORTABLE LAYER over the PDF. One of the "export layer
+  sets" becomes a TRADE-SPECIFIC PLAN SET: each trade receives their own plans plus the envelope
+  details that affect them. Envelope details affect EVERY trade — so this layer touches all of them.
+  Connects directly to Vision §6 (any layer combination exported to clean PDF; penetrations page +
+  QR to the penetration register, lines 213–219, 257).
+- This is the architecture thesis in miniature: clean data structure lets outputs SCALE
+  EXPONENTIALLY with each data layer added. Paired with plan VISUAL RECOGNITION (Claude/GPT-4o
+  vision assist, Vision §13) + USER-GUIDED INPUT CATEGORIZATION, small input effort returns large
+  value. This is WHY the data-structure discipline matters more than any single visible feature —
+  envelope penetrations are the clearest demonstration of the payoff.
+**Dependencies / relationships:** #74 (data-driven dependency-rule layer — the home for envelope
+condition→role rules); #63 (Ben's spreadsheet as authoring source for the rules); Beat 3's
+trade→role structure (the substrate the derived roles attach to); ROLE_LABELS will likely need
+NET-NEW on-site trade roles not in today's five (framer, cladding crew, insulator) — a known
+expansion, NOT to be added until this subsystem is scoped; Vision §6 export model; the DPM
+(penetration spawns obligations exactly as equipment placement does).
+**Process note (Ben, Session 38):** the in-depth planning session pattern (settle architecture
+before building) WILL need to be REPEATED along the way to build full understanding of the eventual
+program outcome — this is expected and correct, not redundant. This entry is the trigger for the
+next such intensive session (target: a dedicated session, possibly next morning).
+**Status:** PLANNING ANCHOR — do not build. Escalate to intensive planning session. Beat 3's
+envelope obligations correctly remain trades:[] / "unassigned" until this subsystem is designed;
+that placeholder is HONEST, not a gap to patch.
