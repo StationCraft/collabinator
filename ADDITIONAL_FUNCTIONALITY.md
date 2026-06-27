@@ -847,7 +847,8 @@ accessors port directly into the form as one section.
 **Logged:** Session 33.
 **Description:** Fields constrain and drive each other across three cases: (a) utilities/energy-sources-at-site gate which equipment options are valid/offered; (b) selecting a ducted heat pump for space-heating auto-fills cooling = heat pump (not a separate user choice); (c) spawn-dedup so a shared appliance (heat pump as both heat + cool source) spawns its items ONCE, not once per triggering field. First case of cross-field rules in the §9 config layer — currently all fields are flat/independent. Upstream of the spawn engine; does NOT change placement or rendering.
 **Why deferred:** Adds significant cross-field logic complexity mid-session; current flat model is correct for distinct equipment combos. Revisit when the config schema is more complete or a real cross-field case blocks a user task.
-**Status:** Deferred.
+**Status (cases b + c): DONE** — Session 37 Beat 2a, commit f5553fa. `resolveEffectiveConfig` seam built; heat-pump auto-fill rule live; spawn-dedup live. See #74 (seam ready for data-driven rules) and #76 (furnace-as-air-handler, same session finding).
+**Status (case a): Deferred as Beat 2b** — requires #59 (energy-source fields) and #75 (authoring prerequisite). Do not start until both are ready.
 
 ---
 
@@ -855,7 +856,7 @@ accessors port directly into the form as one section.
 **Logged:** Session 33.
 **Description:** Project-info fields capturing available fuels/utilities at the site (gas, electric, heat-pump-eligible, etc.) that feed the dependency-rule layer (#58 above) — gating which equipment options are offered. Corresponds to VISION_SUPPLEMENT §3. May fold into #58 as its data half rather than shipping as a separate build.
 **Why deferred:** Dependency-rule layer (#58) must be designed first; utilities fields are input to those rules, not standalone.
-**Status:** Deferred; likely builds as part of #58.
+**Status:** Deferred as Beat 2b; builds after #75 (authoring prerequisite) is ready. Do not start until Ben's spreadsheet is baked enough to mine for the energy-source field schema.
 
 ---
 
@@ -1069,6 +1070,30 @@ proof-of-concept of project serialize/deserialize; auth+profile is conventional 
 risk; the interesting design question is how a project's full state (geometry + transforms + config +
 PDF bytes) packages and travels — see #49/#50.
 **Status:** Deferred to Phase 2+. Umbrella entry; keep the data model serialization-friendly meanwhile.
+
+---
+
+### 74. Data-driven dependency-rule layer (replaces hand-authored CONFIG_CROSS_FIELD_RULES contents)
+**Logged:** Session 37.
+**Description:** The `CONFIG_CROSS_FIELD_RULES` array inside `resolveEffectiveConfig` is currently hand-authored — one rule today (heat-pump-ducted implies cooling). When the rule set grows (case a gating from #58, plus future equipment interdependencies), the rule authoring becomes unwieldy as raw JS. This entry covers replacing the CONTENTS of `CONFIG_CROSS_FIELD_RULES` with a data-driven layer: rules described as structured data (e.g. JSON/config, drawn from Ben's spreadsheet project per #63), parsed into the same `{id, when, apply}` shape at load time. The seam (`resolveEffectiveConfig` + `CONFIG_CROSS_FIELD_RULES`) is already built and correct — only the rule contents change; consumers are untouched.
+**Why deferred:** One rule doesn't justify the machinery. Build the data layer when the rule count makes hand-authoring painful, or when #63 (spreadsheet-derived data-flow source) is ready to mine.
+**Status:** Deferred; seam is built (Session 37 f5553fa). Ready to receive data-driven rules when authored.
+
+---
+
+### 75. Authoring prerequisite — config schema from Ben's spreadsheet (#63 readiness gate)
+**Logged:** Session 37.
+**Description:** Beat 2b (option-gating, #58 case a + #59) must not start until Ben's spreadsheet project (#63) is baked enough to mine for the energy-source field schema and gating rules. This is the authoring prerequisite: if the rule set is designed before the source-of-truth data exists, it will be redesigned when the spreadsheet lands. The correct sequence is: spreadsheet ready → recon session → Beat 2b. This entry tracks that gate.
+**Why deferred:** Spreadsheet not yet ready (as of Session 37).
+**Status:** Deferred; unblocks Beat 2b when ready. Ben to signal when the spreadsheet is baked.
+
+---
+
+### 76. Furnace is an air handler — air-handling role shared across heat-source equipment
+**Logged:** Session 37 (side finding during Beat 2a).
+**Description:** A gas furnace is itself an air handler — it provides the air distribution function. Under the current model, `furnace-gas` for space-heating spawns nothing (no air-handler, no outdoor-unit), while `heat-pump-ducted` spawns both. This is incomplete: a gas furnace project still needs an air handler (the furnace IS the air handler) and the obligation model should reflect that. Full treatment: furnace-gas spawns a `furnace` item-type with its own obligations (gas line, flue/combustion-venting, condensate drain, power); the air-distribution role is recognized as shared across equipment types. Pairs with #60 (dual-fuel, which explicitly requires furnace + heat-pump outdoor-unit), and with #74 (data-driven rules, which is the long-term home for equipment-topology logic).
+**Why deferred:** Equipment-topology nuance; Beat 2a's current behavior (air-handler spawns for heat-pump only) is incomplete-but-not-wrong as a cross-field-rules proof. Deferred to a dedicated equipment-setup session.
+**Status:** Deferred; pairs with #60 and #74.
 
 ---
 

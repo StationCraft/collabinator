@@ -10,6 +10,43 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 37 — Beat 2a: config cross-field rules — resolveEffectiveConfig seam + auto-fill + spawn-dedup (2026-06-26)
+
+**Branch:** main | **Commit:** f5553fa — pushed to origin.
+
+### What was built
+
+**Beat 2a read-only recon (first):** Full static trace of CONFIG_FIELDS descriptor shape, getConfigValue/setConfigValue, deriveWorklist spawn loop, and panel render. Confirmed the existing flat model — all fields independent, spawns: null on cooling, no dedup. Found that the `cooling` field had no "heat pump" option — only `central-ac` and `none` — which would have forced a semantically wrong auto-fill. Stopped and flagged before writing code.
+
+**Option added — cooling field (f5553fa):** `{ value: 'heat-pump-ducted', label: 'Ducted heat pump (heating + cooling)' }` added as first option in the `cooling` field of `CONFIG_FIELDS`. Narrow honesty fix only — equipment-topology nuance (#60 dual-fuel, #76 furnace-as-air-handler) deferred.
+
+**`resolveEffectiveConfig` seam (f5553fa):** Module-level pure function `resolveEffectiveConfig(rawValues)` with a named `CONFIG_CROSS_FIELD_RULES` array — hand-authored rule set, one entry today. Structure explicitly forward-proofs #74: replace the rule array contents only; consumers are untouched. Added between `ROLE_LABELS` and `function App()`.
+
+**Rule 1 — heat-pump-ducted-implies-cooling:** `when: raw['space-heating'] === 'heat-pump-ducted' && raw['cooling'] == null` → `apply: { cooling: 'heat-pump-ducted' }`. Prefilled-but-editable: only fires on null cooling; never clobbers a non-null user selection. Raw storage is the authoritative user-intent signal.
+
+**Spawn dedup (f5553fa):** `deriveWorklist` now collects all `{type, count}` from all spawn functions into `maxCountByType`, merging by type with `Math.max` (shared appliance = max needed, not additive). Builds to-place and obligations from the deduped set. `air-handler#1` and `outdoor-unit#1` appear exactly once regardless of how many fields imply them.
+
+**Seam wiring — two consumers only:** `getConfigValue` restored to raw (user intent, no resolve). `resolveEffectiveConfig` called at exactly two sites: top of `deriveWorklist` (as `resolvedCfg`) and top of the Project Setup panel render IIFE (as `resolvedPanelCfg`). Both use `resolved[field.id] ?? getConfigValue(field.id)` so default-value handling (count→0, multi→[]) is preserved.
+
+### Key lesson — seam caught before commit
+
+Initial implementation wired `resolveEffectiveConfig` into `getConfigValue` (the universal read path). Ben flagged this as over-broad before verification: the correct boundary is raw=user-intent (getConfigValue), resolved=engine-view (resolveEffectiveConfig at named consumers). The synthesize-on-read approach was mechanically correct for all five checks — the raw null cleanly separates unset from user-set — but the architecture boundary matters more than mechanical correctness here because #74 will pile many rules behind this seam. Reverted and re-wired before any verification ran.
+
+### Verification (all five — Ben confirmed)
+1. Space-heating = heat pump, cooling unset → cooling auto-fills "Ducted heat pump (heating + cooling)" ✅
+2. User manually sets cooling = Central A/C → not clobbered on re-read ✅
+3. User clears cooling to null → auto-fill fires again ✅
+4. `__dumpWorklist()` → air-handler#1 and outdoor-unit#1 each exactly once ✅
+5. Regression: HRV → hrv-unit#1; bath-fans=2 → bath-fan#1 + bath-fan#2; gas furnace → air-handler/outdoor-unit gone ✅
+
+### Side finding logged
+**#76** — Furnace is itself an air handler; gas furnace should also spawn an air-handler item. Deferred to equipment-setup session, pairs with #60 (dual-fuel) and #74 (data-driven dependency layer).
+
+### Forward
+Beat 2b (gating — #59 energy-source fields + option-filtering rules) is next but has a prerequisite: #75 authoring pass (Ben's spreadsheet baked enough to mine for config schema). Beat 2b does NOT start until #75 is ready. Beat 3 (cross-trade obligation → role wiring, #68 + #61) is the alternative next visible beat if Beat 2b is not yet unblocked.
+
+---
+
 ## SESSION 36 — Beat 1: opening storage fix + 3D loop (#55) + Envelope panel (#52) (2026-06-26)
 
 **Branch:** main | **Commits:** 961d098 (opening storage fix), 7d939c3 (Envelope panel) — both pushed to origin.

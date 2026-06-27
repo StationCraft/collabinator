@@ -436,9 +436,11 @@ penetrations (e.g., bathroom exhaust vents) at their correct location based on s
 The Project Setup panel (§9) drives a derived worklist of mechanical/electrical equipment items to be placed on the drawings.
 
 **Config → spawn → place model:**
-- `CONFIG_FIELDS` entries carry a `spawns(value) => [{type, count}]` function hook. Filled on: `space-heating` (heat-pump-ducted → air-handler + outdoor-unit), `ventilation` (hrv/erv → hrv-unit), `bath-fans` (`kind:'count'` numeric field → N × bath-fan).
+- `CONFIG_FIELDS` entries carry a `spawns(value) => [{type, count}]` function hook. Filled on: `space-heating` (heat-pump-ducted → air-handler + outdoor-unit), `ventilation` (hrv/erv → hrv-unit), `bath-fans` (`kind:'count'` numeric field → N × bath-fan). `cooling` spawns null (units already spawned by space-heating; dedup handles overlap).
+- `cooling` field has three options: heat-pump-ducted (added Session 37), central-ac, none.
 - `ITEM_TYPES` table defines four item types (air-handler, outdoor-unit, bath-fan, hrv-unit), each with an obligation list.
-- `deriveWorklist()` is computed fresh every render: calls all spawns functions, subtracts already-placed items by `instanceKey`, returns `{ toPlace, obligations }`. Never stored.
+- `resolveEffectiveConfig(rawValues)` + `CONFIG_CROSS_FIELD_RULES` (Session 37): cross-field rules applied before spawn. Current rule: heat-pump-ducted space-heating prefills cooling = heat-pump-ducted when cooling is unset (prefilled-but-editable; never clobbers non-null user choice). `getConfigValue` = raw user intent; `resolveEffectiveConfig` = engine-resolved view; called at exactly deriveWorklist + panel render.
+- `deriveWorklist()` collects all spawn requests into `maxCountByType` (dedup: max count per type, not additive), then builds `{ toPlace, obligations }`. A shared appliance implied by two fields appears once. Never stored.
 
 **Placement:**
 - Worklist panel (purple button) shows to-place rows with a Place button per row.

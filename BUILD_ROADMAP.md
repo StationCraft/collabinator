@@ -274,15 +274,29 @@ is arranged so most beats are things Ben can see.
     quantities. Confirm each quantity is read from ONE named function attached to its element,
     not recomputed in panel code. Cheap to honor now, expensive to retrofit.
 
-[ ] BEAT 2 (INVISIBLE, bracketed) — Config field-interdependency layer  [size ~6]
-    #58 + #59 built together (#59 is the data half of #58 — same model, same file):
-    - utilities/energy-sources-at-site fields (gate which equipment options are offered)
-    - heat-pump-ducted space-heating auto-fills cooling = heat pump
-    - spawn-dedup: a shared appliance spawns its items ONCE, not per triggering field
-    First cross-field logic in the config layer; upstream of the spawn engine; does NOT
-    change placement or rendering. The named next critical-path link (§9 dependency chain).
-    Split #58/#59 ONLY if the rule engine proves fiddly enough to want proving on existing
-    fields first — a live recon judgment, not a pre-commitment.
+[x] BEAT 2a (INVISIBLE) — Config cross-field rules: resolveEffectiveConfig seam + auto-fill + spawn-dedup  [DONE — Session 37, commit f5553fa]
+    #58 cases b + c:
+    - `heat-pump-ducted` option added to cooling field (honest label)
+    - `resolveEffectiveConfig(rawValues)` pure module-level function; `CONFIG_CROSS_FIELD_RULES`
+      hand-authored rule array (forward-proofs #74 data-driven replacement)
+    - Rule 1: heat-pump-ducted space-heating → prefills cooling = heat-pump-ducted (if unset)
+    - Spawn dedup: deriveWorklist collects all spawn requests, merges by type (max count);
+      shared appliance appears once in worklist regardless of how many fields imply it
+    - getConfigValue = raw user intent; resolveEffectiveConfig called at exactly two consumers:
+      deriveWorklist + panel render. Two honest separately-inspectable truths.
+    Key lesson: seam was first wired into universal getConfigValue read path — caught and
+    reverted to the two specified consumers before verification (over-broad seam would have
+    made #74 harder to reason about). See SESSION_HANDOFF_NOTES Session 37.
+
+[ ] BEAT 2b (INVISIBLE) — Config option-gating: energy-source fields + dependency rules  [BLOCKED]
+    #58 case a + #59:
+    - Utilities/energy-source fields at site (gas, electric, heat-pump-eligible)
+    - Option-filtering rules in resolveEffectiveConfig: energy source gates which equipment
+      options are offered in space-heating, water-heating, etc.
+    PREREQUISITE (#75): Beat 2b must NOT start until Ben's spreadsheet project (#63) is baked
+    enough to mine for the energy-source field schema and gating rules. Design before the
+    source data exists = redesign when it lands. Ben signals readiness.
+    If Beat 2b is blocked, go to Beat 3 next.
 
 [ ] BEAT 3 (VISIBLE) — Cross-trade obligation -> role wiring  [size ~4]
     #68 + #61: descriptive trade tags ((plumber)/(electrician)) become real links to the

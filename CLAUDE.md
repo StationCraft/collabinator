@@ -861,11 +861,28 @@ dimensionBasisRef.current = 'frame' | 'rough-opening' | null
 
 **§9 Project-configuration layer** (added Session 32; commits 4cca140, eb82eba, a049854):
 DISTINCT from B4 `projectConfigRef` (which holds physical-derivation thresholds and is NOT reset on upload).
+
+**Cross-field config resolver (added Session 37; commit f5553fa):**
+- `CONFIG_CROSS_FIELD_RULES` — module-level array of `{id, when(raw), apply(raw)}` rule objects.
+  Hand-authored rule set (forward-proofs #74 data-driven layer — replace contents only, consumers untouched).
+  Current rule: `heat-pump-ducted-implies-cooling` (space-heating === 'heat-pump-ducted' AND cooling null → effective cooling = 'heat-pump-ducted').
+- `resolveEffectiveConfig(rawValues)` — pure module-level function; takes `projectSetupRef.current.values`,
+  returns a resolved copy with cross-field rules applied.
+- **Two honest truths:** `getConfigValue(fieldId)` returns the RAW stored value (user intent — actual stored
+  choice or null). `resolveEffectiveConfig` returns the ENGINE-RESOLVED view. `getConfigValue` does NOT
+  route through resolve; the two are separately inspectable. `__dumpProjectSetup` shows raw.
+- **Exactly two consumers** call `resolveEffectiveConfig`: (1) top of `deriveWorklist` as `resolvedCfg`;
+  (2) top of the Project Setup panel render IIFE as `resolvedPanelCfg`. Both fall back to
+  `getConfigValue(field.id)` for default-value handling (count→0, multi→[]).
+- **Spawn dedup:** `deriveWorklist` collects all `{type, count}` into `maxCountByType`, merges by type
+  via `Math.max` (shared appliance = max needed, not additive). Builds to-place/obligations from deduped set.
+
 ```
 projectSetupRef.current = {
   values: { [fieldId: string]: string | string[] | null },
     // Keyed by CONFIG_FIELDS descriptor id. Single-select: string|null. Multi: string[].
-    // Read via getConfigValue(fieldId); written via setConfigValue(fieldId, value).
+    // Raw user intent: read via getConfigValue(fieldId); written via setConfigValue(fieldId, value).
+    // Engine-resolved view: resolveEffectiveConfig(projectSetupRef.current.values).
   roleAssignments: { [roleId: string]: string },
     // Keyed by role id (e.g. 'hvac-designer'). Value = assigned person name string.
     // Absent/empty = unassigned (owner-fallback displayed).
@@ -874,14 +891,16 @@ projectSetupRef.current = {
 // Reset on PDF upload to { values: {}, roleAssignments: {} }.
 ```
 
-`CONFIG_FIELDS` — module-level descriptor array (10 fields / 4 categories):
+`CONFIG_FIELDS` — module-level descriptor array (11 fields / 4 categories):
 - **Outputs** (multi:true): `outputs` — f280, h2k, permit-set
 - **Jurisdiction** (multi:false): `jurisdiction` — nbc, obc, other
 - **Assemblies** (multi:false, 2 opts each): `assembly-wall`, `assembly-foundation`, `assembly-roof`, `assembly-floor`
-- **Equipment** (multi:false, 2 opts each): `water-heating`, `space-heating`, `cooling`, `ventilation`
-Each descriptor: `{ id, category, label, options: [{value, label}], multi, spawns: null }`.
-`spawns: null` is a reserved hook for the §8.2 worklist build — empty and never read this piece.
-Adding a new field = adding a descriptor entry; panel renders automatically from the array.
+- **Equipment** (multi:false): `water-heating` (tank-gas, tankless-gas), `space-heating` (furnace-gas, heat-pump-ducted),
+  `cooling` (heat-pump-ducted, central-ac, none — 3 opts; heat-pump-ducted added Session 37), `ventilation` (hrv, erv),
+  `bath-fans` (kind:'count')
+Each descriptor: `{ id, category, label, options: [{value, label}], multi, spawns }`.
+`spawns` is a function `(val) => [{type, count}]` or null. Adding a new field = adding a descriptor entry; panel renders automatically.
+Adding a cross-field rule = adding an entry to `CONFIG_CROSS_FIELD_RULES` only.
 
 `OUTPUT_ROLES` — module-level map: output value → role id array (coarse starter set, extensible):
 - `'f280'` → `['hvac-designer', 'energy-advisor']`
