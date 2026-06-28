@@ -565,18 +565,21 @@ A React + Vite app with:
   `public/devFixtures/test-fixture.pdf` — **gitignored; never committed; drop real test PDF there
   on a fresh clone.** Save/Load buttons ARE LIVE (DEV-guarded strip; see #31). Production
   tree-shakes the entire block.
-- **Golden sidecar + `__verifyFixture()` (Session 42; commits 688f8aa, e1a3215):**
+- **Golden sidecar + `__verifyFixture()` (Session 42; commits 688f8aa, e1a3215; sidecar
+  re-frozen Session 43 commit 6d849f1):**
   `public/devFixtures/fixture-elevation.json` is the authoritative multi-floor scenario fixture
-  (page-2=elevation, page-3=Crawlspace, page-5=Main Floor, page-7=roof; 5 shapes including
-  window W1 1.2×0.9m and door D1 0.9×0.4394m on page-2, both associating to
-  `wall-sh-1-seg2-Main_Floor`). `public/devFixtures/fixture-elevation.expected.json` is the
-  frozen golden sidecar (wallSurfaceCount, gross/net/openingTotalM2, soffitCount, windowCount,
-  doorCount, subtractionSurface id/areas; tolerance ±0.0001m²).
+  (page-2=elevation, page-3=Crawlspace, page-5=Main Floor, page-7=roof; 5 shapes including a
+  window 0.381×0.5588m and door 0.762×1.7272m on page-2 — hand-placed, empty labels — both
+  associating to `wall-sh-1-seg2-Main_Floor`). `public/devFixtures/fixture-elevation.expected.json`
+  is the frozen golden sidecar (wallSurfaceCount, gross/net/openingTotalM2, soffitCount,
+  windowCount, doorCount, subtractionSurface id/areas, assemblyCheck; tolerance ±0.0001m²).
   `window.__verifyFixture()` async DEV fn (after `__dumpEnumeration` in the DEV block):
-  fetches the sidecar, runs checks (a)-(i) + partition invariant for all wall surfaces, prints
+  fetches the sidecar, runs checks (a)-(k) + partition invariant for all wall surfaces, prints
   `[verify] pass` / `[verify] FAIL` per check, prints closure-check SKIPPED (#87 gated), prints
-  final `✓ ALL N checks PASSED` or `N/M checks FAILED`. Run after restoring fixture-elevation.json
-  to verify the envelope-area slice end-to-end. #28 automated-verification gate criterion met.
+  final `✓ ALL N checks PASSED` or `N/M checks FAILED`. Checks (j) effectiveUValue and (k)
+  thicknessM are the assembly-attach checks added Session 43. Run after restoring
+  fixture-elevation.json to verify end-to-end. The harness existing removed one stated blocker
+  of #28, but #28 (plan reader) remains gated on the post-3D-model deep-review waypoint.
 
 - **Elevation Piece 4 sub-piece 2 (grade line) piece 1 (Session 22; commit 3fae81b):**
   Open-polyline grade / soil line tool on Elevation pages.
@@ -694,6 +697,23 @@ A React + Vite app with:
     (PASS/FAIL count). Envelope panel shows area row per wall surface. Browser-verified (10/10 PASS,
     net total = gross total − opening total). Limitation #88: all openings on a multi-story elevation
     associate to the reference-edge floor level only.
+  * **Assembly attach slice 1 (Session 43; commit 6d849f1):** Per-surface assembly assignment —
+    data layer only (two-tier manual/library resolver). No geometry change.
+    - `surfaceAssemblyRef.current[surfaceId]` — keyed by wall-surface id string (e.g.
+      `'wall-sh-1-seg2-Main_Floor'`); value `{ tier:'manual'|'library', effectiveUValue:number|null,
+      thicknessM:number|null, assemblyId:string|null }`. Cleared on PDF upload.
+    - `getSurfaceAssembly(surfaceId)` — resolver in App.jsx; returns the stored entry or null.
+      Two-tier: `'manual'` = user-entered U-value + thickness (current fixture); `'library'` =
+      resolved from a future assembly-library record (assemblyId non-null). 3D thickness deferred.
+    - STEP A of `deriveEnumeration()` extended: each wall-surface element gains `assemblyTier`,
+      `effectiveUValue`, `thicknessM` fields from `getSurfaceAssembly`. Null when unset.
+    - `__dumpEnumeration` extended with `assembly: [manual|unset] U=... thickness=...` line per
+      wall-surface. Golden sidecar extended with `assemblyCheck` block (effectiveUValue, thicknessM).
+    - Envelope panel row extended: assembly tier + U-value + thickness per wall surface.
+    - CSS: `.asm-row` rule added to App.css for assembly display styling.
+    - `__verifyFixture()` extended with checks (j) effectiveUValue and (k) thicknessM. Now 15/15
+      checks + partition invariant. Negative control: corrupting U-value → exactly check (j) fails.
+    - **Live bug #94:** openings render on wrong side of wall in 3D View (see Known issues).
 
 **Not yet built (next increments):**
 - **Next critical-path build: planning pass needed** — §8.2 step 5 or next §9 extension.
@@ -1055,6 +1075,11 @@ All of the above are cleared on PDF upload.
 - **Categorize-input button color scheme not documented:** Current button highlight logic
   follows "next logical step" but the exact color-state rules are not written down.
   Document and potentially improve in a UI polish session.
+- **Opening 3D placement wrong side of wall (#94):** Window and door rectangles appear
+  offset outside the wall plane in 3D View rather than coincident with / cut into it.
+  Data is unaffected (area, opening subtraction, assembly attach all read stored dimensions
+  and verify correct — harness 15/15). UNDIAGNOSED: not yet known whether this is a
+  fixture-placement issue or a derivation-geometry issue. Recon pass needed before fix.
 
 ### Design gaps (deferred to Phase 2):
 - **Inherited geometry displays on all pages:** Locked polygons from page N show on

@@ -337,7 +337,20 @@ is arranged so most beats are things Ben can see.
     windowCount, doorCount, subtractionSurface id+grossM2+netM2+openingM2; partition invariant
     (gross==net+openings for all wall surfaces with height); closure stub prints SKIPPED (#87 gated).
     Browser-verified 12/12 PASS; negative control (grossTotalM2=99) → exactly check (b) fails only.
-    #28 automated-verification gate criterion met for wall-surface area slice.
+    The harness existing removed one stated blocker of #28, but #28 (plan reader) remains gated
+    on the post-3D-model deep-review waypoint.
+
+[x] ASSEMBLIES ONTO SURFACES — Attach slice 1  [DONE — Session 43; commit 6d849f1]
+    Per-surface assembly assignment; data layer only. Two-tier manual/library resolver
+    (surfaceAssemblyRef + getSurfaceAssembly). STEP A of deriveEnumeration() extended with
+    assemblyTier/effectiveUValue/thicknessM fields. __dumpEnumeration assembly line per surface.
+    Golden sidecar extended with assemblyCheck block; __verifyFixture() now 15/15 checks + partition.
+    Fixture re-anchored: openings hand-re-placed by Ben (new dims: window 0.381×0.5588m,
+    door 0.762×1.7272m); sidecar re-frozen from verified dump (netTotalM2=66.9405,
+    openingTotalM2=1.5290). Negative control verified: U-value corruption → exactly check (j) fails.
+    Envelope panel row extended: assembly tier + U/thickness per wall surface.
+    3D thickness rendering deferred to a later slice.
+    Live bug logged: #94 (opening 3D placement wrong side of wall — undiagnosed, recon next).
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,

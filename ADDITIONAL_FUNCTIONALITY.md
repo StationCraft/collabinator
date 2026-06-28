@@ -1381,3 +1381,49 @@ only unambiguous per-segment join available in the current data model.
 **Why deferred:** Single-elevation-per-page is the common case. The reference-edge rotation is a visual polish item. Multi-elevation-per-page is an edge case until a real plan set with that layout appears.
 
 **Status:** Deferred. (a) is a targeted visual-polish fix; (b) depends on a design decision between option (i) and option (ii). Revisit when a real multi-elevation sheet appears in testing.
+
+---
+
+### 93. Opening-edge dimension labels intercept drag-to-resize in Edit mode
+
+**Category:** UI / Edit Shapes / Windows-Doors. **Logged:** Session 43.
+
+**Description:** Dimension labels rendered on opening (window/door) edges in Edit Shapes mode
+intercept the pointer hit-test for segment drag. Because the label sits visually on the edge,
+the click target is the label hit area rather than the underlying segment, blocking
+drag-to-resize. The user cannot reliably drag an opening edge to resize it in the area
+covered by the label.
+
+**Why deferred:** UI/UX polish; openings can still be resized by dragging the clear portions
+of an edge or via the label-override input. Fix is a hit-test order adjustment (segment drag
+checks before label hit); small scope, no geometry change.
+
+**Status:** Deferred. Fix in a focused Edit Shapes polish pass.
+
+---
+
+### 94. Openings render on wrong side of wall in 3D View — UNDIAGNOSED BUG
+
+**Category:** 3D View / Derivation geometry. **Logged:** Session 43.
+
+**Description:** Window and door rectangles appear offset outside the wall plane in 3D View
+rather than coincident with / cut into the wall surface. The opening is visually "floating"
+in front of the wall rather than sitting in it.
+
+**Data is unaffected:** Area, opening subtraction, and assembly attachment all read the stored
+`widthM`/`heightM` dimensions and verify correct — `__verifyFixture()` passes 15/15 checks.
+This is a placement/derivation-geometry bug in how an opening is projected to its 3D position,
+not a data-model bug.
+
+**UNDIAGNOSED:** Not yet known whether this is:
+- A fixture-placement issue (the hand-placed openings landed slightly off the wall plane during
+  Ben's UI placement), OR
+- A derivation issue (the opening→wall mapping in `deriveWireframe` computes the 3D offset
+  incorrectly for every opening regardless of placement).
+
+**Next step:** A read-only recon pass to determine which — check `deriveWireframe` openingLines
+derivation against the fixture's elevation edge geometry and the opening positions. Determine
+before any fix attempt.
+
+**Status:** LIVE BUG — next to recon on the assemblies/envelope track. Do not attempt a fix
+without the diagnostic recon first.

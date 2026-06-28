@@ -53,11 +53,57 @@ Closure stub: SKIPPED message printed ✓
 Fixture JSON holds scenario geometry; sidecar JSON holds frozen expected derived-quantity values.
 Separate files intentionally: scenario can evolve by updating fixture + re-anchoring sidecar from
 a fresh __dumpEnumeration run. Sidecar is NOT auto-generated at test time — it is a hand-confirmed
-snapshot. #28 automated-verification gate criterion met for wall-surface area slice.
+snapshot. The harness existing removed one stated blocker of #28, but #28 (plan reader) remains
+gated on the post-3D-model deep-review waypoint.
 
 ### Forward
 
 Next: assembly-type assignment per surface (assemblyId attach layer). Beat 2b blocked on #75.
+
+---
+
+## SESSION 43 — Assembly attach slice 1: per-surface assembly data + harness re-freeze (2026-06-28)
+
+**Branch:** main | **Commits:** 6d849f1 (code + fixture + sidecar) — pushed to origin.
+
+### What was built
+
+**Assembly attach slice 1 (data only):**
+- `surfaceAssemblyRef.current[surfaceId]` — keyed by wall-surface id; value
+  `{ tier:'manual'|'library', effectiveUValue, thicknessM, assemblyId }`. Cleared on PDF upload.
+- `getSurfaceAssembly(surfaceId)` resolver: two-tier (manual = user U/thickness; library = future
+  assemblyId lookup). 3D thickness rendering deferred.
+- STEP A of `deriveEnumeration()` extended: assemblyTier / effectiveUValue / thicknessM per
+  wall-surface element.
+- `__dumpEnumeration` extended with `assembly: [manual|unset] U=... thickness=...` per surface.
+- Envelope panel row extended: shows tier + U + thickness.
+- CSS: `.asm-row` added.
+
+**Fixture re-anchoring:**
+- Session-42 fixture had string-injected openings at bad coordinates. Ben re-placed both by hand.
+  New dims: window 0.381×0.5588m (was W1 1.2×0.9m), door 0.762×1.7272m (was D1 0.9×0.4394m).
+  Empty labels. surfaceAssembly already in fixture: wall-sh-1-seg2-Main_Floor → manual U=0.25 t=0.3m.
+- Sidecar re-frozen: netTotalM2:66.9405, openingTotalM2:1.5290; subtractionSurface
+  netM2:15.1935, openingM2:1.5290. grossTotalM2:68.4695 unchanged. assemblyCheck block added.
+- `__verifyFixture()` extended with checks (j) effectiveUValue + (k) thicknessM. Now 15/15 checks.
+
+### Verified (browser — Ben's dev-server tab)
+
+- Fixture restore: 5 shapes, page 2 ✓
+- `__verifyFixture()`: 15/15 PASS ✓
+- Negative control: sidecar effectiveUValue → 0.99 → exactly check (j) FAIL "expected=0.2500
+  actual=0.9900", all 14 others pass ✓. Reverted; 15/15 again ✓.
+- 3D View: wall planes visible (no geometry change) ✓
+- Bug surfaced: openings on wrong side of wall in 3D View (#94 — undiagnosed, logged).
+
+### Side bugs / deferred logged
+- **#93:** Opening edge labels intercept drag-to-resize in Edit mode.
+- **#94:** Openings render on wrong side of wall in 3D View. UNDIAGNOSED. Next to recon on the
+  assemblies/envelope track before any fix attempt.
+
+### Forward
+
+#94 recon pass is next on the assemblies/envelope track. Beat 2b still blocked on #75.
 
 ---
 

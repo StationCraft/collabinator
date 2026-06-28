@@ -549,22 +549,28 @@ divs flow naturally inside the container. All panel content JSX is preserved ver
 
 ---
 
-## 13b. Verification harness — __verifyFixture + golden sidecar (Session 42)
+## 13b. Verification harness — __verifyFixture + golden sidecar (Session 42; sidecar re-frozen Session 43)
 
 `public/devFixtures/fixture-elevation.json` is the canonical multi-floor scenario fixture. It
-carries sh-3 (window W1, widthM=1.2, heightM=0.9) and sh-4 (door D1, widthM=0.9, heightM=0.4394)
-on page-2 (elevation), both associating to wall-sh-1-seg2-Main_Floor.
+carries a window (widthM=0.381, heightM=0.5588) and door (widthM=0.762, heightM=1.7272) on
+page-2 (elevation) — hand-placed by Ben, empty labels — both associating to wall-sh-1-seg2-Main_Floor.
+Also carries surfaceAssembly data: wall-sh-1-seg2-Main_Floor → tier:'manual', effectiveUValue:0.25,
+thicknessM:0.3.
 
 `public/devFixtures/fixture-elevation.expected.json` is the golden sidecar — frozen expected
 derived values (wallSurfaceCount, gross/net/openingTotalM2, soffitCount, windowCount, doorCount,
-subtractionSurface). Tolerance ±0.0001m². Hand-anchored after human-verified __dumpEnumeration run;
-NOT auto-generated at test time. Updated when the scenario evolves by re-anchoring from __dumpEnumeration.
+subtractionSurface, assemblyCheck). Tolerance ±0.0001m². Hand-anchored after human-verified
+__dumpEnumeration run; NOT auto-generated at test time. Updated when the scenario evolves by
+re-anchoring from a fresh dump.
 
 `window.__verifyFixture()` (async DEV fn, after __dumpEnumeration in the DEV block): fetches sidecar,
-calls deriveEnumeration(), checks (a)-(i) + partition invariant, closure stub SKIPPED (#87 gated).
-Invoke after `await window.__restoreFixture(obj)` with fixture-elevation.json to verify end-to-end.
+calls deriveEnumeration(), runs checks (a)-(k) + partition invariant for all wall surfaces, closure
+stub SKIPPED (#87 gated). Checks (j) effectiveUValue and (k) thicknessM are assembly-attach checks
+added Session 43. Invoke after `await window.__restoreFixture(obj)` with fixture-elevation.json to
+verify end-to-end. Currently 15/15 PASS.
 
-**#28 gate:** automated verification criterion is MET for the wall-surface area slice as of Session 42.
+**#28 gate:** the harness existing removed one stated blocker of #28, but #28 (plan reader) remains
+gated on the post-3D-model deep-review waypoint.
 
 ---
 
