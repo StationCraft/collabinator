@@ -4263,6 +4263,7 @@ function App() {
       const dirX = edgeDx / edgeLen, dirY = edgeDy / edgeLen
       const wMidX = (wA.x + wB.x) / 2, wMidY = (wA.y + wB.y) / 2
       const midPxX = (edgeData.A.x + edgeData.B.x) / 2
+      const midPxY = (edgeData.A.y + edgeData.B.y) / 2
 
       const openings = completedShapesRef.current.filter(
         s => s.pageId === ep.pageId && s.status === 'locked' && isOpening(s)
@@ -4271,7 +4272,11 @@ function App() {
         if (!op.widthM || !op.heightM) continue
         const centX = op.vertices.reduce((sum, v) => sum + v.x, 0) / op.vertices.length
         const centY = op.vertices.reduce((sum, v) => sum + v.y, 0) / op.vertices.length
-        const hOffsetM = (centX - midPxX) / elevScale.pxPerMeter
+        const edx = edgeData.B.x - edgeData.A.x
+        const edy = edgeData.B.y - edgeData.A.y
+        const edgeLenPx = Math.hypot(edx, edy)
+        const projPx = edgeLenPx > 0 ? ((centX - midPxX) * edx + (centY - midPxY) * edy) / edgeLenPx : 0
+        const hOffsetM = projPx / elevScale.pxPerMeter
         const worldZm = elevYToWorldZ(centY, ep.pageId)
         if (worldZm == null) continue
 
