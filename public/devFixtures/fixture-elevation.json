@@ -208,6 +208,64 @@
       "roofType": "flat",
       "parapetWidth": 6,
       "lineRoles": {}
+    },
+    {
+      "id": "sh-3",
+      "vertices": [
+        {
+          "x": 280,
+          "y": 200
+        },
+        {
+          "x": 417.801034750289,
+          "y": 200
+        },
+        {
+          "x": 417.801034750289,
+          "y": 303.35077606271676
+        },
+        {
+          "x": 280,
+          "y": 303.35077606271676
+        }
+      ],
+      "status": "locked",
+      "pageId": "page-2",
+      "shapeKind": "window",
+      "openingType": "Fixed",
+      "label": "W1",
+      "widthM": 1.2,
+      "heightM": 0.9,
+      "dimBasis": "frame"
+    },
+    {
+      "id": "sh-4",
+      "vertices": [
+        {
+          "x": 450,
+          "y": 200
+        },
+        {
+          "x": 553.3507760627167,
+          "y": 200
+        },
+        {
+          "x": 553.3507760627167,
+          "y": 250.45814555773083
+        },
+        {
+          "x": 450,
+          "y": 250.45814555773083
+        }
+      ],
+      "status": "locked",
+      "pageId": "page-2",
+      "shapeKind": "door",
+      "openingType": "Hinged door",
+      "label": "D1",
+      "widthM": 0.9,
+      "heightM": 0.4394,
+      "dimBasis": "frame"
     }
   ],
   "pageScales": {
