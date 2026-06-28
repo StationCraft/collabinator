@@ -46,8 +46,17 @@ current CLAUDE.md to confirm nothing fell through.
 
 ### Forward
 
-Next chat: F280 consumer of `insideFaceAreaM2`, or U-value/thermal ingest slice when
-Assembly Builder Part 3 lands (filling `effectiveUValue`/`effectiveRSI`).
+Next chat: thermal-field ingest slice (wire `effectiveUValue`/`effectiveRSI`/`airFilms` from
+the now-frozen contract into `ingestAssembly`) → then F280 endpoint consuming `insideFaceAreaM2`
++ thermal fields.
+
+### Reconciliation note (added Session 47)
+
+**Assembly Builder Part 3 shipped** — U-value engine + thermal fields + framing `materialId`
+are complete. The contract thermal fields (`effectiveUValue`, `effectiveRSI`, `airFilms`,
+`controlLayers`, `framing.materialId`) are **frozen and available to ingest**. Session 46's
+"Part 3 in-flight" note is superseded by this. See `PARALLEL_TRACKS_LEDGER.md` for the
+full cross-track record.
 
 ---
 

@@ -371,7 +371,8 @@ is arranged so most beats are things Ben can see.
       missing id → source:'library-unresolved', no crash. Manual tier unchanged.
     window.__ingestAssembly(record): DEV injection path; logs summary + per-layer detail.
     Verified: 15/15 harness PASS; library resolve thickness=0.2540m/layers=5; missing id → unresolved, no crash.
-    Deferred: effectiveUValue/RSI ingest (Assembly Builder Part 3 in-flight), 3D thickness rendering.
+    Assembly Builder Part 3 SHIPPED (2026-06-28) — thermal fields frozen, available to ingest.
+    Next: thermal-field ingest slice (effectiveUValue/RSI/airFilms → ingestAssembly → getSurfaceAssembly).
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
