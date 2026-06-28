@@ -4675,9 +4675,9 @@ function App() {
   }
 
   // ── Assembly library ingest ────────────────────────────────────────────────
-  // Accepts a contract-shaped record and stores geometry-scoped fields only.
-  // Deferred fields (effectiveUValue, effectiveRSI, framing, controlLayers, airFilms)
-  // are silently ignored — forward-compatible with the in-flight contract Part 3.
+  // Accepts a contract-shaped record; stores geometry-scoped + thermal fields.
+  // Silently ignores tool-side fields: framing block, airFilms (baked into effectiveRSI).
+  // controlLayers: null is a KEPT, MEANINGFUL value ("does not manage this function").
   const ingestAssembly = (record) => {
     if (!record || !record.assemblyId) { console.warn('[assembly] ingestAssembly: record missing assemblyId'); return }
     assemblyLibraryRef.current[record.assemblyId] = {
@@ -4685,6 +4685,18 @@ function App() {
       label:           record.label ?? null,
       assemblyType:    record.assemblyType ?? null,
       totalThicknessM: record.totalThicknessM ?? null,
+      effectiveUValue: record.effectiveUValue ?? null,
+      effectiveRSI:    record.effectiveRSI    ?? null,
+      // Each controlLayers key may be a layerId string OR null (null = assembly does not
+      // manage that function — preserve exactly, do not coerce). ?? null covers undefined keys.
+      controlLayers: record.controlLayers
+        ? {
+            water:   record.controlLayers.water   ?? null,
+            air:     record.controlLayers.air     ?? null,
+            thermal: record.controlLayers.thermal ?? null,
+            vapour:  record.controlLayers.vapour  ?? null,
+          }
+        : null,
       layers: Array.isArray(record.layers)
         ? record.layers.map(l => ({
             layerId:     l.layerId   ?? null,
@@ -4697,18 +4709,18 @@ function App() {
   }
 
   // ── Assembly resolver — reads surfaceAssemblyRef per wall-surface ────────
-  // Returns { effectiveUValue, thicknessM, layers, source } — null-safe, tier-blind downstream.
+  // Returns { effectiveUValue, effectiveRSI, controlLayers, thicknessM, layers, source, assemblyType }
   // source: 'unset' | 'manual' | 'library' | 'library-unresolved'
   const getSurfaceAssembly = (surfaceId) => {
     const ref = surfaceAssemblyRef.current[surfaceId]
-    if (!ref) return { effectiveUValue: null, thicknessM: null, layers: null, source: 'unset', assemblyType: null }
-    if (ref.tier === 'manual') return { effectiveUValue: ref.effectiveUValue ?? null, thicknessM: ref.thicknessM ?? null, layers: null, source: 'manual', assemblyType: null }
+    if (!ref) return { effectiveUValue: null, effectiveRSI: null, controlLayers: null, thicknessM: null, layers: null, source: 'unset', assemblyType: null }
+    if (ref.tier === 'manual') return { effectiveUValue: ref.effectiveUValue ?? null, effectiveRSI: null, controlLayers: null, thicknessM: ref.thicknessM ?? null, layers: null, source: 'manual', assemblyType: null }
     if (ref.tier === 'library') {
       const rec = ref.assemblyId ? assemblyLibraryRef.current[ref.assemblyId] : null
-      if (rec) return { effectiveUValue: null, thicknessM: rec.totalThicknessM ?? null, layers: rec.layers, source: 'library', assemblyType: rec.assemblyType ?? null }
-      return { effectiveUValue: null, thicknessM: null, layers: null, source: 'library-unresolved', assemblyType: null }
+      if (rec) return { effectiveUValue: rec.effectiveUValue ?? null, effectiveRSI: rec.effectiveRSI ?? null, controlLayers: rec.controlLayers ?? null, thicknessM: rec.totalThicknessM ?? null, layers: rec.layers, source: 'library', assemblyType: rec.assemblyType ?? null }
+      return { effectiveUValue: null, effectiveRSI: null, controlLayers: null, thicknessM: null, layers: null, source: 'library-unresolved', assemblyType: null }
     }
-    return { effectiveUValue: null, thicknessM: null, layers: null, source: 'unset', assemblyType: null }
+    return { effectiveUValue: null, effectiveRSI: null, controlLayers: null, thicknessM: null, layers: null, source: 'unset', assemblyType: null }
   }
 
   // ── B4: deriveEnumeration() ──────────────────────────────────────────────
@@ -4885,6 +4897,8 @@ function App() {
               associatedOpeningIds: assocOpenings.map(op => op.id),
               openingOverflow,
               effectiveUValue: sa.effectiveUValue,
+              effectiveRSI:    sa.effectiveRSI,
+              controlLayers:   sa.controlLayers,
               thicknessM: sa.thicknessM,
               assemblySource: sa.source,
               // F280 inside-face: for wall surfaces the traced polygon is the structural OUTSIDE;
@@ -5107,16 +5121,25 @@ function App() {
         const check = (label, expected, actual) => {
           typeof expected === 'number' && Math.abs(actual - expected) < EPS ? pass(label) : fail(label, expected, actual)
         }
+        // checkEq: exact equality (===) for string/null fields where EPS doesn't apply.
+        const checkEq = (label, expected, actual) => {
+          actual === expected ? pass(label) : fail(label, expected, actual)
+        }
 
         // Inject the fixture's library assembly record.
         // assemblyLibraryRef is session-level only (not in fixture JSON), so __verifyFixture
         // self-injects the record that the fixture's library-tier surface (wall-sh-1-seg0-Main_Floor)
         // references. Layer thicknesses sum to totalThicknessM: 0.013+0.001+0.140+0.011+0.089 = 0.254m.
+        // Thermal fields (added Slice 3): controlLayers.thermal intentionally null to verify
+        // null is preserved through ingest → getSurfaceAssembly → element field.
         ingestAssembly({
           assemblyId: 'asm-fix-1',
           label: 'Test 2×6 Wall Assembly',
           assemblyType: 'wall',
           totalThicknessM: 0.254,
+          effectiveUValue: 0.28,
+          effectiveRSI:    3.5714,
+          controlLayers: { water: 'l5', air: 'l4', thermal: null, vapour: 'l2' },
           layers: [
             { layerId: 'l1', materialId: 'gypsum',            thicknessM: 0.013, pathRole: 'continuous' },
             { layerId: 'l2', materialId: 'vapour-barrier',    thicknessM: 0.001, pathRole: 'continuous' },
@@ -5184,6 +5207,25 @@ function App() {
             } else {
               check(`(l) insideFaceAreaM2 ${surfaceId}`, expectedArea, el.insideFaceAreaM2)
             }
+          }
+        }
+
+        // Thermal checks — library-tier surface (wall-sh-1-seg0-Main_Floor → asm-fix-1).
+        // Verifies effectiveUValue, effectiveRSI, and controlLayers (including null thermal key)
+        // survive ingest → assemblyLibraryRef → getSurfaceAssembly → element fields.
+        if (golden.thermalCheck) {
+          const thEl = wallEls.find(e => e.id === golden.thermalCheck.surfaceId)
+          if (!thEl) {
+            fail('(m) thermalCheck surface exists', golden.thermalCheck.surfaceId, 'NOT FOUND')
+          } else {
+            pass('(m) thermalCheck surface exists')
+            check('(m.uv)  library effectiveUValue',    golden.thermalCheck.effectiveUValue, thEl.effectiveUValue)
+            check('(m.rsi) library effectiveRSI',       golden.thermalCheck.effectiveRSI,    thEl.effectiveRSI)
+            const cl = thEl.controlLayers
+            checkEq('(m.cl.water)   controlLayers.water',   golden.thermalCheck.controlLayers.water,   cl?.water)
+            checkEq('(m.cl.air)     controlLayers.air',     golden.thermalCheck.controlLayers.air,     cl?.air)
+            checkEq('(m.cl.thermal) controlLayers.thermal', golden.thermalCheck.controlLayers.thermal, cl?.thermal)
+            checkEq('(m.cl.vapour)  controlLayers.vapour',  golden.thermalCheck.controlLayers.vapour,  cl?.vapour)
           }
         }
 
@@ -5300,7 +5342,12 @@ function App() {
       ingestAssembly(record)
       const stored = assemblyLibraryRef.current[record?.assemblyId]
       if (stored) {
-        console.log(`[asm] ingested assemblyId="${stored.assemblyId}"  label="${stored.label}"  type=${stored.assemblyType}  totalThicknessM=${stored.totalThicknessM}  layers=${stored.layers.length}`)
+        console.log(`[asm] ingested assemblyId="${stored.assemblyId}"  label="${stored.label}"  type=${stored.assemblyType}  totalThicknessM=${stored.totalThicknessM}  U=${stored.effectiveUValue ?? '—'}  RSI=${stored.effectiveRSI ?? '—'}  layers=${stored.layers.length}`)
+        if (stored.controlLayers) {
+          const cl = stored.controlLayers
+          const fmtCl = (v) => v === null ? 'null' : (v ?? '—')
+          console.log(`  controlLayers  water=${fmtCl(cl.water)}  air=${fmtCl(cl.air)}  thermal=${fmtCl(cl.thermal)}  vapour=${fmtCl(cl.vapour)}`)
+        }
         for (const l of stored.layers)
           console.log(`  layer  layerId=${l.layerId}  materialId=${l.materialId}  thicknessM=${l.thicknessM}  pathRole=${l.pathRole}`)
       } else {

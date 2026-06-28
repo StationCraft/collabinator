@@ -549,7 +549,7 @@ divs flow naturally inside the container. All panel content JSX is preserved ver
 
 ---
 
-## 13b. Verification harness — __verifyFixture + golden sidecar (Session 42; sidecar re-frozen Session 43)
+## 13b. Verification harness — __verifyFixture + golden sidecar (Session 42; sidecar re-frozen Session 43; extended Sessions 46 + 49)
 
 `public/devFixtures/fixture-elevation.json` is the canonical multi-floor scenario fixture. It
 carries a window (widthM=0.381, heightM=0.5588) and door (widthM=0.762, heightM=1.7272) on
@@ -559,15 +559,23 @@ thicknessM:0.3.
 
 `public/devFixtures/fixture-elevation.expected.json` is the golden sidecar — frozen expected
 derived values (wallSurfaceCount, gross/net/openingTotalM2, soffitCount, windowCount, doorCount,
-subtractionSurface, assemblyCheck). Tolerance ±0.0001m². Hand-anchored after human-verified
+subtractionSurface, assemblyCheck, insideFaceCheck, thermalCheck). Tolerance ±0.0001m² for numeric
+fields; strict === for string/null fields (controlLayers). Hand-anchored after human-verified
 __dumpEnumeration run; NOT auto-generated at test time. Updated when the scenario evolves by
 re-anchoring from a fresh dump.
 
 `window.__verifyFixture()` (async DEV fn, after __dumpEnumeration in the DEV block): fetches sidecar,
-calls deriveEnumeration(), runs checks (a)-(k) + partition invariant for all wall surfaces, closure
-stub SKIPPED (#87 gated). Checks (j) effectiveUValue and (k) thicknessM are assembly-attach checks
-added Session 43. Invoke after `await window.__restoreFixture(obj)` with fixture-elevation.json to
-verify end-to-end. Currently 15/15 PASS.
+calls deriveEnumeration(), runs checks (a)-(m.cl.*) + partition invariant for all wall surfaces,
+closure stub SKIPPED (#87 gated). checkEq helper added Session 49 for strict string/null equality.
+Checks: (j) effectiveUValue + (k) thicknessM (assembly-attach, Session 43); (l) insideFaceAreaM2
+(Session 46); (m)–(m.cl.*) thermal fields via library-tier surface (Session 49) — includes
+null controlLayers.thermal as a deliberate null-preservation check. Invoke after
+`await window.__restoreFixture(obj)` with fixture-elevation.json. Currently **24/24 PASS**.
+
+**Wall-surface elements** (in `deriveEnumeration` STEP A output) carry:
+- `effectiveUValue`, `thicknessM`, `assemblySource` (since Session 43)
+- `insideFaceAreaM2` (since Session 46)
+- `effectiveRSI`, `controlLayers` (since Session 49 — library tier only; null for manual/unset)
 
 **#28 gate:** the harness existing removed one stated blocker of #28, but #28 (plan reader) remains
 gated on the post-3D-model deep-review waypoint.

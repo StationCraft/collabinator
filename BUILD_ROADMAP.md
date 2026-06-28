@@ -372,7 +372,23 @@ is arranged so most beats are things Ben can see.
     window.__ingestAssembly(record): DEV injection path; logs summary + per-layer detail.
     Verified: 15/15 harness PASS; library resolve thickness=0.2540m/layers=5; missing id → unresolved, no crash.
     Assembly Builder Part 3 SHIPPED (2026-06-28) — thermal fields frozen, available to ingest.
-    Next: thermal-field ingest slice (effectiveUValue/RSI/airFilms → ingestAssembly → getSurfaceAssembly).
+
+[x] ASSEMBLIES — Thermal-field ingest slice  [DONE — Session 49]
+    effectiveUValue, effectiveRSI, controlLayers ingested by ingestAssembly and stored on
+    assemblyLibraryRef record. getSurfaceAssembly library tier now returns all three fields.
+    deriveEnumeration STEP A pushes effectiveRSI + controlLayers onto each wall-surface element
+    alongside existing effectiveUValue. controlLayers null-preservation: null = "does not manage
+    this function" (not missing data); preserved exactly through ingest → resolver → element.
+    Harness extended: __verifyFixture checkEq helper + thermalCheck golden block; fixture self-
+    inject record extended with effectiveUValue:0.28, effectiveRSI:3.5714, controlLayers
+    {water:'l5', air:'l4', thermal:null, vapour:'l2'}. 7 new checks (m)–(m.cl.*).
+    17/17 → 24/24 PASS. Framing block + airFilms silently ignored (tool-side, not ingested).
+
+[ ] F280 ENDPOINT — first heat-loss calculation  [GATED on opening U-value fork — #99]
+    Consumes insideFaceAreaM2 + effectiveUValue from wall-surface elements.
+    Opening U-value source undecided: effectiveUValue is bare-assembly (no openings).
+    Options: per-opening thermal property / project default / opening assembly record.
+    Do not build until #99 is resolved.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,

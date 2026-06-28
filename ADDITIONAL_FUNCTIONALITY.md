@@ -1532,3 +1532,41 @@ data. The bridge is the authoritative lookup source for these fields; Collabinat
 to carry the LISTS sheet or re-implement the lookup.
 
 **Status:** Note for #46 wire-in — no action before then.
+
+---
+
+### 99. Opening (window/door) U-value source for F280 — fork, pending Ben
+
+**Category:** Thermal derivation / F280 endpoint. **Logged:** Session 49 (thermal-field ingest slice close-out).
+
+**Description:**
+
+`effectiveUValue` stored on an assembly record is the **bare-assembly** value — parallel-path
+result, air films included, openings excluded (per `ASSEMBLY_CONTRACT.md`). The value is correct
+for an uninterrupted wall area. For F280 heat-loss, a wall surface carrying one or more openings
+needs an effective U for the opening area that is DISTINCT from the wall assembly U.
+
+Three candidate sources for the opening U-value:
+
+1. **Per-opening thermal property** — each window/door carries its own Uw/Ud value (sourced
+   from the WEW Bridge schedule, a manual entry, or the opening assembly record). Most
+   building-science correct; most data-entry work.
+2. **Project-default opening U** — one project-level U for all windows, one for all doors.
+   Pragmatic approximation; appropriate for early-design heat-loss estimates.
+3. **Opening assembly record** — open a parallel assembly-library path for windows/doors,
+   each carrying its own effectiveUValue. Consistent with the wall assembly model; requires
+   Track B work to build an opening-type assembly library.
+
+**Why this matters for F280:**
+
+`insideFaceAreaM2` and `effectiveUValue` (wall assembly) are ready. F280 needs:
+- Wall net area × wall U = opaque heat-loss component ← READY
+- Opening area × opening U = glazing/door heat-loss component ← BLOCKED on this fork
+
+**Why deferred / why Ben decides:**
+
+This is a building-science framing decision, not an engineering-implementation decision. Each
+option has different accuracy vs. complexity tradeoffs appropriate for different project phases.
+The choice also determines what data Track B needs to supply (if any). Do not pick one without Ben's input.
+
+**Status:** **OPEN — awaiting Ben's decision.** F280 endpoint build is gated on this choice.

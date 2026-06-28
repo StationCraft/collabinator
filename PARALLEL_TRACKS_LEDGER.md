@@ -33,14 +33,15 @@ file concurrently and eliminates merge conflicts between the two repos.
 | Slice 1 | Per-surface assembly assignment — data layer; two-tier manual/library resolver; `surfaceAssemblyRef`; `getSurfaceAssembly`; harness checks (j)+(k) | `6d849f1` | 2026-06-28 |
 | Slice 2 | Contract ingest — geometry-scoped fields (`assemblyId`, `label`, `assemblyType`, `totalThicknessM`, `layers[]`); `ingestAssembly`; `__ingestAssembly` DEV hook; silently ignores thermal fields (forward-compat) | `6dab52d` | 2026-06-28 |
 | Slice 3 | 3D wall-panel render (`totalThicknessM` → solid panels in ThreeDView; assemblyType-driven growth direction); `insideFaceAreaM2` derived in STEP A; TDZ fix | `8f1dd30` | 2026-06-28 |
+| Slice 4 | Thermal-field ingest: `effectiveUValue`, `effectiveRSI`, `controlLayers` stored in `assemblyLibraryRef`; `getSurfaceAssembly` returns all three; `deriveEnumeration` STEP A pushes them onto wall-surface elements; null preservation verified; harness 17/17 → 24/24 PASS | (this session) | 2026-06-28 |
 
 **Deferred / logged:**
 - #96 — wall corner reconciliation (solid interpenetration + inside-face area overcount; overcount accepted for initial F280 pass)
+- #99 — opening U-value source for F280 (per-opening property / project default / opening assembly record — Ben's call; F280 build gated on this decision)
 
 **Next (Track A):**
-- Thermal-field ingest slice: wire `effectiveUValue` / `effectiveRSI` / `airFilms` from the
-  now-frozen contract into `ingestAssembly` and `getSurfaceAssembly`
-- F280 endpoint: consume `insideFaceAreaM2` + thermal fields → heat-loss calculation
+- F280 endpoint: consume `insideFaceAreaM2` + `effectiveUValue` → heat-loss calculation.
+  Gated on #99 (opening U-value fork).
 
 ---
 
@@ -109,15 +110,21 @@ layers[]:
   pathRole          string | null   ('continuous' | 'framed')
 ```
 
-**Thermal fields — FROZEN as of Part 3; NOT YET ingested by Track A (next main build):**
+**Thermal fields — FROZEN as of Part 3; INGESTED by Track A (Slice 4):**
 ```
-effectiveUValue     number | null
-effectiveRSI        number | null
-airFilms            object | null
-controlLayers       array | null
-framing:
-  materialId        string | null
-  (additional framing fields per Part 3 contract)
+effectiveUValue     number | null   ← INGESTED (Slice 4)
+effectiveRSI        number | null   ← INGESTED (Slice 4)
+controlLayers       object | null   ← INGESTED (Slice 4; null values preserved exactly)
+  water             layerId | null
+  air               layerId | null
+  thermal           layerId | null
+  vapour            layerId | null
+```
+
+**Silently ignored (tool-side, not consumed by Track A):**
+```
+airFilms            object | null   — baked into effectiveRSI/effectiveUValue; not ingested
+framing             object | null   — tool-side framing rule set; not a Collabinator concern
 ```
 
 ---
@@ -166,4 +173,4 @@ to this ledger **before** Track A wires against the new shape.
 
 ---
 
-*Last updated: 2026-06-28 (Session 48 — Track B corrected: two repos, both closed; two contracts recorded; rules updated)*
+*Last updated: 2026-06-28 (Session 49 — Track A Slice 4: thermal-field ingest DONE; opening U-value fork #99 logged; F280 gated)*

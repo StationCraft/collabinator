@@ -10,6 +10,69 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 49 — Thermal-field ingest slice (effectiveUValue / effectiveRSI / controlLayers) (2026-06-28)
+
+**Branch:** main | **Commit:** (this session) — pushed to origin.
+
+### What was built
+
+**Assembly attach Slice 3 — thermal-field ingest:**
+
+Extended `ingestAssembly` and the library-tier resolver (`getSurfaceAssembly`) to pull three
+thermal fields from the frozen contract into the assembly record:
+
+- **`effectiveUValue`** (W/m²·K) — BASE value, bare assembly with air films, openings excluded.
+  Opening-adjusted U is the main path's responsibility (fork #99, unresolved).
+- **`effectiveRSI`** (m²·K/W = 1/effectiveUValue) — same base caveat.
+- **`controlLayers`** `{ water, air, thermal, vapour }` — each a layerId string OR null.
+  **null is KEPT, MEANINGFUL** ("does not manage this function", not missing data).
+  Preserved exactly through all three hops: ingest → `assemblyLibraryRef` → `getSurfaceAssembly`
+  → `deriveEnumeration` element field. No `?? null` coercion that could drop an explicit null.
+
+Fields **NOT ingested** (tool-side, silently ignored as before):
+- `airFilms` — already baked into effectiveRSI / effectiveUValue.
+- `framing` block — tool-side framing rule set; not a Collabinator concern.
+
+All Slice 2 geometry fields (`assemblyId`, `label`, `assemblyType`, `totalThicknessM`, `layers[]`)
+are **unchanged** — additive storage-shape extension, no field dropped or renamed.
+
+**`getSurfaceAssembly` library-tier hit** now returns effectiveUValue (was always null), effectiveRSI,
+and controlLayers from the stored record. All four return paths (unset / manual / library-hit /
+library-unresolved) updated with the new fields.
+
+**`deriveEnumeration` STEP A** pushes `effectiveRSI` and `controlLayers` onto each wall-surface
+element (alongside the pre-existing `effectiveUValue`). No recomputation in panel code (§7.3).
+
+**`__ingestAssembly` DEV log** extended: shows U / RSI / controlLayers summary alongside existing
+label, type, thickness, layer count.
+
+### Harness extension — 17/17 → 24/24
+
+- `__verifyFixture` extended with a `checkEq` helper (strict `===` for string / null fields).
+- Self-injected `asm-fix-1` record extended with:
+  `effectiveUValue: 0.28, effectiveRSI: 3.5714, controlLayers: { water:'l5', air:'l4', thermal:null, vapour:'l2' }`.
+  `thermal: null` is intentional — verifies null survives the full ingest-to-element pipeline.
+- Golden sidecar `fixture-elevation.expected.json` extended with `thermalCheck` block:
+  `surfaceId: 'wall-sh-1-seg0-Main_Floor'` (the library-tier surface), expected values for
+  U, RSI, and each of the four controlLayers keys (including `thermal: null`).
+- 7 new checks: `(m)` surface exists, `(m.uv)`, `(m.rsi)`, `(m.cl.water)`, `(m.cl.air)`,
+  `(m.cl.thermal)` (null preserved), `(m.cl.vapour)`.
+- **24/24 PASS** confirmed in browser.
+
+### F280 fork (#99 — open, not decided)
+
+`effectiveUValue` is the bare-assembly value (air films included, openings excluded). F280 needs
+an effective U for each wall surface that accounts for the openings in it. Three candidate sources
+(per-opening thermal property / project default / opening assembly record) — Ben's call.
+Logged as #99 in ADDITIONAL_FUNCTIONALITY.md. F280 build is gated on this decision.
+
+### Forward
+
+Next: F280 endpoint (gated on opening U-value fork #99). `insideFaceAreaM2` + `effectiveUValue`
+are ready; the fork decision unlocks the build prompt.
+
+---
+
 ## SESSION 46 — 3D wall-panel render (thickness slice) + TDZ fix (2026-06-28)
 
 **Branch:** main | **Commit:** 8f1dd30 — pushed to origin.
