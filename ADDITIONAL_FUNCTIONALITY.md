@@ -1487,3 +1487,48 @@ LENGTH measurement at corners. Do not conflate.
 
 **Status:** Deferred — overcount accepted for initial F280 pass. Revisit once F280 output is
 visible and the real-world error magnitude can be judged.
+
+---
+
+### 97. Window/door operation-type registry (WEW Bridge wire-in — #46)
+
+**Category:** Window/door placement (#46 wire-in). **Logged:** 2026-06-28 (Assembly Library / WEW Bridge side-quest).
+
+**Description:**
+
+The WEW Bridge emits an **additive** operation-type list rather than a fixed closed set. Supplier
+Type/Config values (e.g. from WEW schedule rows) pass through verbatim; unknown values append to
+the list rather than being rejected. This implies a small persistent **type registry** that
+Collabinator's window-placement track reads and writes.
+
+Currently `OPENING_TYPES` is a module-level constant array (`['Tilt-turn', 'Casement', 'Fixed',
+'Slider', 'Hinged door']`). When the WEW Bridge output wires into #46, that constant must become
+a mutable registry — readable by placement dialogs, writable by the bridge ingest path — so
+supplier-specific type names round-trip without loss.
+
+**Scope boundary:** This is a #46 wire-in concern only. Nothing in the current placement layer
+or bridge code needs changing before then. Do NOT convert `OPENING_TYPES` to a ref ahead of the
+actual wire-in.
+
+**Status:** Deferred — no action until #46 wire-in is scoped.
+
+---
+
+### 98. Glass Ug/g lookup — values are LISTS-sheet-derived, not row-literal (WEW Bridge — #46)
+
+**Category:** Window performance data / WEW Bridge (#46 wire-in). **Logged:** 2026-06-28 (Assembly Library / WEW Bridge side-quest).
+
+**Description:**
+
+Window performance values `ug` (glass U-value) and `g` (solar heat gain coefficient / SHGC) are
+**not present on individual schedule rows** in the WEW workbook. They resolve from the glass
+option (schedule column J) looked up against the WEW workbook's LISTS sheet. The WEW Bridge
+reader already performs this lookup, so `ug`/`g` values arriving from the bridge are
+lookup-derived — not row-literal values.
+
+**Implication for #46 wire-in:** When bridge output is ingested, `ug`/`g` fields should be
+treated as pre-resolved — store them as-received, do not attempt to re-derive from schedule row
+data. The bridge is the authoritative lookup source for these fields; Collabinator does not need
+to carry the LISTS sheet or re-implement the lookup.
+
+**Status:** Note for #46 wire-in — no action before then.
