@@ -5001,6 +5001,71 @@ function App() {
       if (overflow) console.warn(`  ⚠ ${overflow} surface(s) have openingOverflow (openings exceed gross area — bad data)`)
     }
 
+      window.__verifyFixture = async () => {
+        const EPS = 0.0001
+        let passed = 0, failed = 0
+        const fmtNum = (v) => typeof v === 'number' ? v.toFixed(4) : v
+        const fail = (label, expected, actual) => {
+          console.error(`[verify] FAIL  ${label}: expected=${fmtNum(expected)} actual=${fmtNum(actual)}`)
+          failed++
+        }
+        const pass = (label) => { console.log(`[verify] pass  ${label}`); passed++ }
+        const check = (label, expected, actual) => {
+          typeof expected === 'number' && Math.abs(actual - expected) < EPS ? pass(label) : fail(label, expected, actual)
+        }
+
+        let golden
+        try {
+          const resp = await fetch('/devFixtures/fixture-elevation.expected.json')
+          golden = await resp.json()
+        } catch (e) {
+          console.error('[verify] Could not load golden sidecar:', e.message)
+          return
+        }
+
+        const elements = deriveEnumeration()
+        const wallEls   = elements.filter(e => e.kind === 'wall-surface')
+        const soffitEls = elements.filter(e => e.kind === 'soffit')
+        const windowEls = elements.filter(e => e.kind === 'window')
+        const doorEls   = elements.filter(e => e.kind === 'door')
+
+        const totalGross = wallEls.reduce((s, e) => s + (e.grossAreaM2 ?? 0), 0)
+        const totalNet   = wallEls.reduce((s, e) => s + (e.netAreaM2   ?? 0), 0)
+        const totalOpen  = wallEls.reduce((s, e) => s + (e.openingAreaM2 ?? 0), 0)
+
+        check('(a) wallSurfaceCount',  golden.wallSurfaceCount,  wallEls.length)
+        check('(b) grossTotalM2',      golden.grossTotalM2,      totalGross)
+        check('(c) netTotalM2',        golden.netTotalM2,        totalNet)
+        check('(d) openingTotalM2',    golden.openingTotalM2,    totalOpen)
+        check('(e) soffitCount',       golden.soffitCount,       soffitEls.length)
+        check('(f) windowCount',       golden.windowCount,       windowEls.length)
+        check('(g) doorCount',         golden.doorCount,         doorEls.length)
+
+        const sub = wallEls.find(e => e.id === golden.subtractionSurface.id)
+        if (!sub) {
+          fail('(h) subtractionSurface exists', golden.subtractionSurface.id, 'NOT FOUND')
+        } else {
+          pass('(h) subtractionSurface exists')
+          check('(i.gross) subtractionSurface.grossM2',   golden.subtractionSurface.grossM2,   sub.grossAreaM2)
+          check('(i.net)   subtractionSurface.netM2',     golden.subtractionSurface.netM2,     sub.netAreaM2)
+          check('(i.open)  subtractionSurface.openingM2', golden.subtractionSurface.openingM2, sub.openingAreaM2)
+        }
+
+        let partFail = 0
+        for (const e of wallEls) {
+          if (e.grossAreaM2 == null) continue
+          const diff = Math.abs(e.grossAreaM2 - (e.netAreaM2 ?? 0) - (e.openingAreaM2 ?? 0))
+          if (diff >= EPS) { console.error(`[verify] FAIL  partition ${e.id}: diff=${diff.toFixed(6)}`); partFail++ }
+        }
+        partFail === 0 ? pass('(partition) gross==net+openings for all wall surfaces') : (console.error(`[verify] FAIL  partition: ${partFail} surface(s) failed`), failed++)
+
+        console.log('[verify] closure check: SKIPPED (gated on roof-plane + floor-over-unheated surface kinds — #87)')
+
+        failed === 0
+          ? console.log(`[verify] ✓ ALL ${passed + failed} checks PASSED`)
+          : console.error(`[verify] ${failed}/${passed + failed} checks FAILED`)
+      }
+
       window.__dumpWireframe = () => {
         const wf = deriveWireframe()
         console.log('[wf] floorRings:', wf.floorRings.length, 'roofRing:', wf.roofRing ? `z=${wf.roofRing.z?.toFixed(3)}m verts=${wf.roofRing.verts.length}` : 'null',

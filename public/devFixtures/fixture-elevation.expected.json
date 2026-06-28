@@ -1,0 +1,16 @@
+{
+  "_note": "Golden values frozen from human-verified __dumpEnumeration run on fixture-elevation.json + 2 openings (W1 1.2×0.9m, D1 0.9×0.4394m). Tolerance ±0.0001 m². See window.__verifyFixture() in App.jsx.",
+  "wallSurfaceCount": 10,
+  "grossTotalM2": 68.4695,
+  "netTotalM2": 66.9941,
+  "openingTotalM2": 1.4755,
+  "soffitCount": 2,
+  "windowCount": 1,
+  "doorCount": 1,
+  "subtractionSurface": {
+    "id": "wall-sh-1-seg2-Main_Floor",
+    "grossM2": 16.7225,
+    "netM2": 15.2471,
+    "openingM2": 1.4755
+  }
+}
