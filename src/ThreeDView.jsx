@@ -183,6 +183,34 @@ export default function ThreeDView({ wireframe, onClose }) {
           mesh = new THREE.Mesh(geo, mat)
           mesh.position.copy(ctr)
           expandBox(ctr)
+
+        } else if (solid.kind === 'wall-panel') {
+          // 8 corners of the wall panel: outer face A/B + inner face A/B, each at floor and ceiling.
+          // Axis mapping: world (x,y,z) → THREE (x, z, y) via toVec.
+          const fZ = solid.floorZ ?? 0, cZ = solid.ceilingZ ?? fZ
+          const oBA = toVec(solid.ax,  solid.ay,  fZ)
+          const oBB = toVec(solid.bx,  solid.by,  fZ)
+          const oTA = toVec(solid.ax,  solid.ay,  cZ)
+          const oTB = toVec(solid.bx,  solid.by,  cZ)
+          const iBA = toVec(solid.iax, solid.iay, fZ)
+          const iBB = toVec(solid.ibx, solid.iby, fZ)
+          const iTA = toVec(solid.iax, solid.iay, cZ)
+          const iTB = toVec(solid.ibx, solid.iby, cZ)
+          const p = (v) => [v.x, v.y, v.z]
+          // 6 faces × 2 triangles each = 12 triangles × 9 floats = 108 floats
+          const positions = new Float32Array([
+            ...p(oBA), ...p(oBB), ...p(oTA),   ...p(oBB), ...p(oTB), ...p(oTA),  // outer face
+            ...p(iBA), ...p(iTA), ...p(iBB),   ...p(iBB), ...p(iTA), ...p(iTB),  // inner face (reversed winding)
+            ...p(oTA), ...p(oTB), ...p(iTA),   ...p(oTB), ...p(iTB), ...p(iTA),  // top cap
+            ...p(oBA), ...p(iBA), ...p(oBB),   ...p(oBB), ...p(iBA), ...p(iBB),  // bottom cap
+            ...p(oBA), ...p(oTA), ...p(iBA),   ...p(iBA), ...p(oTA), ...p(iTA),  // left cap (A side)
+            ...p(oBB), ...p(iBB), ...p(oTB),   ...p(iBB), ...p(iTB), ...p(oTB),  // right cap (B side)
+          ])
+          const geo = new THREE.BufferGeometry()
+          geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+          mesh = new THREE.Mesh(geo, mat)
+          ;[oBA, oBB, oTA, oTB, iBA, iBB, iTA, iTB].forEach(expandBox)
+
         } else {
           mat.dispose()
         }
@@ -261,6 +289,7 @@ export default function ThreeDView({ wireframe, onClose }) {
         <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>■ run</span>
         <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>■ lineset</span>
         <span style={{ color: '#8b5cf6', fontSize: '0.75rem' }}>■ equipment</span>
+        <span style={{ color: '#4ade80', fontSize: '0.75rem' }}>■ wall depth</span>
         <button
           onClick={() => setShowSolids(s => !s)}
           style={{

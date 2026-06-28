@@ -4129,6 +4129,7 @@ function App() {
     }
 
     const floorRings = []
+    const solids = []
     for (const row of zStack) {
       const floorPage = floorPageMap[row.level]
       if (!floorPage) continue
@@ -4146,13 +4147,44 @@ function App() {
           verts.push({ x: w.x, y: w.y })
         }
         if (ok && verts.length >= 3) {
-          floorRings.push({
-            level: row.level,
-            shapeId: shape.id,
-            floorZ: (row.floorZ ?? 0) * 0.3048,
-            ceilingZ: row.ceilingZ != null ? row.ceilingZ * 0.3048 : null,
-            verts,
-          })
+          const ringFloorZ    = (row.floorZ ?? 0) * 0.3048
+          const ringCeilingZ  = row.ceilingZ != null ? row.ceilingZ * 0.3048 : null
+          floorRings.push({ level: row.level, shapeId: shape.id, floorZ: ringFloorZ, ceilingZ: ringCeilingZ, verts })
+
+          // Wall panel solids: library-tier surfaces with resolved totalThicknessM gain 3D depth.
+          // assemblyType 'wall' → grows INWARD (polygon traced at structural outside).
+          // Other types → grows OUTWARD. Manual/unset → no panel (zero-thickness plane unchanged).
+          if (ringCeilingZ != null) {
+            for (let si = 0; si < verts.length; si++) {
+              const wA = verts[si], wB = verts[(si + 1) % verts.length]
+              const wallId = `wall-${shape.id}-seg${si}-${row.level.replace(/\s/g, '_')}`
+              const sa = getSurfaceAssembly(wallId)
+              if (sa.source !== 'library' || !sa.thicknessM || !sa.assemblyType) continue
+              const dx = wB.x - wA.x, dy = wB.y - wA.y
+              const edgeLen = Math.hypot(dx, dy)
+              if (edgeLen < 0.001) continue
+              // Left-hand perpendicular of A→B direction; test which side is polygon interior
+              const px1 = -dy / edgeLen, py1 = dx / edgeLen
+              const midX = (wA.x + wB.x) / 2, midY = (wA.y + wB.y) / 2
+              const isPerp1Interior = pointInPolygon({ x: midX + px1 * 0.01, y: midY + py1 * 0.01 }, verts)
+              // sign: +1 when perp1 is interior, −1 when perp2 is interior
+              const sign     = isPerp1Interior ? 1 : -1
+              // growDir: +1 = interior (walls), −1 = exterior (floor/roof/foundation)
+              const growDir  = sa.assemblyType === 'wall' ? 1 : -1
+              const gx = sign * growDir * px1
+              const gy = sign * growDir * py1
+              const t = sa.thicknessM
+              solids.push({
+                kind: 'wall-panel',
+                ax: wA.x,         ay: wA.y,
+                bx: wB.x,         by: wB.y,
+                iax: wA.x + gx * t, iay: wA.y + gy * t,
+                ibx: wB.x + gx * t, iby: wB.y + gy * t,
+                floorZ: ringFloorZ, ceilingZ: ringCeilingZ,
+                color: 0x4ade80,  // green: wall assembly depth
+              })
+            }
+          }
         }
       }
     }
@@ -4336,8 +4368,6 @@ function App() {
       if (cat === 'lineset') return 0xf59e0b
       return 0x6b7280
     }
-    const solids = []
-
     // Segment solids: one cylinder/box-swept per spanSlot per run.
     // Reuses the same page/Z resolution as runLines above.
     for (const run of completedShapesRef.current) {
@@ -4671,14 +4701,14 @@ function App() {
   // source: 'unset' | 'manual' | 'library' | 'library-unresolved'
   const getSurfaceAssembly = (surfaceId) => {
     const ref = surfaceAssemblyRef.current[surfaceId]
-    if (!ref) return { effectiveUValue: null, thicknessM: null, layers: null, source: 'unset' }
-    if (ref.tier === 'manual') return { effectiveUValue: ref.effectiveUValue ?? null, thicknessM: ref.thicknessM ?? null, layers: null, source: 'manual' }
+    if (!ref) return { effectiveUValue: null, thicknessM: null, layers: null, source: 'unset', assemblyType: null }
+    if (ref.tier === 'manual') return { effectiveUValue: ref.effectiveUValue ?? null, thicknessM: ref.thicknessM ?? null, layers: null, source: 'manual', assemblyType: null }
     if (ref.tier === 'library') {
       const rec = ref.assemblyId ? assemblyLibraryRef.current[ref.assemblyId] : null
-      if (rec) return { effectiveUValue: null, thicknessM: rec.totalThicknessM ?? null, layers: rec.layers, source: 'library' }
-      return { effectiveUValue: null, thicknessM: null, layers: null, source: 'library-unresolved' }
+      if (rec) return { effectiveUValue: null, thicknessM: rec.totalThicknessM ?? null, layers: rec.layers, source: 'library', assemblyType: rec.assemblyType ?? null }
+      return { effectiveUValue: null, thicknessM: null, layers: null, source: 'library-unresolved', assemblyType: null }
     }
-    return { effectiveUValue: null, thicknessM: null, layers: null, source: 'unset' }
+    return { effectiveUValue: null, thicknessM: null, layers: null, source: 'unset', assemblyType: null }
   }
 
   // ── B4: deriveEnumeration() ──────────────────────────────────────────────
@@ -4857,6 +4887,11 @@ function App() {
               effectiveUValue: sa.effectiveUValue,
               thicknessM: sa.thicknessM,
               assemblySource: sa.source,
+              // F280 inside-face: for wall surfaces the traced polygon is the structural OUTSIDE;
+              // the inside face is offset inward by thicknessM. For a rectangular flat wall the
+              // inside and outside face have identical area (parallel planes, same width × height).
+              // insideFaceAreaM2 = netAreaM2 today; corner-adjustment refinement is Phase 2.
+              insideFaceAreaM2: netAreaM2,
             })
           }
         }
@@ -4899,6 +4934,8 @@ function App() {
               projectionM: projection,
               spanM,
               eaveZm,
+              // Soffit is horizontal; the traced surface IS the interior face — no offset.
+              insideFaceAreaM2: projection * spanM,
             })
           }
         }
@@ -4986,6 +5023,7 @@ function App() {
           const partStr = partitionOk == null ? 'N/A (no gross)' : (partitionOk ? 'PASS' : 'FAIL')
           const uvStr = el.effectiveUValue != null ? el.effectiveUValue.toFixed(4) + ' W/m²K' : 'null'
           const thStr = el.thicknessM    != null ? el.thicknessM.toFixed(4)    + ' m'      : 'null'
+          const ifStr = el.insideFaceAreaM2 != null ? el.insideFaceAreaM2.toFixed(4) + 'm²' : 'null (no floor height)'
           console.log(
             `  ${el.id}\n` +
             `    page:${el.pageId}  floor:${el.floorLevel}\n` +
@@ -4995,7 +5033,8 @@ function App() {
             `    floorZ=${fStr}  ceilingZ=${cStr}  bearing=${oStr}\n` +
             `    signedDist=${dStr}\n` +
             `    reconcile: ${rStr}\n` +
-            `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}`
+            `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}\n` +
+            `    insideFaceArea=${ifStr}`
           )
         } else if (el.kind === 'soffit') {
           const pStr = el.projectionM.toFixed(4) + 'm'
@@ -5069,6 +5108,24 @@ function App() {
           typeof expected === 'number' && Math.abs(actual - expected) < EPS ? pass(label) : fail(label, expected, actual)
         }
 
+        // Inject the fixture's library assembly record.
+        // assemblyLibraryRef is session-level only (not in fixture JSON), so __verifyFixture
+        // self-injects the record that the fixture's library-tier surface (wall-sh-1-seg0-Main_Floor)
+        // references. Layer thicknesses sum to totalThicknessM: 0.013+0.001+0.140+0.011+0.089 = 0.254m.
+        ingestAssembly({
+          assemblyId: 'asm-fix-1',
+          label: 'Test 2×6 Wall Assembly',
+          assemblyType: 'wall',
+          totalThicknessM: 0.254,
+          layers: [
+            { layerId: 'l1', materialId: 'gypsum',            thicknessM: 0.013, pathRole: 'continuous' },
+            { layerId: 'l2', materialId: 'vapour-barrier',    thicknessM: 0.001, pathRole: 'continuous' },
+            { layerId: 'l3', materialId: 'batt-insulation',   thicknessM: 0.140, pathRole: 'framed'     },
+            { layerId: 'l4', materialId: 'osb',               thicknessM: 0.011, pathRole: 'continuous' },
+            { layerId: 'l5', materialId: 'exterior-cladding', thicknessM: 0.089, pathRole: 'continuous' },
+          ],
+        })
+
         let golden
         try {
           const resp = await fetch('/devFixtures/fixture-elevation.expected.json')
@@ -5115,6 +5172,18 @@ function App() {
             pass('(j) assemblyCheck surface exists')
             check('(j.uv) assembly effectiveUValue', golden.assemblyCheck.effectiveUValue, asmSurface.effectiveUValue)
             check('(k)    assembly thicknessM',      golden.assemblyCheck.thicknessM,      asmSurface.thicknessM)
+          }
+        }
+
+        // Inside-face area checks — one per surfaceId keyed in golden.insideFaceCheck
+        if (golden.insideFaceCheck) {
+          for (const [surfaceId, expectedArea] of Object.entries(golden.insideFaceCheck)) {
+            const el = wallEls.find(e => e.id === surfaceId)
+            if (!el) {
+              fail(`(l) insideFaceCheck exists: ${surfaceId}`, surfaceId, 'NOT FOUND')
+            } else {
+              check(`(l) insideFaceAreaM2 ${surfaceId}`, expectedArea, el.insideFaceAreaM2)
+            }
           }
         }
 

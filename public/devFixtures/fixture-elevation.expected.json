@@ -1,5 +1,5 @@
 {
-  "_note": "Golden values frozen from human-verified __dumpEnumeration run on fixture-elevation.json + 2 openings (window 0.381×0.5588m, door 0.762×1.7272m, both hand-placed, empty labels) + assembly slice (wall-sh-1-seg2-Main_Floor manual U=0.25 t=0.30m). Tolerance ±0.0001 m². See window.__verifyFixture() in App.jsx.",
+  "_note": "Golden values frozen from human-verified __dumpEnumeration run on fixture-elevation.json + 2 openings (window 0.381×0.5588m, door 0.762×1.7272m, both hand-placed, empty labels) + assembly slice (wall-sh-1-seg2-Main_Floor manual U=0.25 t=0.30m) + library-tier surface (wall-sh-1-seg0-Main_Floor → asm-fix-1 totalThicknessM=0.254). insideFaceCheck: seg2=netAreaM2=15.1935m² (manual, no offset); seg0=7.62m×2.4384m=18.5806m² (library, same netArea, parallel faces). Tolerance ±0.0001 m². See window.__verifyFixture() in App.jsx.",
   "wallSurfaceCount": 10,
   "grossTotalM2": 68.4695,
   "netTotalM2": 66.9405,
@@ -17,5 +17,9 @@
     "surfaceId": "wall-sh-1-seg2-Main_Floor",
     "effectiveUValue": 0.25,
     "thicknessM": 0.3
+  },
+  "insideFaceCheck": {
+    "wall-sh-1-seg2-Main_Floor": 15.1935,
+    "wall-sh-1-seg0-Main_Floor": 18.5806
   }
 }
