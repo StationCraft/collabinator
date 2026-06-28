@@ -555,6 +555,7 @@ function App() {
   const elevEdgeHoverRef = useRef(null)
   const elevationEdgeRef = useRef({})  // pageId -> {sourcePageId, shapeIndex, segmentIndex, endpointA, endpointB}
   const elevBaseYRef = useRef({})      // pageId -> anchorY (canvas px) after user drags base line into place
+  const surfaceAssemblyRef = useRef({}) // wallId -> { tier:'manual'|'library', effectiveUValue, thicknessM, assemblyId, snapshotA, snapshotB }
 
   // ── Elevation align (Step 8, Piece 2) ────────────────────────────────────────
   // Reuses alignDragRef / alignTick / alignOverHandle for drag machinery.
@@ -712,6 +713,7 @@ function App() {
     setElevEdgeMode(false); elevEdgeHoverRef.current = null; setElevEdgeSourcePageId(null)
     elevationEdgeRef.current = {}
     elevBaseYRef.current = {}
+    surfaceAssemblyRef.current = {}
     setElevAlignMode(false)
     setAlignMode(false); alignDragRef.current = null
     primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
@@ -4438,6 +4440,7 @@ function App() {
         roofGraph:       roofGraphRef.current,
         roofVertCounter: roofVertCounterRef.current,
         roofEdgeCounter: roofEdgeCounterRef.current,
+        surfaceAssembly: surfaceAssemblyRef.current,
       }
     }
 
@@ -4460,6 +4463,7 @@ function App() {
       roofGraphRef.current         = obj.roofGraph         ?? { verts: [], edges: [] }
       roofVertCounterRef.current   = obj.roofVertCounter   ?? 0
       roofEdgeCounterRef.current   = obj.roofEdgeCounter   ?? 0
+      surfaceAssemblyRef.current   = obj.surfaceAssembly   ?? {}
       snapIncrementRef.current     = obj.snapIncrement     ?? 0.1524
 
       // 2. Load PDF — from bundled base64 bytes if present, else legacy file fetch
@@ -4633,6 +4637,17 @@ function App() {
 
   }
 
+  // ── Assembly resolver — reads surfaceAssemblyRef per wall-surface ────────
+  // Returns { effectiveUValue, thicknessM, source } — null-safe, tier-blind downstream.
+  // source: 'unset' | 'manual' | 'library-unresolved'
+  const getSurfaceAssembly = (surfaceId) => {
+    const ref = surfaceAssemblyRef.current[surfaceId]
+    if (!ref) return { effectiveUValue: null, thicknessM: null, source: 'unset' }
+    if (ref.tier === 'manual') return { effectiveUValue: ref.effectiveUValue ?? null, thicknessM: ref.thicknessM ?? null, source: 'manual' }
+    if (ref.tier === 'library') return { effectiveUValue: null, thicknessM: null, source: 'library-unresolved' }
+    return { effectiveUValue: null, thicknessM: null, source: 'unset' }
+  }
+
   // ── B4: deriveEnumeration() ──────────────────────────────────────────────
   // Returns an array of envelope elements (wall-surface, soffit, window, door).
   // Every derived quantity is a named property on the element — never a transient in render code (§7.3).
@@ -4785,6 +4800,7 @@ function App() {
             const grossAreaM2 = heightM != null ? widthM * heightM : null
             const netAreaM2 = grossAreaM2 != null ? Math.max(0, grossAreaM2 - openingAreaM2) : null
             const openingOverflow = grossAreaM2 != null && openingAreaM2 > grossAreaM2 ? true : undefined
+            const sa = getSurfaceAssembly(wallId)
 
             elements.push({
               id: wallId,
@@ -4805,6 +4821,9 @@ function App() {
               openingAreaM2,
               associatedOpeningIds: assocOpenings.map(op => op.id),
               openingOverflow,
+              effectiveUValue: sa.effectiveUValue,
+              thicknessM: sa.thicknessM,
+              assemblySource: sa.source,
             })
           }
         }
@@ -4932,6 +4951,8 @@ function App() {
             ? null  // can't check without gross
             : Math.abs(el.grossAreaM2 - (el.netAreaM2 ?? 0) - el.openingAreaM2) < 0.0001
           const partStr = partitionOk == null ? 'N/A (no gross)' : (partitionOk ? 'PASS' : 'FAIL')
+          const uvStr = el.effectiveUValue != null ? el.effectiveUValue.toFixed(4) + ' W/m²K' : 'null'
+          const thStr = el.thicknessM    != null ? el.thicknessM.toFixed(4)    + ' m'      : 'null'
           console.log(
             `  ${el.id}\n` +
             `    page:${el.pageId}  floor:${el.floorLevel}\n` +
@@ -4940,7 +4961,8 @@ function App() {
             `    partition gross==net+openings: ${partStr}${el.openingOverflow ? '  ⚠ openingOverflow' : ''}\n` +
             `    floorZ=${fStr}  ceilingZ=${cStr}  bearing=${oStr}\n` +
             `    signedDist=${dStr}\n` +
-            `    reconcile: ${rStr}`
+            `    reconcile: ${rStr}\n` +
+            `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}`
           )
         } else if (el.kind === 'soffit') {
           const pStr = el.projectionM.toFixed(4) + 'm'
@@ -5049,6 +5071,18 @@ function App() {
           check('(i.gross) subtractionSurface.grossM2',   golden.subtractionSurface.grossM2,   sub.grossAreaM2)
           check('(i.net)   subtractionSurface.netM2',     golden.subtractionSurface.netM2,     sub.netAreaM2)
           check('(i.open)  subtractionSurface.openingM2', golden.subtractionSurface.openingM2, sub.openingAreaM2)
+        }
+
+        // Assembly checks — resolver must return expected values for the pre-set surface
+        if (golden.assemblyCheck) {
+          const asmSurface = wallEls.find(e => e.id === golden.assemblyCheck.surfaceId)
+          if (!asmSurface) {
+            fail('(j) assemblyCheck surface exists', golden.assemblyCheck.surfaceId, 'NOT FOUND')
+          } else {
+            pass('(j) assemblyCheck surface exists')
+            check('(j.uv) assembly effectiveUValue', golden.assemblyCheck.effectiveUValue, asmSurface.effectiveUValue)
+            check('(k)    assembly thicknessM',      golden.assemblyCheck.thicknessM,      asmSurface.thicknessM)
+          }
         }
 
         let partFail = 0
@@ -6555,6 +6589,60 @@ function App() {
                             <div className="enum-row-detail" style={{opacity:0.5}}>area — (set floor height)</div>
                           )}
                           {el.reconcile && <div className="enum-row-tag enum-tag-reconcile" data-tag={el.reconcile}>{el.reconcile}{el.signedDistM != null ? ` ${el.signedDistM >= 0 ? '+' : ''}${el.signedDistM.toFixed(3)}m` : ''}</div>}
+                          {/* Assembly row */}
+                          {el.assemblySource === 'library-unresolved' ? (
+                            <div className="enum-row-detail enum-assembly-status">Library (data pending)</div>
+                          ) : el.assemblySource === 'manual' ? (
+                            <div className="enum-row-detail enum-assembly-status">
+                              Manual · U={el.effectiveUValue != null ? el.effectiveUValue.toFixed(3) + ' W/m²K' : '—'} · t={el.thicknessM != null ? (el.thicknessM * 1000).toFixed(0) + ' mm' : '—'}
+                            </div>
+                          ) : (
+                            <div className="enum-row-detail" style={{opacity:0.5}}>(no assembly — enter below)</div>
+                          )}
+                          <div className="enum-assembly-inputs">
+                            <label className="enum-assembly-label">U-value W/m²K</label>
+                            <input
+                              type="number"
+                              key={`${el.id}-uv-${el.assemblySource}-${el.effectiveUValue}`}
+                              className="enum-assembly-input"
+                              defaultValue={el.effectiveUValue ?? ''}
+                              step="0.001" min="0"
+                              placeholder="e.g. 0.250"
+                              onBlur={e => {
+                                const v = parseFloat(e.target.value)
+                                if (!isNaN(v) && v > 0) {
+                                  surfaceAssemblyRef.current[el.id] = {
+                                    ...(surfaceAssemblyRef.current[el.id] ?? {}),
+                                    tier: 'manual', assemblyId: null,
+                                    effectiveUValue: v,
+                                    snapshotA: el.worldA, snapshotB: el.worldB,
+                                  }
+                                  setEnumerationTick(t => t + 1)
+                                }
+                              }}
+                            />
+                            <label className="enum-assembly-label">Thickness m</label>
+                            <input
+                              type="number"
+                              key={`${el.id}-th-${el.assemblySource}-${el.thicknessM}`}
+                              className="enum-assembly-input"
+                              defaultValue={el.thicknessM ?? ''}
+                              step="0.001" min="0"
+                              placeholder="e.g. 0.300"
+                              onBlur={e => {
+                                const v = parseFloat(e.target.value)
+                                if (!isNaN(v) && v > 0) {
+                                  surfaceAssemblyRef.current[el.id] = {
+                                    ...(surfaceAssemblyRef.current[el.id] ?? {}),
+                                    tier: 'manual', assemblyId: null,
+                                    thicknessM: v,
+                                    snapshotA: el.worldA, snapshotB: el.worldB,
+                                  }
+                                  setEnumerationTick(t => t + 1)
+                                }
+                              }}
+                            />
+                          </div>
                         </>)}
                         {kind === 'soffit' && (<>
                           <div className="enum-row-title">{el.side} overhang</div>
