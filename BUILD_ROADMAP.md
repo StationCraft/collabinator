@@ -352,6 +352,20 @@ is arranged so most beats are things Ben can see.
     3D thickness rendering deferred to a later slice.
     Live bug logged: #94 (opening 3D placement wrong side of wall — RESOLVED Session 44, commit 8fe8ba7).
 
+[x] ASSEMBLIES ONTO SURFACES — Attach slice 2  [DONE — Session 45; commit 6dab52d]
+    Contract ingest + library-tier resolver (geometry-scoped fields only).
+    Contract lives in C:\dev\assemblylibrary\ASSEMBLY_CONTRACT.md (separate repo).
+    assemblyLibraryRef: useRef({}) keyed by assemblyId; cleared on PDF upload.
+    ingestAssembly(record): stores { assemblyId, label, assemblyType, totalThicknessM, layers[] }
+      (layerId/materialId/thicknessM/pathRole per layer). Silently ignores deferred thermal/framing
+      fields (effectiveUValue, effectiveRSI, framing, controlLayers, airFilms) — forward-compatible
+      with Assembly Builder Part 3 in-flight.
+    getSurfaceAssembly library tier: resolves assemblyId → { thicknessM:totalThicknessM, layers, source:'library' };
+      missing id → source:'library-unresolved', no crash. Manual tier unchanged.
+    window.__ingestAssembly(record): DEV injection path; logs summary + per-layer detail.
+    Verified: 15/15 harness PASS; library resolve thickness=0.2540m/layers=5; missing id → unresolved, no crash.
+    Deferred: effectiveUValue/RSI ingest (Assembly Builder Part 3 in-flight), 3D thickness rendering.
+
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
     responsible-party primitive, PENETRATION_DETAIL_RULES engine, derived trade-plan-set export —

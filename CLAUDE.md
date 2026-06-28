@@ -715,6 +715,24 @@ A React + Vite app with:
       checks + partition invariant. Negative control: corrupting U-value → exactly check (j) fails.
     - **Live bug #94:** openings render on wrong side of wall in 3D View (see Known issues).
 
+  * **Assembly attach slice 2 (Session 45; commit 6dab52d):** Contract ingest + library-tier
+    resolver (geometry-scoped fields only). No visual/3D change (walls remain zero-thickness planes).
+    - **`assemblyLibraryRef`** — `useRef({})` keyed by `assemblyId`; value is geometry-scoped
+      contract record `{ assemblyId, label, assemblyType, totalThicknessM, layers[] }`.
+      Cleared on PDF upload alongside `surfaceAssemblyRef`. NOT in snapshot/restore (session-level only).
+    - **`ingestAssembly(record)`** — stores geometry-scoped fields from a contract-shaped record
+      (contract at `C:\dev\assemblylibrary\ASSEMBLY_CONTRACT.md`, separate repo).
+      Per layer: `layerId`, `materialId`, `thicknessM`, `pathRole`. Silently ignores deferred fields:
+      `effectiveUValue`, `effectiveRSI`, `framing`, `controlLayers`, `airFilms` — forward-compatible
+      with Assembly Builder Part 3 in-flight.
+    - **`getSurfaceAssembly` extended** — library tier resolves `assemblyId` against
+      `assemblyLibraryRef`: `{ thicknessM: totalThicknessM, layers, source:'library' }` on hit;
+      `{ source:'library-unresolved', thicknessM:null, layers:null }` on miss. No crash.
+      All return paths now include `layers` field (null for manual/unset).
+    - **`window.__ingestAssembly(record)`** — DEV injection path (second DEV block);
+      logs record summary + per-layer detail. Tree-shakes from prod.
+    - **Deferred:** `effectiveUValue`/`effectiveRSI` ingest (Part 3 in-flight), 3D wall thickness.
+
 **Not yet built (next increments):**
 - **Next critical-path build: planning pass needed** — §8.2 step 5 or next §9 extension.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
@@ -906,6 +924,28 @@ POINT_PROFILES[itemType] = { sweep: 'placed-block', wM, dM, hM }
 dimensionBasisRef.current = 'frame' | 'rough-opening' | null
 // Project-level (not per-page). null until first opening placement for the session.
 // Set once via first-use modal; never re-prompted. Cleared on PDF upload.
+```
+
+**Assembly library** (added Session 45 — geometry-scoped ingest, slice 2):
+```
+assemblyLibraryRef.current[assemblyId] = {
+  assemblyId:      string,         // stable unique id (from contract)
+  label:           string | null,  // human name
+  assemblyType:    string | null,  // 'wall'|'roof'|'floor'|'foundation'
+  totalThicknessM: number | null,  // sum of real layer thicknesses (metres)
+  layers: Array<{
+    layerId:    string | null,  // stable id within the assembly
+    materialId: string | null,  // catalogue pointer
+    thicknessM: number | null,  // metres
+    pathRole:   string | null,  // 'continuous' | 'framed'
+  }>,
+}
+// Cleared on PDF upload. NOT included in __snapshotFixture/__restoreFixture (session-level only).
+// Deferred fields NOT stored: effectiveUValue, effectiveRSI, framing, controlLayers, airFilms.
+// ingestAssembly(record): public API for writing — silently ignores deferred fields.
+// window.__ingestAssembly(record): DEV injection path (second DEV block), tree-shakes from prod.
+// getSurfaceAssembly resolution: tier:'library' → hit → source:'library', thicknessM from totalThicknessM;
+//   miss → source:'library-unresolved', thicknessM:null, layers:null. No crash on miss.
 ```
 
 **§9 Project-configuration layer** (added Session 32; commits 4cca140, eb82eba, a049854):

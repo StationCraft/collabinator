@@ -10,6 +10,64 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 45 — Assembly library ingest + library-tier resolver (slice 2, geometry-scoped) (2026-06-28)
+
+**Branch:** main | **Commit:** 6dab52d — pushed to origin.
+
+### What was built
+
+**Assembly attach slice 2 — contract ingest + library resolver (geometry fields only):**
+
+- **`assemblyLibraryRef`** — `useRef({})` keyed by `assemblyId`; value is geometry-scoped
+  contract record `{ assemblyId, label, assemblyType, totalThicknessM, layers[] }`.
+  Cleared on PDF upload alongside `surfaceAssemblyRef`.
+- **`ingestAssembly(record)`** — stores geometry-scoped fields from a contract-shaped record.
+  Silently ignores deferred thermal/framing fields (`effectiveUValue`, `effectiveRSI`, `framing`,
+  `controlLayers`, `airFilms`) — forward-compatible with Assembly Builder Part 3 in-flight.
+  Layer fields stored: `layerId`, `materialId`, `thicknessM`, `pathRole`.
+- **`getSurfaceAssembly` library tier extended** — when `tier:'library'` and `assemblyId` is set,
+  resolves against `assemblyLibraryRef`; returns
+  `{ thicknessM: totalThicknessM, layers, source:'library' }` on hit.
+  Missing `assemblyId` → `source:'library-unresolved'`, `thicknessM:null`, no crash.
+  Manual tier and `source:'unset'` unchanged. `layers:null` added to all return paths.
+- **`window.__ingestAssembly(record)`** — DEV injection path in second DEV block;
+  calls `ingestAssembly` + logs summary + per-layer detail. Tree-shakes from production.
+  Mirrors `__dumpRuns` / `__dumpSolids` pattern.
+
+### Contract field name check
+
+All geometry-scoped field names in the prompt match the contract exactly:
+`assemblyId`, `label`, `assemblyType`, `totalThicknessM`, `layers[]` with `materialId`,
+`thicknessM`, `pathRole`. The contract also carries `layerId` per layer (not mentioned in
+the prompt's layer description) — stored in full. No discrepancies.
+
+### Deferred (explicitly out of scope this slice)
+
+`effectiveUValue`, `effectiveRSI`, `framing`, `controlLayers`, `airFilms` — not ingested,
+not stored. These feed U-value/F280/thermal, not 3D geometry, and `effectiveUValue`/`effectiveRSI`
+are still being filled by Part 3 of the Assembly Builder. 3D thickness rendering is the NEXT slice
+(walls remain zero-thickness planes this slice).
+
+### Contract location
+
+`C:\dev\assemblylibrary\ASSEMBLY_CONTRACT.md` — separate repo, NOT inside collabinator.
+Assembly Builder Part 3 is in flight (adding framing `materialId` + filling `effectiveUValue`/`effectiveRSI`).
+
+### Verified (browser — preview server 5175)
+
+1. Restore fixture → `__verifyFixture()`: **15/15 PASS** ✓ (existing arithmetic unaffected)
+2. `__ingestAssembly` with 5-layer record → library tier resolves:
+   `source:'library'`, `thickness=0.2540 m`, `layers=5`, `U=null` (deferred) ✓
+3. Missing assemblyId → `source:'library-unresolved'`, `thickness=null`, no crash ✓
+4. No console errors ✓
+
+### Forward
+
+Next: 3D thickness rendering (walls as solids with depth = `totalThicknessM`), OR
+U-value/thermal ingest slice when Assembly Builder Part 3 lands.
+
+---
+
 ## SESSION 44 — Fix #94: opening 3D placement via vector projection (2026-06-28)
 
 **Branch:** main | **Commit:** 8fe8ba7 — pushed to origin.
