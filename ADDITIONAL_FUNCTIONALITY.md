@@ -1441,3 +1441,49 @@ normalisation issue in the projection formula.
 edges are unusual. Not blocking any current track.
 
 **Status:** Open — deferred, not cancelled.
+
+---
+
+### 96. Wall corner reconciliation — solid interpenetration + inside-face area overcount
+
+**Category:** 3D geometry / Derivation accuracy. **Logged:** Session 46 (surfaced during 3D-thickness slice review).
+
+**Description:**
+
+Each wall panel is generated independently from its own traced edge, offset inward by
+`totalThicknessM` along its own edge normal. There is currently NO corner-condition logic — no
+miter, no junction reconciliation, no shared-corner ownership between adjacent walls. This has
+two distinct consequences:
+
+**(1) 3D solid interpenetration (cosmetic, today).** Two walls meeting at a corner each grow
+their full thickness inward, so the two solids occupy the same wedge of space at the corner —
+the rendered panels visibly interpenetrate. Render-only today; corrupts no data because the
+solids are not measured.
+
+**(2) Inside-face area overcount (affects F280 accuracy).** `insideFaceAreaM2` is computed
+per-edge: each wall's inside face runs to the traced (outside) corner point and offsets inward
+by its own thickness, independently. The true interior face of a wall stops where it meets the
+adjacent wall's interior face — NOT at the projected outside corner. So per-edge inside-face
+lengths are each measured slightly long at every corner, and inside-face areas systematically
+**overcount**. The error is small per corner (≈ wall thickness × height × number of corners)
+and always in the same direction (over, never under).
+
+**Decision / Status:**
+
+Overcount ACCEPTED for the first F280 pass. F280 is a design heat-loss calculation whose own
+tolerance is expected to swamp a few-corner thickness overcount; the priority is a working
+end-to-end heat-loss number that can be sanity-checked against reality before investing in
+corner geometry. Corner reconciliation is deferred to an ACCURACY-REFINEMENT slice to be
+scheduled once F280 output is visible and the real-world significance of the error can be judged.
+
+When built, the reconciliation slice must decide, at each corner, which wall "owns" the corner
+length (or how the shared length is split) so that inside-face lengths sum correctly — the
+inside-face equivalent of mitering. This is real geometry work and would gate F280 ONLY if a
+future judgment finds the overcount material.
+
+**Relation to #87:** Distinct. #87 (closure invariant) checks that enumerated SURFACES sum to
+the whole envelope gap-free/overlap-free; this entry is about 3D solid overlap and inside-face
+LENGTH measurement at corners. Do not conflate.
+
+**Status:** Deferred — overcount accepted for initial F280 pass. Revisit once F280 output is
+visible and the real-world error magnitude can be judged.
