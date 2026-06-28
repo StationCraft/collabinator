@@ -733,6 +733,19 @@ A React + Vite app with:
       logs record summary + per-layer detail. Tree-shakes from prod.
     - **Deferred:** `effectiveUValue`/`effectiveRSI` ingest (Part 3 in-flight), 3D wall thickness.
 
+- **3D wall-panel render — thickness slice (Session 46; commit 8f1dd30):**
+  Wall surfaces with a library-tier assembly now render as solid panels in ThreeDView.
+  - **Growth direction:** `assemblyType === 'wall'` → grows inward (into footprint);
+    horizontal types → grows outward. Convention: traced line = structural outside face.
+  - **`totalThicknessM`** from `assemblyLibraryRef` drives panel depth.
+  - **`insideFaceAreaM2`** added as a named field on every wall-surface element in
+    `deriveEnumeration()` STEP A. Not yet consumed downstream — F280 consumes next chat.
+  - **Layer-by-layer band rendering deferred** (only total-thickness solid built now).
+  - **TDZ fix:** `const solids = []` was declared at ~line 4370 but first used at ~line 4177
+    (wall-panel push). Moved to immediately after `const floorRings = []` (~line 4132).
+    The throw was caught at React's event boundary, silently preventing 3D View from mounting
+    on first load. 17/17 harness PASS; Ben confirmed inward growth on `wall-sh-1-seg0-Main_Floor`.
+
 **Not yet built (next increments):**
 - **Next critical-path build: planning pass needed** — §8.2 step 5 or next §9 extension.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready

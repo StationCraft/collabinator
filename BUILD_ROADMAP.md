@@ -353,6 +353,13 @@ is arranged so most beats are things Ben can see.
     Live bug logged: #94 (opening 3D placement wrong side of wall — RESOLVED Session 44, commit 8fe8ba7).
 
 [x] ASSEMBLIES ONTO SURFACES — Attach slice 2  [DONE — Session 45; commit 6dab52d]
+
+[x] 3D WALL-PANEL RENDER — thickness slice  [DONE — Session 46; commit 8f1dd30]
+    Part 1: wall panels as solid geometry in ThreeDView; assemblyType-driven growth direction
+    (wall inward / horizontal outward); totalThicknessM from assemblyLibraryRef.
+    insideFaceAreaM2 derived in STEP A (not yet consumed; F280 next).
+    Part 2: TDZ fix — moved const solids=[] before its first use; 3D View now mounts on
+    first click. 17/17 harness PASS; Ben visual confirmed inward growth.
     Contract ingest + library-tier resolver (geometry-scoped fields only).
     Contract lives in C:\dev\assemblylibrary\ASSEMBLY_CONTRACT.md (separate repo).
     assemblyLibraryRef: useRef({}) keyed by assemblyId; cleared on PDF upload.

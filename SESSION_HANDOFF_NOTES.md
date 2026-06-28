@@ -10,6 +10,47 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 46 — 3D wall-panel render (thickness slice) + TDZ fix (2026-06-28)
+
+**Branch:** main | **Commit:** 8f1dd30 — pushed to origin.
+
+### What was built
+
+**3D wall-panel render — Part 1 (ThreeDView + deriveWireframe extension):**
+- Wall surfaces with a library-tier assembly (`source:'library'`) now render as semi-transparent
+  solid panels in ThreeDView using `totalThicknessM` from `assemblyLibraryRef`.
+- Growth direction is assemblyType-driven: `'wall'` grows inward (into building footprint);
+  horizontal surfaces grow outward. Matching the architectural convention that traced lines are
+  the structural outside face.
+- `insideFaceAreaM2` derived in `deriveEnumeration` STEP A as a named field on every wall-surface
+  element. Not yet consumed downstream — F280 consumes next chat. Layer-by-layer band rendering
+  deferred.
+
+**TDZ fix — Part 2 (declaration-order, one line):**
+- `deriveWireframe()` threw `ReferenceError: Cannot access 'solids' before initialization`.
+- Root cause: `const solids = []` was declared at ~line 4370, but the new wall-panel loop called
+  `solids.push(...)` at ~line 4177 — 194 lines earlier in the same function body. JS Temporal
+  Dead Zone: `solids` is hoisted but uninitialized until the declaration runs.
+- Fix: moved `const solids = []` to immediately after `const floorRings = []` (~line 4132).
+  Deleted the original declaration. No other change.
+- The throw was caught silently at React's event boundary, which is why 3D View appeared to
+  need a second reload to mount — `wireframeData` stayed null on the first attempt.
+
+### Verified (Ben's dev-server tab)
+
+1. Restore fixture → `__verifyFixture()`: **17/17 PASS** (arithmetic unaffected by fix)
+2. Hard reload + LOAD FIXTURE → 3D View opens on **first click** ✓
+3. Green semi-transparent wall-depth panel visible on `wall-sh-1-seg0-Main_Floor`, ~254mm deep,
+   growing **inward** (into footprint, not outward/north) ✓
+4. Zero-thickness and manual-tier surfaces remain flat lines ✓
+
+### Forward
+
+Next chat: F280 consumer of `insideFaceAreaM2`, or U-value/thermal ingest slice when
+Assembly Builder Part 3 lands (filling `effectiveUValue`/`effectiveRSI`).
+
+---
+
 ## SESSION 45 — Assembly library ingest + library-tier resolver (slice 2, geometry-scoped) (2026-06-28)
 
 **Branch:** main | **Commit:** 6dab52d — pushed to origin.
