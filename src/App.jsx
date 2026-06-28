@@ -556,6 +556,7 @@ function App() {
   const elevationEdgeRef = useRef({})  // pageId -> {sourcePageId, shapeIndex, segmentIndex, endpointA, endpointB}
   const elevBaseYRef = useRef({})      // pageId -> anchorY (canvas px) after user drags base line into place
   const surfaceAssemblyRef = useRef({}) // wallId -> { tier:'manual'|'library', effectiveUValue, thicknessM, assemblyId, snapshotA, snapshotB }
+  const assemblyLibraryRef = useRef({}) // assemblyId -> geometry-scoped contract record { assemblyId, label, assemblyType, totalThicknessM, layers[] }
 
   // ── Elevation align (Step 8, Piece 2) ────────────────────────────────────────
   // Reuses alignDragRef / alignTick / alignOverHandle for drag machinery.
@@ -714,6 +715,7 @@ function App() {
     elevationEdgeRef.current = {}
     elevBaseYRef.current = {}
     surfaceAssemblyRef.current = {}
+    assemblyLibraryRef.current = {}
     setElevAlignMode(false)
     setAlignMode(false); alignDragRef.current = null
     primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
@@ -4642,15 +4644,41 @@ function App() {
 
   }
 
+  // ── Assembly library ingest ────────────────────────────────────────────────
+  // Accepts a contract-shaped record and stores geometry-scoped fields only.
+  // Deferred fields (effectiveUValue, effectiveRSI, framing, controlLayers, airFilms)
+  // are silently ignored — forward-compatible with the in-flight contract Part 3.
+  const ingestAssembly = (record) => {
+    if (!record || !record.assemblyId) { console.warn('[assembly] ingestAssembly: record missing assemblyId'); return }
+    assemblyLibraryRef.current[record.assemblyId] = {
+      assemblyId:      record.assemblyId,
+      label:           record.label ?? null,
+      assemblyType:    record.assemblyType ?? null,
+      totalThicknessM: record.totalThicknessM ?? null,
+      layers: Array.isArray(record.layers)
+        ? record.layers.map(l => ({
+            layerId:     l.layerId   ?? null,
+            materialId:  l.materialId ?? null,
+            thicknessM:  l.thicknessM ?? null,
+            pathRole:    l.pathRole  ?? null,
+          }))
+        : [],
+    }
+  }
+
   // ── Assembly resolver — reads surfaceAssemblyRef per wall-surface ────────
-  // Returns { effectiveUValue, thicknessM, source } — null-safe, tier-blind downstream.
-  // source: 'unset' | 'manual' | 'library-unresolved'
+  // Returns { effectiveUValue, thicknessM, layers, source } — null-safe, tier-blind downstream.
+  // source: 'unset' | 'manual' | 'library' | 'library-unresolved'
   const getSurfaceAssembly = (surfaceId) => {
     const ref = surfaceAssemblyRef.current[surfaceId]
-    if (!ref) return { effectiveUValue: null, thicknessM: null, source: 'unset' }
-    if (ref.tier === 'manual') return { effectiveUValue: ref.effectiveUValue ?? null, thicknessM: ref.thicknessM ?? null, source: 'manual' }
-    if (ref.tier === 'library') return { effectiveUValue: null, thicknessM: null, source: 'library-unresolved' }
-    return { effectiveUValue: null, thicknessM: null, source: 'unset' }
+    if (!ref) return { effectiveUValue: null, thicknessM: null, layers: null, source: 'unset' }
+    if (ref.tier === 'manual') return { effectiveUValue: ref.effectiveUValue ?? null, thicknessM: ref.thicknessM ?? null, layers: null, source: 'manual' }
+    if (ref.tier === 'library') {
+      const rec = ref.assemblyId ? assemblyLibraryRef.current[ref.assemblyId] : null
+      if (rec) return { effectiveUValue: null, thicknessM: rec.totalThicknessM ?? null, layers: rec.layers, source: 'library' }
+      return { effectiveUValue: null, thicknessM: null, layers: null, source: 'library-unresolved' }
+    }
+    return { effectiveUValue: null, thicknessM: null, layers: null, source: 'unset' }
   }
 
   // ── B4: deriveEnumeration() ──────────────────────────────────────────────
@@ -5190,6 +5218,24 @@ function App() {
         const sat = ob.satisfiedValue ? `✓ ${ob.satisfiedValue}` : (ob.blocked ? '🔒 blocked' : '— not set')
         const owners = ob.ownerRoles.length ? ob.ownerRoles.map(r => ROLE_LABELS[r] ?? r).join(', ') : '(unassigned)'
         console.log(`  ${ob.instanceKey} / ${ob.id}  [${ob.kind}]  ${sat}  ownerRoles=[${ob.ownerRoles.join(',')}] → ${owners}`)
+      }
+    }
+
+    // __ingestAssembly(record): DEV injection path for contract-shaped assembly records.
+    // Mirrors __dumpRuns/__dumpSolids pattern — tree-shakes from production.
+    // Usage: window.__ingestAssembly({ assemblyId:'asm-1', label:'2x6 R22', assemblyType:'wall',
+    //   totalThicknessM:0.3, layers:[{layerId:'l-1',materialId:'spf',thicknessM:0.14,pathRole:'framed'}] })
+    // Then point a surface at it: surfaceAssemblyRef.current['wall-sh-1-seg2-Main_Floor'] =
+    //   { tier:'library', assemblyId:'asm-1' }
+    window.__ingestAssembly = (record) => {
+      ingestAssembly(record)
+      const stored = assemblyLibraryRef.current[record?.assemblyId]
+      if (stored) {
+        console.log(`[asm] ingested assemblyId="${stored.assemblyId}"  label="${stored.label}"  type=${stored.assemblyType}  totalThicknessM=${stored.totalThicknessM}  layers=${stored.layers.length}`)
+        for (const l of stored.layers)
+          console.log(`  layer  layerId=${l.layerId}  materialId=${l.materialId}  thicknessM=${l.thicknessM}  pathRole=${l.pathRole}`)
+      } else {
+        console.warn('[asm] __ingestAssembly: ingest failed (see above)')
       }
     }
   }
