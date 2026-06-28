@@ -10,6 +10,46 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 44 — Fix #94: opening 3D placement via vector projection (2026-06-28)
+
+**Branch:** main | **Commit:** 8fe8ba7 — pushed to origin.
+
+### What was built
+
+**Bug fix #94 — opening 3D placement wrong side/end of wall:**
+
+Root cause (derivation bug, confirmed via recon): `deriveWireframe` computed `hOffsetM` as
+`(centX − midPxX) / pxPerMeter` — a scalar canvas-X offset. This is correct only when the
+reference edge is traced left-to-right. When traced right-to-left (dirX = −1), the signed
+offset has the wrong sign, mirroring every opening to `2 × midpoint − correct` position.
+Fixture coordinates were correct; the bug was entirely in the derivation formula.
+
+**Fix:** At the `hOffsetM` line, replaced the scalar formula with a vector dot-product
+projection: `projPx = ((centX − midPxX) * edx + (centY − midPxY) * edy) / edgeLenPx`,
+then `hOffsetM = projPx / pxPerMeter`. This is sign-correct for any edge orientation
+(horizontal left-to-right, right-to-left, or diagonal). `cx = wMidX + dirX * hOffsetM`
+and `cy = wMidY + dirY * hOffsetM` are unchanged — hOffsetM is now the correct signed
+scalar in the A→B world direction.
+
+### Verified
+
+- `__verifyFixture()`: 15/15 PASS (area, net/gross, assembly arithmetic unaffected) ✓
+- `__dumpWireframe()` opening centers: window cx = 1.1557 m, door cx = 2.2606 m
+  (before fix: 7.2263 m / 6.1214 m — mirrored values) ✓
+- Ben visual confirm: both openings sit in the wall plane at the correct (WEST) end ✓
+
+### New deferred entry
+
+**#95** — Angled-elevation-edge opening placement: the vector projection formula handles
+diagonal reference edges by construction, but no fixture with a diagonal edge exists.
+Build a fixture to verify the angled-edge path when convenient. Low priority.
+
+### Forward
+
+Beat 2b (gating fields — awaits #75 authoring pass) or next assemblies/envelope slice.
+
+---
+
 ## SESSION 42 — Verification infrastructure: __verifyFixture harness + golden sidecar (2026-06-28)
 
 **Branch:** main | **Commits:** 1915e9c (docs reconcile), 688f8aa (fixture openings), e1a3215 (harness) — pushed to origin.

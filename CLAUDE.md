@@ -1075,11 +1075,10 @@ All of the above are cleared on PDF upload.
 - **Categorize-input button color scheme not documented:** Current button highlight logic
   follows "next logical step" but the exact color-state rules are not written down.
   Document and potentially improve in a UI polish session.
-- **Opening 3D placement wrong side of wall (#94):** Window and door rectangles appear
-  offset outside the wall plane in 3D View rather than coincident with / cut into it.
-  Data is unaffected (area, opening subtraction, assembly attach all read stored dimensions
-  and verify correct — harness 15/15). UNDIAGNOSED: not yet known whether this is a
-  fixture-placement issue or a derivation-geometry issue. Recon pass needed before fix.
+- **Opening 3D placement wrong side of wall (#94): RESOLVED (commit 8fe8ba7).** Root cause
+  was a scalar canvas-X offset formula that mirrored openings when the reference edge was
+  traced right-to-left. Fixed by projecting the full 2D canvas offset vector onto the A→B
+  edge direction (dot-product / edgeLenPx). 15/15 harness PASS; Ben visual confirmed.
 
 ### Design gaps (deferred to Phase 2):
 - **Inherited geometry displays on all pages:** Locked polygons from page N show on

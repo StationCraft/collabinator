@@ -1402,28 +1402,42 @@ checks before label hit); small scope, no geometry change.
 
 ---
 
-### 94. Openings render on wrong side of wall in 3D View — UNDIAGNOSED BUG
+### 94. Openings render on wrong side of wall in 3D View — RESOLVED (Session 44; commit 8fe8ba7)
 
-**Category:** 3D View / Derivation geometry. **Logged:** Session 43.
+**Category:** 3D View / Derivation geometry. **Logged:** Session 43. **Resolved:** Session 44.
 
-**Description:** Window and door rectangles appear offset outside the wall plane in 3D View
-rather than coincident with / cut into the wall surface. The opening is visually "floating"
-in front of the wall rather than sitting in it.
+**Root cause (derivation bug):** The `hOffsetM` formula in `deriveWireframe` used a scalar
+canvas-X offset `(centX − midPxX) / pxPerMeter`. This is correct only when the reference edge
+is traced left-to-right (dirX = +1). When the edge is traced right-to-left (dirX = −1), the
+sign is wrong and every opening mirrors to the wrong end of the wall — landing at exactly
+`2 × midpoint − correct position`.
 
-**Data is unaffected:** Area, opening subtraction, and assembly attachment all read the stored
-`widthM`/`heightM` dimensions and verify correct — `__verifyFixture()` passes 15/15 checks.
-This is a placement/derivation-geometry bug in how an opening is projected to its 3D position,
-not a data-model bug.
+**Fix (8fe8ba7):** Replaced the scalar offset with a proper vector projection of the 2D canvas
+offset vector `(centX − midPxX, centY − midPxY)` onto the A→B canvas direction vector, normalised
+by the edge length in pixels. This produces a signed scalar in the A→B direction that is correct
+for any edge orientation including diagonal edges.
 
-**UNDIAGNOSED:** Not yet known whether this is:
-- A fixture-placement issue (the hand-placed openings landed slightly off the wall plane during
-  Ben's UI placement), OR
-- A derivation issue (the opening→wall mapping in `deriveWireframe` computes the 3D offset
-  incorrectly for every opening regardless of placement).
+**Verification:** `__verifyFixture()` 15/15 PASS (area/assembly arithmetic unaffected). Opening
+center world-X: window 1.1557 m, door 2.2606 m (were 7.2263 m / 6.1214 m). Ben visual confirm
+in 3D View — both openings sit in the wall plane at the correct end.
 
-**Next step:** A read-only recon pass to determine which — check `deriveWireframe` openingLines
-derivation against the fixture's elevation edge geometry and the opening positions. Determine
-before any fix attempt.
+### 95. Angled-elevation-edge opening placement — fixture coverage gap
 
-**Status:** LIVE BUG — next to recon on the assemblies/envelope track. Do not attempt a fix
-without the diagnostic recon first.
+**Category:** 3D View / Derivation geometry. **Logged:** Session 44.
+
+**Description:** The vector-projection formula introduced in commit 8fe8ba7 (fix #94) handles
+diagonal reference edges by construction — the dot-product projection onto the A→B canvas
+direction works for any orientation. However, the only fixture in the repository uses a
+horizontal reference edge (the north wall of the Main Floor polygon, traced left-to-right),
+so the angled-edge code path has never been exercised against a real case.
+
+**What to do when convenient:** Build a fixture where the elevation reference edge is diagonal
+(e.g. a plan polygon with an angled wall and an opening placed on its elevation page), run
+`__dumpWireframe()` and `__verifyFixture()` to confirm the opening center lands at the
+expected world position. If a discrepancy is found, it would indicate a further sign or
+normalisation issue in the projection formula.
+
+**Priority:** Low — axis-aligned walls are the standard residential case; diagonal reference
+edges are unusual. Not blocking any current track.
+
+**Status:** Open — deferred, not cancelled.

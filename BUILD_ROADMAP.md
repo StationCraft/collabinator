@@ -350,7 +350,7 @@ is arranged so most beats are things Ben can see.
     openingTotalM2=1.5290). Negative control verified: U-value corruption → exactly check (j) fails.
     Envelope panel row extended: assembly tier + U/thickness per wall surface.
     3D thickness rendering deferred to a later slice.
-    Live bug logged: #94 (opening 3D placement wrong side of wall — undiagnosed, recon next).
+    Live bug logged: #94 (opening 3D placement wrong side of wall — RESOLVED Session 44, commit 8fe8ba7).
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
