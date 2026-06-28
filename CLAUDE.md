@@ -565,6 +565,18 @@ A React + Vite app with:
   `public/devFixtures/test-fixture.pdf` — **gitignored; never committed; drop real test PDF there
   on a fresh clone.** Save/Load buttons ARE LIVE (DEV-guarded strip; see #31). Production
   tree-shakes the entire block.
+- **Golden sidecar + `__verifyFixture()` (Session 42; commits 688f8aa, e1a3215):**
+  `public/devFixtures/fixture-elevation.json` is the authoritative multi-floor scenario fixture
+  (page-2=elevation, page-3=Crawlspace, page-5=Main Floor, page-7=roof; 5 shapes including
+  window W1 1.2×0.9m and door D1 0.9×0.4394m on page-2, both associating to
+  `wall-sh-1-seg2-Main_Floor`). `public/devFixtures/fixture-elevation.expected.json` is the
+  frozen golden sidecar (wallSurfaceCount, gross/net/openingTotalM2, soffitCount, windowCount,
+  doorCount, subtractionSurface id/areas; tolerance ±0.0001m²).
+  `window.__verifyFixture()` async DEV fn (after `__dumpEnumeration` in the DEV block):
+  fetches the sidecar, runs checks (a)-(i) + partition invariant for all wall surfaces, prints
+  `[verify] pass` / `[verify] FAIL` per check, prints closure-check SKIPPED (#87 gated), prints
+  final `✓ ALL N checks PASSED` or `N/M checks FAILED`. Run after restoring fixture-elevation.json
+  to verify the envelope-area slice end-to-end. #28 automated-verification gate criterion met.
 
 - **Elevation Piece 4 sub-piece 2 (grade line) piece 1 (Session 22; commit 3fae81b):**
   Open-polyline grade / soil line tool on Elevation pages.

@@ -325,6 +325,20 @@ is arranged so most beats are things Ben can see.
     NEXT: assembly-type assignment per surface (assemblyId attach layer); extend
     CONFIG_FIELDS options with thicknessM + controlLayerM data.
 
+[x] VERIFICATION INFRA — __verifyFixture harness + golden sidecar  [DONE — Session 42]
+    Precondition built (688f8aa): fixture-elevation.json received window (W1 1.2×0.9m) + door
+    (D1 0.9×0.4394m) on page-2, both associating to wall-sh-1-seg2-Main_Floor; combined
+    opening total 1.47546m² (displays "1.4755" at 4dp).
+    Golden sidecar created: public/devFixtures/fixture-elevation.expected.json — frozen expected
+    values for 10 wall surfaces, grossTotalM2=68.4695, netTotalM2=66.9941, openingTotalM2=1.4755,
+    2 soffits, 1 window, 1 door, subtractionSurface id/gross/net/opening. Tolerance ±0.0001m².
+    window.__verifyFixture() (e1a3215): async DEV fn (DEV block, after __dumpEnumeration); fetches
+    sidecar; checks (a)-(i): wallSurfaceCount, grossTotal, netTotal, openingTotal, soffitCount,
+    windowCount, doorCount, subtractionSurface id+grossM2+netM2+openingM2; partition invariant
+    (gross==net+openings for all wall surfaces with height); closure stub prints SKIPPED (#87 gated).
+    Browser-verified 12/12 PASS; negative control (grossTotalM2=99) → exactly check (b) fails only.
+    #28 automated-verification gate criterion met for wall-surface area slice.
+
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
     responsible-party primitive, PENETRATION_DETAIL_RULES engine, derived trade-plan-set export —

@@ -10,6 +10,57 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 42 — Verification infrastructure: __verifyFixture harness + golden sidecar (2026-06-28)
+
+**Branch:** main | **Commits:** 1915e9c (docs reconcile), 688f8aa (fixture openings), e1a3215 (harness) — pushed to origin.
+
+### What was built
+
+**Part 1 — Docs reconcile (1915e9c):**
+ADDITIONAL_FUNCTIONALITY.md: #10 title/description expanded to include PDF render resolution sub-items.
+#28 gate reaffirmed with fuller scope (OCR/schedule/auto-populate). New entries #89–#92 appended:
+  #89 ghost start-vertex snap possible bug | #90 replicate previous floor shape | #91 roof draw
+  page multiple shapes | #92 elevation reference edge rotation + multi-elevation assignment.
+
+**Recon (read-only, Part 1):** Four structured questions answered before any code:
+  1. Snapshot/restore seam: async; shapeIdCounterRef NOT captured (known gap, harmless for harness).
+  2. DEV dump catalog: all 7 fns live in lines 4401–5091; deriveEnumeration() hoisted to render scope.
+  3. Expected-value stores: none exist pre-session; golden sidecar is net new pattern.
+  4. Cleanest seam: immediately after __dumpEnumeration (line 5002), before __dumpWireframe.
+
+**Precondition (688f8aa) — fixture-elevation.json:**
+Added sh-3 (window W1, widthM=1.2, heightM=0.9, pageId='page-2') and sh-4 (door D1, widthM=0.9,
+heightM=0.4394, pageId='page-2'). Both associate to wall-sh-1-seg2-Main_Floor via
+elevationEdgeRef[page-2] → {shapeIndex:1 (=sh-1), segmentIndex:2}. Combined opening area
+1.47546m² → toFixed(4)="1.4755". Gross unchanged at 68.4695m².
+
+**Harness + sidecar (e1a3215):**
+Golden sidecar: `public/devFixtures/fixture-elevation.expected.json` — frozen expected values
+(wallSurfaceCount:10, grossTotalM2:68.4695, netTotalM2:66.9941, openingTotalM2:1.4755,
+soffitCount:2, windowCount:1, doorCount:1, subtractionSurface:{id:'wall-sh-1-seg2-Main_Floor',
+grossM2:16.7225, netM2:15.2471, openingM2:1.4755}). Tolerance ±0.0001m².
+`window.__verifyFixture()`: fetches sidecar, calls deriveEnumeration(), checks (a)-(i) +
+partition invariant for all wall surfaces; closure stub prints SKIPPED (#87 gated); summary line.
+
+### Verified (browser — preview server 5175)
+
+Positive: 12/12 PASS ✓  
+Negative control (fetch-patched grossTotalM2=99): exactly check (b) FAIL, all others pass ✓  
+Closure stub: SKIPPED message printed ✓  
+
+### Architecture note — golden-sidecar pattern
+
+Fixture JSON holds scenario geometry; sidecar JSON holds frozen expected derived-quantity values.
+Separate files intentionally: scenario can evolve by updating fixture + re-anchoring sidecar from
+a fresh __dumpEnumeration run. Sidecar is NOT auto-generated at test time — it is a hand-confirmed
+snapshot. #28 automated-verification gate criterion met for wall-surface area slice.
+
+### Forward
+
+Next: assembly-type assignment per surface (assemblyId attach layer). Beat 2b blocked on #75.
+
+---
+
 ## SESSION 41 — Envelope area slice: gross/net/opening area as named derived quantities (2026-06-27)
 
 **Branch:** main | **Commits:** (see code commit below) — pushed to origin.

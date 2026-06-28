@@ -549,6 +549,25 @@ divs flow naturally inside the container. All panel content JSX is preserved ver
 
 ---
 
+## 13b. Verification harness — __verifyFixture + golden sidecar (Session 42)
+
+`public/devFixtures/fixture-elevation.json` is the canonical multi-floor scenario fixture. It
+carries sh-3 (window W1, widthM=1.2, heightM=0.9) and sh-4 (door D1, widthM=0.9, heightM=0.4394)
+on page-2 (elevation), both associating to wall-sh-1-seg2-Main_Floor.
+
+`public/devFixtures/fixture-elevation.expected.json` is the golden sidecar — frozen expected
+derived values (wallSurfaceCount, gross/net/openingTotalM2, soffitCount, windowCount, doorCount,
+subtractionSurface). Tolerance ±0.0001m². Hand-anchored after human-verified __dumpEnumeration run;
+NOT auto-generated at test time. Updated when the scenario evolves by re-anchoring from __dumpEnumeration.
+
+`window.__verifyFixture()` (async DEV fn, after __dumpEnumeration in the DEV block): fetches sidecar,
+calls deriveEnumeration(), checks (a)-(i) + partition invariant, closure stub SKIPPED (#87 gated).
+Invoke after `await window.__restoreFixture(obj)` with fixture-elevation.json to verify end-to-end.
+
+**#28 gate:** automated verification criterion is MET for the wall-surface area slice as of Session 42.
+
+---
+
 ## 13. Explicitly deferred / abandoned approaches (do not reintroduce)
 
 - Vertex-drag and break-point insertion directly on **inherited/reference** geometry —
