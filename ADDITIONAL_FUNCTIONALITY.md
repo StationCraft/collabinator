@@ -170,15 +170,21 @@ The ghost rendering implementation (`getVisibleVertices` plumbing, `showGhost` t
 
 ---
 
-### 10. Full-screen / maximum-width canvas layout
+### 10. Full-screen / maximum-width canvas layout + PDF render resolution
 
-**Logged:** Session 8, while tuning multi-floor ghost visibility against large PDFs.
+**Logged:** Session 8, while tuning multi-floor ghost visibility against large PDFs. **Amended:** Session 42 (resolution + viewport items folded in).
 
-**Description:** The canvas area currently leaves large unused margins. UI/layout polish: expand the canvas to use the full browser width, and potentially the full height (hiding the toolbar into a collapsible header or side-drawer). This would make dense floor plans and large elevations more readable without constant zooming.
+**Description:** Three related canvas real-estate and readability items:
 
-**Why deferred:** Pure UI/layout polish, zero core functionality impact. Ghost rendering tested at current canvas size; margin reductions are a separate visual-design pass. Does not block any tracing workflows.
+(a) **Maximum-width canvas:** The canvas area currently leaves large unused margins. UI/layout polish: expand the canvas to use the full browser width, and potentially the full height (hiding the toolbar into a collapsible header or side-drawer). Dense floor plans and large elevations would become more readable without constant zooming.
 
-**Status:** Deferred. Good candidate for a dedicated UI pass after Phase 1 toolkit is feature-complete.
+(b) **App working area does not fill the browser viewport in fullscreen:** Even when the browser window is maximized, the usable drawing area is smaller than it could be — toolbars and padding consume significant vertical and horizontal space. Tied directly to (a); same fix pass.
+
+(c) **PDF render resolution too low:** At moderate-to-high zoom the PDF backdrop appears pixelated because it was rasterized at the initial canvas size. A full-resolution toggle (or dynamic upscale on zoom) would render the PDF at a higher DPI for scale-setting readability and fine-geometry tracing. Requires re-rasterizing at a higher resolution via PDF.js' render scale parameter; the measurement canvas (`measureRef`) and geometry are unaffected.
+
+**Why deferred:** All three are pure UI/layout and rendering-quality polish, zero core functionality impact. Ghost rendering tested at current canvas size; margin and resolution improvements are a separate visual-design pass. None block any tracing workflows.
+
+**Status:** Deferred. Good candidate for a single dedicated UI pass after Phase 1 toolkit is feature-complete. (a)+(b) are one change; (c) is adjacent but independent.
 
 ---
 
@@ -498,17 +504,26 @@ projection exist.
 
 ### 28. PDF visual analysis / analysis-first front end (MAJOR VISION — deep-review waypoint)
 
-**Logged:** Session 20, elevation Piece 3 sub-piece 2 close-out.
+**Logged:** Session 20, elevation Piece 3 sub-piece 2 close-out. **Expanded:** Session 42 (fuller vision scope added; gate reaffirmed).
 
 **Description:** On PDF upload, run automated visual analysis of each page to propose: page category, what the page shows, approximate scale, and key geometry (e.g., exterior perimeter lines). Present findings to the user as confirm-and-correct prompts with a visual overlay — e.g., "Analysis suggests this is the Basement floor plan; these lines appear to be the exterior perimeter — confirm? If any line is wrong, click it and adjust." This is a fundamentally different build paradigm from the current manual-trace flow: **analysis-first, human-in-the-loop correction** rather than human-first trace from scratch.
 
 Includes raster-image line sensing, ML-assisted classification, and an overlay UI that presents analysis results as candidates rather than facts. Reflects how Ben originally envisioned the program working.
 
-**Why deferred:** The current Phase 1 toolkit (manual trace, snap, align) is the foundation the analysis layer would validate against and hand off to. Building analysis before the manual layer is complete would build on an incomplete reference. This item is explicitly flagged as **relevant input to the scheduled post-Phase-2 deep-review waypoint** — the review should evaluate whether Phase 2 rebuilds around the analysis-first paradigm rather than adding it on top.
+**Expanded scope (Session 42):** The analysis layer extends beyond geometry into document-level metadata and schedules:
+- **Page classification** — auto-assign category (Floor Plan / Elevation / Section / Roof Plan / Site Plan / Detail) from visual content; confirmed or corrected per page.
+- **OCR of schedules and assemblies** — read door/window schedules, wall assembly callouts, and spec notes directly from the PDF; auto-populate project fields that are currently hand-entered (opening labels, assembly types, room counts).
+- **Auto-populate project-level fields** — extract address, client name, floor count, building permit number, and similar header/title-block data from the PDF at upload, pre-filling the project-configuration layer (§9) without manual entry.
+
+All three are confirm-and-correct surfaces — the system proposes; the user confirms, rejects, or adjusts. The manual workflow remains authoritative; the analysis layer is a friction-reduction accelerator on top of it.
+
+**Why deferred:** The current Phase 1 toolkit (manual trace, snap, align) is the foundation the analysis layer would validate against and hand off to. Building analysis before the manual layer is complete would build on an incomplete reference. **The expanded scope (OCR, schedule ingestion, auto-populate) amplifies this dependency further** — extracted data must have a complete, tested data model to land in, and those models are still being built (assembly types, project config fields). Analysis built prematurely creates a loop: model changes force re-integration of the extractor.
+
+**Gate (explicit, reaffirmed Session 42):** This item is DEFERRED until the post-3D-model deep-review waypoint. It MUST NOT be built before automated verification exists. The deep-review is the right place to decide whether Phase 2 rebuilds around the analysis-first paradigm or adds it as an accelerator layer.
 
 **Why it matters for the review waypoint:** This is a paradigm-level choice (analysis-first vs. trace-first), not a feature addition. The deep-review waypoint is the right place to decide whether the tool pivots to this model or continues the trace-first approach.
 
-**Status:** Deferred — not scheduled. Tag as a key input item for the ⏸ deep-level program review (BUILD_ROADMAP.md waypoint).
+**Status:** Deferred — not scheduled. Gate: post-3D-model + automated verification. Tag as a key input item for the ⏸ deep-level program review (BUILD_ROADMAP.md waypoint). Do NOT build any piece of this before that review.
 
 ---
 
@@ -1302,3 +1317,67 @@ geometry model where each floor gets its own reference edge.
 impact yet. The association model used today (one reference edge per elevation page) is the
 only unambiguous per-segment join available in the current data model.
 **Status:** Deferred; address when a multi-story fixture exposes the limitation.
+
+---
+
+### 89. Ghost start-vertex snap does not fire on upper-floor trace — POSSIBLE BUG
+**Category:** Snap / Multi-floor tracing. **Logged:** Session 42.
+**Cross-references:** #13 (ghost vertices as opt-in snap targets), #34 (getVisibleVertices gap note).
+
+**Description:** When tracing a new shape on an upper-floor page while the floor-below ghost is visible, the start-vertex snap (red highlight + exact coincident placement) does NOT fire on ghost vertices — not even the "snap suggestion" UX fires. The user cannot start a new wall precisely coincident with a ghost corner without manually zooming in and eyeballing it.
+
+**Why this may be a BUG (not just a missing feature):** `getVisibleVertices()` powers the start-vertex snap. It is documented (#34) as returning only locked shapes on the CURRENT page and NOT including ghost source shapes. Entry #13 was logged as a deliberate deferral — "a nicety, not a blocker." However, #34 says the fix to #13 requires updating `getVisibleVertices` to include ghost source shapes. The QUESTION is whether the original #13 deferral was aware that the result is that snap suggestions are COMPLETELY ABSENT on ghost vertices (not degraded, not reduced — absent), which is noticeably worse than "snap works, ghost-vertex precision is just a nicety." If the original decision assumed some base-level snap assist existed and it doesn't, the path is broken rather than deferred.
+
+**What to verify before building:** Check whether ANY snap mechanism (axis-snap, grid-snap, start-vertex snap) assists the user in landing precisely on a ghost vertex. If none do, classify as BUG. If axis + grid together reliably produce coincidence within the shared measure-space grid (as Session 10's design assumed), classify as a missing nicety and fold back into #13/#34.
+
+**Why deferred:** Cannot be triaged without a runtime check on the actual snap behavior when a ghost is visible. Flagged here to ensure it is verified before the next multi-floor build session — not after.
+
+**Status:** POSSIBLE BUG — triage required before next multi-floor session. Check against #13/#34; update status after runtime verification.
+
+---
+
+### 90. Replicate previous floor's shape as the starting point for the next floor
+**Category:** Multi-floor tracing / UX. **Logged:** Session 42.
+
+**Description:** An option to directly copy the traced polygon from the floor-below reference (the ghost) into the current page as an editable locked shape — bypassing the trace-from-scratch workflow for floors where the building outline is substantially unchanged (setbacks, simple additions aside). The user would invoke "Start from floor below," get the ghost's polygon locked onto the current page, then drag-edit or add/delete vertices for the specific differences on this level.
+
+**Relationship to existing features:** This is distinct from the visual ghost (read-only reference) and from the "Align to floor below" mechanic (which moves the PDF backdrop). It is a DATA COPY — the floor-below polygon arrives as real geometry on the current page, eligible for all Edit Shapes operations.
+
+**Open questions:** (a) What happens if the ghost source has multiple shapes — copy all, or let the user pick? (b) Does the copy arrive as already-confirmed (locked) or as a reviewing polygon requiring confirm? (c) How does this interact with the scale-borrow model — if the upper floor borrows scale from below, does the pixel-copied polygon land at the correct real-world dimensions automatically? (Yes, because pixels are stored and the scale is shared via borrow.)
+
+**Why deferred:** Tracing from scratch against the ghost is the current workflow and works. This is an acceleration feature for the common case of similar floorplates, not a correctness fix. Requires design resolution on the above open questions before building.
+
+**Status:** Deferred. Design pass needed; build when multi-floor workflow testing shows it is a real friction point.
+
+---
+
+### 91. Roof draw page: multiple shapes required (currently single-shape only)
+**Category:** Roof plan tracing / Data model. **Logged:** Session 42.
+
+**Description:** The current roof-plan tracing workflow assumes ONE closed polygon per roof page (the outer perimeter). Real roof plans routinely include multiple distinct polygons — e.g. a main roof perimeter AND a separate garage roof perimeter, or a complex multi-section roof with distinct polygons for each hip. The flat/sloped type picker, parapet width, and role-assignment mode all operate on a single shape.
+
+**What breaks with multiple shapes today:** After locking the first roof polygon, the section picker and parapet input appear. Locking a second polygon on the same page likely hits the same UI path and either overwrites or orphans the first shape's metadata. The `roofGraphRef` is shared across the page (not per-shape), which is correct, but the polygon-level metadata (`roofType`, `parapetWidth`, `lineRoles`) is stored on the shape object — so multiple shapes SHOULD work at the data level but the UI flow probably does not handle the "which shape are you picking a type for?" decision cleanly.
+
+**What is needed:** (a) Verify whether locking a second shape on a roof page silently breaks anything (runtime check — do not assume from static read). (b) If broken, extend the post-close type-picker to target the JUST-CLOSED shape by index, not a shared state variable. (c) Role assignment mode must support per-shape scope (currently it operates on all shapes on the page).
+
+**Why deferred:** Single-shape roof plans are the common case for simple residential; the limitation is not blocking current sessions. But any real hip/valley roof on a non-trivial plan will have multiple polygons.
+
+**Status:** Deferred; triage (a) as a runtime check before the next session that involves a multi-section roof plan.
+
+---
+
+### 92. Elevation reference edge rotation + multi-elevation assignment per page
+**Category:** Elevation calibration / page model. **Logged:** Session 42.
+**Cross-reference:** #5 (multi-classification per page — broader; this is elevation-specific and distinct).
+
+**Description:** Two related elevation-specific items:
+
+**(a) Reference edge visual rotation:** The reference edge shown as a ghost on an elevation page represents the floor-plan wall that the elevation faces. On plan, this edge may run at an angle (non-axis-aligned building). On the elevation page, it should visually rotate to appear horizontal — the elevation view IS a head-on view of that edge, so by definition the edge is horizontal in the elevation frame. Today the ghost edge is drawn in its plan-page orientation, which can be confusing. This is a VISUAL-ONLY transform scoped to the elevation rendering path; it does not affect stored geometry, stored pixel coordinates, or the `pxPerMeter` derivation.
+
+**(b) Multiple elevation assignments on one page:** A single PDF page may carry more than one elevation drawing (e.g. West Elevation and East Elevation side-by-side on the same sheet). Today `elevationEdgeRef` stores one reference edge per elevation page. To support two elevations on one page, either: (i) a page carries TWO `elevationEdgeRef` entries (multi-entry map), each with its own reference edge, align transform, and base Y; or (ii) the duplicate-page mechanic (#3) creates two logical pages from one PDF page, each independently set up. Option (ii) is already designed; option (i) is a data-model extension.
+
+**Relationship to #5:** Entry #5 covers the general multi-classification-per-page problem (any mix of drawing types). This entry is scoped to the specific elevation case (two elevations on one sheet) and the reference-edge rotation affordance unique to elevations. Do NOT merge into #5; the elevation-specific mechanics (reference edge, align transform, base Y) need their own targeted design.
+
+**Why deferred:** Single-elevation-per-page is the common case. The reference-edge rotation is a visual polish item. Multi-elevation-per-page is an edge case until a real plan set with that layout appears.
+
+**Status:** Deferred. (a) is a targeted visual-polish fix; (b) depends on a design decision between option (i) and option (ii). Revisit when a real multi-elevation sheet appears in testing.
