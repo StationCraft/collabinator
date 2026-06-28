@@ -1,7 +1,7 @@
 # Collabinator — Parallel Tracks Ledger
 
-*Single shared record between the MAIN path (this repo) and the TOOLS / ASSEMBLY-BUILDER
-track (repo: `C:\dev\assemblylibrary`).*
+*Single shared record between the MAIN path (this repo) and the TOOLS track (multiple
+standalone repos — see Track B section).*
 
 ---
 
@@ -44,15 +44,15 @@ file concurrently and eliminates merge conflicts between the two repos.
 
 ---
 
-## TRACK B — TOOLS / ASSEMBLY BUILDER
+## TRACK B — TOOLS
 
-**Repo:** `C:\dev\assemblylibrary`
+Track B is **not a single repo** — it is a collection of standalone tool repos, each closed
+with its own verified contract. Future side-quests spin up new repos under the same pattern.
 
-**Owns:**
-- The standalone assembly-library tool and any further standalone tools spun from that track
-- `ASSEMBLY_CONTRACT.md` as **sole author** — Track A only reads it, never writes it
+### Repo: `C:\dev\assemblylibrary` — Assembly Library
 
-**Done:**
+**Authors:** `ASSEMBLY_CONTRACT.md` (sole author; Track A reads only)
+**Status:** CLOSED
 
 | Part | Description | Status |
 |------|-------------|--------|
@@ -60,22 +60,41 @@ file concurrently and eliminates merge conflicts between the two repos.
 | Part 2 | Layer + framing builder | SHIPPED |
 | Part 3 | U-value engine + thermal fields + framing `materialId` | SHIPPED — contract thermal fields frozen |
 
-**In progress:**
-- Window ingestion from spreadsheet (new standalone tool) — Track B builds this standalone;
-  no main-repo edits result from it now. Future integration into Collabinator window import
-  is gated (#46) and is a FUTURE concern.
+---
 
-**Next (Track B):**
-- Continue window ingestion tool (standalone)
+### Repo: `C:\dev\wewbridge` — WEW Scheduling-Tool Bridge
+
+**Authors:** `WEW_BRIDGE_CONTRACT.md` (sole author; Track A reads only, not yet consuming)
+**Status:** CLOSED + verified
+
+| Part | Description | Commit | Status |
+|------|-------------|--------|--------|
+| Reader | Format adapter: WEW schedule → structured window/door entries | `0b760b5` | SHIPPED |
+| Contract | `WEW_BRIDGE_CONTRACT.md` — integration surface for #46 window-placement | `a222567` | FROZEN |
+
+The WEW Bridge output (structured window/door entries) is the integration surface the
+window-placement track (#46 easy half) will consume. That integration is **FUTURE and gated**
+— no main-repo edits result from it now.
 
 ---
 
-## THE CONTRACT — `ASSEMBLY_CONTRACT.md`
+### Active Build
 
-**Authored in:** `C:\dev\assemblylibrary` (Track B is the sole writer)
+**No active build.** Tools chat is parked until the next side-quest starts.
+
+---
+
+## THE CONTRACTS
+
+Track A reads both contracts. Track A writes neither.
+
+---
+
+### Contract 1 — `ASSEMBLY_CONTRACT.md`
+
+**Authored in:** `C:\dev\assemblylibrary` (sole author)
 **Consumed by:** `C:\dev\collabinator` (Track A reads only)
-
-### Current frozen shape (as of Part 3 ship)
+**State:** FROZEN as of Part 3 ship
 
 **Geometry fields — INGESTED by Track A (Slice 2):**
 ```
@@ -101,32 +120,50 @@ framing:
   (additional framing fields per Part 3 contract)
 ```
 
-If Track B changes the contract shape, Track B's planning chat must relay the diff here
-**before** Track A wires against it.
+---
+
+### Contract 2 — `WEW_BRIDGE_CONTRACT.md`
+
+**Authored in:** `C:\dev\wewbridge` (sole author; commit `a222567`)
+**Consumed by:** `C:\dev\collabinator` — NOT YET (gated to #46 window-placement work; future)
+**State:** FROZEN
+
+Track A does not currently read or ingest WEW Bridge output. When #46 wire-in is scoped,
+Track A will read `WEW_BRIDGE_CONTRACT.md` from the wewbridge repo and wire against it.
+
+---
+
+**If any Track B repo changes a contract shape**, that repo's planning chat must relay the diff
+to this ledger **before** Track A wires against the new shape.
 
 ---
 
 ## CONFLICT-AVOIDANCE RULES
 
-1. **Separate repos.** The two tracks write to separate repos. No file in one repo is
-   edited by the other track's session.
+1. **Each side-quest tool lives in its own repo.** Track B currently has `assemblylibrary`
+   and `wewbridge`; future tools get new repos. No file in one repo is edited by another
+   track's session.
 
-2. **`ASSEMBLY_CONTRACT.md` has one author: Track B.** Track A reads it only. If Track B
-   changes it, Track B's planning chat must relay the change to this ledger before Track A
-   wires against the new shape.
+2. **One author per contract, per repo.**
+   - `ASSEMBLY_CONTRACT.md` is authored only in `assemblylibrary`.
+   - `WEW_BRIDGE_CONTRACT.md` is authored only in `wewbridge`.
+   - Track A (main) reads both contracts and writes neither.
 
-3. **This ledger has one writer: Track A's code session.** Track B reports status in prose;
-   the planning chat relays it here.
+3. **This ledger has one writer: Track A's main code session.** Track B sessions never write
+   it. They report status in prose to their planning chat; the planning chat relays corrections
+   here.
 
-4. **Window ingestion tool (Track B) is standalone for now.** It may later feed Collabinator
-   window import (#46). That integration is FUTURE and gated — Track B builds the tool
-   without touching the main repo.
+4. **Contract changes require relay before ingest.** If any Track B repo changes a contract
+   shape (field renames, type changes, schema restructuring), that repo's planning chat must
+   relay the diff to this ledger before Track A wires against the new shape. Track A's
+   `ingestAssembly` silently ignores unknown fields (forward-compatible), but structural
+   changes are not silent and must be coordinated.
 
-5. **Contract changes require relay before ingest.** Track A's `ingestAssembly` silently
-   ignores unknown fields (forward-compatible), but structural changes (field renames, type
-   changes, schema restructuring) must be communicated via the planning relay before Track A
-   updates its ingest seam.
+5. **Tool integrations with the main repo are FUTURE and gated.** Track B builds tools
+   standalone; no main-repo edits result from tools-track work until an explicit integration
+   is scoped (e.g. #46 for WEW Bridge output). The gate is always a deliberate main-track
+   decision, not a side effect of a tools-track build.
 
 ---
 
-*Last updated: 2026-06-28 (Session 47 — ledger created)*
+*Last updated: 2026-06-28 (Session 48 — Track B corrected: two repos, both closed; two contracts recorded; rules updated)*
