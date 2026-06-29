@@ -637,6 +637,10 @@ function App() {
     setProjectSetupTick(t => t + 1)
   }
 
+  // ── Crop-carving (#5 UI) ─────────────────────────────────────────────────────
+  const [carveMode, setCarveMode] = useState(false)
+  const [carveTick, setCarveTick] = useState(0)  // bumped on each drag-move to trigger canvas repaint
+
   // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
   const [alignMode, setAlignMode] = useState(false)
   const alignDragRef = useRef(null)  // { startClientX, startClientY, startTx, startTy, pageId }
@@ -703,6 +707,8 @@ function App() {
   // serialized mirror. Absent crop ⇒ renderPage falls back to full-sheet (today's behavior). The crop
   // offset is consumed at rasterization only — never written into stored geometry (recalibration-independence #22).
   const pageCropsRef = useRef({})
+  const regionCounterRef = useRef({})   // regionCounterRef.current[pageNum] = K; next region on that sheet is page-N-rK
+  const carveDragRef = useRef(null)     // { x1, y1, x2, y2 } while user drags a carve rect; null otherwise
   const floorHeightsRef = useRef({})    // floorHeightsRef.current[floorLevel] = { floorToCeiling, floorSystemAbove }
 
   // Default edit mode refs
@@ -766,7 +772,7 @@ function App() {
   // geometry repaint useEffect can paint fresh). false on same-page enhance
   // re-renders — measureRef is already the correct size and must NOT be touched
   // (assigning canvas.width clears it; no state change means no repaint fires).
-  const renderPage = useCallback(async (pdfDoc, pageNum, { resizeMeasure = true } = {}) => {
+  const renderPage = useCallback(async (pdfDoc, pageNum, { resizeMeasure = true, forPageId } = {}) => {
     setRenderingPage(true)
     try {
       const page = await pdfDoc.getPage(pageNum)
@@ -782,7 +788,9 @@ function App() {
       // stays pixel-aligned with measureRef. measureRef stays at logical size —
       // the geometry coordinate space is completely unchanged.
       const mult = BACKDROP_MULTIPLIERS[backdropTierRef.current] ?? 1
-      const pageId = getPageId(pageNum)
+      // forPageId: explicit pageId override used when navigating to a region-page
+      // (multiple region-pages share the same pageNum but have distinct pageIds and crops).
+      const pageId = forPageId ?? getPageId(pageNum)
       const crop = pageCropsRef.current[pageId] || null
 
       if (crop) {
@@ -879,7 +887,8 @@ function App() {
     roofGraphRef.current = { verts: [], edges: [] }; roofVertCounterRef.current = 0; roofEdgeCounterRef.current = 0
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
-    pageIdMapRef.current = {}; pageTransformsRef.current = {}; pageCropsRef.current = {}; floorHeightsRef.current = {}
+    pageIdMapRef.current = {}; pageTransformsRef.current = {}; pageCropsRef.current = {}; regionCounterRef.current = {}; floorHeightsRef.current = {}
+    setCarveMode(false); carveDragRef.current = null
     drawVerticesRef.current = []; mousePosRef.current = null
     setCompassAngleDeg(null); setCompassCardinal(null)
     setCompassDraftAngle(0); setCompassPos({ x: null, y: null })
@@ -937,6 +946,32 @@ function App() {
     resetZoomPan()
     drawVerticesRef.current = []; mousePosRef.current = null
     renderPage(pdf, pageNum)
+  }
+
+  // Navigate to any logical page (root sheet OR region-page) by its stable pageId.
+  // For root sheets: equivalent to goToPage(pageNum). For region-pages: calls renderPage
+  // with forPageId so the correct crop is applied and currentPageId is set to the region.
+  const goToRegionPage = (pageId) => {
+    if (!pdf || renderingPage) return
+    const pageEntry = pages.find(p => p.pageId === pageId)
+    if (!pageEntry) return
+    setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
+    setDrawMode(false); setReviewShape(null)
+    setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
+    setRunDrawing(false); runItemSnapRef.current = null
+    gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
+    setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
+    setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
+    setPlacingFromEntry(false); setPendingEntryToPlace(null)
+    setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
+    setRoofLineMode(false); setRoofChainStartId(null)
+    resetEditState()
+    setElevAlignMode(false)
+    setAlignMode(false); alignDragRef.current = null
+    backdropTierRef.current = 'normal'; setBackdropTier('normal')
+    resetZoomPan()
+    drawVerticesRef.current = []; mousePosRef.current = null
+    renderPage(pdf, pageEntry.pageNum, { forPageId: pageId })
   }
 
   // ── Canvas utilities ────────────────────────────────────────────────────
@@ -1000,7 +1035,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick])
+  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -1839,6 +1874,14 @@ function App() {
   // ── Canvas mouse handlers ─────────────────────────────────────────────────
 
   const handleMeasureMouseDown = (e) => {
+    // Carve mode: start a drag rectangle to define a new region-page.
+    if (carveMode) {
+      if (e.button !== 0) return
+      const pos = getCanvasPos(e)
+      carveDragRef.current = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y }
+      e.preventDefault()
+      return
+    }
     // Front-face pick mode: suppress all normal mousedown (pan/draw/edit) behavior.
     if (frontFacePromptOpen) { return }
     // Elevation edge pick mode: suppress normal mousedown.
@@ -2026,6 +2069,30 @@ function App() {
   }
 
   const handleMeasureMouseUp = (e) => {
+    // Carve mode: commit the rectangle as a new region-page (if large enough).
+    if (carveMode) {
+      const drag = carveDragRef.current
+      carveDragRef.current = null
+      if (drag) {
+        const rx = Math.min(drag.x1, drag.x2), ry = Math.min(drag.y1, drag.y2)
+        const rw = Math.abs(drag.x2 - drag.x1), rh = Math.abs(drag.y2 - drag.y1)
+        if (rw >= 20 && rh >= 20 && currentPage && pdf) {
+          const pNum = currentPage
+          regionCounterRef.current[pNum] = (regionCounterRef.current[pNum] ?? 0) + 1
+          const k = regionCounterRef.current[pNum]
+          const newPageId = `page-${pNum}-r${k}`
+          const crop = { x: rx, y: ry, w: rw, h: rh }
+          pageCropsRef.current[newPageId] = crop
+          // Push to pages then navigate. renderPage uses forPageId directly (ref is already set).
+          setPages(prev => [...prev, { pageId: newPageId, pageNum: pNum, crop, category: null, subLabel: null, subLabelNote: null }])
+          renderPage(pdf, pNum, { forPageId: newPageId })
+        } else {
+          // Too small — just clear the overlay
+          redrawFrontFaceLayer(null)
+        }
+      }
+      return
+    }
     // Elevation align mode: end drag.
     if (elevAlignMode) { alignDragRef.current = null; return }
     // Align mode: end drag.
@@ -2356,6 +2423,16 @@ function App() {
   }
 
   const handleMeasureMouseMove = (e) => {
+    // Carve mode: update live drag rectangle.
+    if (carveMode) {
+      if (carveDragRef.current) {
+        const pos = getCanvasPos(e)
+        carveDragRef.current.x2 = pos.x
+        carveDragRef.current.y2 = pos.y
+        setCarveTick(t => t + 1)
+      }
+      return
+    }
     // Elevation align mode: hover cursor + drag — same transform math as alignMode.
     // Guard: editMode takes priority so segment/vertex drag always works in Edit Shapes.
     if (elevAlignMode && !editMode) {
@@ -3655,6 +3732,22 @@ function App() {
 
     // Elevation floor/ceiling reference lines (read-only; only when confirmed scale exists).
     drawElevRefLines(ctx)
+
+    // Carve mode: live amber dashed rectangle overlay during drag.
+    if (carveMode && carveDragRef.current) {
+      const { x1, y1, x2, y2 } = carveDragRef.current
+      const rx = Math.min(x1, x2), ry = Math.min(y1, y2)
+      const rw = Math.abs(x2 - x1), rh = Math.abs(y2 - y1)
+      const lw = 2 / zoomRef.current
+      ctx.save()
+      ctx.strokeStyle = '#f59e0b'
+      ctx.lineWidth = lw
+      ctx.setLineDash([6 / zoomRef.current, 4 / zoomRef.current])
+      ctx.strokeRect(rx, ry, rw, rh)
+      ctx.fillStyle = 'rgba(245,158,11,0.08)'
+      ctx.fillRect(rx, ry, rw, rh)
+      ctx.restore()
+    }
   }
 
   const selectFrontFace = (shapeIdx, segIdx) => {
@@ -3683,6 +3776,7 @@ function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
+        if (carveMode) { setCarveMode(false); carveDragRef.current = null; return }
         if (calibMode) exitCalibMode()
         else if (placingFromEntry) {
           setPlacingFromEntry(false); setPendingEntryToPlace(null); restoreSnapIncrement()
@@ -3749,7 +3843,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, gradeLineDrawing, placingEquipmentItem, placingFromEntry])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, gradeLineDrawing, placingEquipmentItem, placingFromEntry, carveMode])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -3901,12 +3995,17 @@ function App() {
   const catConfirmDisabled = catDraftCategory === 'floor-plan' && !catDraftSubLabel
 
   // Advance to the next page lacking a category (wraps; never re-navigates to self).
+  // Skips source sheets (they are carve-surface-only, not categorizable).
   const advanceToNextUncategorized = (pagesList) => {
-    const total = pageCount
-    for (let step = 1; step <= total; step++) {
-      const pn = ((currentPage - 1 + step) % total) + 1
-      const entry = pagesList.find(p => p.pageNum === pn)
-      if ((!entry || !entry.category) && pn !== currentPage) { goToPage(pn); return }
+    const srcSheets = new Set(
+      pagesList.filter(p => p.crop != null).map(p => pageIdMapRef.current[p.pageNum]).filter(Boolean)
+    )
+    const currIdx = pagesList.findIndex(p => p.pageId === currentPageId)
+    for (let step = 1; step < pagesList.length; step++) {
+      const idx = (currIdx + step) % pagesList.length
+      const p = pagesList[idx]
+      if (srcSheets.has(p.pageId)) continue
+      if (!p.category) { goToRegionPage(p.pageId); return }
     }
   }
 
@@ -3940,12 +4039,12 @@ function App() {
   }
 
   // Re-enter categorization to work through what remains: cycle uncategorized
-  // pages only, jumping straight to the first one.
+  // pages only, jumping straight to the first one. Skips source sheets.
   const enterCategorizeReentry = () => {
     setCatReentry(true)
     setCategorizeMode(true)
-    const first = pages.find(p => !p.category)
-    if (first && first.pageNum !== currentPage) goToPage(first.pageNum)
+    const first = pages.find(p => !p.category && !sheetsWithRegions.has(p.pageId))
+    if (first && first.pageId !== currentPageId) goToRegionPage(first.pageId)
   }
 
   // Pointer handlers for dragging the compass overlay body
@@ -4031,11 +4130,24 @@ function App() {
 
   const showGhost = showGhostByPageId[currentPageId] ?? true
   const currentPageEntry = pages.find(p => p.pageId === currentPageId) || null
-  const categorizedCount = pages.filter(p => p.category).length
+
+  // Source sheets: root pages (no crop) that have at least one region-page (crop != null) carved from them.
+  // These are "carve-surface-only" — not categorizable, not drawable.
+  const sheetsWithRegions = new Set(
+    pages.filter(p => p.crop != null)
+         .map(p => pageIdMapRef.current[p.pageNum])
+         .filter(Boolean)
+  )
+  const currentPageIsSourceSheet = sheetsWithRegions.has(currentPageId)
+
+  // Exclude source sheets from the categorizable count (they can't be categorized).
+  const categorizedCount = pages.filter(p => p.category && !sheetsWithRegions.has(p.pageId)).length
 
 
   // ── Sidebar sections ───────────────────────────────────────────────────────
   // category is stored as a key ('floor-plan', 'elevation', …), not a label.
+  // All entries now carry pageId so the sidebar can navigate via goToRegionPage (handles
+  // both root sheets and region-pages uniformly). isSourceSheet drives the "(full sheet)" chip.
   const sidebarSections = (() => {
     const byCat = (key) => pages.filter(p => p.category === key)
     const orderBy = (entries, order, getKey) =>
@@ -4045,21 +4157,28 @@ function App() {
         return ra - rb || a.pageNum - b.pageNum
       })
 
-    const floor = orderBy(byCat('floor-plan'),
-      FLOOR_ORDER,
-      p => p.subLabel
-    ).map(p => ({ pageNum: p.pageNum, label: p.subLabel || 'Floor Plan' }))
+    const toEntry = (p, label) => ({
+      pageId: p.pageId,
+      pageNum: p.pageNum,
+      label,
+      isSourceSheet: sheetsWithRegions.has(p.pageId),
+    })
 
-    const elevation = orderBy(byCat('elevation'),
-      ['North', 'South', 'East', 'West'],
-      p => p.subLabel
-    ).map(p => ({ pageNum: p.pageNum, label: p.subLabel ? `${p.subLabel} Elevation` : 'Elevation' }))
+    const floor = orderBy(byCat('floor-plan'), FLOOR_ORDER, p => p.subLabel)
+      .map(p => toEntry(p, p.subLabel || 'Floor Plan'))
+
+    const elevation = orderBy(byCat('elevation'), ['North', 'South', 'East', 'West'], p => p.subLabel)
+      .map(p => toEntry(p, p.subLabel ? `${p.subLabel} Elevation` : 'Elevation'))
 
     const simple = (key, fallback) =>
-      byCat(key).map(p => ({ pageNum: p.pageNum, label: p.subLabel || fallback }))
+      byCat(key).map(p => toEntry(p, p.subLabel || fallback))
 
-    const unused = pages.filter(p => !p.category)
-      .map(p => ({ pageNum: p.pageNum, label: `Page ${p.pageNum}` }))
+    const unused = pages.filter(p => !p.category).map(p => {
+      // Region-pages: label shows which region number of which source sheet.
+      const regionMatch = p.pageId.match(/-r(\d+)$/)
+      const label = regionMatch ? `Region ${regionMatch[1]} of p.${p.pageNum}` : `Page ${p.pageNum}`
+      return toEntry(p, label)
+    })
 
     return [
       { title: 'Plan Views',     entries: floor },
@@ -4223,8 +4342,9 @@ function App() {
   // Done (not categorizing), arrows step through categorized pages only,
   // skipping uncategorized ones. Falls back to sequential nav if nothing is
   // categorized yet so the user is never stranded.
-  const categorizedPageNums = pages.filter(p => p.category).map(p => p.pageNum).sort((a, b) => a - b)
-  const uncategorizedPageNums = pages.filter(p => !p.category).map(p => p.pageNum).sort((a, b) => a - b)
+  // Source sheets excluded from navigation sets (they can't be categorized).
+  const categorizedPageNums = pages.filter(p => p.category && !sheetsWithRegions.has(p.pageId)).map(p => p.pageNum).sort((a, b) => a - b)
+  const uncategorizedPageNums = pages.filter(p => !p.category && !sheetsWithRegions.has(p.pageId)).map(p => p.pageNum).sort((a, b) => a - b)
   // Which subset the arrows cycle through. Re-entry mode → uncategorized only;
   // post-Done (not categorizing, some categorized) → categorized only;
   // otherwise (initial/auto categorization) → null = sequential, all pages.
@@ -4251,6 +4371,7 @@ function App() {
   const alignStarted = (() => { const t = pageTransformsRef.current[currentPageId]; return !!(t && (t.tx || t.ty || t.s !== 1)) })()
   const refLayerLabel = kindToLabel(REFERENCE_KIND_DEFAULT)
   const drawDisabledHint = (() => {
+    if (currentPageIsSourceSheet) return 'This page has carved regions — navigate to a region to draw.'
     if (pageHasScale) return null
     if (ghostSrc) return alignStarted
       ? 'Confirm scale & alignment to enable drawing.'
@@ -4902,6 +5023,43 @@ function App() {
       // Restore serialized mirror to clean (no crop) state.
       setPages(prev => prev.map(p => p.pageId === opid ? { ...p, crop: null } : p))
       console.log(`[verifyCrop] ${fail === 0 ? '✓ ALL ' + pass + ' checks PASSED' : pass + '/' + (pass + fail) + ' passed, ' + fail + ' FAILED'} (origin page ${opid})`)
+    }
+
+    // __dumpRegions(): print all region-pages grouped by source sheet, with crop bounds and
+    // shape counts. Used to verify the two-regions-with-geometry partition check: shapes on
+    // region r1 must not appear on r2 (each shape carries its own pageId).
+    window.__dumpRegions = () => {
+      const regionPages = pages.filter(p => p.crop != null)
+      if (!regionPages.length) { console.log('[regions] no region-pages exist'); return }
+      // Group by source sheet (pageNum)
+      const bySheet = {}
+      for (const p of regionPages) {
+        if (!bySheet[p.pageNum]) bySheet[p.pageNum] = []
+        bySheet[p.pageNum].push(p)
+      }
+      for (const [pNum, regions] of Object.entries(bySheet)) {
+        const srcId = pageIdMapRef.current[Number(pNum)]
+        const srcShapes = completedShapesRef.current.filter(s => s.pageId === srcId && s.status === 'locked')
+        console.log(`[regions] sheet p.${pNum} (source=${srcId}) — ${srcShapes.length} shape(s) on source sheet`)
+        for (const r of regions) {
+          const rShapes = completedShapesRef.current.filter(s => s.pageId === r.pageId && s.status === 'locked')
+          const cat = r.category ? `${r.category}${r.subLabel ? '/' + r.subLabel : ''}` : 'uncategorized'
+          console.log(`  ${r.pageId}  crop=(${r.crop.x},${r.crop.y} ${r.crop.w}×${r.crop.h})  [${cat}]  ${rShapes.length} shape(s)`)
+          // Partition check: none of these shapes should appear on other regions from the same sheet
+          const otherRegionIds = regions.filter(q => q.pageId !== r.pageId).map(q => q.pageId)
+          for (const s of rShapes) {
+            if (otherRegionIds.some(id => id === s.pageId)) {
+              console.warn(`  *** PARTITION VIOLATION: shape ${s.id} pageId=${s.pageId} appears in multiple regions`)
+            }
+          }
+        }
+      }
+      // Overall partition summary
+      const allRegionIds = regionPages.map(p => p.pageId)
+      const allShapes = completedShapesRef.current.filter(s => allRegionIds.includes(s.pageId) && s.status === 'locked')
+      const ids = allShapes.map(s => s.id)
+      const unique = new Set(ids)
+      console.log(`[regions] partition: ${allShapes.length} shapes across ${regionPages.length} regions — all IDs unique: ${ids.length === unique.size}`)
     }
 
     // __dumpRuns(): slot-structure + vertices invariant verification for §8.3 Build 1.
@@ -5930,7 +6088,7 @@ function App() {
           )
         })()}
 
-        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && (
           <button
             className={`compass-north-btn ${compassAngleDeg !== null ? 'compass-north-btn--done' : ''}`}
             onClick={openCompassOverlay}
@@ -5941,13 +6099,32 @@ function App() {
           </button>
         )}
 
-{pdf && currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
+{pdf && currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && (
           <button className="categorize-btn" onClick={() => { setCatReentry(false); setCategorizeMode(true) }}>
             Categorize Pages
           </button>
         )}
 
-        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
+        {pdf && currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && (
+          <button
+            className="carve-btn"
+            onClick={() => setCarveMode(true)}
+            title="Drag a rectangle on the sheet to create an independent region-page"
+          >
+            Add region
+          </button>
+        )}
+
+        {carveMode && (
+          <button
+            className="carve-exit-btn"
+            onClick={() => { setCarveMode(false); carveDragRef.current = null; redrawFrontFaceLayer(null) }}
+          >
+            Exit carve ✕
+          </button>
+        )}
+
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && (
           <button
             className={`floor-heights-btn${showSidebar ? ' floor-heights-btn--open' : ''}`}
             onClick={() => setShowSidebar(h => !h)}
@@ -5956,7 +6133,7 @@ function App() {
           </button>
         )}
 
-        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && !!getWorldOriginM() && (
+        {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && !!getWorldOriginM() && (
           <button
             className="three-d-btn"
             onClick={() => { setWireframeData(deriveWireframe()); setShow3DView(true) }}
@@ -5965,7 +6142,7 @@ function App() {
           </button>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode &&
+        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && !currentPageIsSourceSheet &&
          !getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current) && (
           <button
             className={`calib-btn ${pageHasScale ? 'calib-btn--done' : ''}`}
@@ -6010,12 +6187,13 @@ function App() {
           )
         })()}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (
+        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && (
           <>
             <button
               className="draw-btn"
-              disabled={!pageHasScale}
+              disabled={!pageHasScale || currentPageIsSourceSheet}
               onClick={() => {
+                if (currentPageIsSourceSheet) return
                 const unit = getEffectiveScale(currentPageId)?.displayUnit
                 snapIncrementRef.current = unit === 'm' ? 0.15 : 0.1524
                 setSnapIncrement(unit === 'm' ? 0.15 : 0.1524)
@@ -6028,7 +6206,7 @@ function App() {
           </>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && (() => {
+        {currentPage && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && (() => {
           const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
           if (!ghostPageId) return null
           return (
@@ -6068,7 +6246,7 @@ function App() {
           )
         })()}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !categorizeMode && lockedShapesOnPage.length > 0 && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !categorizeMode && !carveMode && !currentPageIsSourceSheet && lockedShapesOnPage.length > 0 && (
           <button className="edit-btn" onClick={() => {
             clearMeasureCanvas()
             if (lockedShapesOnPage.some(s => isOpening(s))) saveAndDefaultSnapIncrement()
@@ -6078,7 +6256,7 @@ function App() {
           </button>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && hasSlopedOnPage && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && hasSlopedOnPage && (
           <>
             <button className="edit-btn" onClick={() => {
               clearMeasureCanvas()
@@ -6098,7 +6276,7 @@ function App() {
           </>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isElevationPage && (
           <button
             className="snap-btn"
             onClick={() => {
@@ -6110,7 +6288,7 @@ function App() {
             Set elevation edge
           </button>
         )}
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && (() => {
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isElevationPage && (() => {
           const edgeData = resolveElevEdge(currentPageId)
           const srcScale = edgeData ? getEffectiveScale(edgeData.sourcePageId) : null
           return (
@@ -6125,7 +6303,7 @@ function App() {
           )
         })()}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && !placingOpeningMode && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isElevationPage && !placingOpeningMode && (
           <button
             className="snap-btn"
             title={!pageHasScale ? 'Set scale before placing openings' : ''}
@@ -6162,7 +6340,7 @@ function App() {
           </>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isElevationPage && gradeLineOnPage && !placingOpeningMode && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isElevationPage && gradeLineOnPage && !placingOpeningMode && (
           <button
             className="snap-btn"
             onClick={() => {
@@ -6188,7 +6366,7 @@ function App() {
           </button>
         )}
 
-        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !elevEdgeMode && !elevAlignMode && isPlanOrRoofPage && !placingOpeningMode && pageHasScale && (
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isPlanOrRoofPage && !placingOpeningMode && pageHasScale && (
           <button
             className="snap-btn"
             onClick={() => {
@@ -6584,7 +6762,7 @@ function App() {
         <div className="categorize-panel">
           <div className="cat-panel-head">
             <span className="cat-panel-title">Categorize Pages</span>
-            <span className="cat-panel-progress">{categorizedCount} of {pageCount} labelled</span>
+            <span className="cat-panel-progress">{categorizedCount} of {pages.filter(p => !sheetsWithRegions.has(p.pageId)).length} labelled</span>
             <span className="cat-panel-hint">Page navigation stays active — jump to any page.</span>
             <button className="btn-primary btn-sm" onClick={() => { setCategorizeMode(false); setCatReentry(false) }}>Done</button>
           </div>
@@ -6592,6 +6770,10 @@ function App() {
           <div className="cat-panel-body">
             {catReentry && uncategorizedPageNums.length === 0 ? (
               <span className="cat-all-done">All pages are categorized. Click Done to finish.</span>
+            ) : currentPageIsSourceSheet ? (
+              <span className="cat-panel-hint" style={{ display: 'block', padding: '8px 0' }}>
+                This page has carved regions — navigate to a region to categorize.
+              </span>
             ) : (
             <>
             <span className="cat-page-label">Page {currentPage}</span>
@@ -6735,12 +6917,13 @@ function App() {
                   <div className="sidebar-section-title">{section.title}</div>
                   {section.entries.map(entry => (
                     <button
-                      key={entry.pageNum}
-                      className={`sidebar-entry ${entry.pageNum === currentPage ? 'sidebar-entry--active' : ''}`}
-                      onClick={() => goToPage(entry.pageNum)}
+                      key={entry.pageId}
+                      className={`sidebar-entry ${entry.pageId === currentPageId ? 'sidebar-entry--active' : ''}`}
+                      onClick={() => goToRegionPage(entry.pageId)}
                       title={entry.label}
                     >
                       {entry.label}
+                      {entry.isSourceSheet && <span className="sidebar-full-sheet-chip">(full sheet)</span>}
                     </button>
                   ))}
                 </div>
@@ -7599,7 +7782,7 @@ function App() {
             <canvas
               ref={measureRef}
               className="measure-canvas"
-              style={{ cursor: (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode || placingOpeningMode || placingEquipmentItem || placingFromEntry) ? 'crosshair' : undefined }}
+              style={{ cursor: carveMode ? (carveDragRef.current ? 'crosshair' : 'crosshair') : (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode || placingOpeningMode || placingEquipmentItem || placingFromEntry) ? 'crosshair' : undefined }}
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}

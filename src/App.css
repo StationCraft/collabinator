@@ -804,6 +804,49 @@ canvas {
 }
 .categorize-btn:hover { background: #6d28d9; }
 
+/* Crop-carving mode (#5) */
+.carve-btn {
+  padding: 0.45rem 1rem;
+  background: #d97706;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.carve-btn:hover { background: #b45309; }
+
+.carve-exit-btn {
+  padding: 0.45rem 1rem;
+  background: #374151;
+  color: #fbbf24;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.carve-exit-btn:hover { background: #1f2937; }
+
+/* "(full sheet)" chip shown in sidebar for source sheets that have carved regions */
+.sidebar-full-sheet-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 .page-controls .cat-more-link {
   width: auto;
   height: auto;
