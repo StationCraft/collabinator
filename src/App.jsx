@@ -4,7 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import F280_WEATHER from './data/f280-weather.json'
 import './App.css'
 import {
-  makeVertex, distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
+  makeVertex, distToSegment, segmentGeom, projT, applyAxisSnap, pointInPolygon,
   findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
@@ -435,7 +435,7 @@ function App() {
   const [editMode, setEditMode] = useState(false)
   const [editSubMode, setEditSubMode] = useState(null) // 'move'|'combine'|'split'|null
   const [editCursor, setEditCursor] = useState('default')
-  const [labelEditState, setLabelEditState] = useState(null)
+
   const [editUndoCount, setEditUndoCount] = useState(0)
   const [editRedoCount, setEditRedoCount] = useState(0)
   const [combineSelection, setCombineSelection] = useState([])
@@ -741,7 +741,7 @@ function App() {
   }
 
   const resetEditState = () => {
-    setEditMode(false); setEditSubMode(null); setLabelEditState(null)
+    setEditMode(false); setEditSubMode(null)
     setEditCursor('default'); setEditUndoCount(0); setEditRedoCount(0)
     setCombineSelection([]); setSplitSelected(null); setSplitCut([])
     editHoverRef.current = null; dragStateRef.current = null; editUndoStackRef.current = []; editRedoStackRef.current = []
@@ -1472,15 +1472,6 @@ function App() {
 
   // ── Edit hit tests ───────────────────────────────────────────────────────
 
-  const hitTestLabels = (pos) => {
-    const PAD = 4
-    for (const lbl of segLabelRectsRef.current) {
-      if (pos.x >= lbl.x - PAD && pos.x <= lbl.x + lbl.w + PAD &&
-          pos.y >= lbl.y - PAD && pos.y <= lbl.y + lbl.h + PAD) return lbl
-    }
-    return null
-  }
-
   const hitTestVertices = (pos) => {
     let best = null, bestDist = HIT_VERT_DIST
     completedShapesRef.current.forEach((shape, shapeIdx) => {
@@ -1581,35 +1572,6 @@ function App() {
       combineEligibleRef.current = getEligibleShapes(completedShapesRef.current, currentPageId)
       combineSelectRef.current = []; setCombineSelection([])
     }
-    drawEditCanvas(editHoverRef.current)
-  }
-
-  // ── Edit: label override ─────────────────────────────────────────────────
-
-  const commitLabelEdit = () => {
-    if (!labelEditState) return
-    const { shapeIdx, segIdx, value } = labelEditState
-    const scale = getEffectiveScale(currentPageId)
-    if (!scale) { setLabelEditState(null); return }
-    const meters = parseDisplayDistInput(value, scale.displayUnit)
-    if (!meters || meters <= 0) { setLabelEditState(null); drawEditCanvas(editHoverRef.current); return }
-    const shape = completedShapesRef.current[shapeIdx]
-    const verts = shape.vertices, N = verts.length
-    const a = verts[segIdx], b = verts[(segIdx + 1) % N]
-    const geom = segmentGeom(a, b)
-    if (!geom) { setLabelEditState(null); return }
-    const newLenPx = metersToPx(meters, { [currentPageId]: scale }, currentPageId)
-    const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2
-    const half = newLenPx / 2
-    const newA = clampToCanvas({ x: midX - geom.dir.x * half, y: midY - geom.dir.y * half })
-    const newB = clampToCanvas({ x: midX + geom.dir.x * half, y: midY + geom.dir.y * half })
-    pushUndo()
-    const newVerts = verts.map(v => ({ ...v }))
-    newVerts[segIdx] = newA; newVerts[(segIdx + 1) % N] = newB
-    const newShapes = [...completedShapesRef.current]
-    newShapes[shapeIdx] = { ...shape, vertices: newVerts }
-    completedShapesRef.current = newShapes
-    setLabelEditState(null)
     drawEditCanvas(editHoverRef.current)
   }
 
@@ -1892,7 +1854,6 @@ function App() {
     if (drawMode || calibMode) { startPanDrag(e); return }
 
     // Edit mode below
-    if (labelEditState) return
     const subMode = editSubModeRef.current
     if (subMode === 'combine' || subMode === 'split' || subMode === 'delete') return // handled by onClick
     if (subMode === 'move') {
@@ -1912,10 +1873,6 @@ function App() {
     }
     // Default: vertex/segment drag
     const pos = getCanvasPos(e)
-    const labelHit = hitTestLabels(pos)
-    if (labelHit) {
-      dragStateRef.current = { type: 'labelClick', labelHit, startPos: pos, moved: false }; return
-    }
     const vertHit = hitTestVertices(pos)
     if (vertHit) {
       dragStateRef.current = {
@@ -2008,14 +1965,7 @@ function App() {
       return
     }
 
-    if (ds.type === 'labelClick' && !ds.moved) {
-      const lbl = ds.labelHit
-      setLabelEditState({
-        shapeIdx: lbl.shapeIdx, segIdx: lbl.segIdx, value: lbl.label,
-        canvasX: lbl.mx,  // canvas pixel coords — canvas-world layout space
-        canvasY: lbl.my,
-      })
-    } else if (ds.type === 'vertexDrag' && ds.isDragging) {
+    if (ds.type === 'vertexDrag' && ds.isDragging) {
       if (ds.mergeTarget !== null && ds.mergeTarget !== undefined) {
         // Vertex deletion via drag-onto-adjacent
         if (ds.origVerts.length > 3) {
@@ -3646,8 +3596,7 @@ function App() {
         else if (roofRoleMode) { setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null) }
         else if (drawMode) exitDrawMode()
         else if (editMode) {
-          if (labelEditState) { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }
-          else if (editSubModeRef.current === 'move' && moveDragRef.current) {
+          if (editSubModeRef.current === 'move' && moveDragRef.current) {
             moveDragRef.current = null; drawEditCanvas()
           } else if (editSubModeRef.current === 'split') {
             if (splitCutRef.current.length > 0) {
@@ -3697,7 +3646,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState, gradeLineDrawing, placingEquipmentItem, placingFromEntry])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, gradeLineDrawing, placingEquipmentItem, placingFromEntry])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -6289,7 +6238,7 @@ function App() {
                     </>
                   ) : null
                 })()}
-                <span className="edit-status">Drag corner · side · click label to edit · hold segment to insert vertex</span>
+                <span className="edit-status">Drag corner · side · hold segment to insert vertex</span>
 
                 {editUndoCount > 0 && <button className="calib-cancel" onClick={handleEditUndo}>Undo</button>}
                 {editRedoCount > 0 && <button className="calib-cancel" onClick={handleEditRedo}>Redo</button>}
@@ -7288,32 +7237,6 @@ function App() {
               onClick={handleMeasureClick}
               onMouseMove={handleMeasureMouseMove}
             />
-            {editMode && labelEditState && (
-              <div
-                className="label-edit-overlay"
-                style={{
-                  left: labelEditState.canvasX,
-                  top: labelEditState.canvasY,
-                  transform: `translate(-50%, -100%) scale(${1 / viewTransform.zoom})`,
-                  transformOrigin: '50% 100%',
-                  marginTop: '-4px',
-                }}
-              >
-                <input
-                  type="text" className="label-edit-input"
-                  value={labelEditState.value} autoFocus
-                  onChange={e => setLabelEditState(prev => ({ ...prev, value: e.target.value }))}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); commitLabelEdit() }
-                    if (e.key === 'Escape') {
-                      e.stopPropagation()
-                      setLabelEditState(null); drawEditCanvas(editHoverRef.current)
-                    }
-                  }}
-                  onBlur={() => { setLabelEditState(null); drawEditCanvas(editHoverRef.current) }}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
