@@ -822,13 +822,19 @@ A React + Vite app with:
     sizing at two crops + cleared, plus the placed-point world-coordinate assertion: traced world
     coords invariant under crop). Verified: `__verifyFixture` 44/44 (no-crop unchanged) + `__verifyCrop`
     10/10 + screenshot of offset+clip.
-  * **Fork C resolved** (dissolved with Fork A). **Next: Fork D** — rekey categorization confirm/skip
-    handlers from `pageNum` to `pageId`. **Then the crop-carving UI** (the user-facing half of #5).
+  * **Fork C resolved** (dissolved with Fork A). **Fork D — DONE (commit 579bbf1, Session 60)** —
+    categorization handlers rekeyed from `pageNum` to `pageId` (see Fork D notes below).
+    **Next: crop-carving UI** (the user-facing half of #5).
 
 **Not yet built (next increments):**
 - **Next: geometry back-to-basics review** — planning session, no code. Gating all F280 extension.
-- **Page-region #5 Fork D** — rekey categorization handlers (`p.pageNum === currentPage`) to `pageId`
-  so two crops on one sheet categorize independently. Then crop-carving UI (drag a box → region-page).
+- **Page-region #5 Fork D — DONE (commit 579bbf1, Session 60):** `recatPageNum` → `recatPageId`
+  (state); all confirm/skip/startRecategorize/currentPageEntry/useEffect-draft sites rekeyed from
+  `p.pageNum === currentPage` to `p.pageId === currentPageId`. `advanceToNextUncategorized` left on
+  pageNum (PDF nav). Behavior-preserving today (one region per sheet); multi-crop payoff lands with
+  the crop-carving UI. Ben to browser-verify + `__verifyFixture` 44/44.
+- **Next: crop-carving UI (#5)** — drag a crop box on the sheet → region-page entry spawned with
+  own pageId, crop, category+subLabel, scale, reference-tree position.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
 - Windows/doors Piece 4 (dumb duplicate) — off critical path
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**

@@ -144,9 +144,12 @@ the prerequisite for region-scoped derived elevations (#29).
   world-coordinate invariance). No crop-carving UI yet — that is the user-facing half, after Fork D.
 - **Fork C — RESOLVED.** Dissolved automatically when Fork A landed (`currentPageId` is set directly,
   no longer derived from `pageIdMapRef`).
-- **Fork D — NEXT.** Categorization confirm/skip handlers key by `pageNum` today
-  (`p.pageNum === currentPage`); must rekey by `pageId` so two crops on the same sheet are
-  independently categorized.
+- **Fork D — DONE (commit 579bbf1, Session 60).** Categorization confirm/skip handlers
+  rekeyed from `pageNum` to `pageId`: `recatPageNum` → `recatPageId`, all `p.pageNum === currentPage`
+  map predicates → `p.pageId === currentPageId`, `currentPageEntry` lookup, `useEffect` load-draft
+  deps, and JSX summary guard. `advanceToNextUncategorized` left on pageNum (PDF navigation — correct).
+  Behavior-preserving today (one region per sheet); payoff lands when crop-carving UI adds multiple
+  pageIds per sheet. Build is clean; Ben to browser-verify + run `__verifyFixture` 44/44.
 
 **Everything else is a clean extension** (pageScalesRef, completedShapesRef filtering, elevationEdgeRef,
 openingsByWallId, getFloorLevel, getGhostSourcePageId, getEffectiveScale, sidebar section derivation —

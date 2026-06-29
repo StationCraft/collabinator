@@ -10,6 +10,45 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 60 — Page-region model (#5): Fork D categorization rekey (2026-06-29)
+
+**Branch:** main | **Commit:** 579bbf1
+
+### What was built
+
+**Fork D — rekey categorization handlers from pageNum to pageId (commit 579bbf1).**
+
+Full audit before any code: 13 sites identified, all in App.jsx. `recatPageNum` state
+renamed to `recatPageId` (holds a pageId string). All confirm/skip/startRecategorize map
+predicates changed from `p.pageNum === currentPage` to `p.pageId === currentPageId`. The
+`currentPageEntry` derived const rekeyed. The `useEffect` that loads the draft on mode-entry
+and page-navigation rekeyed (dep array: `currentPage` → `currentPageId`). JSX summary-vs-editor
+guard rekeyed (`recatPageNum !== currentPage` → `recatPageId !== currentPageId`). All four
+`setRecat*(null)` reset callsites updated. `advanceToNextUncategorized` intentionally left on
+pageNum — it cycles through PDF sheets for navigation (`goToPage(pn)` takes a pageNum) and is
+correct as-is.
+
+Build: clean (vite build 750ms, no errors). App loads with no console errors.
+
+**Browser verification required (Ben's dev-server tab):** restore fixture, categorize a floor
+plan / elevation / roof page, confirm each lands correctly, verify Recategorize works, run
+`window.__verifyFixture()` → 44/44.
+
+### Gate-expiry sweep
+
+No new gates expired this session — Fork D is a pure structural rekey. The next gate expiry
+fires when the **crop-carving UI** lands (that completes #5 and triggers the plateau waypoints
+in BUILD_ROADMAP.md §⏸).
+
+### Forward
+
+**Next: crop-carving UI** — the user-facing half of #5. User drags a crop box on the PDF sheet;
+each crop spawns a `pages[]` entry with `pageId`, `crop: {x,y,w,h}`, own category+subLabel, own
+scale, own position in the reference tree. Once this lands, #5 is done and the plateau waypoints
+(simplification pass → roadmap reconciliation) become unblocked.
+
+---
+
 ## SESSION 59 — Page-region model (#5): Fork A nav verify + Fork B crop-local frame (2026-06-29)
 
 **Branch:** main | **Commit:** 4928a5a (Fork B) + this doc-update commit.
