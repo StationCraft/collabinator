@@ -451,6 +451,7 @@ function App() {
   const [pdf, setPdf] = useState(null)
   const [pageCount, setPageCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(null)
+  const [currentPageId, setCurrentPageId] = useState(null)
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -788,6 +789,7 @@ function App() {
       }
       await page.render({ canvasContext: ctx, viewport: hiDpi }).promise
       setCurrentPage(pageNum)
+      setCurrentPageId(getPageId(pageNum))
     } catch {
       setError('Failed to render page.')
     } finally {
@@ -829,7 +831,7 @@ function App() {
     const file = e.target.files[0]
     if (!file) return
     setError(''); setLoading(true)
-    setPdf(null); setCurrentPage(null); setPageCount(0); setFileName(file.name)
+    setPdf(null); setCurrentPage(null); setCurrentPageId(null); setPageCount(0); setFileName(file.name)
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
@@ -1815,7 +1817,7 @@ function App() {
     // Elevation align mode: hit-test edge-bbox handles; else body-translate.
     if (elevAlignMode) {
       if (e.button !== 0) return
-      const pageId = getPageId(currentPage)
+      const pageId = currentPageId
       const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
       const pos = getCanvasPos(e)
       const edgeData = resolveElevEdge(pageId)
@@ -1856,7 +1858,7 @@ function App() {
     // Align mode: hit-test handles for scale-drag; else body-translate.
     if (alignMode) {
       if (e.button !== 0) return
-      const pageId = getPageId(currentPage)
+      const pageId = currentPageId
       const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
       const pos = getCanvasPos(e)
       // Compute ghost bbox corners for hit-test.
@@ -2330,7 +2332,7 @@ function App() {
     if (elevAlignMode && !editMode) {
       if (!alignDragRef.current) {
         const pos = getCanvasPos(e)
-        const edgeData = resolveElevEdge(getPageId(currentPage))
+        const edgeData = resolveElevEdge(currentPageId)
         let overHandle = false
         if (edgeData) {
           const grabR = HANDLE_PX / zoomRef.current
@@ -2368,7 +2370,7 @@ function App() {
       // Hover hit-test for handle cursor (only when not actively dragging).
       if (!alignDragRef.current) {
         const pos = getCanvasPos(e)
-        const pageId = getPageId(currentPage)
+        const pageId = currentPageId
         const ghostPageId = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
         let overHandle = false
         if (ghostPageId) {
@@ -2859,11 +2861,11 @@ function App() {
     if (c) {
       const ctx2 = c.getContext('2d')
       ctx2.clearRect(0, 0, c.width, c.height)
-      drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
-      drawOpeningShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
-      drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
-      drawRunPaths(ctx2, completedShapesRef.current, getPageId(currentPage))
-      drawEquipmentItemShapes(ctx2, completedShapesRef.current, getPageId(currentPage), zoomRef.current)
+      drawLockedShapes(ctx2, completedShapesRef.current, currentPageId)
+      drawOpeningShapes(ctx2, completedShapesRef.current, currentPageId)
+      drawGradeLineShapes(ctx2, completedShapesRef.current, currentPageId)
+      drawRunPaths(ctx2, completedShapesRef.current, currentPageId)
+      drawEquipmentItemShapes(ctx2, completedShapesRef.current, currentPageId, zoomRef.current)
     }
     if (pendingGrade) {
       setGradeLineDrawing(true)
@@ -3088,11 +3090,11 @@ function App() {
     if (c) {
       const ctx2 = c.getContext('2d')
       ctx2.clearRect(0, 0, c.width, c.height)
-      drawLockedShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
-      drawOpeningShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
-      drawGradeLineShapes(ctx2, completedShapesRef.current, getPageId(currentPage))
-      drawRunPaths(ctx2, completedShapesRef.current, getPageId(currentPage))
-      drawEquipmentItemShapes(ctx2, completedShapesRef.current, getPageId(currentPage), zoomRef.current)
+      drawLockedShapes(ctx2, completedShapesRef.current, currentPageId)
+      drawOpeningShapes(ctx2, completedShapesRef.current, currentPageId)
+      drawGradeLineShapes(ctx2, completedShapesRef.current, currentPageId)
+      drawRunPaths(ctx2, completedShapesRef.current, currentPageId)
+      drawEquipmentItemShapes(ctx2, completedShapesRef.current, currentPageId, zoomRef.current)
     }
   }
 
@@ -3998,7 +4000,6 @@ function App() {
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  const currentPageId = getPageId(currentPage)
   const showGhost = showGhostByPageId[currentPageId] ?? true
   const currentPageEntry = pages.find(p => p.pageNum === currentPage) || null
   const categorizedCount = pages.filter(p => p.category).length
@@ -5949,7 +5950,7 @@ function App() {
               )}
               {alignMode && (
                 <button className="snap-btn" onClick={() => {
-                  const pageId = getPageId(currentPage)
+                  const pageId = currentPageId
                   const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
                   pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
                   if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
@@ -6241,7 +6242,7 @@ function App() {
                       )}
                       {alignMode && (
                         <button className="snap-btn" onClick={() => {
-                          const pageId = getPageId(currentPage)
+                          const pageId = currentPageId
                           const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
                           pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
                           if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
@@ -6383,7 +6384,7 @@ function App() {
                       )}
                       {alignMode && (
                         <button className="snap-btn" onClick={() => {
-                          const pageId = getPageId(currentPage)
+                          const pageId = currentPageId
                           const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
                           pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
                           if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
@@ -7483,7 +7484,7 @@ function App() {
               className="pdf-align-layer"
               style={{
                 // alignTick read here forces React to re-evaluate after each drag write
-                transform: alignTick >= 0 ? getCSSTransform(pageTransformsRef.current[getPageId(currentPage)]) : 'none',
+                transform: alignTick >= 0 ? getCSSTransform(pageTransformsRef.current[currentPageId]) : 'none',
                 transformOrigin: '0 0',
               }}
             >
