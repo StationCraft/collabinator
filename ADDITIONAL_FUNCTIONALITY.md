@@ -148,6 +148,8 @@ the prerequisite for region-scoped derived elevations (#29).
 openingsByWallId, getFloorLevel, getGhostSourcePageId, getEffectiveScale, sidebar section derivation —
 all already keyed by pageId and accept new pageIds without structural change).
 
+**Z-datum guardrail (2026-06-29):** Region-pages MUST NOT region-scope or sheet-scope the Z datum. The base datum and `accumulateZ` stay building-wide and FLOOR_ORDER-keyed so #7's per-shape Z (and the datum-mode toggle) resolve through the building base, never a per-region zero. See #7 Z-datum model block.
+
 ---
 
 ### 6. CAD-export datum (named reference point)
@@ -175,6 +177,16 @@ all already keyed by pageId and accept new pageIds without structural change).
 **Why deferred:** Depends on a Z-modelling layer that does not exist yet. Per the rewritten Section 8, Z values (offsets in the stack) are set later on elevation/cross-section sheets via the floor/ceiling line-slider mechanic — that is where "which shape sits at which Z" becomes answerable with real data. Also overlaps the interstitial-space architecture already deferred in entry #4 (and the sidebar's sunken-living-room sub-grouping note in Section 4). Building it now would require inventing per-shape Z ahead of the elevation work that properly establishes it.
 
 **Status:** Deferred. Fold into the Section 8 elevation line-slider work and entry #4 interstitial architecture when the relative-offset Z stack is built.
+
+**Z-DATUM MODEL (planning chat 2026-06-29, settled):**
+
+- **One building-wide base datum** = the lowest NAMED (FLOOR_ORDER) floor's floor plane, fixed once set. The base never moves to chase the lowest actual geometry.
+- **Every Z is a SIGNED offset from the base:** areas above = positive; areas below (footings, sumps, sub-base splits, out-of-column wings that still reference the building base) = negative.
+- **Z is by reference, not by coordinate-position:** areas NOT stacked above the lowest floor area still reference the building base for their elevation. (Coplanar-distinctness #19 running vertically: shared datum, distinct elements.)
+- **`accumulateZ` extension:** today it accumulates upward from lowest-present-level-as-zero with no negative concept. #7's change: base becomes an explicit named anchor; offsets may go negative. Clean extension of the existing pure function — do NOT reintroduce an implicit lowest-is-zero assumption.
+- **DATUM-MODE TOGGLE:** user flips zero between "lowest floor = 0" and "ground level = 0." Geometry is identical either way — the toggle only re-origins the number line. It is a READ-TIME render parameter (a flippable view toggle, NOT a stored project setting), so every Z readout surface (height panel, enumeration, F280 conditions, 3D axis) must render relative to the active mode on the fly.
+  - "lowest floor = 0" — buildable when #7 lands.
+  - "ground level = 0" — DISABLED-WITH-HINT until grade-line-to-Z resolves (recon gap 7, R3-gated). Lights up for free when that gate lifts.
 
 ---
 

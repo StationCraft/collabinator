@@ -10,6 +10,53 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 58 — Page-region model (#5), Fork A + Z-datum model doc update (2026-06-29)
+
+**Branch:** main | **Commits:** f41cb7c (Fork A refactor); doc-update commit this session.
+
+### What was built
+
+**Fork A — `currentPageId` promoted to first-class React state (commit f41cb7c).**
+Removed the render-scope derived const `const currentPageId = getPageId(currentPage)`.
+`currentPageId` is now `useState(null)`, set inside `renderPage` alongside `setCurrentPage`,
+and cleared alongside `setCurrentPage(null)` on PDF upload. All 20 `getPageId(currentPage)` call
+sites converted to direct `currentPageId` reads. `getPageId()` helper survives — used only in
+`renderPage`. Verified: clean load, zero console errors, zero remaining `getPageId(currentPage)` calls.
+
+**Fork C resolved:** `pageIdMapRef` 1:1 assumption dissolves naturally once Fork A is done
+(now `currentPageId` is set directly, not derived from `pageIdMapRef`). No explicit Fork C work needed.
+
+### Outstanding verification (DO BEFORE FORK B)
+
+**Multi-page navigation was NOT explicitly exercised.** Load-clean was confirmed; toolbar gates and
+elevation mode activation per-page were NOT verified. Promoting derived→state fails at NAVIGATION,
+not load — the initial value matches, but a stale-closure or missing dep could leave `currentPageId`
+behind on page switch. Before Fork B: load a multi-page PDF, navigate between pages, and confirm
+toolbar gates (draw/edit/elevation/align buttons) update correctly per-page.
+
+### Z-datum model doc update (this session)
+
+Added "Z-DATUM MODEL (planning chat, settled)" block to ADDITIONAL_FUNCTIONALITY.md #7:
+- One building-wide base datum = lowest FLOOR_ORDER floor's floor plane, fixed once set.
+- All Z values are signed offsets from base (above = positive, below = negative).
+- `accumulateZ` extends cleanly — no implicit lowest-is-zero assumption reintroduced.
+- Datum-mode toggle: "lowest floor = 0" / "ground level = 0" — READ-TIME render parameter only
+  (NOT stored project setting). Ground-level mode DISABLED-WITH-HINT until grade-line-to-Z
+  resolves (R3-gated). Lights up for free when that gate lifts.
+
+Added Z-datum guardrail to #5 (region-pages must NOT region-scope the Z datum; base datum and
+`accumulateZ` stay building-wide and FLOOR_ORDER-keyed).
+
+### Forward
+
+**Next build session:** Verify multi-page navigation before Fork B. Then Fork B (crop-local
+`renderPage` coordinate frame) — CONSEQUENTIAL seam: crop-offset MUST be passive/visual only;
+recalibration-independence invariant #22 must be honored; compose
+`crop_viewport → user_align → canvas_world` at READ time, never freeze the offset into stored
+pixel coordinates. Fork D (rekey categorization handlers by pageId not pageNum) follows.
+
+---
+
 ## SESSION 57 — Page-region model (#5) recon + gated-ready resurfacing (2026-06-29)
 
 **Branch:** main | **No code built this session — recon + doc updates only.**
