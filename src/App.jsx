@@ -661,7 +661,7 @@ function App() {
   const [catDraftCategory, setCatDraftCategory] = useState(null)
   const [catDraftSubLabel, setCatDraftSubLabel] = useState('')
   const [catDraftNote, setCatDraftNote] = useState('')  // floor-plan optional extra descriptor (no level meaning)
-  const [recatPageNum, setRecatPageNum] = useState(null)  // page actively being (re)edited; null = none
+  const [recatPageId, setRecatPageId] = useState(null)    // pageId actively being (re)edited; null = none
   const [catReentry, setCatReentry] = useState(false)     // true = entered via "+ Categorize more pages" (cycle uncategorized only)
 
   // ── Front-face designation (Step 5c) ────────────────────────────────────────
@@ -885,7 +885,7 @@ function App() {
     setCompassDraftAngle(0); setCompassPos({ x: null, y: null })
     setShowCompassOverlay(false)
     setCategorizeMode(false); setPages([])
-    setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote(''); setRecatPageNum(null); setCatReentry(false)
+    setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote(''); setRecatPageId(null); setCatReentry(false)
     setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
     setElevEdgeMode(false); elevEdgeHoverRef.current = null; setElevEdgeSourcePageId(null)
     elevationEdgeRef.current = {}
@@ -3879,13 +3879,13 @@ function App() {
 
   // Load the current page's stored entry into the draft when entering the mode
   // or navigating pages. Whether the editor or the compact summary shows is
-  // derived from recatPageNum + the page's category at render time — not from a
+  // derived from recatPageId + the page's category at render time — not from a
   // separate flag — so an already-categorized page always shows its summary
   // immediately on navigation, mid-categorization.
   useEffect(() => {
-    if (!categorizeMode || !currentPage) return
-    loadDraftFromEntry(pages.find(p => p.pageNum === currentPage))
-  }, [categorizeMode, currentPage, pages])
+    if (!categorizeMode || !currentPageId) return
+    loadDraftFromEntry(pages.find(p => p.pageId === currentPageId))
+  }, [categorizeMode, currentPageId, pages])
 
   const selectCatCategory = (key) => {
     setCatDraftCategory(key); setCatDraftSubLabel(''); setCatDraftNote('')
@@ -3916,10 +3916,10 @@ function App() {
     // subLabelNote is a floor-plan-only extra descriptor; never carries level meaning.
     const subLabelNote = catDraftCategory === 'floor-plan' ? (catDraftNote.trim() || null) : null
     const newPages = pages.map(p =>
-      p.pageNum === currentPage ? { ...p, category: catDraftCategory, subLabel, subLabelNote } : p
+      p.pageId === currentPageId ? { ...p, category: catDraftCategory, subLabel, subLabelNote } : p
     )
     setPages(newPages)
-    setRecatPageNum(null)
+    setRecatPageId(null)
     // If the front-face prompt opens, stay on the anchor page so the user can
     // pick the edge; otherwise advance to the next uncategorized page as usual.
     if (!maybePromptFrontFace(newPages)) advanceToNextUncategorized(newPages)
@@ -3927,16 +3927,16 @@ function App() {
 
   const skipCatPage = () => {
     const newPages = pages.map(p =>
-      p.pageNum === currentPage ? { ...p, category: null, subLabel: null, subLabelNote: null } : p
+      p.pageId === currentPageId ? { ...p, category: null, subLabel: null, subLabelNote: null } : p
     )
     setPages(newPages)
-    setRecatPageNum(null)
+    setRecatPageId(null)
     advanceToNextUncategorized(newPages)
   }
 
   const startRecategorize = () => {
-    loadDraftFromEntry(pages.find(p => p.pageNum === currentPage))
-    setRecatPageNum(currentPage)
+    loadDraftFromEntry(pages.find(p => p.pageId === currentPageId))
+    setRecatPageId(currentPageId)
   }
 
   // Re-enter categorization to work through what remains: cycle uncategorized
@@ -4030,7 +4030,7 @@ function App() {
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const showGhost = showGhostByPageId[currentPageId] ?? true
-  const currentPageEntry = pages.find(p => p.pageNum === currentPage) || null
+  const currentPageEntry = pages.find(p => p.pageId === currentPageId) || null
   const categorizedCount = pages.filter(p => p.category).length
 
 
@@ -4740,7 +4740,7 @@ function App() {
       setElevAlignMode(false); setElevEdgeMode(false); setElevEdgeSourcePageId(null)
       elevEdgeHoverRef.current = null; ffHoverRef.current = null
       setFrontFacePromptOpen(false)
-      setCategorizeMode(false); setRecatPageNum(null); setCatReentry(false)
+      setCategorizeMode(false); setRecatPageId(null); setCatReentry(false)
       setShowFloorHeights(false)
       resetZoomPan()
 
@@ -6596,7 +6596,7 @@ function App() {
             <>
             <span className="cat-page-label">Page {currentPage}</span>
 
-            {currentPageEntry?.category && recatPageNum !== currentPage ? (
+            {currentPageEntry?.category && recatPageId !== currentPageId ? (
               <div className="cat-summary">
                 <span className="cat-summary-text">
                   {categoryLabel(currentPageEntry.category)}
