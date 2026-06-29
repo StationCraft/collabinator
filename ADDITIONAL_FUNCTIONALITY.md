@@ -1400,11 +1400,15 @@ the click target is the label hit area rather than the underlying segment, block
 drag-to-resize. The user cannot reliably drag an opening edge to resize it in the area
 covered by the label.
 
-**Why deferred:** UI/UX polish; openings can still be resized by dragging the clear portions
-of an edge or via the label-override input. Fix is a hit-test order adjustment (segment drag
-checks before label hit); small scope, no geometry change.
+**Resolution:** Click-to-edit-label removed entirely (not just reordered). `hitTestLabels`,
+`commitLabelEdit`, `labelEditState`, `parseDisplayDistInput` import, the `labelClick` mousedown/
+mouseup branches, Escape handler, and label-edit-overlay JSX all removed. The label-override
+resize fallback noted in the original entry no longer exists. Segment drag now wins on any
+click in the label area. `segLabelRectsRef` population left intact (renders labels visually;
+now a populated-but-unread dead ref — intentional). Browser-verified: click-drag on a
+dimension label in Edit Shapes starts segment drag with no text input appearing.
 
-**Status:** Deferred. Fix in a focused Edit Shapes polish pass.
+**Status:** RESOLVED — Session 55, commit 27257b9.
 
 ---
 
