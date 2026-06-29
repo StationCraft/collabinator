@@ -800,8 +800,33 @@ A React + Vite app with:
     ground-coupled loss (separate engine from above-grade, using supplemental `BasementHLR.xls` /
     `SlabOnGradeHLR.xls` calculators) → solar gain.
 
+- **Page-region model #5 — Fork A verified + Fork B built (Session 59; commit 4928a5a):**
+  * **Fork A (commit f41cb7c, Session 58) navigation gate CLEARED** — `currentPageId` (first-class
+    state) verified to track correctly across multi-page navigation by both toolbar-arrow and
+    sidebar-jump paths in both directions; page-gated toolbar (elevation mode, Draw/Edit/Draw-run,
+    scale-gating) updates correctly per page; zero console errors. Verification only, no code.
+  * **Fork B — crop-local coordinate frame in `renderPage`.** `pageCropsRef.current[pageId] =
+    {x,y,w,h}` (scaled-sheet pixels) is the hot-read store; `pages[i].crop` the serialized mirror.
+    When a crop is set, `renderPage` sizes `measureRef` to the crop box (its (0,0) = crop top-left →
+    stored geometry is crop-local by construction) and rasterizes the backdrop with a viewport offset
+    `(-crop.x*mult, -crop.y*mult)` so the crop maps to canvas (0,0); crop-sized canvas bounds clip the
+    rest. **Absent crop = byte-for-byte the previous full-sheet path** (preserved in the `else` branch).
+    The crop offset is consumed at rasterization ONLY — never written to `pageTransformsRef`, never
+    folded into `getEffectiveScale`, never stored on a vertex; the `pdf-align-layer` user transform
+    composes on top unchanged, so recalibration-independence (#22) is untouched. The CSS transform
+    stack is unchanged; crop_viewport is the innermost transform realized at the rasterization read.
+    `pageCropsRef` resets on PDF upload and round-trips through snapshot/restore.
+  * **DEV:** `window.__setCrop(pageId, crop)` writer; `window.__verifyCrop()` — 10 checks (frame
+    sizing at two crops + cleared, plus the placed-point world-coordinate assertion: traced world
+    coords invariant under crop). Verified: `__verifyFixture` 44/44 (no-crop unchanged) + `__verifyCrop`
+    10/10 + screenshot of offset+clip.
+  * **Fork C resolved** (dissolved with Fork A). **Next: Fork D** — rekey categorization confirm/skip
+    handlers from `pageNum` to `pageId`. **Then the crop-carving UI** (the user-facing half of #5).
+
 **Not yet built (next increments):**
 - **Next: geometry back-to-basics review** — planning session, no code. Gating all F280 extension.
+- **Page-region #5 Fork D** — rekey categorization handlers (`p.pageNum === currentPage`) to `pageId`
+  so two crops on one sheet categorize independently. Then crop-carving UI (drag a box → region-page).
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
 - Windows/doors Piece 4 (dumb duplicate) — off critical path
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**
@@ -953,6 +978,17 @@ pageTransformsRef.current[pageId] = {
   angle: number,     // rotation in degrees (reserved; always 0 until sub-step 2 rotation built)
   confirmed?: boolean  // true once user clicks "Confirm scale & alignment"; enables scale-borrow
 }
+```
+
+**Per-page region crop** (Fork B / #5; added Session 59):
+```
+pageCropsRef.current[pageId] = { x, y, w, h }  // scaled-sheet pixels (the measureRef unit)
+// Hot-read store for renderPage (useCallback []; ref read is stale-closure-safe).
+// pages[i].crop is the serialized mirror (UI/snapshot). Absent ⇒ renderPage uses the full sheet.
+// Consumed ONLY at backdrop rasterization (viewport offsetX/offsetY = -crop.x/.y * mult) and to
+// size measureRef/canvasRef to the crop box. NEVER written into stored geometry, pageTransformsRef,
+// or getEffectiveScale — the crop offset is passive/visual and never frozen (recalibration-indep #22).
+// Cleared on PDF upload; round-tripped through __snapshotFixture/__restoreFixture (obj.pageCrops).
 ```
 
 **Stable shape identity counter** (added Session 26):

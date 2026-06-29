@@ -10,6 +10,63 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 59 — Page-region model (#5): Fork A nav verify + Fork B crop-local frame (2026-06-29)
+
+**Branch:** main | **Commit:** 4928a5a (Fork B) + this doc-update commit.
+
+### Fork A navigation gate — VERIFIED CLEAN (the outstanding Session-58 gate)
+
+Drove multi-page navigation in the dev browser by **both paths in both directions** — toolbar
+arrows (‹ ›, which cycle categorized pages only: 2→3→5→7) and direct sidebar jumps — across the
+fixture's category spread (page-2 elevation, 3 Crawlspace floor, 5 Main Floor floor, 7 roof,
+1 site). Read the page-gated toolbar at each stop. Results: elevation buttons (Set elevation edge /
+Align elevation / Place opening) appear ONLY on page-2 and **re-light on every re-entry by any path**
+(sidebar jump AND reverse arrow) — the canonical stale-pointer test passed. Floor pages gate Draw/
+Edit/Draw-run correctly and even differentiate anchor floor ("Scale set ✓ Re-calibrate") from
+borrow-chain floor ("Realign"). Roof gates correctly; site plan shows minimal (Set Scale, Draw;
+no Edit, no elevation). Zero console errors. `currentPageId` (first-class state since f41cb7c)
+tracks correctly across navigation. **No code changed — verification only.** Fork B unblocked.
+
+### Fork B — crop-local coordinate frame in renderPage (commit 4928a5a)
+
+**Consequential seam planned-as-prose and confirmed with Ben before code** (rasterization-offset
+model chosen over an explicit CSS crop layer; `pages[i].crop` as data location with full-sheet
+fallback; placed-point world-coordinate assertion added to verification).
+
+- **`pageCropsRef.current[pageId] = {x,y,w,h}`** (scaled-sheet pixels) — hot-read store for
+  `renderPage` (useCallback []; stale-closure-safe via ref). `pages[i].crop` is the serialized
+  mirror. Reset on PDF upload; round-tripped through snapshot/restore.
+- **renderPage:** when a crop is present, `measureRef` is sized to the crop box (its (0,0) becomes
+  the crop's top-left, so stored geometry is crop-local **by construction** — no offset is added to
+  any vertex); the backdrop is rasterized via `page.getViewport({ scale: scale*mult, offsetX:
+  -crop.x*mult, offsetY: -crop.y*mult })` so the crop maps to canvas (0,0) and the crop-sized canvas
+  bounds clip the rest (viewport translate + clip). **Absent crop = byte-for-byte today's full-sheet
+  path** (preserved verbatim in the `else` branch).
+- **Passive/never-frozen guarantee:** the crop offset is consumed at rasterization only — never
+  written to `pageTransformsRef`, never folded into `getEffectiveScale`, never stored on a vertex.
+  The user-driven `pdf-align-layer` composes on top unchanged → recalibration-independence (#22)
+  untouched. The CSS transform stack (canvas-world zoom/pan → pdf-align-layer user_align → canvasRef)
+  is **unchanged**; crop_viewport is the innermost transform, realized at the rasterization read.
+- **DEV:** `window.__setCrop(pageId, crop)` writer; `window.__verifyCrop()` — 10 checks: frame
+  sizing (measureRef = crop box, backdrop bitmap = crop×mult, backdrop CSS = crop box) at two
+  distinct crops + cleared, plus the **placed-point world-coordinate assertion** (the origin floor's
+  traced world coords are invariant under crop A, crop B, and clear).
+
+**Verified (preview/dev server 5175):** existing `__verifyFixture` **44/44 PASS** (no-crop path
+unchanged); `__verifyCrop` **10/10 PASS**; screenshot confirmed the backdrop offset+clip (crop's
+top-left → canvas (0,0), rest clipped). Zero console errors.
+
+### Forward
+
+**Fork C is already resolved** (dissolved when Fork A landed — `currentPageId` set directly).
+**Next: Fork D** — rekey categorization confirm/skip handlers from `pageNum`
+(`p.pageNum === currentPage`) to `pageId` so two crops on one sheet categorize independently.
+**Then the crop-carving UI** (drag a crop box on the sheet → spawn a region-page entry with
+`pages[i].crop` + parent sheet + own category) — the user-facing half of #5. Z-datum guardrail
+still holds: region-pages must NOT region-scope the Z datum (#7).
+
+---
+
 ## SESSION 58 — Page-region model (#5), Fork A + Z-datum model doc update (2026-06-29)
 
 **Branch:** main | **Commits:** f41cb7c (Fork A refactor); doc-update commit this session.

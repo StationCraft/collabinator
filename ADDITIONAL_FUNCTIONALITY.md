@@ -128,19 +128,23 @@ independently. This model generalises to ANY mixed-content sheet and unifies #5 
 the prerequisite for region-scoped derived elevations (#29).
 
 **Four design forks to resolve before build session (from Session 57 recon):**
-- **Fork A** — `currentPage` (pageNum) must become `currentPageId` as the primary navigation
-  pointer (first-class React state, not derived). `getPageId(currentPage)` is 1:1 today; with
-  regions it is ambiguous (1:M). ~20 call sites migrate from `getPageId(currentPage)` to reads
-  of `currentPageId` state. `currentPage` (pageNum) remains the "which PDF sheet" pointer for
-  `renderPage`.
-- **Fork B** — `renderPage` must establish a crop-local coordinate frame. `measureRef` size must
-  equal the crop box dimensions. The PDF backdrop renders with a viewport translate+clip so canvas
-  pixel (0,0) maps to the crop's top-left in PDF space. A fixed crop-offset transform composes
-  beneath the existing user-driven `pageTransformsRef` alignment transform. This is the most
-  mechanical fork.
-- **Fork C** — `pageIdMapRef` dissolves as a navigation helper; becomes a `pageNum → [pageId,…]`
-  load-time index. Resolved when Fork A is done.
-- **Fork D** — Categorization confirm/skip handlers key by `pageNum` today
+- **Fork A — DONE (commit f41cb7c, Session 58) + NAV-VERIFIED (Session 59).** `currentPage` (pageNum)
+  → `currentPageId` first-class React state. Multi-page navigation verified clean in-browser
+  (toolbar-arrow + sidebar-jump paths, both directions; page-gated toolbar tracks correctly; zero
+  console errors). `currentPage` (pageNum) remains the "which PDF sheet" pointer for `renderPage`.
+- **Fork B — DONE (commit 4928a5a, Session 59).** `renderPage` establishes a crop-local coordinate
+  frame when `pageCropsRef.current[pageId] = {x,y,w,h}` is set: `measureRef` sized to the crop box
+  (its (0,0) = crop top-left → stored geometry crop-local by construction), backdrop rasterized with
+  viewport offset `(-crop.x*mult, -crop.y*mult)` so the crop maps to canvas (0,0) and crop-sized canvas
+  bounds clip the rest. Absent crop = full-sheet fallback (today's behavior verbatim). Approach:
+  **rasterization-offset** (not a standing CSS crop layer) — the crop offset is consumed at the
+  rasterization read ONLY, never frozen into stored coords / `pageTransformsRef` / `getEffectiveScale`;
+  the user `pdf-align-layer` composes on top unchanged (recalibration-independence #22 untouched).
+  `pages[i].crop` is the serialized mirror. DEV: `__setCrop`, `__verifyCrop` (10/10, incl. placed-point
+  world-coordinate invariance). No crop-carving UI yet — that is the user-facing half, after Fork D.
+- **Fork C — RESOLVED.** Dissolved automatically when Fork A landed (`currentPageId` is set directly,
+  no longer derived from `pageIdMapRef`).
+- **Fork D — NEXT.** Categorization confirm/skip handlers key by `pageNum` today
   (`p.pageNum === currentPage`); must rekey by `pageId` so two crops on the same sheet are
   independently categorized.
 
