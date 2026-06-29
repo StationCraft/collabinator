@@ -5006,6 +5006,48 @@ function App() {
         }
       }
 
+      // ── STEP A.5: Flat-roof ceiling surface ─────────────────────────────────
+      // One element per confirmed roof-plan page; footprint area from world-meter shoelace.
+      // Sloped/pitched roof Z-derivation deferred (#18).
+      const topRow = zStack.length > 0 ? zStack[zStack.length - 1] : null
+      const roofCeilingZm = topRow?.ceilingZ != null ? topRow.ceilingZ * 0.3048 : null
+      for (const rp of pages.filter(p => p.category === 'roof-plan')) {
+        if (!pageTransformsRef.current[rp.pageId]?.confirmed) continue
+        const flatShapes = completedShapesRef.current.filter(
+          s => s.pageId === rp.pageId && s.status === 'locked' && !s.shapeKind && s.roofType === 'flat'
+        )
+        if (!flatShapes.length) continue
+        let totalAreaM2 = 0
+        for (const shape of flatShapes) {
+          const wv = shape.vertices.map(v => pageVertexToWorld(v, rp.pageId)).filter(Boolean)
+          if (wv.length < 3) continue
+          let a = 0
+          for (let i = 0; i < wv.length; i++) {
+            const p = wv[i], q = wv[(i + 1) % wv.length]
+            a += p.x * q.y - q.x * p.y
+          }
+          totalAreaM2 += Math.abs(a) / 2
+        }
+        if (totalAreaM2 === 0) continue
+        const surfaceId = `flat-roof-${rp.pageId}`
+        const sa = getSurfaceAssembly(surfaceId)
+        elements.push({
+          id: surfaceId,
+          kind: 'flat-roof-surface',
+          pageId: rp.pageId,
+          grossAreaM2: totalAreaM2,
+          netAreaM2: totalAreaM2,    // no openings in roof ceiling today
+          openingAreaM2: 0,
+          insideFaceAreaM2: totalAreaM2,  // horizontal ceiling: interior face = traced footprint
+          roofCeilingZm,
+          effectiveUValue: sa.effectiveUValue,
+          effectiveRSI:    sa.effectiveRSI,
+          controlLayers:   sa.controlLayers,
+          thicknessM:      sa.thicknessM,
+          assemblySource:  sa.source,
+        })
+      }
+
       // ── STEP C: Soffit/eave — roof bbox vs wall-below bbox ──────────────────
       // Roof polygon larger than wall below on a side → overhang → soffit element.
       // Coincident-but-distinct surfaces are not merged (#19).
@@ -5155,6 +5197,17 @@ function App() {
             `  ${el.id}\n` +
             `    page:${el.pageId}  floor:${el.floorLevel}  side:${el.side}\n` +
             `    projection=${pStr}  span=${sStr}  eaveZ=${zStr}`
+          )
+        } else if (el.kind === 'flat-roof-surface') {
+          const aStr = el.grossAreaM2 != null ? el.grossAreaM2.toFixed(4) + 'm²' : 'null'
+          const zStr = el.roofCeilingZm != null ? el.roofCeilingZm.toFixed(4) + 'm' : 'null (no floor heights)'
+          const uvStr = el.effectiveUValue != null ? el.effectiveUValue.toFixed(4) + ' W/m²K' : 'null'
+          const thStr = el.thicknessM    != null ? el.thicknessM.toFixed(4)    + ' m'      : 'null'
+          console.log(
+            `  ${el.id}\n` +
+            `    page:${el.pageId}\n` +
+            `    footprintArea=${aStr}  roofCeilingZ=${zStr}\n` +
+            `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}`
           )
         } else if (el.kind === 'window' || el.kind === 'door') {
           const wStr = el.widthM  != null ? el.widthM.toFixed(4) + 'm'  : 'null'
@@ -5323,6 +5376,18 @@ function App() {
             checkEq('(m.cl.air)     controlLayers.air',     golden.thermalCheck.controlLayers.air,     cl?.air)
             checkEq('(m.cl.thermal) controlLayers.thermal', golden.thermalCheck.controlLayers.thermal, cl?.thermal)
             checkEq('(m.cl.vapour)  controlLayers.vapour',  golden.thermalCheck.controlLayers.vapour,  cl?.vapour)
+          }
+        }
+
+        // Flat-roof surface check
+        if (golden.flatRoofSurface) {
+          const rfEls = elements.filter(e => e.kind === 'flat-roof-surface')
+          const rfEl = rfEls.find(e => e.id === golden.flatRoofSurface.id)
+          if (!rfEl) {
+            fail('(s) flatRoofSurface exists', golden.flatRoofSurface.id, 'NOT FOUND')
+          } else {
+            pass('(s) flatRoofSurface exists')
+            check('(s.area) flatRoofSurface.grossAreaM2', golden.flatRoofSurface.grossAreaM2, rfEl.grossAreaM2)
           }
         }
 
@@ -7090,8 +7155,8 @@ function App() {
             if (!byKind[el.kind]) byKind[el.kind] = []
             byKind[el.kind].push(el)
           }
-          const KIND_ORDER = ['wall-surface', 'soffit', 'window', 'door']
-          const KIND_LABELS = { 'wall-surface': 'Wall Surfaces', soffit: 'Soffits', window: 'Windows', door: 'Doors' }
+          const KIND_ORDER = ['wall-surface', 'flat-roof-surface', 'soffit', 'window', 'door']
+          const KIND_LABELS = { 'wall-surface': 'Wall Surfaces', 'flat-roof-surface': 'Flat Roof Surface', soffit: 'Soffits', window: 'Windows', door: 'Doors' }
           const fmtM = v => v != null ? v.toFixed(3) + ' m' : '—'
           const fmtDeg = v => v != null ? v.toFixed(1) + '°' : '—'
           return (
@@ -7179,6 +7244,18 @@ function App() {
                               }}
                             />
                           </div>
+                        </>)}
+                        {kind === 'flat-roof-surface' && (<>
+                          <div className="enum-row-title">Flat roof footprint</div>
+                          <div className="enum-row-detail">area {el.grossAreaM2 != null ? el.grossAreaM2.toFixed(3) + ' m²' : '—'}</div>
+                          <div className="enum-row-detail">ceilingZ {fmtM(el.roofCeilingZm)}</div>
+                          {el.assemblySource === 'manual' ? (
+                            <div className="enum-row-detail enum-assembly-status">
+                              Manual · U={el.effectiveUValue != null ? el.effectiveUValue.toFixed(3) + ' W/m²K' : '—'} · t={el.thicknessM != null ? (el.thicknessM * 1000).toFixed(0) + ' mm' : '—'}
+                            </div>
+                          ) : (
+                            <div className="enum-row-detail" style={{opacity:0.5}}>(no assembly — unset)</div>
+                          )}
                         </>)}
                         {kind === 'soffit' && (<>
                           <div className="enum-row-title">{el.side} overhang</div>
