@@ -328,6 +328,7 @@ function resolveEffectiveConfig(rawValues) {
 const SIDEBAR_TABS = [
   { id: 'project-setup', label: 'Project Setup' },
   { id: 'worklist',      label: 'Worklist' },
+  { id: 'openings',      label: 'Openings' },
   { id: 'floor-heights', label: 'Floor Heights' },
   { id: 'envelope',      label: 'Envelope' },
 ]
@@ -384,6 +385,9 @@ function App() {
   const [openingDraftHFt, setOpeningDraftHFt] = useState('')           // height ft
   const [openingDraftHIn, setOpeningDraftHIn] = useState('')           // height in
   const [showDimBasisDialog, setShowDimBasisDialog] = useState(false)  // first-use gate
+  // ── Place-from-entry (holding area → single-click placement) ─────────────────
+  const [placingFromEntry, setPlacingFromEntry] = useState(false)
+  const [pendingEntryToPlace, setPendingEntryToPlace] = useState(null)
 
   const [editMode, setEditMode] = useState(false)
   const [editSubMode, setEditSubMode] = useState(null) // 'move'|'combine'|'split'|null
@@ -423,6 +427,7 @@ function App() {
   const showFloorHeights = showSidebar && activeTabId === 'floor-heights'
   const showWorklist     = showSidebar && activeTabId === 'worklist'
   const showEnumeration  = showSidebar && activeTabId === 'envelope'
+  const showOpenings     = showSidebar && activeTabId === 'openings'
   // Legacy setters: all call sites pass false → close the sidebar
   const setShowProjectSetup = () => setShowSidebar(false)
   const setShowFloorHeights = () => setShowSidebar(false)
@@ -434,6 +439,7 @@ function App() {
   // ── §8.2 Worklist / Envelope panels ─────────────────────────────────────────
   const [worklistTick, setWorklistTick] = useState(0)
   const [enumerationTick, setEnumerationTick] = useState(0)
+  const [pendingOpeningsTick, setPendingOpeningsTick] = useState(0)
   // ── Floor heights panel (elevation numeric editor, Piece 2) ─────────────────
   const [floorHeightsTick, setFloorHeightsTick] = useState(0)
   const [fhExpandedLevel, setFhExpandedLevel] = useState(null)
@@ -460,6 +466,7 @@ function App() {
   const ssCounterRef = useRef(0)               // span-slot id counter (ss-N)
   const dimensionBasisRef = useRef(null)       // 'frame' | 'rough-opening' | null (project-level, set once per upload)
   const priorSnapIncrementRef = useRef(null)   // saved increment before opening-placement / opening-edit default
+  const pendingOpeningsRef = useRef([])        // normalized opening entries awaiting placement (holding area)
   // B4: project-level physical derivation config (§5.3 — base case of extensible model; no UI yet)
   const projectConfigRef = useRef({
     // Reconcile rule for stacked floors: 'closest-approach' measures per-edge signed perpendicular
@@ -696,6 +703,7 @@ function App() {
     setOpeningDraftFt(''); setOpeningDraftIn(''); setOpeningDraftHFt(''); setOpeningDraftHIn('')
     setShowDimBasisDialog(false); dimensionBasisRef.current = null; shapeIdCounterRef.current = 0; psCounterRef.current = 0; ssCounterRef.current = 0; priorSnapIncrementRef.current = null
     setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
+    setPlacingFromEntry(false); setPendingEntryToPlace(null); pendingOpeningsRef.current = []
     projectSetupRef.current = { values: {}, roleAssignments: {} }
     setRoofShapeDraft(null); setRoofTypeDraft(null); setParapetWidthDraft('')
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
@@ -750,6 +758,7 @@ function App() {
     gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
     setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
     setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
+    setPlacingFromEntry(false); setPendingEntryToPlace(null)
     setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
     setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
@@ -1972,6 +1981,13 @@ function App() {
   const handleMeasureClick = (e) => {
     // Align mode: drag is the gesture; suppress clicks.
     if (alignMode) return
+    // Place-from-entry: single click places a pre-sized opening from the holding area
+    if (placingFromEntry && pendingEntryToPlace) {
+      if (panDidDragRef.current) { panDidDragRef.current = false; return }
+      const pos = getCanvasPos(e)
+      placeOpeningFromEntry(pendingEntryToPlace, pos)
+      return
+    }
     // Equipment item placement: single click places the item
     if (placingEquipmentItem) {
       if (panDidDragRef.current) { panDidDragRef.current = false; return }
@@ -2903,6 +2919,61 @@ function App() {
     redrawFrontFaceLayer(null)
   }
 
+  // ── Holding-area helpers (#46 Stage Two) ───────────────────────────────────
+
+  // Normalise and load entries into the holding area. Caller passes WEW-bridge
+  // shaped entries (or any source-agnostic normalized shape); `remaining` is
+  // initialised here from `quantity`.
+  const loadPendingOpenings = (entries) => {
+    pendingOpeningsRef.current = entries.map(e => ({ ...e, remaining: e.quantity ?? 1 }))
+    setPendingOpeningsTick(t => t + 1)
+  }
+
+  // Place one entry from the holding area at a canvas-pixel position.
+  // Mirrors confirmOpening() exactly: same fields, same shape, always sets widthM/heightM.
+  const placeOpeningFromEntry = (entry, pos) => {
+    if (!entry) return
+    const scale = getEffectiveScale(currentPageId)
+    if (!scale) return
+    const basis = dimensionBasisRef.current ?? 'frame'
+    if (!dimensionBasisRef.current) dimensionBasisRef.current = basis
+    const wM = basis === 'frame' ? entry.frameWidthM : entry.roughWidthM
+    const hM = basis === 'frame' ? entry.frameHeightM : entry.roughHeightM
+    if (!wM || !hM) return
+    const wPx = wM * scale.pxPerMeter
+    const hPx = hM * scale.pxPerMeter
+    const c1 = { x: pos.x - wPx / 2, y: pos.y - hPx / 2 }
+    const c2 = { x: pos.x + wPx / 2, y: pos.y + hPx / 2 }
+    const vertices = makeRectVerts(c1, c2)
+    const kind = entry.openingKind === 'door' || entry.openingKind === 'patio' ? 'door' : 'window'
+    completedShapesRef.current = [
+      ...completedShapesRef.current,
+      {
+        id: nextShapeId(),
+        vertices,
+        pageId: currentPageId,
+        status: 'locked',
+        shapeKind: kind,
+        openingType: entry.operationType ?? '',
+        label: entry.mark ?? '',
+        widthM: wM,
+        heightM: hM,
+        dimBasis: basis,
+      },
+    ]
+    // Decrement remaining; remove entry when exhausted
+    entry.remaining = (entry.remaining ?? 1) - 1
+    if (entry.remaining <= 0) {
+      pendingOpeningsRef.current = pendingOpeningsRef.current.filter(e => e.id !== entry.id)
+    }
+    setPendingOpeningsTick(t => t + 1)
+    setEnumerationTick(t => t + 1)
+    setPlacingFromEntry(false)
+    setPendingEntryToPlace(null)
+    restoreSnapIncrement()
+    redrawFrontFaceLayer(null)
+  }
+
   const confirmRoofShape = () => {
     if (!roofShapeDraft || !roofTypeDraft) return
     const parapet = roofTypeDraft === 'flat' ? (parseFloat(parapetWidthDraft) || 0) : null
@@ -3489,6 +3560,9 @@ function App() {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         if (calibMode) exitCalibMode()
+        else if (placingFromEntry) {
+          setPlacingFromEntry(false); setPendingEntryToPlace(null); restoreSnapIncrement()
+        }
         else if (placingEquipmentItem) {
           setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
           redrawFrontFaceLayer(null)
@@ -3552,7 +3626,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState, gradeLineDrawing, placingEquipmentItem])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, labelEditState, gradeLineDrawing, placingEquipmentItem, placingFromEntry])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -5239,6 +5313,73 @@ function App() {
 
         console.log('[verify] closure check: SKIPPED (gated on roof-plane + floor-over-unheated surface kinds — #87)')
 
+        // ── Placement checks (n)–(q): seed holding area, place one window + one door ──
+        // These run AFTER the fixture-state checks above so placement additions don't
+        // affect area totals. Test shapes are cleaned up at the end.
+        const testW = {
+          id: 'test-wew-w99', mark: 'W99', openingKind: 'window', operationType: 'Fixed',
+          frameWidthM: 0.9, frameHeightM: 1.2, roughWidthM: 0.94, roughHeightM: 1.24,
+          quantity: 2, location: 'Test', performance: { uw: 1.4, shgc: 0.32 },
+        }
+        const testD = {
+          id: 'test-wew-d99', mark: 'D99', openingKind: 'door', operationType: 'Single Inswing',
+          frameWidthM: 0.91, frameHeightM: 2.1, roughWidthM: 0.95, roughHeightM: 2.14,
+          quantity: 1, location: 'Test', performance: { uw: 1.8, shgc: null },
+        }
+        loadPendingOpenings([testW, testD])
+        const beforeCount = completedShapesRef.current.length
+        if (!dimensionBasisRef.current) dimensionBasisRef.current = 'frame'
+        const wEntry = pendingOpeningsRef.current.find(e => e.id === 'test-wew-w99')
+        const dEntry = pendingOpeningsRef.current.find(e => e.id === 'test-wew-d99')
+        placeOpeningFromEntry(wEntry, { x: 400, y: 400 })
+        // re-fetch dEntry since placeOpeningFromEntry may have mutated the array reference
+        const dEntry2 = pendingOpeningsRef.current.find(e => e.id === 'test-wew-d99')
+        placeOpeningFromEntry(dEntry2 ?? dEntry, { x: 600, y: 400 })
+
+        const newShapes = completedShapesRef.current.slice(beforeCount)
+        const placedW = newShapes.find(s => s.shapeKind === 'window' && s.label === 'W99')
+        const placedD = newShapes.find(s => s.shapeKind === 'door'   && s.label === 'D99')
+
+        // (n) both appear in completedShapesRef as locked
+        placedW ? pass('(n.w) placed window in completedShapesRef') : fail('(n.w) placed window in completedShapesRef', 'found', 'NOT FOUND')
+        placedD ? pass('(n.d) placed door   in completedShapesRef') : fail('(n.d) placed door   in completedShapesRef', 'found', 'NOT FOUND')
+        // (o) both carry non-null widthM AND heightM
+        if (placedW) {
+          placedW.widthM  != null ? pass('(o.w) window.widthM non-null')  : fail('(o.w) window.widthM non-null',  'non-null', null)
+          placedW.heightM != null ? pass('(o.w) window.heightM non-null') : fail('(o.w) window.heightM non-null', 'non-null', null)
+        }
+        if (placedD) {
+          placedD.widthM  != null ? pass('(o.d) door.widthM non-null')    : fail('(o.d) door.widthM non-null',    'non-null', null)
+          placedD.heightM != null ? pass('(o.d) door.heightM non-null')   : fail('(o.d) door.heightM non-null',   'non-null', null)
+        }
+        // (p) deriveEnumeration counts them (window and door counts increase by at least 1 each)
+        const elAfter = deriveEnumeration()
+        const wAfterCount = elAfter.filter(e => e.kind === 'window').length
+        const dAfterCount = elAfter.filter(e => e.kind === 'door').length
+        wAfterCount >= golden.windowCount + 1
+          ? pass(`(p.w) deriveEnumeration includes placed window (${wAfterCount} total)`)
+          : fail(`(p.w) deriveEnumeration includes placed window`, `≥${golden.windowCount + 1}`, wAfterCount)
+        dAfterCount >= golden.doorCount + 1
+          ? pass(`(p.d) deriveEnumeration includes placed door (${dAfterCount} total)`)
+          : fail(`(p.d) deriveEnumeration includes placed door`, `≥${golden.doorCount + 1}`, dAfterCount)
+        // (q) placement decremented remaining; door entry removed (qty was 1)
+        const wAfterEntry = pendingOpeningsRef.current.find(e => e.id === 'test-wew-w99')
+        const dAfterEntry = pendingOpeningsRef.current.find(e => e.id === 'test-wew-d99')
+        wAfterEntry?.remaining === 1
+          ? pass('(q.w) window entry remaining decremented to 1')
+          : fail('(q.w) window entry remaining', 1, wAfterEntry?.remaining ?? 'entry removed')
+        !dAfterEntry
+          ? pass('(q.d) door entry removed after quantity exhausted')
+          : fail('(q.d) door entry still present', 'removed', 'still present')
+
+        // Clean up test shapes so fixture state is not polluted for further use
+        completedShapesRef.current = completedShapesRef.current.slice(0, beforeCount)
+        pendingOpeningsRef.current = pendingOpeningsRef.current.filter(
+          e => e.id !== 'test-wew-w99' && e.id !== 'test-wew-d99'
+        )
+        setPendingOpeningsTick(t => t + 1)
+        setEnumerationTick(t => t + 1)
+
         failed === 0
           ? console.log(`[verify] ✓ ALL ${passed + failed} checks PASSED`)
           : console.error(`[verify] ${failed}/${passed + failed} checks FAILED`)
@@ -5352,6 +5493,18 @@ function App() {
           console.log(`  layer  layerId=${l.layerId}  materialId=${l.materialId}  thicknessM=${l.thicknessM}  pathRole=${l.pathRole}`)
       } else {
         console.warn('[asm] __ingestAssembly: ingest failed (see above)')
+      }
+    }
+
+    // __loadPendingOpenings(entries): DEV injection path for normalized opening entries.
+    // Usage: window.__loadPendingOpenings([{ id:'wew-w1', mark:'W1', openingKind:'window',
+    //   operationType:'Fixed', frameWidthM:0.9, frameHeightM:1.2,
+    //   roughWidthM:0.94, roughHeightM:1.24, quantity:2, location:'Living room' }])
+    window.__loadPendingOpenings = (entries) => {
+      loadPendingOpenings(entries)
+      console.log(`[openings] loaded ${entries.length} entries; total pending: ${pendingOpeningsRef.current.length}`)
+      for (const e of pendingOpeningsRef.current) {
+        console.log(`  ${e.id}: ${e.mark} (${e.openingKind}) ×${e.remaining}  ${e.operationType ?? ''}  frame ${e.frameWidthM}×${e.frameHeightM}m`)
       }
     }
   }
@@ -5600,6 +5753,17 @@ function App() {
               {openingCorner1 ? 'Click second corner to set size' : 'Click first corner of opening'}
             </span>
             <button className="btn-secondary" onClick={() => { restoreSnapIncrement(); setPlacingOpeningMode(false); setOpeningCorner1(null); redrawFrontFaceLayer(null) }}>
+              Cancel
+            </button>
+          </>
+        )}
+        {placingFromEntry && pendingEntryToPlace && (
+          <>
+            <span className="review-status" style={{ color: '#0891b2' }}>
+              Click to place {pendingEntryToPlace.mark} ({pendingEntryToPlace.openingKind}
+              {pendingEntryToPlace.location ? ` — ${pendingEntryToPlace.location}` : ''})
+            </span>
+            <button className="btn-secondary" onClick={() => { setPlacingFromEntry(false); setPendingEntryToPlace(null); restoreSnapIncrement() }}>
               Cancel
             </button>
           </>
@@ -6713,6 +6877,60 @@ function App() {
           )
         })()}
 
+        {showOpenings && pdf && (() => {
+          void pendingOpeningsTick
+          const entries = pendingOpeningsRef.current
+          const canPlaceOpening = isElevationPage && pageHasScale && !calibMode && !drawMode && !editMode && !categorizeMode && !placingOpeningMode && !placingFromEntry
+          return (
+            <div className="fh-panel wl-panel">
+              <div className="fh-panel-head">
+                <span className="fh-panel-title">Openings to Place</span>
+                <button className="fh-close-btn" onClick={() => setShowSidebar(false)}>✕</button>
+              </div>
+              <div className="fh-zone">
+                {entries.length === 0 ? (
+                  <div className="fh-empty wl-all-done">No openings pending ✓</div>
+                ) : (
+                  <ul className="fh-outstanding-list wl-toplace-list">
+                    {entries.map(entry => (
+                      <li key={entry.id} className="fh-outstanding-item wl-toplace-item">
+                        <div style={{ flex: 1 }}>
+                          <span className="wl-item-label">
+                            {entry.mark} — {entry.openingKind}
+                            {entry.remaining > 1 ? ` ×${entry.remaining}` : ''}
+                          </span>
+                          {entry.operationType && (
+                            <div style={{ fontSize: '0.75rem', opacity: 0.65 }}>{entry.operationType}</div>
+                          )}
+                          {entry.location && (
+                            <div style={{ fontSize: '0.75rem', opacity: 0.55 }}>{entry.location}</div>
+                          )}
+                        </div>
+                        <button
+                          className="snap-btn wl-place-btn"
+                          disabled={!canPlaceOpening}
+                          title={
+                            !isElevationPage ? 'Navigate to an elevation page to place' :
+                            !pageHasScale    ? 'Set scale on this page first' : ''
+                          }
+                          onClick={() => {
+                            saveAndDefaultSnapIncrement()
+                            setPendingEntryToPlace(entry)
+                            setPlacingFromEntry(true)
+                            setShowSidebar(false)
+                          }}
+                        >
+                          Place
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {showEnumeration && pdf && (() => {
           void enumerationTick
           const elements = deriveEnumeration()
@@ -6862,7 +7080,7 @@ function App() {
             <canvas
               ref={measureRef}
               className="measure-canvas"
-              style={{ cursor: (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode || placingOpeningMode || placingEquipmentItem) ? 'crosshair' : undefined }}
+              style={{ cursor: (alignMode || elevAlignMode) ? (alignDragRef.current ? 'grabbing' : alignOverHandle ? 'nwse-resize' : 'grab') : isPanning ? 'grabbing' : editMode ? editCursor : (drawMode || calibMode || roofLineMode || placingOpeningMode || placingEquipmentItem || placingFromEntry) ? 'crosshair' : undefined }}
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}
@@ -7140,6 +7358,19 @@ function App() {
               alert('LOAD FIXTURE failed — see console')
             }
           }}>LOAD FIXTURE</button>
+          <button className="dev-fixture-btn" onClick={() => {
+            window.__loadPendingOpenings([
+              { id:'wew-w1', mark:'W1', openingKind:'window', operationType:'Fixed',
+                frameWidthM:0.9, frameHeightM:1.2, roughWidthM:0.94, roughHeightM:1.24,
+                quantity:2, location:'Living room', performance:{ uw:1.4, shgc:0.32 } },
+              { id:'wew-w2', mark:'W2', openingKind:'window', operationType:'Casement',
+                frameWidthM:0.6, frameHeightM:0.9, roughWidthM:0.64, roughHeightM:0.94,
+                quantity:1, location:'Bedroom', performance:{ uw:1.4, shgc:0.32 } },
+              { id:'wew-d1', mark:'D1', openingKind:'door', operationType:'Single Inswing',
+                frameWidthM:0.91, frameHeightM:2.1, roughWidthM:0.95, roughHeightM:2.14,
+                quantity:1, location:'Front', performance:{ uw:1.8, shgc:null } },
+            ])
+          }}>SEED OPENINGS</button>
           <button className="dev-fixture-btn" onClick={async () => {
             const snap = await window.__snapshotFixture()
             const pageLabel = snap.pages?.find(p => p.pageId === `page-${snap.currentPage}`)?.category ?? 'unknown'

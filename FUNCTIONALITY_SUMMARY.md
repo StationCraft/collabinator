@@ -420,10 +420,27 @@ sub-modes. Openings are excluded from Split Shape hit-test and Combine eligibili
 page is loaded, disabled (greyed) when no scale is set. Replaced all prior per-toolbar-mode
 selector instances. One selector total, shared across draw / placement / edit modes.
 
+**Place-from-list (Session 50 — #46 Stage Two):**
+
+Openings can also be placed from a **structured holding area** rather than drawn interactively.
+A normalized entry (mark, openingKind, operationType, frameWidthM/frameHeightM, roughWidthM/roughHeightM,
+quantity, location) sits in `pendingOpeningsRef` until the user places it. The "Openings to place"
+sidebar tab lists pending entries; the user clicks "Place" then clicks once on an elevation page —
+no two-click sizing. Dimensions come from the entry (frame or rough per the project-level
+`dimensionBasisRef`). Shape produced is identical to the interactive path (`confirmOpening()` output):
+widthM and heightM are always non-null. `operationType` passes through verbatim.
+Remaining count decrements on each placement; the entry is removed when exhausted.
+`loadPendingOpenings(entries)` is the public API; `window.__loadPendingOpenings` is the DEV path.
+WEW Bridge is the first upstream source; the holding-area and placement code is source-agnostic.
+Stage One (recognition/ingestion from raw schedule data) remains gated on #28.
+
 **Deferred (see ADDITIONAL_FUNCTIONALITY.md):**
 - #44 — component model (shared instance identity; edit-all/make-unique)
 - #45 — window-as-assembly (mullions, sub-sections, frame geometry, glass areas)
-- #46 — schedule import + place-from-list
+- #46 Stage One — schedule import / recognition (gated on #28)
+- #100 — auto-match by location text
+- #101 — operationType vocabulary reconciliation
+- #102 — existing window-schedule reader tool (known asset for #46 Stage One)
 
 **Future connection (not Phase 1.5):** the elevation canvas will later display envelope
 penetrations (e.g., bathroom exhaust vents) at their correct location based on stored 3D paths

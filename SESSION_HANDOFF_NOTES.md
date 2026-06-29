@@ -10,6 +10,81 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 50 — #46 Stage Two: place windows/doors from a structured opening list (2026-06-28)
+
+**Branch:** main | **Commit:** (this session) — pushed to origin.
+
+### What was built
+
+**#46 Stage Two — place-from-structured-list (holding area + single-click placement):**
+
+Source-agnostic: WEW Bridge is the first (and currently only) upstream source, but the
+placement path contains no WEW-specific code. Placement consumes the normalized entry shape
+(id, mark, openingKind, operationType, frameWidthM, frameHeightM, roughWidthM, roughHeightM,
+quantity, location, performance).
+
+**Holding area:**
+- `pendingOpeningsRef` (`useRef([])`) — flat array of normalized entries with `remaining` count.
+  Persists across page navigation. Clears on PDF upload.
+- `pendingOpeningsTick` — `useState(0)` re-render trigger (same pattern as worklistTick).
+- `loadPendingOpenings(entries)` — normalises and loads entries, initialising `remaining = quantity`.
+- `window.__loadPendingOpenings(entries)` — DEV injection path; logs summary per entry.
+- "SEED OPENINGS" DEV-strip button: injects 3 test entries (W1×2, W2×1, D1×1).
+
+**"Openings to place" sidebar tab:**
+- New `{ id: 'openings', label: 'Openings' }` entry added to `SIDEBAR_TABS` (between Worklist and
+  Floor Heights). Derived flag `showOpenings = showSidebar && activeTabId === 'openings'`.
+- Lists each pending entry: mark, openingKind, ×remaining, operationType, location hint.
+- "Place" button gates on `isElevationPage && pageHasScale`. Closes the panel, calls
+  `saveAndDefaultSnapIncrement()`, sets `placingFromEntry` + `pendingEntryToPlace`.
+
+**`placeOpeningFromEntry(entry, pos)`:**
+- Single-click placement — no two-click pixel sizing.
+- Reads `dimensionBasisRef.current ?? 'frame'` to choose frame vs rough dimensions.
+- Sets non-null `widthM` AND `heightM` from entry — this is the one coupling risk (the
+  `!op.widthM || !op.heightM` guards in `deriveEnumeration` STEP D and `deriveWireframe`
+  silently skip any opening missing these fields). The function returns early if wM or hM
+  is falsy; it will never push a shape with null dimensions.
+- Centers the rectangle on the click position: `c1 = pos − (wPx/2, hPx/2)`.
+- Pushes a shape **identical** to `confirmOpening()` output: `{ id, vertices, pageId,
+  status:'locked', shapeKind, openingType, label, widthM, heightM, dimBasis }`.
+- `operationType` passed through verbatim (no vocab mapping — see #100 deferred entry).
+- Decrements `entry.remaining`; removes entry from `pendingOpeningsRef` when it reaches 0.
+- Bumps `enumerationTick` so Envelope panel updates immediately.
+- Cancellable via Escape or the toolbar Cancel button.
+
+**Interaction wiring:**
+- `placingFromEntry` state intercepts clicks in `handleMeasureClick` (before `placingEquipmentItem`).
+- Escape handler: clears `placingFromEntry` + `pendingEntryToPlace` + calls `restoreSnapIncrement`.
+- Crosshair cursor while `placingFromEntry` is true.
+- Toolbar feedback: "Click to place W1 (window — Living room)" with Cancel button.
+- `goToPage` and PDF upload both reset `placingFromEntry` + `pendingEntryToPlace`.
+
+### Harness: 24 → 34
+
+10 new checks (n)–(q): placed window/door in `completedShapesRef`, non-null widthM/heightM per
+shape (4 assertions), `deriveEnumeration` counts both (2), remaining decremented correctly (2).
+Test shapes cleaned up inside `__verifyFixture` to avoid polluting fixture state.
+Prediction in build prompt said "8 new" — off-by-two: the o-group emits 4 assertions (widthM +
+heightM per shape), not 2. All 34 are intentional and correct.
+
+### Design notes
+
+- **user-assigns is the correct model:** `entry.location` is unstructured WEW text (no
+  canonical match to elevation page subLabels). Shown as a hint only, never acted on.
+  Auto-match deferred → #100.
+- **operationType verbatim passthrough:** WEW operationType strings do not map 1:1 to
+  `OPENING_TYPES`. No crash (openingType field is free-form). Reconciliation deferred → #101.
+- **Stage One (recognition/ingestion) gated on #28:** the existing window-schedule reader
+  tool (Ben's prior program) is the known starting asset for ingestion. Logged → #102.
+
+### Forward
+
+Next: F280 endpoint (gated on opening U-value fork #99). `insideFaceAreaM2` + `effectiveUValue`
++ thermal fields are ready; the fork decision (#99) unlocks the build prompt.
+
+---
+
 ## SESSION 49 — Thermal-field ingest slice (effectiveUValue / effectiveRSI / controlLayers) (2026-06-28)
 
 **Branch:** main | **Commit:** (this session) — pushed to origin.

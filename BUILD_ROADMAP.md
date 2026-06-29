@@ -129,6 +129,21 @@ building."
           (right:900px) CSS; panel groups by kind (Wall Surfaces/Soffits/Windows/Doors) with named
           fields per element — no recomputation in panel (§7.3 honored); reconcile tags color-coded
           via data-tag; empty state message. Browser-verified: 13 elements match __dumpEnumeration (#52 done).
+    [x] #46 Stage Two — place-from-structured-list (Session 50)
+        User-assigns placement: normalized opening entries sit in a holding area; user picks an
+          entry and clicks once on an elevation page to place. Source-agnostic (WEW Bridge is first
+          upstream source; placement path has no WEW-specific code).
+        pendingOpeningsRef (useRef([])) + pendingOpeningsTick; persists across page-nav; clears on upload.
+        "Openings to place" sidebar tab: lists entries with mark/kind/×qty/operationType(verbatim)/location hint.
+          Place button gates on isElevationPage && pageHasScale; closes panel and enters placingFromEntry mode.
+        placeOpeningFromEntry(entry, pos): single-click placement; reads frameWidthM/frameHeightM (or rough
+          per dimensionBasisRef); always sets non-null widthM AND heightM (the one coupling risk, guarded);
+          produces shape identical to confirmOpening() output; decrements remaining; removes entry at 0.
+        loadPendingOpenings(entries): normalises entries (adds remaining from quantity).
+        window.__loadPendingOpenings(entries): DEV injection path; logs summary.
+        SEED OPENINGS DEV-strip button: loads 3 test entries (W1×2, W2×1, D1×1).
+        Harness: 24 → 34 PASS (10 new checks n.w, n.d, o.w×2, o.d×2, p.w, p.d, q.w, q.d).
+        Stage One (recognition/ingestion from raw schedule data) remains gated on #28.
     [ ] Windows/doors Piece 3 — three-layer snap (off critical path)
     [ ] Windows/doors Piece 4 — dumb duplicate (off critical path)
     [ ] Cross-sections (DEFERRED — windows/doors intentionally builds first)

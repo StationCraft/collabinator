@@ -1570,3 +1570,74 @@ option has different accuracy vs. complexity tradeoffs appropriate for different
 The choice also determines what data Track B needs to supply (if any). Do not pick one without Ben's input.
 
 **Status:** **OPEN — awaiting Ben's decision.** F280 endpoint build is gated on this choice.
+
+---
+
+### 100. Auto-match openings to elevation by location text
+
+**Category:** Opening placement / UX. **Logged:** Session 50 (#46 Stage Two close-out).
+
+**Description:**
+
+`entry.location` is the WEW "Location" field — unstructured free text (e.g. "Living room north wall",
+"Master bedroom"). The current model is **user-assigns**: the user navigates to the correct elevation
+page and clicks where the opening should go. Location text is shown as a hint in the "Openings to
+place" panel but never acted on.
+
+A future layer could attempt structured or fuzzy matching of `entry.location` against elevation page
+`subLabel` (N/S/E/W) to pre-filter or pre-navigate, reducing the number of clicks for projects where
+WEW location text is consistent with the page naming convention.
+
+**Why deferred:** Location text is not canonical — it describes where the opening is in plan, not
+which elevation face it belongs to. Auto-match would be fragile on any project where WEW text does
+not cleanly map to N/S/E/W labels. The user-assigns model is always correct; the match layer is a
+polish convenience, not a correctness concern.
+
+**Status:** Deferred LATER layer on top of the user-assigns placement model. Do not build until Ben signals.
+
+---
+
+### 101. WEW operationType ↔ OPENING_TYPES vocabulary reconciliation
+
+**Category:** Opening placement / data model. **Logged:** Session 50 (#46 Stage Two close-out).
+
+**Description:**
+
+WEW Bridge `operationType` is an additive open list (verbatim passthrough — "Fixed", "Casement",
+"Single Inswing", "Lift & Slide", etc.). Collabinator's `OPENING_TYPES` array is a fixed list
+("Tilt-turn", "Casement", "Fixed", "Slider", "Hinged door"). The two vocabularies do not match 1:1.
+Currently, `placeOpeningFromEntry` stores WEW's string verbatim — no crash, no mapping. The
+`openingType` field is free-form; the panel and enumeration display it as-is.
+
+Reconciliation (a mapping table or canonical expansion of `OPENING_TYPES`) is required only if a
+downstream consumer needs to ACT on opening type — e.g. a frame-type heat-loss coefficient lookup,
+a permit-set legend, or the F280 calculation. Building the map prematurely risks building it for
+the wrong vocabulary if the F280 spec or a later Track B tool dictates the target values.
+
+**Why deferred:** Cosmetic for now (verbatim passthrough, no crash). Revisit when the first
+consumer that must act on opening type is scoped; do not build the map twice.
+
+**Status:** Deferred. Revisit when an opening-type consumer is scoped (F280 glazing path likely first).
+
+---
+
+### 102. Existing window-schedule reader tool — known asset for #46 Stage One
+
+**Category:** Opening ingestion / #28 track. **Logged:** Session 50 (#46 Stage Two close-out).
+
+**Description:**
+
+Ben has a prior program that partially reads/automates window schedules into the WEW spreadsheet.
+This tool is the known starting asset and adaptation point for #46 Stage One (recognition and
+ingestion of raw schedule data into the normalized `WEW_BRIDGE_CONTRACT.md` shape).
+
+Stage One is the "harder half" of #46: recognizing opening data from raw source material (PDF
+schedules, spreadsheets, typed input) and normalising it into the bridge contract. Stage Two
+(place-from-structured-list) is DONE. Stage One feeds Stage Two.
+
+**Why deferred:** #46 Stage One is gated on #28 (the plan reader / deep-review waypoint). The
+harness existing (`__verifyFixture` 34/34 PASS) removed one stated blocker of #28, but the
+broader #28 review threshold has not been reached.
+
+**Status:** Logged as a KNOWN ASSET. Do not build now; gated on #28. When #28 unblocks, start
+#46 Stage One from Ben's existing tool as the adaptation baseline.
