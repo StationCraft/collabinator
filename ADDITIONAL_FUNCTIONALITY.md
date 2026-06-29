@@ -157,6 +157,15 @@ all already keyed by pageId and accept new pageIds without structural change).
 
 **Z-datum guardrail (2026-06-29):** Region-pages MUST NOT region-scope or sheet-scope the Z datum. The base datum and `accumulateZ` stay building-wide and FLOOR_ORDER-keyed so #7's per-shape Z (and the datum-mode toggle) resolve through the building base, never a per-region zero. See #7 Z-datum model block.
 
+**DONE (commit 8d6e57d, Session 61 — 2026-06-29):** Crop-carving UI — the user-facing half of #5 — fully built and verified:
+- "Add region" toolbar button enters carve mode; amber dashed overlay during drag; mouseup commits rectangle ≥20×20px as new region-page (`page-N-rK`).
+- Source sheets with carved regions become carve-surface-only: Draw/Edit/Set Scale/Categorize/Set North/Set elevation edge/Align elevation/Place opening/Draw run suppressed. `currentPageIsSourceSheet` derived gate.
+- Sidebar: source sheet shows "(full sheet)" chip; region-pages appear as "Region K of p.N" entries; uncategorized regions land in Unused Pages.
+- `goToRegionPage(pageId)` navigation helper. `advanceToNextUncategorized` and `enterCategorizeReentry` reworked to skip source sheets and navigate by pageId.
+- `__dumpRegions()` DEV helper: partition check, unique-ID summary.
+- Snapshot/restore round-trips pageCrops (via existing `pageCropsRef.current` capture at line 4789).
+- Verified: 44/44 fixture checks pass; region canvas resizes to crop dims; sidebar correct; snapshot round-trip confirmed.
+
 ---
 
 ### 6. CAD-export datum (named reference point)

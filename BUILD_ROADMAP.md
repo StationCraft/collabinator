@@ -472,11 +472,14 @@ is correctly fenced and should NOT be pulled forward.
 
 ---
 
-## ⏸ PLATEAU WAYPOINTS — post-#5 / pre-#29
+## ⏸ PLATEAU WAYPOINTS — post-#5 / pre-#29  ← TRIGGERED 2026-06-29 (commit 8d6e57d)
 
 **Trigger:** After #5 (region-pages) fully lands — Fork B/C/D done, crop-carving UI working,
 region-pages verified — and BEFORE #29 (derived elevations) begins. Two scheduled waypoints,
 in sequence.
+
+**STATUS: Trigger condition met.** #5 is fully done (Forks A–D + crop-carving UI, 44/44 verified).
+Run (a) then (b) before starting #29. Start (a) with an Opus planning discussion.
 
 ### (a) SIMPLIFICATION PASS — coordinate-layer extraction
 

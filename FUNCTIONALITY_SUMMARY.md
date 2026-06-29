@@ -109,6 +109,16 @@ For each page:
 - The rest of the original page still exists and is not deleted/cropped — the working
   area is just the default viewport.
 
+**Crop-carving UI — AS BUILT (commit 8d6e57d, Session 61):**
+The "Duplicate this page" concept was replaced by a crop-carving gesture. "Add region" toolbar button
+enters carve mode; user drags a rectangle ≥20×20px on the PDF sheet; mouseup spawns an independent
+logical page-region with its own `pageId` (`page-N-rK`), own crop `{x,y,w,h}`, own category/subLabel,
+own scale, and own position in the reference tree. Source sheets with regions become carve-surface-only
+(Draw/Edit/Scale/Categorize suppressed; shown as "(full sheet)" in sidebar). Region-pages appear as
+"Region K of p.N" in the sidebar (Unused Pages section until categorized). Each region-page's canvas
+is sized to its crop and its (0,0) origin is the crop's top-left — stored geometry is crop-local by
+construction (recalibration-independence #22 honored). Snapshot/restore round-trips all carved regions.
+
 **High-res toggle:**
 - Temporary, not persistent. Used specifically when setting scale, to make small
   dimension text legible. Reverts to normal (fast/nimble) resolution otherwise.

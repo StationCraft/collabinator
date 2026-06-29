@@ -10,6 +10,70 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 61 — Page-region model (#5): crop-carving UI — DONE (2026-06-29)
+
+**Branch:** main | **Commit:** 8d6e57d
+
+### What was built
+
+**Crop-carving UI — the user-facing half of #5 (all four infrastructure forks A–D were done in prior sessions).**
+
+Design confirmed with Ben before code (prose design proposal approved with one fork-2 mod: source sheets
+get a "(full sheet)" chip AND become carve-surface-only once they have regions, preserving the no-overlap invariant).
+
+**Core mechanics:**
+- `carveMode` state + `carveDragRef.current = {x1,y1,x2,y2}` live drag + `carveTick` for repaint.
+- mouseup commits: if drag ≥20×20px → `regionCounterRef.current[pageNum]++`, new `page-N-rK` pageId,
+  `pageCropsRef.current[newPageId] = crop`, `setPages(prev => [...prev, { pageId, pageNum, crop, ... }])`,
+  then `renderPage(pdf, currentPage, { forPageId: newPageId })` to navigate immediately.
+- Carve mode stays active after each commit (allows multiple regions per session entry).
+- Amber dashed rect overlay drawn from `carveDragRef.current`; `carveTick` in passive-repaint deps drives it.
+
+**Suppression (`currentPageIsSourceSheet`):**
+- `sheetsWithRegions`: derived Set of root pageIds that own ≥1 region-page.
+- All mode-specific toolbar buttons gated with `!currentPageIsSourceSheet` (Draw, Edit, Scale) or
+  `!carveMode` (Set North, elevation buttons, grade line, Draw run). `drawDisabledHint` source-sheet message
+  takes priority. Categorize panel shows inline suppression message.
+
+**Navigation:** `goToRegionPage(pageId)` → finds `pageEntry.pageNum` → `renderPage(pdf, pageNum, {forPageId})`.
+`advanceToNextUncategorized` iterates `pages[]`, computes `srcSheets` fresh from passed `pagesList`, skips
+source sheets, calls `goToRegionPage`.
+
+**Sidebar:** source sheet shows "(full sheet)" chip; regions appear as "Region K of p.N" in Unused Pages.
+Active check and click both keyed by `pageId`.
+
+**DEV:** `__dumpRegions()` — groups regions by source sheet, partition check, unique-ID summary.
+
+**CSS:** `.carve-btn`, `.carve-exit-btn`, `.sidebar-full-sheet-chip`.
+
+### Verification
+
+- 44/44 `__verifyFixture()` on clean restore ✓
+- Two carved regions: correct crops, sidebar entries, canvas resized to crop dims ✓
+- Carve mode: all non-carve buttons hidden ✓
+- Snapshot/restore round-trip: `pageCrops` survives ✓
+- `__dumpRegions()` partition: `all IDs unique: true` ✓
+
+**Interactive verify Ben still needs (in his dev-server tab):**
+- Carve two regions on one real sheet; categorize each independently
+- Place a shape in a region; verify world coordinate via `__dumpWorld()`
+- Run `__verifyFixture` → 44/44
+
+### Gate-expiry sweep — ⏸ PLATEAU WAYPOINTS now triggered
+
+#5 is fully done. The two plateau waypoints in BUILD_ROADMAP.md §⏸ are now unblocked:
+(a) SIMPLIFICATION PASS — coordinate-layer extraction (plan with Opus first; hard gate was #5 done).
+(b) ROADMAP RECONCILIATION — gate-rephrasing + deferred-register sweep.
+Both fire before #29 (derived elevations). Next session should begin with plateau planning.
+
+### Forward
+
+1. **⏸ Plateau waypoints (a) then (b)** — before any feature work.
+2. **#29 (derived elevations)** after plateau.
+3. F280 track still paused (geometry review applies at plateau).
+
+---
+
 ## SESSION 60 — Page-region model (#5): Fork D categorization rekey (2026-06-29)
 
 **Branch:** main | **Commit:** 579bbf1

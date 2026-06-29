@@ -824,17 +824,25 @@ A React + Vite app with:
     10/10 + screenshot of offset+clip.
   * **Fork C resolved** (dissolved with Fork A). **Fork D — DONE (commit 579bbf1, Session 60)** —
     categorization handlers rekeyed from `pageNum` to `pageId` (see Fork D notes below).
-    **Next: crop-carving UI** (the user-facing half of #5).
+  * **Crop-carving UI — DONE (commit 8d6e57d, Session 61):** User-facing half of #5. "Add region"
+    toolbar button enters carve mode; amber dashed overlay during drag; mouseup commits rectangle
+    ≥20×20px as new region-page (`page-N-rK`) with own pageId/crop/category/reference-tree slot.
+    Source sheets with regions become carve-surface-only (`currentPageIsSourceSheet` gate suppresses
+    Draw/Edit/Set Scale/Categorize and all mode-specific buttons). Sidebar: "(full sheet)" chip on
+    source sheet; "Region K of p.N" entries in Unused Pages until categorized.
+    `goToRegionPage(pageId)` helper; `advanceToNextUncategorized` reworked to skip source sheets.
+    `__dumpRegions()` DEV helper (partition check + unique-ID summary). Snapshot/restore confirmed.
+    Verified: 44/44; canvas resizes to crop dims; sidebar correct; partition check passes.
 
 **Not yet built (next increments):**
-- **Next: geometry back-to-basics review** — planning session, no code. Gating all F280 extension.
+- **Next: ⏸ PLATEAU WAYPOINTS — now triggered** (#5 fully done). Fire in sequence BEFORE #29:
+  (a) SIMPLIFICATION PASS — coordinate-layer extraction from App.jsx (plan with Opus first);
+  (b) ROADMAP RECONCILIATION — gate-rephrasing + deferred-register sweep. See BUILD_ROADMAP.md §⏸.
+- **After plateau: #29 (derived elevations)** — derives elevation view from floor-plan edge +
+  accumulateZ, shown for confirm rather than freehand-traced; gated on #5 being done.
 - **Page-region #5 Fork D — DONE (commit 579bbf1, Session 60):** `recatPageNum` → `recatPageId`
-  (state); all confirm/skip/startRecategorize/currentPageEntry/useEffect-draft sites rekeyed from
-  `p.pageNum === currentPage` to `p.pageId === currentPageId`. `advanceToNextUncategorized` left on
-  pageNum (PDF nav). Behavior-preserving today (one region per sheet); multi-crop payoff lands with
-  the crop-carving UI. Ben to browser-verify + `__verifyFixture` 44/44.
-- **Next: crop-carving UI (#5)** — drag a crop box on the sheet → region-page entry spawned with
-  own pageId, crop, category+subLabel, scale, reference-tree position.
+  (state); all confirm/skip handlers rekeyed from `p.pageNum === currentPage` to `p.pageId === currentPageId`.
+  `advanceToNextUncategorized` left on pageNum (PDF nav). Multi-crop payoff landed with crop-carving UI.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
 - Windows/doors Piece 4 (dumb duplicate) — off critical path
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**
