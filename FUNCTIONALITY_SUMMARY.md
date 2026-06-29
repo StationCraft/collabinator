@@ -596,17 +596,23 @@ __dumpEnumeration run; NOT auto-generated at test time. Updated when the scenari
 re-anchoring from a fresh dump.
 
 `window.__verifyFixture()` (async DEV fn, after __dumpEnumeration in the DEV block): fetches sidecar,
-calls deriveEnumeration(), runs checks (a)-(m.cl.*) + partition invariant for all wall surfaces,
-closure stub SKIPPED (#87 gated). checkEq helper added Session 49 for strict string/null equality.
+calls deriveEnumeration(), runs checks (a)-(m.cl.*) + (s)/(s.area) + partition invariant for all wall
+surfaces, closure stub SKIPPED (#87 gated). checkEq helper added Session 49 for strict string/null equality.
 Checks: (j) effectiveUValue + (k) thicknessM (assembly-attach, Session 43); (l) insideFaceAreaM2
 (Session 46); (m)–(m.cl.*) thermal fields via library-tier surface (Session 49) — includes
-null controlLayers.thermal as a deliberate null-preservation check. Invoke after
-`await window.__restoreFixture(obj)` with fixture-elevation.json. Currently **24/24 PASS**.
+null controlLayers.thermal as a deliberate null-preservation check; (s)/(s.area) flat-roof-surface
+footprint area (Session 55). Invoke after `await window.__restoreFixture(obj)` with fixture-elevation.json.
+Currently **44/44 PASS**.
 
 **Wall-surface elements** (in `deriveEnumeration` STEP A output) carry:
 - `effectiveUValue`, `thicknessM`, `assemblySource` (since Session 43)
 - `insideFaceAreaM2` (since Session 46)
 - `effectiveRSI`, `controlLayers` (since Session 49 — library tier only; null for manual/unset)
+
+**Flat-roof-surface elements** (in `deriveEnumeration` STEP A.5 output, Session 55):
+- One element per confirmed roof-plan page, summing all `roofType:'flat'` locked polygons.
+- Fields: `id` (`flat-roof-page-N`), `kind:'flat-roof-surface'`, `grossAreaM2`/`netAreaM2`/`openingAreaM2` (= gross/0), `insideFaceAreaM2` (= gross; horizontal ceiling, no thickness offset today), `roofCeilingZm` (top of wall-stack ceiling Z), full assembly seam (`effectiveUValue`, `effectiveRSI`, `controlLayers`, `thicknessM`, `assemblySource`).
+- Sloped/pitched surfaces deferred (#18). Visible in Envelope panel under "Flat Roof Surface".
 
 **#28 gate:** the harness existing removed one stated blocker of #28, but #28 (plan reader) remains
 gated on the post-3D-model deep-review waypoint.

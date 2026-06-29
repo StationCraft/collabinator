@@ -10,6 +10,42 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 55 — Flat-roof-surface element in deriveEnumeration (F280 conductive prep) (2026-06-28)
+
+**Branch:** main | **Commit:** dccce9e — pushed to origin.
+
+### What was built
+
+**Flat-roof ceiling surface as a named element in `deriveEnumeration()` STEP A.5:**
+
+- New STEP A.5 inserted between STEP A (wall surfaces) and STEP C (soffits) in `deriveEnumeration()`.
+- Iterates all confirmed roof-plan pages; for each, collects locked non-shapeKind shapes with `roofType === 'flat'`, projects their vertices to world meters via `pageVertexToWorld`, computes shoelace area, sums all flat sections into a single `flat-roof-surface` element per page.
+- Element fields: `id` (`flat-roof-page-N`), `kind:'flat-roof-surface'`, `pageId`, `grossAreaM2`, `netAreaM2` (= gross; no openings today), `openingAreaM2: 0`, `insideFaceAreaM2` (= gross; horizontal ceiling, interior = exterior, no offset), `roofCeilingZm` (ceiling Z of highest floor from `accumulateZ` topRow), and the full assembly seam fields (`effectiveUValue`, `effectiveRSI`, `controlLayers`, `thicknessM`, `assemblySource`) from `getSurfaceAssembly`.
+- Sloped/pitched roof Z-derivation deferred (#18); only `roofType:'flat'` shapes included.
+- If multiple flat polygons exist on a roof page, their areas are summed → one element per page.
+
+**Harness extension — check (s)/(s.area):**
+- `__dumpEnumeration` extended with `flat-roof-surface` branch: prints footprint area, roofCeilingZ, assembly U/thickness.
+- `__verifyFixture` extended with checks `(s) flatRoofSurface exists` and `(s.area) flatRoofSurface.grossAreaM2`.
+- `fixture-elevation.expected.json` re-frozen with `flatRoofSurface: { id:'flat-roof-page-7', grossAreaM2:22.9471 }`.
+- **44/44 PASS in browser** on fixture-elevation.json.
+- Negative control: corrupting `grossAreaM2` in sidecar → exactly `(s.area)` fails.
+
+**Envelope panel:**
+- `flat-roof-surface` added to `KIND_ORDER` and `KIND_LABELS` between wall-surfaces and soffits.
+- Panel row shows: footprint area (m²), ceilingZ, assembly status (manual U/thickness or "(no assembly — unset)").
+
+### Forward
+
+F280 above-grade conductive endpoint is the next slice — it is the visible payoff. All gates are now lifted:
+- `toh` → `resolveEffectiveConfig().toh` (e7a52bf)
+- Wall surfaces → `netAreaM2` + `effectiveRSI` in `deriveEnumeration()` STEP A
+- Openings → `widthM × heightM` + `getRsiW(uw)` in STEP D
+- Flat-roof ceiling → `insideFaceAreaM2` + assembly seam (this session)
+- Scope fork (above-grade conductive only vs full 13-surface loop) is Ben's call before build starts.
+
+---
+
 ## SESSION 54 — F280 Climate slice: location/Toh prerequisite data layer (2026-06-28)
 
 **Branch:** main | **Commit:** e7a52bf — pushed to origin.

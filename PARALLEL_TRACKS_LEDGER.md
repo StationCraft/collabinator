@@ -35,6 +35,7 @@ file concurrently and eliminates merge conflicts between the two repos.
 | Slice 3 | 3D wall-panel render (`totalThicknessM` → solid panels in ThreeDView; assemblyType-driven growth direction); `insideFaceAreaM2` derived in STEP A; TDZ fix | `8f1dd30` | 2026-06-28 |
 | Slice 4 | Thermal-field ingest: `effectiveUValue`, `effectiveRSI`, `controlLayers` stored in `assemblyLibraryRef`; `getSurfaceAssembly` returns all three; `deriveEnumeration` STEP A pushes them onto wall-surface elements; null preservation verified; harness 17/17 → 24/24 PASS | (this session) | 2026-06-28 |
 | Slice 5 | F280 climate layer: `src/data/f280-weather.json` (679 stations national); `location-station` + `toh-override` CONFIG_FIELDS; `resolve-toh` cross-field rule in `resolveEffectiveConfig`; `kind:'number'` panel render branch; `__verifyToh()` 6/6 PASS | `e7a52bf` | 2026-06-28 |
+| Slice 6 | Flat-roof ceiling surface in `deriveEnumeration()` STEP A.5: shoelace area of `roofType:'flat'` polygons in world meters, one `flat-roof-surface` element per confirmed roof page; `insideFaceAreaM2`, `roofCeilingZm`, full assembly seam. Harness check (s)/(s.area) added; 44/44 PASS. | `dccce9e` | 2026-06-28 |
 
 **Deferred / logged:**
 - #96 — wall corner reconciliation (solid interpenetration + inside-face area overcount; overcount accepted for initial F280 pass)

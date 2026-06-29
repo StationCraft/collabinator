@@ -412,9 +412,19 @@ is arranged so most beats are things Ben can see.
       getRsiW derived correctly from real value and null, door shgc === 0).
     Fallback path for no-rated-data projects: #103 (window-builder selector, deferred).
 
+[x] FLAT-ROOF SURFACE ELEMENT — Slice 6 in deriveEnumeration  [DONE — Session 55; commit dccce9e]
+    STEP A.5 inserted between wall surfaces (STEP A) and soffits (STEP C).
+    Iterates confirmed roof-plan pages; shoelace area of roofType:'flat' locked polygons in world
+    meters; one flat-roof-surface element per page carrying grossAreaM2, insideFaceAreaM2,
+    roofCeilingZm, and full getSurfaceAssembly seam fields.
+    __dumpEnumeration extended; __verifyFixture check (s)/(s.area) added; sidecar re-frozen
+    (flat-roof-page-7 area=22.9471 m²). Envelope panel row added. 44/44 PASS.
+
 [ ] F280 ENDPOINT — first heat-loss calculation  [ALL GATES LIFTED]
-    Consumes insideFaceAreaM2 + effectiveUValue from wall-surface elements; uw/shgc from openings.
-    Toh now available via resolveEffectiveConfig().toh (location-station + toh-override, e7a52bf).
+    Consumes netAreaM2 + effectiveRSI from wall-surface elements; widthM/heightM + getRsiW(uw) from
+    openings; insideFaceAreaM2 from flat-roof-surface (this session).
+    Toh via resolveEffectiveConfig().toh (e7a52bf). This is the VISIBLE payoff — do not add another
+    invisible data slice first.
     Remaining pre-build fork: ENDPOINT SCOPE — above-grade conductive slice only (walls + openings,
       Cl. 5.2.1 heating heat-loss) vs full 13-surface loop. Ben's call before build starts.
     F280 compliance spec: CollabinatorF280 @ d94c18a — scope, heating + cooling formulas,
