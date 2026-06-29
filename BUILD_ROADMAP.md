@@ -399,11 +399,19 @@ is arranged so most beats are things Ben can see.
     {water:'l5', air:'l4', thermal:null, vapour:'l2'}. 7 new checks (m)–(m.cl.*).
     17/17 → 24/24 PASS. Framing block + airFilms silently ignored (tool-side, not ingested).
 
-[ ] F280 ENDPOINT — first heat-loss calculation  [GATED on opening U-value fork — #99]
+[ ] F280 ENDPOINT — first heat-loss calculation  [GATE LIFTED — #99 resolved 2026-06-28]
     Consumes insideFaceAreaM2 + effectiveUValue from wall-surface elements.
-    Opening U-value source undecided: effectiveUValue is bare-assembly (no openings).
-    Options: per-opening thermal property / project default / opening assembly record.
-    Do not build until #99 is resolved.
+    Opening thermal-data model RESOLVED (see ADDITIONAL_FUNCTIONALITY #99):
+      - U-value: per-opening user field, imperial or metric entry
+      - SHGC: per-opening user field (cooling solar term only)
+      - RSI_W: engine-internal derived value (= 1 / U_SI); never shown to user
+    F280 compliance spec now exists — gates endpoint build:
+      Repo: https://github.com/StationCraft/CollabinatorF280.git (private, branch master)
+      File: F280_COMPLIANCE_SPEC.md @ commit d94c18a (694 lines)
+      Content: scope, heating + cooling calc formulas, 13-surface required-data-field
+      inventory, opening RSI_W/SHGC contract, gap-analysis checklist.
+    Fallback path for no-rated-data projects: #103 (window-builder selector, deferred).
+    READY TO SEQUENCE when capacity allows.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,

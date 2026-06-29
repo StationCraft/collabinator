@@ -1541,9 +1541,9 @@ to carry the LISTS sheet or re-implement the lookup.
 
 ---
 
-### 99. Opening (window/door) U-value source for F280 — fork, pending Ben
+### 99. Opening (window/door) U-value source for F280 — RESOLVED (F280 side-quest, 2026-06-28)
 
-**Category:** Thermal derivation / F280 endpoint. **Logged:** Session 49 (thermal-field ingest slice close-out).
+**Category:** Thermal derivation / F280 endpoint. **Logged:** Session 49 (thermal-field ingest slice close-out). **Resolved:** F280 side-quest (2026-06-28).
 
 **Description:**
 
@@ -1552,30 +1552,27 @@ result, air films included, openings excluded (per `ASSEMBLY_CONTRACT.md`). The 
 for an uninterrupted wall area. For F280 heat-loss, a wall surface carrying one or more openings
 needs an effective U for the opening area that is DISTINCT from the wall assembly U.
 
-Three candidate sources for the opening U-value:
+**RESOLVED — Opening thermal-data model:**
 
-1. **Per-opening thermal property** — each window/door carries its own Uw/Ud value (sourced
-   from the WEW Bridge schedule, a manual entry, or the opening assembly record). Most
-   building-science correct; most data-entry work.
-2. **Project-default opening U** — one project-level U for all windows, one for all doors.
-   Pragmatic approximation; appropriate for early-design heat-loss estimates.
-3. **Opening assembly record** — open a parallel assembly-library path for windows/doors,
-   each carrying its own effectiveUValue. Consistent with the wall assembly model; requires
-   Track B work to build an opening-type assembly library.
+F280 requires two values per opening: a conductive value (for heating loss Cl. 5.2.1 and the
+conductive cooling term Cl. 6.2.2) and a solar value (for the cooling solar term Cl. 6.2.2 only).
 
-**Why this matters for F280:**
+- **U-value** is the user-facing conductive field. Enterable in imperial (BTU/h·ft²·°F) or
+  metric (W/m²·°C) per the user's unit preference. This mirrors how wall assemblies surface
+  `effectiveUValue` to the user.
+- **SHGC** (solar heat gain coefficient, dimensionless) is a first-class user-facing field on
+  every opening. Required by F280's cooling calc; has no wall-assembly analogue.
+- **RSI_W** (m²·°C/W) is **ENGINE-INTERNAL ONLY** — derived from the user-entered U-value
+  (`RSI_W = 1 / U_SI`) for use in the F280 formula. Never shown to the user. This mirrors the
+  `getConfigValue` (raw user intent) vs `resolveEffectiveConfig` (engine-resolved) split already
+  present in the config layer.
 
-`insideFaceAreaM2` and `effectiveUValue` (wall assembly) are ready. F280 needs:
-- Wall net area × wall U = opaque heat-loss component ← READY
-- Opening area × opening U = glazing/door heat-loss component ← BLOCKED on this fork
+Both U-value and SHGC are per-opening fields (option 1 from the original candidates). The
+preferred source is manufacturer-rated test data (CAN/CSA-A440 / A440.2 / CGSB 82.1), arriving
+via the WEW Bridge schedule (#46) or manual entry. The F280 Tables 6E–6H default lookup (six
+physical descriptors → U-value + SHGC) is a retrofit/no-data fallback — see #103.
 
-**Why deferred / why Ben decides:**
-
-This is a building-science framing decision, not an engineering-implementation decision. Each
-option has different accuracy vs. complexity tradeoffs appropriate for different project phases.
-The choice also determines what data Track B needs to supply (if any). Do not pick one without Ben's input.
-
-**Status:** **OPEN — awaiting Ben's decision.** F280 endpoint build is gated on this choice.
+**Status:** **RESOLVED.** Gate on F280 endpoint lifted. See BUILD_ROADMAP.md F280 ENDPOINT block.
 
 ---
 
@@ -1647,3 +1644,44 @@ broader #28 review threshold has not been reached.
 
 **Status:** Logged as a KNOWN ASSET. Do not build now; gated on #28. When #28 unblocks, start
 #46 Stage One from Ben's existing tool as the adaptation baseline.
+
+---
+
+### 103. Window-builder selector (retrofit / no-rated-data path)
+
+**Category:** Opening thermal data / F280 fallback. **Logged:** F280 side-quest (2026-06-28).
+
+**Description:**
+
+A selector over the six F280 Table 6E–6H physical descriptors — glazing layers, frame material,
+operability, spacer type, coating, gas fill/gap — that derives U-value + SHGC from the F280
+default tables when no manufacturer-rated values exist.
+
+The six descriptors required to key the tables:
+1. Glazing layers: single / double / triple / TG-2
+2. Frame material: Aluminum / Wood or Vinyl
+3. Operability: Fixed / Operable
+4. Spacer type: Metal / Insulating (double/triple only; N/A for single/TG-2)
+5. Glazing coating: Clear / Low-E (double/triple only; TG-2 is Low-E by definition)
+6. Gap gas and size: 6mm Air / 6mm Argon / 9mm Krypton / 13mm Air / 13mm Argon (double/triple);
+   storm window Yes/No (single only)
+
+**Relationship to the resolved #99 model:**
+
+The resolved opening thermal-data model (see #99) designates manufacturer-rated data as the
+preferred source and RSI_W as engine-internal. This selector implements the **generic tier
+fallback**: when no manufacturer-rated U-value + SHGC are available, the user provides the six
+physical descriptors and the selector resolves the F280 table values. Consistent with the
+principle "supplier integration is optional refinement over a fully valid generic tier" — the
+6E–6H lookup IS the generic tier for openings; manufacturer-rated data is the refinement,
+normally arriving via the window-schedule import path (#46 / WEW).
+
+**Source material:** Default table values are in `F280_COMPLIANCE_SPEC.md` / `F280_OCR_RAW.md`
+(Tables 6E–6H), held in the external CollabinatorF280 repo:
+https://github.com/StationCraft/CollabinatorF280.git (private, branch `master`).
+
+**Build only if retrofit applications require it.** Not needed for the initial F280 endpoint
+build — the endpoint can accept a manually-entered U-value + SHGC directly (same fields, different
+source). The selector is a convenience path for projects where window specs are unknown.
+
+**Status:** Deferred. Log only — do not build until retrofit scope is confirmed.
