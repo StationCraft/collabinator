@@ -36,6 +36,7 @@ file concurrently and eliminates merge conflicts between the two repos.
 | Slice 4 | Thermal-field ingest: `effectiveUValue`, `effectiveRSI`, `controlLayers` stored in `assemblyLibraryRef`; `getSurfaceAssembly` returns all three; `deriveEnumeration` STEP A pushes them onto wall-surface elements; null preservation verified; harness 17/17 → 24/24 PASS | (this session) | 2026-06-28 |
 | Slice 5 | F280 climate layer: `src/data/f280-weather.json` (679 stations national); `location-station` + `toh-override` CONFIG_FIELDS; `resolve-toh` cross-field rule in `resolveEffectiveConfig`; `kind:'number'` panel render branch; `__verifyToh()` 6/6 PASS | `e7a52bf` | 2026-06-28 |
 | Slice 6 | Flat-roof ceiling surface in `deriveEnumeration()` STEP A.5: shoelace area of `roofType:'flat'` polygons in world meters, one `flat-roof-surface` element per confirmed roof page; `insideFaceAreaM2`, `roofCeilingZm`, full assembly seam. Harness check (s)/(s.area) added; 44/44 PASS. | `dccce9e` | 2026-06-28 |
+| Slice 7 | F280 above-grade conductive endpoint: `deriveF280Heating(enumeration, resolvedConfig)` — pure derive-on-demand; `F280_TI_HEATING=22`; four surface kinds (wall/flat-roof/window/door); no-climate guard; `notModeled[]` explicit incompleteness list; extensible spine. F280 Results sidebar tab + panel. `__dumpF280()` DEV hook. NOT golden-gated. Strategic pivot: "nearly-compliant sooner." Building paused for geometry review. | (Session 56) | 2026-06-29 |
 
 **Deferred / logged:**
 - #96 — wall corner reconciliation (solid interpenetration + inside-face area overcount; overcount accepted for initial F280 pass)
@@ -45,7 +46,9 @@ file concurrently and eliminates merge conflicts between the two repos.
 - #105 — climate-change resiliency mode (extreme-Toh toggle alongside compliant result; gated on F280 endpoint + this Toh layer — both now present)
 
 **Next (Track A):**
-- F280 above-grade conductive endpoint: `HLage = A / RSI × DTDh` per surface, summed to `HLb`. Consumes `resolveEffectiveConfig().toh` (now live) + `deriveEnumeration()` wall surfaces (`netAreaM2`, `effectiveRSI`) + openings (`widthM × heightM`, `getRsiW(uw)`). Scope fork (walls+openings only vs full 13-surface loop) Ben's call before build.
+- Geometry back-to-basics review (planning session, no code) — gating all further F280 builds.
+- After review: #106 assembly-inheritance fix (Project Setup → getSurfaceAssembly miss path); #107 flat-roof UI gap; #108 window/door uw post-placement edit; below-grade + slab geometry; ground-coupled loss (separate engine); solar gain.
+- Ground-coupled F280 note: `BasementHLR.xls` / `SlabOnGradeHLR.xls` are standalone supplemental calculators (separate from above-grade). Base-level interim = U·A·ΔT vs a ground temperature once below-grade geometry is modeled; full workbook method is the compliance pass.
 
 ---
 

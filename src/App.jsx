@@ -368,12 +368,83 @@ function resolveEffectiveConfig(rawValues) {
 // uw is in W/m²·K (metric); RSI_W = 1/uw in m²·°C/W.
 function getRsiW(uw) { return uw != null && uw > 0 ? 1 / uw : null }
 
+// F280 indoor heating design temperature (°C). Hardcoded pending a project config field.
+// TODO: add 'ti-heating' to CONFIG_FIELDS (Category: Climate) so users can override per project.
+const F280_TI_HEATING = 22
+
+// deriveF280Heating — pure, derive-on-demand, stores nothing.
+// Computes above-grade conductive heat loss (U·A·ΔT) by surface kind.
+// Extensible spine: below-grade, slab, solar gain are additive result rows in future builds.
+function deriveF280Heating(enumeration, resolvedConfig) {
+  const tohC = resolvedConfig.toh ?? null
+  if (tohC === null) return { status: 'no-climate', total: null }
+
+  const tiC = F280_TI_HEATING
+  const deltaT = tiC - tohC
+
+  const bySurfaceKind = {
+    'wall-surface':      { areaM2: 0, uaSum: 0, lossW: 0, count: 0, unresolvedCount: 0 },
+    'flat-roof-surface': { areaM2: 0, uaSum: 0, lossW: 0, count: 0, unresolvedCount: 0 },
+    'window':            { areaM2: 0, uaSum: 0, lossW: 0, count: 0, unresolvedCount: 0 },
+    'door':              { areaM2: 0, uaSum: 0, lossW: 0, count: 0, unresolvedCount: 0 },
+  }
+
+  for (const el of enumeration) {
+    const bucket = bySurfaceKind[el.kind]
+    if (!bucket) continue  // soffit — not yet modeled; listed in notModeled below
+
+    let area = null
+    let u = null
+
+    if (el.kind === 'wall-surface') {
+      area = el.netAreaM2
+      u = el.effectiveUValue
+    } else if (el.kind === 'flat-roof-surface') {
+      area = el.insideFaceAreaM2
+      u = el.effectiveUValue
+    } else if (el.kind === 'window' || el.kind === 'door') {
+      area = el.widthM != null && el.heightM != null ? el.widthM * el.heightM : null
+      u = el.uw
+    }
+
+    if (area == null) continue
+    bucket.count++
+    bucket.areaM2 += area
+
+    if (u == null) {
+      bucket.unresolvedCount++
+      // Surface contributes area but NOT loss — partial coverage surfaced via unresolvedCount.
+      continue
+    }
+    bucket.uaSum += u * area
+    bucket.lossW += u * area * deltaT
+  }
+
+  for (const b of Object.values(bySurfaceKind)) {
+    b.uAvg = b.areaM2 > 0 ? b.uaSum / b.areaM2 : null
+  }
+
+  const conductiveAboveGradeW = Object.values(bySurfaceKind).reduce((s, b) => s + b.lossW, 0)
+
+  return {
+    status: 'ok',
+    tiC,
+    tohC,
+    deltaT,
+    bySurfaceKind,
+    conductiveAboveGradeW,
+    total: conductiveAboveGradeW,  // == conductiveAboveGradeW this build; extended by future rows
+    notModeled: ['below-grade-wall', 'slab-on-grade', 'floor-over-unheated', 'solar-gain'],
+  }
+}
+
 const SIDEBAR_TABS = [
   { id: 'project-setup', label: 'Project Setup' },
   { id: 'worklist',      label: 'Worklist' },
   { id: 'openings',      label: 'Openings' },
   { id: 'floor-heights', label: 'Floor Heights' },
   { id: 'envelope',      label: 'Envelope' },
+  { id: 'f280',          label: 'F280' },
 ]
 
 function App() {
@@ -471,6 +542,7 @@ function App() {
   const showWorklist     = showSidebar && activeTabId === 'worklist'
   const showEnumeration  = showSidebar && activeTabId === 'envelope'
   const showOpenings     = showSidebar && activeTabId === 'openings'
+  const showF280         = showSidebar && activeTabId === 'f280'
   // Legacy setters: all call sites pass false → close the sidebar
   const setShowProjectSetup = () => setShowSidebar(false)
   const setShowFloorHeights = () => setShowSidebar(false)
@@ -5671,6 +5743,25 @@ function App() {
       if (fail === 0) console.log(`[toh] ✓ ALL ${total} checks PASSED`)
       else console.warn(`[toh] ${fail}/${total} checks FAILED`)
     }
+
+    // __dumpF280(): print deriveF280Heating result to console. DEV-only; tree-shaken from prod.
+    window.__dumpF280 = () => {
+      const enumeration = deriveEnumeration()
+      const resolved = resolveEffectiveConfig(projectSetupRef.current.values)
+      const result = deriveF280Heating(enumeration, resolved)
+      if (result.status === 'no-climate') {
+        console.warn('[f280] no-climate — set location-station or toh-override in Project Setup')
+        return
+      }
+      console.log(`[f280] ΔT = ${result.tiC}°C (Ti) − ${result.tohC}°C (Toh) = ${result.deltaT}°C`)
+      for (const [kind, b] of Object.entries(result.bySurfaceKind)) {
+        if (b.count === 0) { console.log(`[f280]   ${kind}: (none)`); continue }
+        const unres = b.unresolvedCount > 0 ? ` [${b.unresolvedCount} unresolved U]` : ''
+        console.log(`[f280]   ${kind}: ${b.count} surfaces, area=${b.areaM2.toFixed(2)} m², U_avg=${b.uAvg != null ? b.uAvg.toFixed(3) : '—'} W/m²K, loss=${b.lossW.toFixed(1)} W${unres}`)
+      }
+      console.log(`[f280] Above-grade conductive total: ${result.conductiveAboveGradeW.toFixed(1)} W (${(result.conductiveAboveGradeW / 1000).toFixed(2)} kW)`)
+      console.log(`[f280] Not modeled: ${result.notModeled.join(', ')}`)
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -7275,6 +7366,99 @@ function App() {
             </div>
           )
         })()}
+
+              {showF280 && pdf && (() => {
+                void enumerationTick
+                void projectSetupTick
+                const enumeration = deriveEnumeration()
+                const resolved = resolveEffectiveConfig(projectSetupRef.current.values)
+                const result = deriveF280Heating(enumeration, resolved)
+                const KIND_LABELS = {
+                  'wall-surface': 'Walls',
+                  'flat-roof-surface': 'Flat Roof',
+                  'window': 'Windows',
+                  'door': 'Doors',
+                }
+                const fmtW = v => v != null ? v.toFixed(0) + ' W' : '—'
+                const fmtU = v => v != null ? v.toFixed(3) : '—'
+                const fmtM2 = v => v != null ? v.toFixed(2) + ' m²' : '—'
+                return (
+                  <div className="fh-panel">
+                    <div className="fh-panel-head">
+                      <span className="fh-panel-title">F280 Heat Loss</span>
+                    </div>
+
+                    {result.status === 'no-climate' ? (
+                      <div className="fh-zone">
+                        <div className="enum-empty">Set location in Project Setup → Climate to compute heat loss</div>
+                      </div>
+                    ) : (<>
+                      <div className="fh-zone">
+                        <div className="fh-zone-label">Design Conditions</div>
+                        <div className="fh-row">
+                          <span className="fh-label">Ti (indoor)</span>
+                          <span className="fh-val">{result.tiC} °C</span>
+                        </div>
+                        <div className="fh-row">
+                          <span className="fh-label">Toh (outdoor)</span>
+                          <span className="fh-val">{result.tohC} °C</span>
+                        </div>
+                        <div className="fh-row">
+                          <span className="fh-label">ΔT</span>
+                          <span className="fh-val">{result.deltaT} °C</span>
+                        </div>
+                      </div>
+
+                      <div className="fh-zone">
+                        <div className="fh-zone-label">Above-Grade Conductive Surfaces</div>
+                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.78rem' }}>
+                          <thead>
+                            <tr style={{ opacity: 0.6 }}>
+                              <th style={{ textAlign:'left', paddingBottom:4 }}>Kind</th>
+                              <th style={{ textAlign:'right', paddingBottom:4 }}>Area</th>
+                              <th style={{ textAlign:'right', paddingBottom:4 }}>Ū (W/m²K)</th>
+                              <th style={{ textAlign:'right', paddingBottom:4 }}>Loss</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(result.bySurfaceKind).map(([kind, b]) => (
+                              <tr key={kind} style={{ borderTop:'1px solid rgba(255,255,255,0.08)' }}>
+                                <td style={{ paddingTop:4, paddingBottom:4 }}>
+                                  {KIND_LABELS[kind] ?? kind}
+                                  {b.unresolvedCount > 0 && (
+                                    <span style={{ color:'#f59e0b', marginLeft:4, fontSize:'0.72rem' }}>
+                                      {b.unresolvedCount} no U
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtM2(b.areaM2) : '—'}</td>
+                                <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtU(b.uAvg) : '—'}</td>
+                                <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtW(b.lossW) : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="fh-zone">
+                        <div className="fh-row" style={{ fontWeight: 600 }}>
+                          <span className="fh-label">Above-grade conductive</span>
+                          <span className="fh-val" style={{ color:'#60a5fa' }}>
+                            {(result.conductiveAboveGradeW / 1000).toFixed(2)} kW
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="fh-zone">
+                        <div className="fh-zone-label" style={{ opacity: 0.5 }}>Not yet modeled</div>
+                        {result.notModeled.map(item => (
+                          <div key={item} style={{ fontSize:'0.76rem', opacity:0.4, padding:'2px 0' }}>— {item.replace(/-/g, ' ')}</div>
+                        ))}
+                      </div>
+                    </>)}
+                  </div>
+                )
+              })()}
 
               </div>{/* /side-panel-content */}
             </div>

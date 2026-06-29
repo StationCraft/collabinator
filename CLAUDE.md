@@ -776,10 +776,32 @@ A React + Vite app with:
   * **`window.__verifyToh()`** DEV-block check — 6 assertions (count, Vernon dhdbt, Victoria
     disambiguation, station→toh, override wins, null fallback); all 6 PASS. Tree-shakes from prod.
 
+- **F280 above-grade conductive endpoint (Session 56; DONE):**
+  * **`F280_TI_HEATING = 22`** (module-level const, °C; hardcoded — see #106 for future config field).
+  * **`deriveF280Heating(enumeration, resolvedConfig)`** — pure, derive-on-demand. No-climate guard
+    (returns `{status:'no-climate'}` if `toh===null`). Four surface kinds in `bySurfaceKind` map
+    (`'wall-surface'` / `'flat-roof-surface'` / `'window'` / `'door'`). Surfaces missing U-value:
+    `unresolvedCount++`, area counted, no silent zero. `notModeled[]` list makes partial coverage
+    explicit: `['below-grade-wall','slab-on-grade','floor-over-unheated','solar-gain']`. Extensible
+    spine — adding below-grade/slab/solar = one new bucket + one loop body, no refactor.
+  * **F280 Results sidebar tab** — in consolidated side-panel; design conditions + per-kind table +
+    amber unresolved-U warnings + kW subtotal + greyed not-modeled list. No-climate guard in JSX.
+  * **`window.__dumpF280()`** — DEV console hook; tree-shakes from production.
+  * **NOT golden-gated** (deliberate — "nearly compliant, sooner" target).
+  * **Strategic pivot (Session 56):** Target is "nearly-compliant full heat loss/gain sooner;
+    compliance is a later pass." Building is **PAUSED for a geometry back-to-basics review**.
+    Geometry layer (wireframe / enumeration) is layer one; F280 is downstream. No further thermal
+    builds start until the geometry model is reviewed and confirmed stable.
+  * **Dual-entry UI trap identified:** `CONFIG_FIELDS` `assembly-wall`/`assembly-foundation`/
+    `assembly-roof`/`assembly-floor` in Project Setup are NEVER read by `getSurfaceAssembly`.
+    Envelope panel per-surface U inputs are the ONLY load-bearing path. Fix scoped as #106.
+  * **Near-term thermal arc (all gated on geometry review):** #106 assembly-inheritance fix →
+    #107 flat-roof UI gap → #108 window/door uw post-placement edit → below-grade + slab geometry →
+    ground-coupled loss (separate engine from above-grade, using supplemental `BasementHLR.xls` /
+    `SlabOnGradeHLR.xls` calculators) → solar gain.
+
 **Not yet built (next increments):**
-- **Next critical-path build: F280 above-grade conductive endpoint** — all gates lifted (`toh` live,
-  `effectiveRSI`/`netAreaM2`/`insideFaceAreaM2` on wall surfaces, `uw`/`shgc` on openings). Scope fork
-  (above-grade conductive slice only vs full 13-surface loop) is Ben's call before build starts.
+- **Next: geometry back-to-basics review** — planning session, no code. Gating all F280 extension.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
 - Windows/doors Piece 4 (dumb duplicate) — off critical path
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**

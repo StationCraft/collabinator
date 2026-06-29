@@ -420,16 +420,29 @@ is arranged so most beats are things Ben can see.
     __dumpEnumeration extended; __verifyFixture check (s)/(s.area) added; sidecar re-frozen
     (flat-roof-page-7 area=22.9471 m²). Envelope panel row added. 44/44 PASS.
 
-[ ] F280 ENDPOINT — first heat-loss calculation  [ALL GATES LIFTED]
-    Consumes netAreaM2 + effectiveRSI from wall-surface elements; widthM/heightM + getRsiW(uw) from
-    openings; insideFaceAreaM2 from flat-roof-surface (this session).
-    Toh via resolveEffectiveConfig().toh (e7a52bf). This is the VISIBLE payoff — do not add another
-    invisible data slice first.
-    Remaining pre-build fork: ENDPOINT SCOPE — above-grade conductive slice only (walls + openings,
-      Cl. 5.2.1 heating heat-loss) vs full 13-surface loop. Ben's call before build starts.
-    F280 compliance spec: CollabinatorF280 @ d94c18a — scope, heating + cooling formulas,
-      13-surface inventory, opening RSI_W/SHGC contract, gap-analysis checklist.
-    READY TO BUILD when scope fork is settled.
+[x] F280 ENDPOINT — first heat-loss calculation  [DONE — Session 56]
+    deriveF280Heating(enumeration, resolvedConfig): pure derive-on-demand, not stored.
+    F280_TI_HEATING = 22°C; ΔT = Ti − Toh; four surface kinds (wall / flat-roof / window / door).
+    notModeled[] list makes partial coverage explicit. Extensible spine (below-grade, slab, solar
+    gain are additive rows). No-climate guard returns { status:'no-climate' }. F280 Results tab
+    in consolidated side-panel. __dumpF280() DEV hook.
+    NOT golden-gated (deliberate — "nearly compliant, sooner" target; 9/10 walls show unresolved U
+    on Bates fixture because surfaceAssemblyRef had only 1 entry when snapshot was saved — not a bug).
+    STRATEGIC PIVOT (Session 56): target shifts to "nearly-compliant full heat loss/gain sooner;
+    compliance as a later pass." Building paused for geometry back-to-basics review.
+
+    NEAR-TERM ARC (all gated on geometry review first):
+    [ ] #106 — Assembly-inheritance fix: wire CONFIG_FIELDS assembly-wall/roof/floor/foundation to
+        getSurfaceAssembly miss path; add U-value lookup table; make Project Setup the project-level
+        default, Envelope panel inputs per-surface overrides. Unlocks full wall U-coverage.
+    [ ] #107 — Flat-roof UI gap: add assembly/U input block to Envelope panel for flat-roof-surface
+        rows (App.jsx ~7339–7350). Incidentally handled by #106 default-inherit.
+    [ ] #108 — Window/door uw post-placement edit: add edit dialog to change uw/shgc after placement.
+    [ ] Below-grade + slab geometry: geometry modeled before loss engine built.
+    [ ] Ground-coupled base-level loss: SEPARATE engine (BasementHLR.xls / SlabOnGradeHLR.xls method;
+        soil conductivity, depth below grade, exposed perimeter, design month → single Watts result).
+        Base-level interim = U·A·ΔT vs a ground temperature once geometry is present.
+    [ ] Solar gain: additive result row in deriveF280Heating.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,

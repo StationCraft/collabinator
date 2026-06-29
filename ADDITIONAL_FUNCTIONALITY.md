@@ -1736,3 +1736,59 @@ F280 design temperatures are the compliance requirement and remain the authorita
 
 **Status:** Logged, deferred. Gated on #F280-conductive-endpoint + location/Toh override layer.
 
+---
+
+### 106. Assembly-inheritance default — wire Project Setup assemblies to getSurfaceAssembly miss path
+
+**Category:** F280 / thermal / data wiring. **Logged:** Session 56 (2026-06-29).
+
+**Description:**
+
+A **dual-entry UI trap** was confirmed in Session 56 recon: `CONFIG_FIELDS` fields `assembly-wall`, `assembly-foundation`, `assembly-roof`, `assembly-floor` in the Project Setup panel write to `projectSetupRef.current.values` — but `getSurfaceAssembly(surfaceId)` never reads them. The Envelope panel per-surface U-value inputs (App.jsx:7294–7334) are the ONLY load-bearing path today. A user who fills in Project Setup → Assemblies sees their selection stored but has zero effect on F280. This is the root cause of 9/10 walls showing `[unresolved U]` in `__dumpF280()`.
+
+**Fix shape:**
+1. Add a U-value + thickness lookup table: `ASSEMBLY_TYPE_DEFAULTS = { '2x6-r22': { effectiveUValue, thicknessM }, ... }` — module-level, keyed by the `options.value` strings in the four assembly CONFIG_FIELDS.
+2. Extend the `getSurfaceAssembly` miss path (App.jsx ~4883): after returning `source:'unset'`, check whether a project-level default exists for this surface's assembly type (wall → read `getConfigValue('assembly-wall')`; roof → `assembly-roof`; etc.); if a match is found in the lookup table, return it with `tier:'project-default'`.
+3. Make Project Setup the authoritative **project-level default**. Per-surface Envelope panel entries become **overrides** (the explicit `surfaceAssemblyRef` entry wins over the project default). This eliminates the dual-entry confusion.
+4. F280 unresolved-U count drops from 9/10 to 0/10 once all surfaces' assembly types are set in Project Setup.
+
+**Note on `ti-heating`:** `F280_TI_HEATING = 22` is hardcoded (App.jsx module-level). The natural slot is a CONFIG_FIELDS `kind:'number'` entry `ti-heating` in the 'Climate' category. The comment in the code already marks this slot. Adding it is a one-descriptor + one cross-field-rule change.
+
+**Why deferred:** No new geometry required. Scoped and buildable. Deferred to wait until after geometry back-to-basics review.
+
+**Status:** Logged, deferred. First item in the near-term thermal arc after geometry review.
+
+---
+
+### 107. Flat-roof UI gap — no assembly/U input block in Envelope panel
+
+**Category:** F280 / UI. **Logged:** Session 56 (2026-06-29).
+
+**Description:**
+
+The `flat-roof-surface` elements appear in the Envelope panel (one row per confirmed roof page) but the panel renders only a status line — there is no `enum-assembly-inputs` block with U-value and thickness fields (App.jsx:7339–7350). The assembly seam code exists and is keyed identically (`flat-roof-${pageId}`), so a manual per-surface U-value write is possible from code but not reachable from the UI.
+
+**Fix:** Add the same `enum-assembly-inputs` block to the flat-roof panel section that exists for wall surfaces. Three inputs: U-value (W/m²K), thickness (mm), Confirm button — same `onBlur` handler writing to `surfaceAssemblyRef.current[el.id]`.
+
+**Note:** This gap is also resolved incidentally by #106 (project-level default reads `assembly-roof` CONFIG_FIELD). The per-surface override UI is still worth building for multi-assembly roofs.
+
+**Status:** Logged, deferred. Incidentally addressed by #106 default-inherit; explicit per-surface UI is a follow-on.
+
+---
+
+### 108. Window/door uw post-placement edit gap
+
+**Category:** F280 / openings / UX. **Logged:** Session 56 (2026-06-29).
+
+**Description:**
+
+`uw` and `shgc` on opening shapes are populated only via the WEW Bridge import path (`placeOpeningFromEntry`, App.jsx ~3050: `uw: entry.performance?.uw ?? null`). The manual "Place opening" workflow (two-click free-rectangle + opening dialog) always stores `uw: null` and `shgc: null` — the opening dialog has no performance fields.
+
+There is no post-placement path to add or edit `uw`/`shgc` on an existing opening. The Envelope panel displays the values but has no edit control.
+
+**Fix shape:**
+- Add performance fields (U-value W/m²K, SHGC 0–1, optional) to the opening dialog for both first placement and re-edit. Blank = null (unresolved in F280). Pre-populate from stored values on re-edit.
+- Or: add an "Edit performance" button to the opening row in the Envelope panel (minimal uw + shgc dialog only).
+
+**Status:** Logged, deferred. No geometry dependency; pure UI/data wiring work.
+

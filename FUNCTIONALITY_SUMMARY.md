@@ -542,6 +542,48 @@ line as the final exterior face.
 
 ---
 
+## 11b. F280 above-grade conductive heat-loss endpoint (Session 56)
+
+**`deriveF280Heating(enumeration, resolvedConfig)`** — pure, derive-on-demand, never stored. Called at render time from the F280 Results panel. Two arguments: the return value of `deriveEnumeration()` and `resolveEffectiveConfig(projectSetupRef.current.values)`.
+
+**`F280_TI_HEATING = 22`** — module-level const (°C); hardcoded indoor heating design temperature. A comment marks the future `ti-heating` CONFIG_FIELDS entry (#106).
+
+**No-climate guard:** if `resolvedConfig.toh` is null → returns `{ status:'no-climate', total:null }`. No ΔT computation against null.
+
+**Computation (when `status:'ok'`):**
+- `deltaT = F280_TI_HEATING − toh`
+- Four surface kinds in `bySurfaceKind`:
+  - `'wall-surface'`: area = `netAreaM2`, U = `effectiveUValue`
+  - `'flat-roof-surface'`: area = `insideFaceAreaM2`, U = `effectiveUValue`
+  - `'window'` / `'door'`: area = `widthM × heightM`, U = `uw`
+- Surfaces missing U-value: `unresolvedCount++`, area counted, no loss contribution, no silent zero.
+- `uAvg` per kind = `uaSum / areaM2`.
+- `conductiveAboveGradeW` = sum of all `lossW` across kinds.
+
+**Return shape:**
+```js
+{
+  status: 'ok',
+  tiC: 22, tohC: number, deltaT: number,
+  bySurfaceKind: { [kind]: { areaM2, uaSum, lossW, count, unresolvedCount, uAvg } },
+  conductiveAboveGradeW: number,
+  total: number,   // = conductiveAboveGradeW (alias for extensibility)
+  notModeled: ['below-grade-wall', 'slab-on-grade', 'floor-over-unheated', 'solar-gain'],
+}
+```
+
+**Extensible spine:** Adding a below-grade, slab, or solar result = adding a bucket in `bySurfaceKind` and a loop body; no refactor. `notModeled[]` marks the current gap explicitly.
+
+**F280 Results panel:** sidebar tab inside consolidated side-panel. Renders: design conditions (Ti / Toh / ΔT), per-kind table (Kind | Area m² | Ū W/m²K | Loss W), amber inline warning for kinds with unresolved U, above-grade conductive subtotal in kW (blue), greyed "Not yet modeled" list. No-climate guard shows explanatory text instead of numbers. Panel re-derives on `enumerationTick` and `projectSetupTick` changes.
+
+**NOT golden-gated** (deliberate — "nearly compliant, sooner" target). The `notModeled[]` list makes incompleteness explicit.
+
+**`window.__dumpF280()`** — DEV console function; prints ΔT, per-kind summary (area/U_avg/loss/unresolved-count), subtotal in W and kW, `notModeled[]`. Tree-shakes from production.
+
+**Unresolved-U coverage:** 9/10 walls show `[unresolved U]` on the Bates fixture because `surfaceAssemblyRef` had only one entry when the snapshot was saved — not a seam bug. See #106 for the assembly-inheritance fix that wires Project Setup assemblies to the `getSurfaceAssembly` miss path.
+
+---
+
 ## 12. Phase 2 (confirmed scope, for context only — not building yet)
 
 - 3D wireframe model, orbitable

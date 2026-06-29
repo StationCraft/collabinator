@@ -10,6 +10,45 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 56 — F280 above-grade conductive endpoint (2026-06-29)
+
+**Branch:** main | **Commits:** App.jsx F280 changes committed and pushed to origin.
+
+### What was built
+
+**`deriveF280Heating(enumeration, resolvedConfig)` — pure derive-on-demand function.**
+
+- **`F280_TI_HEATING = 22`** — module-level const (°C); indoor heating design temperature; hardcoded pending a project config field (#106). Comment marks the future `ti-heating` CONFIG_FIELDS entry.
+- Four surface kinds in `bySurfaceKind` map: `'wall-surface'` (netAreaM2 × effectiveUValue), `'flat-roof-surface'` (insideFaceAreaM2 × effectiveUValue), `'window'`/`'door'` (widthM × heightM × uw).
+- No-climate guard: `toh === null` → `{ status:'no-climate', total:null }`. ΔT never computed against null.
+- Surfaces missing U-value increment `unresolvedCount` per kind — area still counted, no loss contribution, no silent zero.
+- `notModeled: ['below-grade-wall','slab-on-grade','floor-over-unheated','solar-gain']` — explicitly marks the subtotal as incomplete.
+- Extensible spine: adding a below-grade or slab result row = adding a bucket and a loop; no refactor.
+- **`'f280'` tab** added to `SIDEBAR_TABS`; `showF280` derived flag.
+- **F280 Results panel** inside consolidated side-panel: design conditions block, per-kind table (Kind | Area m² | Ū | Loss W), amber unresolved-U warnings, kW subtotal, greyed notModeled list. No-climate guard shows explanatory text.
+- **`window.__dumpF280()`** — DEV console hook, tree-shakes from production.
+
+### Unresolved-U diagnosis (recon only)
+
+`__dumpF280()` on the Bates fixture shows 9/10 walls unresolved. **Verdict: (A) incomplete assignment — not a seam bug.**
+
+- Wall seam is internally consistent: `surfaceAssemblyRef` had only one entry when the fixture was saved. No key-mismatch bug.
+- **Dual-entry UI trap confirmed:** `CONFIG_FIELDS` `assembly-wall`/`assembly-foundation`/`assembly-roof`/`assembly-floor` in Project Setup write to `projectSetupRef.current.values` and are **never read** by `getSurfaceAssembly`. The Envelope panel per-surface U inputs are the ONLY load-bearing path. Scoped as #106.
+- **Flat-roof:** assembly seam code exists, UI input block is absent (App.jsx:7339–7350). Incidentally fixed by #106. Logged as #107.
+- **Windows/doors:** `uw` stored at placement via WEW bridge; manual placement lands `uw:null` permanently; no post-placement edit path. Separate gap logged as #108.
+
+### Strategic pivot (settled this session)
+
+**Target: "nearly-compliant full heat loss/gain sooner, compliance as a later pass."** The `notModeled[]` list in `deriveF280Heating` is the explicit acknowledgement of incompleteness.
+
+**Decision to pause building for a geometry back-to-basics review.** Geometry layer (wireframe / enumeration) is layer one; F280 is downstream. Further thermal builds wait until the geometry model is reviewed and confirmed stable.
+
+### Forward
+
+Next: geometry back-to-basics review as a planning session. Then: #106 assembly-inheritance fix (unlocks full wall U-coverage) → below-grade + slab geometry → ground-coupled base-level loss (separate engine from above-grade, using `BasementHLR.xls` / `SlabOnGradeHLR.xls` supplemental calculators) → solar gain. Each is an additive result row in `deriveF280Heating`.
+
+---
+
 ## SESSION 55 — Flat-roof-surface element in deriveEnumeration (F280 conductive prep) (2026-06-28)
 
 **Branch:** main | **Commit:** dccce9e — pushed to origin.
