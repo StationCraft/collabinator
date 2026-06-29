@@ -180,11 +180,11 @@ The ghost rendering implementation (`getVisibleVertices` plumbing, `showGhost` t
 
 (b) **App working area does not fill the browser viewport in fullscreen:** Even when the browser window is maximized, the usable drawing area is smaller than it could be — toolbars and padding consume significant vertical and horizontal space. Tied directly to (a); same fix pass.
 
-(c) **PDF render resolution too low:** At moderate-to-high zoom the PDF backdrop appears pixelated because it was rasterized at the initial canvas size. A full-resolution toggle (or dynamic upscale on zoom) would render the PDF at a higher DPI for scale-setting readability and fine-geometry tracing. Requires re-rasterizing at a higher resolution via PDF.js' render scale parameter; the measurement canvas (`measureRef`) and geometry are unaffected.
+(c) **PDF render resolution too low:** ~~DONE Session 51 (commit 6e06677).~~ Three-tier backdrop resolution toggle: Normal (1×), Enhance (2×), No seriously, enhance (4×) with De-enhance to drop back to Normal. Backdrop-only: `measureRef` dimensions, `getCanvasPos`, snap, and all stored geometry are completely untouched. Auto-resets to Normal on page navigation, PDF upload, and fixture restore. The `resizeMeasure` flag on `renderPage` is the key seam — same-page enhance re-renders pass `false` so `measureRef` bitmap is never cleared.
 
 **Why deferred:** All three are pure UI/layout and rendering-quality polish, zero core functionality impact. Ghost rendering tested at current canvas size; margin and resolution improvements are a separate visual-design pass. None block any tracing workflows.
 
-**Status:** Deferred. Good candidate for a single dedicated UI pass after Phase 1 toolkit is feature-complete. (a)+(b) are one change; (c) is adjacent but independent.
+**Status:** (c) DONE (Session 51, commit 6e06677). (a)+(b) still deferred — good candidate for a single dedicated UI pass after Phase 1 toolkit is feature-complete.
 
 ---
 

@@ -10,6 +10,36 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 51 — #10(c) PDF backdrop resolution toggle: Enhance / No seriously, enhance / De-enhance (2026-06-28)
+
+**Branch:** main | **Commit:** 6e06677 — pushed to origin.
+
+### What was built
+
+**Three-tier PDF backdrop resolution toggle — backdrop-only, geometry untouched:**
+
+- `BACKDROP_MULTIPLIERS` `{ normal:1, enhance:2, ultra:4 }` + `backdropTierRef` + `backdropTier` useState (render trigger only).
+- `renderPage` extended with `{ resizeMeasure = true }` option. Same-page enhance re-renders pass `resizeMeasure: false` — `measureRef` bitmap is never touched, geometry survives intact. Real page-changes (goToPage, upload, fixture restore) keep `resizeMeasure: true` (default) and clear/resize `measureRef` as before.
+- PDF backdrop rasterized at `scale × mult` into `canvasRef`; `canvasRef` CSS `width/height` pinned to the logical `scaled.width × scaled.height` so it displays at the same on-screen size as `measureRef` regardless of backing bitmap size.
+- Two toolbar buttons (visible when a page is loaded, hidden in all active modes):
+  - **Enhance** — cycles Normal→Enhance→Ultra; label reads "Enhance" at Normal, "No seriously, enhance" at Enhance; disabled at Ultra.
+  - **De-enhance** — jumps straight to Normal from any tier; disabled at Normal.
+- Auto-reset to Normal on `goToPage`, PDF upload, and fixture restore.
+
+### Regression and fix
+
+Initial implementation used a float comparison guard (`measureRef.current.width !== scaled.width`) to skip the clear. Bug: `page.getViewport().width` returns a float (e.g. `1200.47`); after assignment `canvas.width` is an integer (`1200`). Guard was `1200 !== 1200.47 → true` on every call — never skipped. The explicit `resizeMeasure` flag is the correct fix.
+
+### Key architectural note
+
+The `resizeMeasure` flag on `renderPage` is the seam that makes same-page re-renders safe. Any future caller that re-rasterizes the same page (for any reason) should pass `{ resizeMeasure: false }` to avoid wiping the geometry layer without a subsequent repaint.
+
+### Forward
+
+Next: #10(a)+(b) still deferred (full-screen / max-width canvas layout). F280 endpoint gated on opening U-value fork (#99). Beat 2b gated on #75 (Ben's spreadsheet authoring pass).
+
+---
+
 ## SESSION 50 — #46 Stage Two: place windows/doors from a structured opening list (2026-06-28)
 
 **Branch:** main | **Commit:** (this session) — pushed to origin.

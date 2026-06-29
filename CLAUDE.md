@@ -136,6 +136,19 @@ A React + Vite app with:
     and receives the CSS transform; `getCanvasPos()` via `getBoundingClientRect()`
     auto-compensates — no coordinate mapping changes in any existing handler
   * Zoom and pan reset to defaults on page navigation and PDF upload
+- **PDF backdrop resolution toggle (#10c, Session 51; commit 6e06677):** three-tier
+  rasterization multiplier applied to the PDF backdrop canvas only — geometry,
+  `measureRef`, `getCanvasPos`, snap, and all stored pixel coordinates untouched:
+  * Normal (1×, default), Enhance (2×), Ultra (4×). Toolbar buttons "Enhance" /
+    "No seriously, enhance" / "De-enhance"; Enhance cycles up, De-enhance jumps to
+    Normal. Disabled states: Enhance disabled at Ultra, De-enhance disabled at Normal.
+  * `renderPage` accepts `{ resizeMeasure }` flag. Same-page enhance re-renders pass
+    `resizeMeasure: false` — `measureRef` bitmap is never touched, geometry survives.
+    Real page-changes keep default `resizeMeasure: true` (clears + resizes `measureRef`
+    as before, repaint fires from `setCurrentPage` state change as always).
+  * `canvasRef` CSS `width/height` pinned to logical `scaled` dimensions regardless of
+    backing bitmap size — keeps backdrop pixel-aligned with `measureRef`.
+  * Auto-resets to Normal on page navigation, PDF upload, and fixture restore.
 - **PDF upload full-state reset:** uploading a new file clears all locked shapes,
   calibration/scale data, page grid origins, in-progress drawing trace, review
   state, and edit undo/redo history — new file always starts completely clean
