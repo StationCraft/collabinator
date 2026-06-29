@@ -698,6 +698,11 @@ function App() {
   const pageGridOriginRef = useRef({})
   const pageIdMapRef = useRef({})       // pageIdMapRef.current[pageNum] = pageId
   const pageTransformsRef = useRef({})  // pageTransformsRef.current[pageId] = {...} (Step 4b)
+  // Fork B (#5 region-pages): pageCropsRef.current[pageId] = { x, y, w, h } in scaled-sheet pixels.
+  // Hot-read store for renderPage (useCallback []; stale-closure-safe via ref). pages[i].crop is the
+  // serialized mirror. Absent crop ⇒ renderPage falls back to full-sheet (today's behavior). The crop
+  // offset is consumed at rasterization only — never written into stored geometry (recalibration-independence #22).
+  const pageCropsRef = useRef({})
   const floorHeightsRef = useRef({})    // floorHeightsRef.current[floorLevel] = { floorToCeiling, floorSystemAbove }
 
   // Default edit mode refs
@@ -777,19 +782,43 @@ function App() {
       // stays pixel-aligned with measureRef. measureRef stays at logical size —
       // the geometry coordinate space is completely unchanged.
       const mult = BACKDROP_MULTIPLIERS[backdropTierRef.current] ?? 1
-      const hiDpi = page.getViewport({ scale: scale * mult })
-      canvas.width = hiDpi.width
-      canvas.height = hiDpi.height
-      canvas.style.width  = `${scaled.width}px`
-      canvas.style.height = `${scaled.height}px`
+      const pageId = getPageId(pageNum)
+      const crop = pageCropsRef.current[pageId] || null
 
-      if (resizeMeasure && measureRef.current) {
-        measureRef.current.width = scaled.width
-        measureRef.current.height = scaled.height
+      if (crop) {
+        // Fork B (#5) region-page: crop-local coordinate frame. measureRef is sized to the
+        // crop box (its (0,0) becomes the crop's top-left), so geometry stored against it is
+        // crop-local by construction — no offset is ever added to a stored vertex. The PDF
+        // backdrop is rasterized with a viewport offset (-crop.x, -crop.y) so the crop's
+        // top-left maps to canvas pixel (0,0); the crop-sized canvas bounds clip the rest
+        // (viewport translate + clip). The crop offset is consumed HERE only — it is never
+        // written to pageTransformsRef, never folded into getEffectiveScale, never stored on
+        // a vertex. The user-driven align transform (pdf-align-layer) composes on top unchanged.
+        canvas.width  = Math.round(crop.w * mult)
+        canvas.height = Math.round(crop.h * mult)
+        canvas.style.width  = `${crop.w}px`
+        canvas.style.height = `${crop.h}px`
+        if (resizeMeasure && measureRef.current) {
+          measureRef.current.width = crop.w
+          measureRef.current.height = crop.h
+        }
+        const cropVp = page.getViewport({ scale: scale * mult, offsetX: -crop.x * mult, offsetY: -crop.y * mult })
+        await page.render({ canvasContext: ctx, viewport: cropVp }).promise
+      } else {
+        // Full-sheet (no region crop) — unchanged behavior.
+        const hiDpi = page.getViewport({ scale: scale * mult })
+        canvas.width = hiDpi.width
+        canvas.height = hiDpi.height
+        canvas.style.width  = `${scaled.width}px`
+        canvas.style.height = `${scaled.height}px`
+        if (resizeMeasure && measureRef.current) {
+          measureRef.current.width = scaled.width
+          measureRef.current.height = scaled.height
+        }
+        await page.render({ canvasContext: ctx, viewport: hiDpi }).promise
       }
-      await page.render({ canvasContext: ctx, viewport: hiDpi }).promise
       setCurrentPage(pageNum)
-      setCurrentPageId(getPageId(pageNum))
+      setCurrentPageId(pageId)
     } catch {
       setError('Failed to render page.')
     } finally {
@@ -850,7 +879,7 @@ function App() {
     roofGraphRef.current = { verts: [], edges: [] }; roofVertCounterRef.current = 0; roofEdgeCounterRef.current = 0
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
-    pageIdMapRef.current = {}; pageTransformsRef.current = {}; floorHeightsRef.current = {}
+    pageIdMapRef.current = {}; pageTransformsRef.current = {}; pageCropsRef.current = {}; floorHeightsRef.current = {}
     drawVerticesRef.current = []; mousePosRef.current = null
     setCompassAngleDeg(null); setCompassCardinal(null)
     setCompassDraftAngle(0); setCompassPos({ x: null, y: null })
@@ -4636,6 +4665,7 @@ function App() {
         pageGridOrigin:  pageGridOriginRef.current,
         pageIdMap:       pageIdMapRef.current,
         pageTransforms:  pageTransformsRef.current,
+        pageCrops:       pageCropsRef.current,
         floorHeights:    floorHeightsRef.current,
         elevationEdge:   elevationEdgeRef.current,
         elevBaseY:       elevBaseYRef.current,
@@ -4659,6 +4689,9 @@ function App() {
       pageGridOriginRef.current    = obj.pageGridOrigin    ?? {}
       pageIdMapRef.current         = obj.pageIdMap         ?? {}
       pageTransformsRef.current    = obj.pageTransforms    ?? {}
+      // Fork B: restore crop hot-store. Prefer obj.pageCrops; else derive from pages[i].crop.
+      pageCropsRef.current = obj.pageCrops ?? {}
+      if (!obj.pageCrops) (obj.pages ?? []).forEach(p => { if (p.crop) pageCropsRef.current[p.pageId] = p.crop })
       floorHeightsRef.current      = obj.floorHeights      ?? {}
       elevationEdgeRef.current     = obj.elevationEdge     ?? {}
       elevBaseYRef.current         = obj.elevBaseY         ?? {}
@@ -4796,6 +4829,79 @@ function App() {
       }
 
       if (!floorPages.length && !elevPages.length && !roofPages.length) console.warn('[world] no categorized floor-plan, elevation, or roof-plan pages found')
+    }
+
+    // __setCrop(pageId, crop): DEV writer for the Fork B region-crop frame. Writes the hot
+    // store (pageCropsRef) and the serialized mirror (pages[i].crop), then re-renders if the
+    // affected page is current. Pass null to clear. crop = { x, y, w, h } in scaled-sheet pixels.
+    window.__setCrop = (pageId, crop) => {
+      if (crop) pageCropsRef.current[pageId] = crop
+      else delete pageCropsRef.current[pageId]
+      setPages(prev => prev.map(p => p.pageId === pageId ? { ...p, crop: crop || null } : p))
+      if (getPageId(currentPage) === pageId && pdf) renderPage(pdf, currentPage)
+      console.log(`[crop] ${pageId} →`, crop)
+    }
+
+    // __verifyCrop(): Fork B verification. Proves (1) renderPage establishes the crop-local frame
+    // (measureRef + backdrop sized to the crop box), and (2) the crop offset is PASSIVE — imposing a
+    // crop never moves the building's traced world coordinates (the placed-point world-coordinate
+    // assertion). If the crop offset ever leaked into stored vertices or into pageVertexToWorld, the
+    // world-coords-invariant checks below would fail.
+    window.__verifyCrop = async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms))
+      const origin = getWorldOriginM()
+      if (!origin) { console.warn('[verifyCrop] gate not met — no calibrated lowest-floor geometry. Restore a multi-floor fixture first.'); return }
+      const opid = origin.originPageId
+      const opage = pages.find(p => p.pageId === opid)
+      if (!opage) { console.warn('[verifyCrop] origin page not in pages array'); return }
+      const mult = BACKDROP_MULTIPLIERS[backdropTierRef.current] ?? 1
+
+      // Baseline world coords of the origin page's locked wall-shape vertices (no crop).
+      const worldOf = () => completedShapesRef.current
+        .filter(s => s.pageId === opid && s.status === 'locked' && !s.shapeKind)
+        .map(s => s.vertices.map(v => { const w = pageVertexToWorld(v, opid); return w ? `${w.x.toFixed(6)},${w.y.toFixed(6)}` : 'null' }).join(' '))
+        .join(' | ')
+      const baseline = worldOf()
+
+      let pass = 0, fail = 0
+      const check = (name, ok, detail = '') => { ok ? pass++ : fail++; console.log(`[verifyCrop] ${ok ? 'pass' : 'FAIL'} (${name})${detail ? '  ' + detail : ''}`) }
+
+      const renderCrop = async (crop) => {
+        pageCropsRef.current[opid] = crop
+        await renderPage(pdf, opage.pageNum)
+        await sleep(150)
+      }
+      const clearCrop = async () => {
+        delete pageCropsRef.current[opid]
+        await renderPage(pdf, opage.pageNum)
+        await sleep(150)
+      }
+      const dimsOk = (crop, label) => {
+        const m = measureRef.current, c = canvasRef.current
+        check(`${label}: measureRef = crop box`, m.width === crop.w && m.height === crop.h, `got ${m.width}×${m.height} expect ${crop.w}×${crop.h}`)
+        check(`${label}: backdrop bitmap = crop × mult`, c.width === Math.round(crop.w * mult) && c.height === Math.round(crop.h * mult), `got ${c.width}×${c.height} mult=${mult}`)
+        check(`${label}: backdrop CSS = crop box`, c.style.width === `${crop.w}px` && c.style.height === `${crop.h}px`, `got ${c.style.width}×${c.style.height}`)
+      }
+
+      const cropA = { x: 120, y: 90, w: 520, h: 380 }
+      const cropB = { x: 300, y: 200, w: 440, h: 300 }
+
+      await renderCrop(cropA)
+      dimsOk(cropA, 'cropA')
+      check('cropA: world coords invariant (placed-point)', worldOf() === baseline, worldOf() === baseline ? '' : 'world coords MOVED under crop')
+
+      await renderCrop(cropB)
+      dimsOk(cropB, 'cropB')
+      check('cropB: world coords invariant (crop-origin independent)', worldOf() === baseline, worldOf() === baseline ? '' : 'world coords depend on crop origin')
+
+      await clearCrop()
+      const m = measureRef.current
+      check('cleared: measureRef back to full sheet (≠ crop)', m.width !== cropA.w && m.width !== cropB.w, `width=${m.width}`)
+      check('cleared: world coords invariant', worldOf() === baseline, '')
+
+      // Restore serialized mirror to clean (no crop) state.
+      setPages(prev => prev.map(p => p.pageId === opid ? { ...p, crop: null } : p))
+      console.log(`[verifyCrop] ${fail === 0 ? '✓ ALL ' + pass + ' checks PASSED' : pass + '/' + (pass + fail) + ' passed, ' + fail + ' FAILED'} (origin page ${opid})`)
     }
 
     // __dumpRuns(): slot-structure + vertices invariant verification for §8.3 Build 1.
