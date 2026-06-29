@@ -325,6 +325,10 @@ function resolveEffectiveConfig(rawValues) {
   return resolved
 }
 
+// Engine-internal RSI_W resolver (F280 Cl. 5.2.1 / 6.2.2). Never stored on the record — derived on demand.
+// uw is in W/m²·K (metric); RSI_W = 1/uw in m²·°C/W.
+function getRsiW(uw) { return uw != null && uw > 0 ? 1 / uw : null }
+
 const SIDEBAR_TABS = [
   { id: 'project-setup', label: 'Project Setup' },
   { id: 'worklist',      label: 'Worklist' },
@@ -2926,6 +2930,8 @@ function App() {
         widthM: storedWidthM,
         heightM: storedHeightM,
         dimBasis: dimensionBasisRef.current,
+        uw: null,
+        shgc: openingDraftKind === 'door' ? 0 : null,
       },
     ]
     setOpeningDraftShape(null)
@@ -2983,6 +2989,8 @@ function App() {
         widthM: wM,
         heightM: hM,
         dimBasis: basis,
+        uw: entry.performance?.uw ?? null,
+        shgc: kind === 'door' ? 0 : (entry.performance?.shgc ?? null),
       },
     ]
     // Decrement remaining; remove entry when exhausted
@@ -5075,6 +5083,8 @@ function App() {
             widthM: op.widthM ?? null,
             heightM: op.heightM ?? null,
             dimBasis: op.dimBasis ?? null,
+            uw: op.uw ?? null,
+            shgc: op.shgc ?? null,
             worldZm,
           })
         }
@@ -5396,6 +5406,26 @@ function App() {
         !dAfterEntry
           ? pass('(q.d) door entry removed after quantity exhausted')
           : fail('(q.d) door entry still present', 'removed', 'still present')
+
+        // (r) opening thermal fields — uw/shgc stored, rsiW NOT stored, bridge values verbatim
+        if (placedW) {
+          checkEq('(r.w.uw)   placed window uw from bridge',   1.4,  placedW.uw)
+          checkEq('(r.w.shgc) placed window shgc from bridge', 0.32, placedW.shgc)
+          checkEq('(r.w.rsiW) rsiW not stored on record', undefined, placedW.rsiW)
+          const rsiWDerived = getRsiW(placedW.uw)
+          Math.abs(rsiWDerived - 1 / 1.4) < 1e-9
+            ? pass('(r.w.derived) getRsiW(1.4) ≈ 0.7143')
+            : fail('(r.w.derived) getRsiW(1.4)', (1 / 1.4).toFixed(6), rsiWDerived)
+        }
+        if (placedD) {
+          checkEq('(r.d.uw)   placed door uw from bridge',        1.8, placedD.uw)
+          checkEq('(r.d.shgc) placed door shgc === 0 (opaque)',    0,  placedD.shgc)
+          checkEq('(r.d.rsiW) rsiW not stored on record', undefined, placedD.rsiW)
+          const rsiWNull = getRsiW(null)
+          rsiWNull === null
+            ? pass('(r.d.derived) getRsiW(null) === null')
+            : fail('(r.d.derived) getRsiW(null)', null, rsiWNull)
+        }
 
         // Clean up test shapes so fixture state is not polluted for further use
         completedShapesRef.current = completedShapesRef.current.slice(0, beforeCount)

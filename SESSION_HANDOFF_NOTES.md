@@ -10,6 +10,53 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 52 — Opening thermal fields: uw + shgc (F280 opening contract) (2026-06-28)
+
+**Branch:** main | **Commit:** (this session) — pushed to origin.
+
+### What was built
+
+**Opening thermal fields slice — F280-spec-driven data layer:**
+
+Read `F280_COMPLIANCE_SPEC.md` Section 4 from CollabinatorF280 @ d94c18a (read-only). Contract:
+- Engine requires `RSI_W` (m²·°C/W, whole-window thermal resistance) and `SHGC` (dimensionless).
+- `RSI_W = 1 / uw` where `uw` is the user-facing U-value in W/m²·K (metric). RSI_W is engine-internal only.
+- Source hierarchy: manufacturer-rated data preferred; F280 Tables 6E–6H fallback (#103).
+
+**Fields added to opening record (additive — widthM/heightM coupling guard unchanged):**
+- `uw: number | null` — W/m²·K metric U-value. From WEW bridge `performance.uw` (verbatim) in `placeOpeningFromEntry`; `null` in `confirmOpening` (interactive dialog UI not yet built).
+- `shgc: number | null` — dimensionless. From WEW bridge `performance.shgc` (verbatim) for windows; **always `0` for doors** (opaque-by-model rule — see below). `null` for interactive placement.
+
+**Opaque-door SHGC rule:** Under Collabinator's model, a door is opaque by definition. Any glazed light in a door is a future parented sub-item (#104). Therefore every door's `shgc` is set to `0` (no solar gain through a solid door) in both creation paths. The door's `uw` is retained (still loses heat conductively). Windows are unchanged.
+
+**`getRsiW(uw)`:** Module-level pure function. Returns `1/uw` or `null`. Never stored. Mirrors `resolveEffectiveConfig` pattern: user field (`uw`) is stored intent; engine-internal value derived on demand.
+
+**`deriveEnumeration` STEP D:** `uw` and `shgc` emitted per fenestration element alongside existing fields.
+
+**Harness: 34 → 42 PASS.** 8 new `(r.*)` checks:
+- `(r.w.uw)` window uw from bridge === 1.4
+- `(r.w.shgc)` window shgc from bridge === 0.32
+- `(r.w.rsiW)` rsiW NOT stored on record (undefined)
+- `(r.w.derived)` getRsiW(1.4) ≈ 0.7143
+- `(r.d.uw)` door uw from bridge === 1.8
+- `(r.d.shgc)` door shgc === 0 (opaque, not bridge value)
+- `(r.d.rsiW)` rsiW NOT stored on record
+- `(r.d.derived)` getRsiW(null) === null
+
+### New deferred entry
+
+**#104** — Glazed-in-door as parented sub-item. See ADDITIONAL_FUNCTIONALITY.md #104.
+
+### F280 fork (not yet settled)
+
+Endpoint scope: above-grade conductive slice only (walls + openings, Cl. 5.2.1 heating) vs full 13-surface loop. Ben's call before F280 endpoint build starts.
+
+### Forward
+
+F280 endpoint. Scope fork to settle first. Opening thermal fields are on every opening record; endpoint can consume `uw` directly.
+
+---
+
 ## SESSION 51 — #10(c) PDF backdrop resolution toggle: Enhance / No seriously, enhance / De-enhance (2026-06-28)
 
 **Branch:** main | **Commit:** 6e06677 — pushed to origin.

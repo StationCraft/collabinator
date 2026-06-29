@@ -1685,3 +1685,28 @@ build — the endpoint can accept a manually-entered U-value + SHGC directly (sa
 source). The selector is a convenience path for projects where window specs are unknown.
 
 **Status:** Deferred. Log only — do not build until retrofit scope is confirmed.
+
+---
+
+### 104. Glazing-in-door as parented sub-item
+
+**Category:** Opening model / data. **Logged:** Session 52 (2026-06-28).
+
+**Description:**
+
+A glazed light within a door is entered as a separate **window entity PARENTED to the door item**. Its area subtracts from the door's area (not from the wall), and the door's net opaque area is derived after the child window is cut out.
+
+Under this model doors are always opaque (`shgc = 0`) and glazed doors need no special-casing — the glazing is a child window with its own `uw`/`shgc`. The door's residual area is the frame + opaque panel; the child window contributes the glazed-area solar gain.
+
+**Open design questions:**
+- How a sub-item is entered and bound to its parent door
+- How area subtraction chains (window → door → wall)
+- How the door's residual opaque area is derived in `deriveEnumeration`
+- How F280 enumerates parent + child as distinct surfaces (opaque door at RSI Table 6I + glazed portion at RSI_W/SHGC)
+
+**Relationships:** Same class of problem as #45 (unit subdivided into sub-sections with differential area/properties) and #44 (parent/child instance identity) — likely sequenced with or after them.
+
+**Why deferred:** Requires its own design pass. Do not build inline. The opaque-door model (`shgc = 0`, `uw` retained) is correct and complete for the F280 endpoint; this entry handles future glazed-door refinement only.
+
+**Status:** Deferred. Own design pass required before build.
+

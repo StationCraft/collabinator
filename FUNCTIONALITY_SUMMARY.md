@@ -410,8 +410,16 @@ a fill-in dialog. This is the dumb-placement layer; the component model (#44) is
 ```
 { id:'sh-N', vertices:[{x,y}×4], pageId, status:'locked',
   shapeKind:'window'|'door', openingType, label, widthM, heightM,
-  dimBasis:'frame'|'rough-opening' }
+  dimBasis:'frame'|'rough-opening',
+  uw: number|null,    // user-facing U-value in W/m²·K (metric); null until entered or bridge-supplied
+  shgc: number|null } // dimensionless; windows: bridge value or null; doors: always 0 (opaque-by-model)
 ```
+
+**Opening thermal fields (Session 52):** `uw` (W/m²·K) and `shgc` are first-class fields on every opening.
+- `uw` is verbatim from the WEW bridge `performance.uw` when placed from list; `null` for interactive placement (UI entry deferred).
+- `shgc` is verbatim from the bridge for windows; **always `0` for doors** — doors are modeled opaque by definition. Any glazed light in a door is a future parented sub-item (#104, deferred).
+- `getRsiW(uw)`: module-level pure function returning `1/uw`. Engine-internal RSI_W — derived on demand, never stored. Mirrors the `resolveEffectiveConfig` pattern.
+- `deriveEnumeration` STEP D emits `uw` and `shgc` per fenestration element.
 
 **Edit Shapes compatibility:** openings support segment drag, vertex drag, move, and delete
 sub-modes. Openings are excluded from Split Shape hit-test and Combine eligibility.

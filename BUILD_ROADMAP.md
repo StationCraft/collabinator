@@ -399,19 +399,26 @@ is arranged so most beats are things Ben can see.
     {water:'l5', air:'l4', thermal:null, vapour:'l2'}. 7 new checks (m)–(m.cl.*).
     17/17 → 24/24 PASS. Framing block + airFilms silently ignored (tool-side, not ingested).
 
-[ ] F280 ENDPOINT — first heat-loss calculation  [GATE LIFTED — #99 resolved 2026-06-28]
-    Consumes insideFaceAreaM2 + effectiveUValue from wall-surface elements.
-    Opening thermal-data model RESOLVED (see ADDITIONAL_FUNCTIONALITY #99):
-      - U-value: per-opening user field, imperial or metric entry
-      - SHGC: per-opening user field (cooling solar term only)
-      - RSI_W: engine-internal derived value (= 1 / U_SI); never shown to user
-    F280 compliance spec now exists — gates endpoint build:
-      Repo: https://github.com/StationCraft/CollabinatorF280.git (private, branch master)
-      File: F280_COMPLIANCE_SPEC.md @ commit d94c18a (694 lines)
-      Content: scope, heating + cooling calc formulas, 13-surface required-data-field
-      inventory, opening RSI_W/SHGC contract, gap-analysis checklist.
+[x] OPENING THERMAL FIELDS — uw + shgc on opening records  [DONE — Session 52, 2026-06-28]
+    Read F280_COMPLIANCE_SPEC.md Section 4 (CollabinatorF280 @ d94c18a, read-only) for the contract.
+    Fields added to opening record (additive; widthM/heightM coupling guard unchanged):
+      - uw: number | null — user-facing U-value in W/m²·K (metric); verbatim from WEW bridge
+        performance.uw; null for interactive placement until dialog UI session adds entry.
+      - shgc: number | null — dimensionless; windows: verbatim from bridge performance.shgc or null;
+        DOORS: always 0 (opaque-by-model rule — glazed portion is a future parented sub-item, #104).
+    getRsiW(uw): module-level pure function = 1/uw; engine-internal only; never stored.
+    deriveEnumeration STEP D: uw + shgc emitted per fenestration element.
+    Harness: 34 → 42 PASS (8 new (r.*) checks: bridge values verbatim, rsiW absent on record,
+      getRsiW derived correctly from real value and null, door shgc === 0).
     Fallback path for no-rated-data projects: #103 (window-builder selector, deferred).
-    READY TO SEQUENCE when capacity allows.
+
+[ ] F280 ENDPOINT — first heat-loss calculation  [GATE LIFTED — opening thermal fields DONE]
+    Consumes insideFaceAreaM2 + effectiveUValue from wall-surface elements; uw/shgc from openings.
+    Remaining pre-build fork: ENDPOINT SCOPE — above-grade conductive slice only (walls + openings,
+      Cl. 5.2.1 heating heat-loss) vs full 13-surface loop. Ben's call before build starts.
+    F280 compliance spec: CollabinatorF280 @ d94c18a — scope, heating + cooling formulas,
+      13-surface inventory, opening RSI_W/SHGC contract, gap-analysis checklist.
+    READY TO SEQUENCE when scope fork is settled.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,

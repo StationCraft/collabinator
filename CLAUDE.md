@@ -640,7 +640,7 @@ A React + Vite app with:
   * **Two-click free rectangle:** first click sets `openingCorner1`; second click completes. `makeRectVerts(c1, c2)` builds a 4-vertex CW rectangle from the diagonal corners. `applySnap` called with `useAngle=false` at both clicks and in the rubber-band mousemove — free rectangle, no 45° axis constraint. Distance-grid snap active.
   * **First-use dimension-basis gate:** if `dimensionBasisRef.current` is null when the second click lands, `openingDraftShape` is stored with `pendingBasis: true` and the "Frame Size or Rough Opening?" modal shows before the opening dialog.
   * **Opening dialog:** Kind radio ('window'|'door'), Type dropdown (`OPENING_TYPES`), Width/Height ft+in entry (seeded from pixel distance via `openOpeningDialog`), Label text field, Confirm/Cancel. `parseFtIn(ftStr, inStr)` converts to meters for storage.
-  * **`confirmOpening`:** pushes `{ id, vertices, pageId, status:'locked', shapeKind:kind, openingType, label, widthM, heightM, dimBasis }` to `completedShapesRef`; restores snap increment; repaints via `redrawFrontFaceLayer(null)`.
+  * **`confirmOpening`:** pushes `{ id, vertices, pageId, status:'locked', shapeKind:kind, openingType, label, widthM, heightM, dimBasis, uw:null, shgc:(kind==='door'?0:null) }` to `completedShapesRef`; restores snap increment; repaints via `redrawFrontFaceLayer(null)`.
   * **`discardOpening`:** clears draft state, restores snap increment, calls `redrawFrontFaceLayer(null)` — canvas repaints immediately, preventing the rubber-band rectangle from lingering after Cancel.
   * **Rendering:** `drawOpeningPoly(ctx, verts, style)` in canvasRenderer.js — teal fill/stroke (rgba(6,182,212) / `#0891b2`), same style-switching interface as `drawShapePoly`. `drawOpeningShapes(ctx, completedShapes, pageId)` draws all locked openings on a page. Both wired into all render paths (view, draw, review, all five edit sub-modes).
   * **`drawLockedShapes` / `drawGhostShapes`:** both skip openings via `isOpening(shape)`. Openings never appear as ghost reference on adjacent floors.
@@ -836,6 +836,10 @@ completedShapesRef.current = Array<{
   widthM?: number,              // overall width in meters — from authoritative user-entered ft+in (parseFtIn); null if no scale at placement
   heightM?: number,             // overall height in meters — same source; null if no scale at placement
   dimBasis?: 'frame' | 'rough-opening', // copied from dimensionBasisRef at confirm time
+  uw?: number | null,      // user-facing U-value in W/m²·K (metric); from WEW bridge performance.uw or null
+  shgc?: number | null,    // solar heat gain coefficient (dimensionless); windows: bridge value or null;
+                           // doors: ALWAYS 0 (opaque-by-model — glazed lights are future parented sub-items, #104)
+  // RSI_W is engine-internal only: getRsiW(uw) = 1/uw; never stored. Module-level pure function.
   // Roof-plan pages only (wall polygons, not grade lines):
   roofType?: 'flat' | 'sloped' | null,
   parapetWidth?: number | null,  // inches (always imperial); flat sections only

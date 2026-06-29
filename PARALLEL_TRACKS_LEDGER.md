@@ -37,11 +37,29 @@ file concurrently and eliminates merge conflicts between the two repos.
 
 **Deferred / logged:**
 - #96 — wall corner reconciliation (solid interpenetration + inside-face area overcount; overcount accepted for initial F280 pass)
-- #99 — opening U-value source for F280 (per-opening property / project default / opening assembly record — Ben's call; F280 build gated on this decision)
+- ~~#99~~ — RESOLVED (Session 52): opening thermal fields (`uw`/`shgc`) added to opening record; `getRsiW` engine-internal; door SHGC = 0 (opaque-by-model). F280 gate lifted.
+- #103 — window-builder selector (Table 6E–6H fallback lookup; deferred)
+- #104 — glazed-in-door as parented sub-item (deferred)
 
 **Next (Track A):**
-- F280 endpoint: consume `insideFaceAreaM2` + `effectiveUValue` → heat-loss calculation.
-  Gated on #99 (opening U-value fork).
+- F280 endpoint: consume `insideFaceAreaM2` + `effectiveUValue` + `uw`/`shgc` on openings → heat-loss.
+  Remaining gate: Ben to settle scope fork (above-grade conductive slice only vs full 13-surface loop).
+
+---
+
+## TRACK C — F280 SIDE-QUEST
+
+**Repo:** `C:\dev\CollabinatorF280`
+**Remote:** `https://github.com/StationCraft/CollabinatorF280.git` (private, branch `master`)
+**Writer rule:** Track A (this session) **READS ONLY** — never commits, pushes, or modifies files in this repo or its remote. The F280 side-quest is its sole author.
+
+| Item | Description | Commit | Status |
+|------|-------------|--------|--------|
+| F280_COMPLIANCE_SPEC.md | Plain-language compliance spec digested from CSA F280:12 — scope, heating/cooling formulas, 13-surface required-data inventory, opening RSI_W/SHGC contract, gap-analysis checklist | `d94c18a` | CURRENT — read Session 52 |
+
+**Consumed by Track A (Session 52):** Section 4 (opening RSI_W/SHGC contract) — `uw` field (W/m²·K) and `shgc` (dimensionless) added to opening records; `getRsiW` engine-internal. #99 resolved.
+
+**Side-quest currently parked.** `#103` (window-builder 6E–6H descriptor lookup) logged and deferred. No active F280 side-quest build.
 
 ---
 
@@ -173,4 +191,4 @@ to this ledger **before** Track A wires against the new shape.
 
 ---
 
-*Last updated: 2026-06-28 (Session 49 — Track A Slice 4: thermal-field ingest DONE; opening U-value fork #99 logged; F280 gated)*
+*Last updated: 2026-06-28 (Session 52 — opening thermal fields uw/shgc DONE; #99 resolved; F280 gate lifted; Track C (F280 spec repo) added)*
