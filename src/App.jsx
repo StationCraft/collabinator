@@ -608,6 +608,14 @@ function App() {
   const gradeFloorLineSnapRef = useRef(null) // lowest-floor reference-line snap {x,y} (2c)
   const runItemSnapRef = useRef(null)        // live equipment-item snap during run-path draw (visual only)
 
+  // ── Backdrop resolution tier (#10c) ─────────────────────────────────────
+  // NORMAL=1× (default), ENHANCE=2×, ULTRA=4×. Ref holds the live value;
+  // backdropTick forces renderPage to re-run after a tier change.
+  const BACKDROP_TIERS = ['normal', 'enhance', 'ultra']
+  const BACKDROP_MULTIPLIERS = { normal: 1, enhance: 2, ultra: 4 }
+  const backdropTierRef = useRef('normal')
+  const [backdropTier, setBackdropTier] = useState('normal') // for button render only
+
   // ── Zoom / pan ────────────────────────────────────────────────────────────
   const MIN_ZOOM = 0.1
   const MAX_ZOOM = 10
@@ -633,7 +641,11 @@ function App() {
 
   // ── Page rendering ──────────────────────────────────────────────────────
 
-  const renderPage = useCallback(async (pdfDoc, pageNum) => {
+  // resizeMeasure: true on every real page-change (clears measureRef so the
+  // geometry repaint useEffect can paint fresh). false on same-page enhance
+  // re-renders — measureRef is already the correct size and must NOT be touched
+  // (assigning canvas.width clears it; no state change means no repaint fires).
+  const renderPage = useCallback(async (pdfDoc, pageNum, { resizeMeasure = true } = {}) => {
     setRenderingPage(true)
     try {
       const page = await pdfDoc.getPage(pageNum)
@@ -643,13 +655,23 @@ function App() {
       const viewport = page.getViewport({ scale: 1 })
       const scale = containerWidth / viewport.width
       const scaled = page.getViewport({ scale })
-      canvas.width = scaled.width
-      canvas.height = scaled.height
-      if (measureRef.current) {
+
+      // Backdrop resolution tier: rasterize at multiplier × logical size,
+      // but pin the CSS display size to the logical dimensions so the backdrop
+      // stays pixel-aligned with measureRef. measureRef stays at logical size —
+      // the geometry coordinate space is completely unchanged.
+      const mult = BACKDROP_MULTIPLIERS[backdropTierRef.current] ?? 1
+      const hiDpi = page.getViewport({ scale: scale * mult })
+      canvas.width = hiDpi.width
+      canvas.height = hiDpi.height
+      canvas.style.width  = `${scaled.width}px`
+      canvas.style.height = `${scaled.height}px`
+
+      if (resizeMeasure && measureRef.current) {
         measureRef.current.width = scaled.width
         measureRef.current.height = scaled.height
       }
-      await page.render({ canvasContext: ctx, viewport: scaled }).promise
+      await page.render({ canvasContext: ctx, viewport: hiDpi }).promise
       setCurrentPage(pageNum)
     } catch {
       setError('Failed to render page.')
@@ -730,6 +752,7 @@ function App() {
     setShowGhostByPageId({})
     setShowFloorHeights(false); setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false)
     setFhFtVals({}); setFhInVals({})
+    backdropTierRef.current = 'normal'; setBackdropTier('normal')
     resetZoomPan()
     try {
       const arrayBuffer = await file.arrayBuffer()
@@ -764,6 +787,7 @@ function App() {
     resetEditState()
     setElevAlignMode(false)
     setAlignMode(false); alignDragRef.current = null
+    backdropTierRef.current = 'normal'; setBackdropTier('normal')
     resetZoomPan()
     drawVerticesRef.current = []; mousePosRef.current = null
     renderPage(pdf, pageNum)
@@ -4631,6 +4655,7 @@ function App() {
       setPdf(pdfDoc)
 
       // 4. Render the target page (async — must be after setPdf so canvasRef is ready)
+      backdropTierRef.current = 'normal'; setBackdropTier('normal')
       const targetPage = obj.currentPage ?? 1
       await renderPage(pdfDoc, targetPage)
 
@@ -5536,6 +5561,37 @@ function App() {
             )}
           </div>
         )}
+
+        {currentPage && pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (() => {
+          const atUltra  = backdropTier === 'ultra'
+          const atNormal = backdropTier === 'normal'
+          const enhanceLabel = backdropTier === 'normal' ? 'Enhance' : 'No seriously, enhance'
+          const changeBackdropTier = (tier) => {
+            backdropTierRef.current = tier
+            setBackdropTier(tier)
+            renderPage(pdf, currentPage, { resizeMeasure: false })
+          }
+          return (
+            <>
+              <button
+                className={`calib-btn${backdropTier !== 'normal' ? ' calib-btn--done' : ''}`}
+                onClick={() => { if (!atUltra) changeBackdropTier(backdropTier === 'normal' ? 'enhance' : 'ultra') }}
+                disabled={atUltra}
+                title={atUltra ? 'Already at maximum resolution' : enhanceLabel}
+              >
+                {enhanceLabel}
+              </button>
+              <button
+                className="calib-btn"
+                onClick={() => changeBackdropTier('normal')}
+                disabled={atNormal}
+                title={atNormal ? 'Already at normal resolution' : 'Reset to normal resolution'}
+              >
+                De-enhance
+              </button>
+            </>
+          )
+        })()}
 
         {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && (
           <button
