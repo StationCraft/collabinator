@@ -10,6 +10,59 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 57 — Page-region model (#5) recon + gated-ready resurfacing (2026-06-29)
+
+**Branch:** main | **No code built this session — recon + doc updates only.**
+
+### What was done
+
+**Task 1 — pageId-consumer recon (read-only).** Full inventory of every consumer that keys off
+`pageId` and what a logical region-page (a pageId carrying a parent-sheet id + crop rectangle +
+own category) would require of it. Summary: 13 consumers are clean extensions (already keyed by
+pageId, accept new pageIds transparently). Four consumers are design forks requiring explicit
+resolution before the #5 build session:
+
+- **Fork A:** `currentPage` (pageNum) must become `currentPageId` (region pageId) as the primary
+  navigation pointer. `getPageId(currentPage)` is 1:1 today; it is ambiguous 1:M with regions.
+  ~20 call sites migrate. `currentPage` (pageNum) stays as the "which PDF sheet" pointer.
+- **Fork B:** `renderPage` must establish a crop-local coordinate frame. `measureRef` must be
+  sized to the crop box, not the full sheet. The PDF backdrop renders with a viewport translate+clip
+  so canvas pixel (0,0) maps to the crop's top-left. A fixed crop-offset transform composes
+  beneath the existing user-driven `pageTransformsRef` alignment transform.
+- **Fork C:** `pageIdMapRef` 1:1 assumption dissolves (resolved when Fork A is done).
+- **Fork D:** Categorization confirm/skip handlers key by `pageNum` (`p.pageNum === currentPage`);
+  must rekey by `pageId` so two crops on the same sheet can be independently categorized.
+
+**Task 2 — gated-ready sweep.** Added "GATED-READY (resurfaced 2026-06-29)" notes to
+ADDITIONAL_FUNCTIONALITY.md entries #5, #29, #53. Confirmed #28, #23, #17, #16, #8 remain
+correctly gated (all need R3 / Phase 2 or the post-3D deep-review waypoint).
+
+**Task 3 — planning-chat definitions logged into ADDITIONAL_FUNCTIONALITY.md.** Added to #5
+(page-region model: one sheet → user carves crops → each crop = independent logical page) and
+to #29 (derived-elevation step: derives from floor-plan edge + accumulateZ, shown for confirm,
+not freehand-traced; faceKey grouping for U-court / different-plane walls).
+
+**Task 4 — PARALLEL_TRACKS_LEDGER.md updated.** #93 resolved (click-to-edit labels removed,
+commits 27257b9 + c96de9f) recorded in new "Resolved side-quests" table.
+
+### No code changes
+
+Session is recon and documentation only. Zero changes to App.jsx, geometry.js, canvasRenderer.js,
+or any source file.
+
+### Forward
+
+**Next build session:** Start with the four forks from the Task 1 recon. Resolve Fork A first
+(makes `currentPageId` first-class state — unlocks Forks C and D). Then Fork B (crop-local
+`renderPage`). Build in pieces; each fork is independently verifiable in the browser.
+
+**After #5 is built:** #29 (derived elevations) queues behind it. #53 (setback hover annotation)
+is a cheap interleave anytime after the page-region build.
+
+**F280 track remains paused** until geometry/input layer is reviewed and stable.
+
+---
+
 ## SESSION 56 — F280 above-grade conductive endpoint (2026-06-29)
 
 **Branch:** main | **Commits:** App.jsx F280 changes committed and pushed to origin.

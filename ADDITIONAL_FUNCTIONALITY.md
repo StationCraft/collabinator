@@ -114,6 +114,40 @@ cleanly when prioritised.
 
 **Status:** Deferred. Build as a discrete step after 4c is committed.
 
+**GATED-READY — resurfaced 2026-06-29. NOW PRIORITIZED as the keystone build.** Gates satisfied:
+4c (sidebar) done; pageId architecture stable. Supersedes/absorbs #92(b) (multi-elevation per page)
+as a sub-behavior — a region-page IS the two-elevations-on-one-sheet solution by definition.
+
+**Planning-chat definition (2026-06-29):**
+One PDF sheet = one source document. The user carves crop boxes on the sheet; EACH crop becomes
+an independent logical page in the sidebar, cropped to that region, carrying its OWN pageType
+(floor-plan / elevation / cross-section / roof / etc.) and label. The rest of the sheet is
+greyed out. Each crop has its own `pageId`, own coordinate frame (crop-local origin at top-left
+of the crop box), own category + subLabel, own scale, and participates in the reference tree
+independently. This model generalises to ANY mixed-content sheet and unifies #5 + #92. It is
+the prerequisite for region-scoped derived elevations (#29).
+
+**Four design forks to resolve before build session (from Session 57 recon):**
+- **Fork A** — `currentPage` (pageNum) must become `currentPageId` as the primary navigation
+  pointer (first-class React state, not derived). `getPageId(currentPage)` is 1:1 today; with
+  regions it is ambiguous (1:M). ~20 call sites migrate from `getPageId(currentPage)` to reads
+  of `currentPageId` state. `currentPage` (pageNum) remains the "which PDF sheet" pointer for
+  `renderPage`.
+- **Fork B** — `renderPage` must establish a crop-local coordinate frame. `measureRef` size must
+  equal the crop box dimensions. The PDF backdrop renders with a viewport translate+clip so canvas
+  pixel (0,0) maps to the crop's top-left in PDF space. A fixed crop-offset transform composes
+  beneath the existing user-driven `pageTransformsRef` alignment transform. This is the most
+  mechanical fork.
+- **Fork C** — `pageIdMapRef` dissolves as a navigation helper; becomes a `pageNum → [pageId,…]`
+  load-time index. Resolved when Fork A is done.
+- **Fork D** — Categorization confirm/skip handlers key by `pageNum` today
+  (`p.pageNum === currentPage`); must rekey by `pageId` so two crops on the same sheet are
+  independently categorized.
+
+**Everything else is a clean extension** (pageScalesRef, completedShapesRef filtering, elevationEdgeRef,
+openingsByWallId, getFloorLevel, getGhostSourcePageId, getEffectiveScale, sidebar section derivation —
+all already keyed by pageId and accept new pageIds without structural change).
+
 ---
 
 ### 6. CAD-export datum (named reference point)
@@ -544,6 +578,20 @@ All three are confirm-and-correct surfaces — the system proposes; the user con
 
 **Status:** Architectural record. Constrains Phase 2 elevation-annotation design. Flag if any Piece 4 decision forecloses this.
 
+**GATED-READY — resurfaced 2026-06-29.** R2 (path-3 coordinate seam) + B1/B2 (wireframe
+composition seams) satisfy the "projection prerequisite" stated in the original gate — these
+provide `pageVertexToWorld` and the world-meter read-time projection. Queue BEHIND #5 (region-pages
+must exist before region-scoped derived elevations make sense).
+
+**Planning-chat definition of the derived-elevation step (2026-06-29):**
+Once region-pages exist, an elevation region's envelope geometry is DERIVED from its picked
+floor-plan reference edge + `accumulateZ` heights — shown to the user for CONFIRM rather than
+freehand-traced. `deriveEnumeration` STEP A already emits `orientationDeg` + reconcile tags
+per wall edge; setback walls render in the existing reconcile color. Walls sharing the same
+facing-direction stay as separate elements grouped by a `faceKey` (orientation-bin + plane-offset
+cluster) so U-court / different-plane walls produce subset elevations automatically. No ghost-align,
+no freehand trace — the floor-plan polygon IS the geometry source.
+
 ---
 
 ### 30. Grade / soil line — Elevation Piece 4 sub-piece 2
@@ -839,6 +887,11 @@ Needs a short planning pass to verify the math is neutral before any code change
 **Description:** Hover a wall edge on a floor-plan page → show reconcile tag (cantilever / setback / coincident) + signed distance inline. No user input required — read-only derivation display.
 **Why deferred:** Needs a hover-label render pass wired into redrawFrontFaceLayer + drawEditCanvas; minor scope mid-B4. Deferred until panel/render work is active.
 **Status:** Deferred. Design alongside any future derivation annotation panel.
+
+**GATED-READY — resurfaced 2026-06-29.** #52 (enumeration panel) is done; reconcile tags
+(`cantilever` / `setback` / `coincident` + signed distance) are already computed in
+`deriveEnumeration` STEP A per wall edge. Cheap visible win — hover-label pass wired into
+`redrawFrontFaceLayer`. Interleave when convenient; no architectural dependency.
 
 ---
 

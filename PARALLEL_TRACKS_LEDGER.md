@@ -196,4 +196,12 @@ to this ledger **before** Track A wires against the new shape.
 
 ---
 
-*Last updated: 2026-06-28 (Session 52 — opening thermal fields uw/shgc DONE; #99 resolved; F280 gate lifted; Track C (F280 spec repo) added)*
+## RESOLVED SIDE-QUESTS (main track)
+
+| Issue | Description | Commits | Date |
+|-------|-------------|---------|------|
+| #93 | Click-to-edit dimension labels removed — segment drag now wins on opening edges in Edit Shapes mode. `hitTestLabels`, `commitLabelEdit`, `labelEditState`, label-edit-overlay JSX and related branches removed. `segLabelRectsRef` left populated (renders labels visually; intentional dead ref — no functional change). | 27257b9 + c96de9f | 2026-06-29 |
+
+---
+
+*Last updated: 2026-06-29 (Session 57 — #5 page-region model resurfaced + gated-ready sweep; #29 and #53 gated-ready; #93 resolved logged; recon report written)*
