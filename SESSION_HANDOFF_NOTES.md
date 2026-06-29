@@ -10,6 +10,47 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 54 — F280 Climate slice: location/Toh prerequisite data layer (2026-06-28)
+
+**Branch:** main | **Commit:** e7a52bf — pushed to origin.
+
+### What was built
+
+**Three-part climate input slice — prerequisite for the F280 conductive heat-loss endpoint:**
+
+**Part A — Static weather register (`src/data/f280-weather.json`):**
+- Extracted from `C:\dev\CSA_F280-12\F280_Weather.xls` (encrypted; opened via Excel COM on Windows).
+- 679 entries (730 rows minus 51 blank city/region rows). National coverage: BC 108, ON 230, QC 125, AB 55, all other provinces present.
+- Fields per entry: `station`, `region`, `dhdbt` (=Toh), `dcdbt`, `degday`, `strange`, `ohr`, `dgtemp`, `janWind`, `julWind`, `monthlyTemps[12]`, `lat`, `lng`.
+- All fields carried even though only `dhdbt` is consumed this slice — avoids re-extracting for BASESIMP/AIM-2/cooling later.
+- The encrypted .xls is NOT a runtime dependency and NOT copied into the repo.
+
+**Part B — Two new CONFIG_FIELDS in 'Climate' category:**
+- `location-station` (multi:false, select): 679 options, value = `"station|||region"` composite (e.g. `"Vernon|||BC"`) — unique across provinces. Cities like Richmond, Princeton, Windsor appear in multiple provinces; composite key prevents duplicate-key React warnings and lookup ambiguity. Label = `"Vernon, BC"` etc.
+- `toh-override` (kind:'number', multi:false): number input, `step=0.5`, allows negatives (Toh ranges from −45 to +28 in the register). Empty = null = no override. New `kind:'number'` render branch added before `kind:'count'` in the Project Setup panel JSX.
+
+**Part C — `resolve-toh` cross-field rule in `CONFIG_CROSS_FIELD_RULES`:**
+- Override wins: if `toh-override` is a non-null, non-NaN number → `resolved.toh = that number`.
+- Register lookup: else if `location-station` set → parse `station|||region`, find exact match in `F280_WEATHER`, return `entry.dhdbt`.
+- Neither → `resolved.toh = null`.
+- `toh` is DERIVED — never stored as raw intent. `getConfigValue` returns raw; `resolveEffectiveConfig` returns resolved. Two honest truths, identical to existing pattern.
+
+**DEV — `window.__verifyToh()`:** 6 checks, all PASS:
+1. Register count > 650 (got 679) ✓
+2. Vernon exact match → dhdbt = -20 ✓
+3. Victoria / Victoria Gonzales Height are distinct entries ✓
+4. `location-station = 'Vernon|||BC'`, no override → resolved toh = -20 ✓
+5. `toh-override = -25` → resolved toh = -25 (override wins) ✓
+6. Neither set → resolved toh = null ✓
+
+**Bug caught and fixed during build:** Duplicate React `key` warnings from bare station name as option value — cities appear in multiple provinces (Richmond BC + ON, Grand Falls NB + NL, etc.). Fixed by using `station|||region` composite as both `value` and React key.
+
+### Forward
+
+F280 above-grade conductive endpoint: consume `resolveEffectiveConfig().toh` (now available) + `deriveEnumeration()` wall surfaces + openings → `HLage = A / RSI × DTDh` per surface → `HLb = Σ`. Scope fork (walls+openings only vs. full 13-surface loop) still Ben's call before that build starts.
+
+---
+
 ## SESSION 52 — Opening thermal fields: uw + shgc (F280 opening contract) (2026-06-28)
 
 **Branch:** main | **Commit:** (this session) — pushed to origin.

@@ -465,6 +465,12 @@ The Project Setup panel (§9) drives a derived worklist of mechanical/electrical
 - `cooling` field has three options: heat-pump-ducted (added Session 37), central-ac, none.
 - `ITEM_TYPES` table defines four item types (air-handler, outdoor-unit, bath-fan, hrv-unit), each with an obligation list.
 - `resolveEffectiveConfig(rawValues)` + `CONFIG_CROSS_FIELD_RULES` (Session 37): cross-field rules applied before spawn. Current rule: heat-pump-ducted space-heating prefills cooling = heat-pump-ducted when cooling is unset (prefilled-but-editable; never clobbers non-null user choice). `getConfigValue` = raw user intent; `resolveEffectiveConfig` = engine-resolved view; called at exactly deriveWorklist + panel render.
+- **`resolve-toh` rule (Session 54):** derives outdoor heating design temperature `toh` (°C). Override wins; falls back to `F280_WEATHER` register lookup by composite `station|||region` key; else null. `toh` is always derived — never stored as raw intent. Consumed by the F280 endpoint when built.
+
+**Climate station register (`src/data/f280-weather.json`):**
+- 679 entries, national (all 13 provinces/territories). Extracted once from `F280_Weather.xls` (encrypted) via Excel COM; static bundle.
+- Two new CONFIG_FIELDS in 'Climate' category: `location-station` (679-option select, value = `"station|||region"` composite for province disambiguation) and `toh-override` (`kind:'number'`, allows negatives, step=0.5). `kind:'number'` is a new panel render branch distinct from `kind:'count'`.
+- `window.__verifyToh()`: 6 DEV-block assertions (count, exact lookup, province disambiguation, resolver paths). All PASS.
 - `deriveWorklist()` collects all spawn requests into `maxCountByType` (dedup: max count per type, not additive), then builds `{ toPlace, obligations }`. A shared appliance implied by two fields appears once. Never stored.
 
 **Placement:**

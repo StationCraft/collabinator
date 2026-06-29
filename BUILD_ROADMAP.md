@@ -412,13 +412,14 @@ is arranged so most beats are things Ben can see.
       getRsiW derived correctly from real value and null, door shgc === 0).
     Fallback path for no-rated-data projects: #103 (window-builder selector, deferred).
 
-[ ] F280 ENDPOINT — first heat-loss calculation  [GATE LIFTED — opening thermal fields DONE]
+[ ] F280 ENDPOINT — first heat-loss calculation  [ALL GATES LIFTED]
     Consumes insideFaceAreaM2 + effectiveUValue from wall-surface elements; uw/shgc from openings.
+    Toh now available via resolveEffectiveConfig().toh (location-station + toh-override, e7a52bf).
     Remaining pre-build fork: ENDPOINT SCOPE — above-grade conductive slice only (walls + openings,
       Cl. 5.2.1 heating heat-loss) vs full 13-surface loop. Ben's call before build starts.
     F280 compliance spec: CollabinatorF280 @ d94c18a — scope, heating + cooling formulas,
       13-surface inventory, opening RSI_W/SHGC contract, gap-analysis checklist.
-    READY TO SEQUENCE when scope fork is settled.
+    READY TO BUILD when scope fork is settled.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,

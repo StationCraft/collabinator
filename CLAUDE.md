@@ -759,8 +759,27 @@ A React + Vite app with:
     The throw was caught at React's event boundary, silently preventing 3D View from mounting
     on first load. 17/17 harness PASS; Ben confirmed inward growth on `wall-sh-1-seg0-Main_Floor`.
 
+- **F280 climate input slice (Session 54; commit e7a52bf):** prerequisite data layer for the F280
+  conductive heat-loss endpoint — `resolveEffectiveConfig().toh` now available.
+  * **`src/data/f280-weather.json`** — 679 stations, national coverage (all 13 provinces/territories).
+    Extracted from `C:\dev\CSA_F280-12\F280_Weather.xls` (encrypted) via Excel COM. Fields per entry:
+    `station`, `region`, `dhdbt` (=Toh), `dcdbt`, `degday`, `strange`, `ohr`, `dgtemp`, `janWind`,
+    `julWind`, `monthlyTemps[12]`, `lat`, `lng`. Encrypted .xls NOT in repo — only the derived JSON.
+  * **Two new CONFIG_FIELDS in 'Climate' category:**
+    `location-station` (select, 679 options, value = `"station|||region"` composite — province-disambiguated;
+    multiple cities share a name across provinces e.g. Richmond BC and ON); `toh-override` (kind:'number',
+    allows negatives, step=0.5, null when empty). New `kind:'number'` render branch added to Project Setup
+    panel JSX (before existing `kind:'count'` branch).
+  * **`resolve-toh` cross-field rule** in `CONFIG_CROSS_FIELD_RULES`: override wins if non-null/non-NaN;
+    else register lookup by composite key; else null. `toh` is DERIVED — never stored as raw intent.
+    `getConfigValue` returns raw; `resolveEffectiveConfig` returns resolved. Two honest truths.
+  * **`window.__verifyToh()`** DEV-block check — 6 assertions (count, Vernon dhdbt, Victoria
+    disambiguation, station→toh, override wins, null fallback); all 6 PASS. Tree-shakes from prod.
+
 **Not yet built (next increments):**
-- **Next critical-path build: planning pass needed** — §8.2 step 5 or next §9 extension.
+- **Next critical-path build: F280 above-grade conductive endpoint** — all gates lifted (`toh` live,
+  `effectiveRSI`/`netAreaM2`/`insideFaceAreaM2` on wall surfaces, `uw`/`shgc` on openings). Scope fork
+  (above-grade conductive slice only vs full 13-surface loop) is Ben's call before build starts.
 - Windows/doors Piece 3 (three-layer snap) — off critical path; available when ready
 - Windows/doors Piece 4 (dumb duplicate) — off critical path
 - B3: widen `getGhostSourcePageId` so Roof Plan pages enter the ghost/borrow path — **DONE (d4e99d8)**

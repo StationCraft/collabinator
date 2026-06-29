@@ -34,16 +34,17 @@ file concurrently and eliminates merge conflicts between the two repos.
 | Slice 2 | Contract ingest — geometry-scoped fields (`assemblyId`, `label`, `assemblyType`, `totalThicknessM`, `layers[]`); `ingestAssembly`; `__ingestAssembly` DEV hook; silently ignores thermal fields (forward-compat) | `6dab52d` | 2026-06-28 |
 | Slice 3 | 3D wall-panel render (`totalThicknessM` → solid panels in ThreeDView; assemblyType-driven growth direction); `insideFaceAreaM2` derived in STEP A; TDZ fix | `8f1dd30` | 2026-06-28 |
 | Slice 4 | Thermal-field ingest: `effectiveUValue`, `effectiveRSI`, `controlLayers` stored in `assemblyLibraryRef`; `getSurfaceAssembly` returns all three; `deriveEnumeration` STEP A pushes them onto wall-surface elements; null preservation verified; harness 17/17 → 24/24 PASS | (this session) | 2026-06-28 |
+| Slice 5 | F280 climate layer: `src/data/f280-weather.json` (679 stations national); `location-station` + `toh-override` CONFIG_FIELDS; `resolve-toh` cross-field rule in `resolveEffectiveConfig`; `kind:'number'` panel render branch; `__verifyToh()` 6/6 PASS | `e7a52bf` | 2026-06-28 |
 
 **Deferred / logged:**
 - #96 — wall corner reconciliation (solid interpenetration + inside-face area overcount; overcount accepted for initial F280 pass)
 - ~~#99~~ — RESOLVED (Session 52): opening thermal fields (`uw`/`shgc`) added to opening record; `getRsiW` engine-internal; door SHGC = 0 (opaque-by-model). F280 gate lifted.
 - #103 — window-builder selector (Table 6E–6H fallback lookup; deferred)
 - #104 — glazed-in-door as parented sub-item (deferred)
+- #105 — climate-change resiliency mode (extreme-Toh toggle alongside compliant result; gated on F280 endpoint + this Toh layer — both now present)
 
 **Next (Track A):**
-- F280 endpoint: consume `insideFaceAreaM2` + `effectiveUValue` + `uw`/`shgc` on openings → heat-loss.
-  Remaining gate: Ben to settle scope fork (above-grade conductive slice only vs full 13-surface loop).
+- F280 above-grade conductive endpoint: `HLage = A / RSI × DTDh` per surface, summed to `HLb`. Consumes `resolveEffectiveConfig().toh` (now live) + `deriveEnumeration()` wall surfaces (`netAreaM2`, `effectiveRSI`) + openings (`widthM × heightM`, `getRsiW(uw)`). Scope fork (walls+openings only vs full 13-surface loop) Ben's call before build.
 
 ---
 
