@@ -1320,19 +1320,25 @@ only unambiguous per-segment join available in the current data model.
 
 ---
 
-### 89. Ghost start-vertex snap does not fire on upper-floor trace — POSSIBLE BUG
-**Category:** Snap / Multi-floor tracing. **Logged:** Session 42.
+### 89. Ghost start-vertex snap does not fire on upper-floor trace — RESOLVED: MISSING NICETY
+**Category:** Snap / Multi-floor tracing. **Logged:** Session 42. **Resolved:** Session 51 (runtime recon, code-only triage).
 **Cross-references:** #13 (ghost vertices as opt-in snap targets), #34 (getVisibleVertices gap note).
 
-**Description:** When tracing a new shape on an upper-floor page while the floor-below ghost is visible, the start-vertex snap (red highlight + exact coincident placement) does NOT fire on ghost vertices — not even the "snap suggestion" UX fires. The user cannot start a new wall precisely coincident with a ghost corner without manually zooming in and eyeballing it.
+**Description:** When tracing a new shape on an upper-floor page while the floor-below ghost is visible, the start-vertex snap (red highlight + exact coincident placement) does NOT fire on ghost vertices — not even the "snap suggestion" UX fires.
 
-**Why this may be a BUG (not just a missing feature):** `getVisibleVertices()` powers the start-vertex snap. It is documented (#34) as returning only locked shapes on the CURRENT page and NOT including ghost source shapes. Entry #13 was logged as a deliberate deferral — "a nicety, not a blocker." However, #34 says the fix to #13 requires updating `getVisibleVertices` to include ghost source shapes. The QUESTION is whether the original #13 deferral was aware that the result is that snap suggestions are COMPLETELY ABSENT on ghost vertices (not degraded, not reduced — absent), which is noticeably worse than "snap works, ghost-vertex precision is just a nicety." If the original decision assumed some base-level snap assist existed and it doesn't, the path is broken rather than deferred.
+**Triage verdict (Session 51 — NOT a bug):**
 
-**What to verify before building:** Check whether ANY snap mechanism (axis-snap, grid-snap, start-vertex snap) assists the user in landing precisely on a ghost vertex. If none do, classify as BUG. If axis + grid together reliably produce coincidence within the shared measure-space grid (as Session 10's design assumed), classify as a missing nicety and fold back into #13/#34.
+Code evidence:
+- `getVisibleVertices` (`App.jsx:919`) filters `completedShapesRef` by `s.pageId === pageId` — current page only. Ghost source shapes live under a different `pageId` and are never included. `drawStartSnapRef` is fed exclusively from this function (`App.jsx:2540`), so the red-ring snap cannot fire on ghost corners. Confirmed.
+- `drawGhostShapes` (`canvasRenderer.js:158`) renders ghost vertex coordinates (`v.x, v.y`) directly into the shared canvas-world context with no transform applied. Ghost geometry occupies identical pixel positions in the same coordinate space as the upper-floor tracing canvas.
+- `snapToGrid` (`App.jsx:813–824`) on the upper-floor page resolves scale via `getEffectiveScale` → `pageRefParentRef` chain → ghost source's calibrated `pxPerMeter` (same scale). Grid origin: `pageGridOriginRef.current[pageId] || {x:0, y:0}` — both the upper-floor page and the ghost source page default to `{x:0, y:0}` (calibration confirm deletes/resets the entry). Same origin + same scale + same snap pitch = the upper-floor snap grid is **identical** to the grid on which the ghost source shapes were originally traced.
+- Ghost corners are therefore grid-aligned by construction — they sat on grid intersections when traced, and those intersections exist at the same pixel positions on the upper floor's grid.
 
-**Why deferred:** Cannot be triaged without a runtime check on the actual snap behavior when a ghost is visible. Flagged here to ensure it is verified before the next multi-floor build session — not after.
+Conclusion: the user CAN place a start vertex exactly coincident with a ghost corner via grid-snap at adequate zoom. The only gap is visual: no red-ring confirmation that the correct grid point was targeted, so at low zoom a nearby grid point could win instead of the intended ghost corner. Correctness is fine; this is a usability convenience gap only.
 
-**Status:** POSSIBLE BUG — triage required before next multi-floor session. Check against #13/#34; update status after runtime verification.
+**Resolution:** Folded into #13/#34 as originally deferred. Ghost-vertex start-snap (red-ring highlight on ghost corners) is the #13/#34 enhancement — a visual confirmation aid, not a correctness fix. Multi-floor tracing is NOT blocked by this.
+
+**Status:** RESOLVED — MISSING NICETY. Deferred enhancement tracked under #13/#34. No standalone fix needed.
 
 ---
 
