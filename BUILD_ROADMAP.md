@@ -472,6 +472,70 @@ is correctly fenced and should NOT be pulled forward.
 
 ---
 
+## ⏸ PLATEAU WAYPOINTS — post-#5 / pre-#29
+
+**Trigger:** After #5 (region-pages) fully lands — Fork B/C/D done, crop-carving UI working,
+region-pages verified — and BEFORE #29 (derived elevations) begins. Two scheduled waypoints,
+in sequence.
+
+### (a) SIMPLIFICATION PASS — coordinate-layer extraction
+
+**Purpose:** App.jsx has grown to do too many jobs simultaneously: page model, all refs, render
+dispatch, hit-testing, toolbar handlers, transform stack, derivation triggers. A behavior-preserving
+extraction pass before the next large build phase reduces the surface area that any future change
+must reason about.
+
+**Priority order for extractions:**
+1. **Coordinate/transform seam (highest value):** All px/meter math (`pageVertexToWorld`,
+   `getEffectiveScale`, `pxToMeters`/`metersToPx`) moves behind one clean boundary; App.jsx
+   never does raw pixel/meter arithmetic inline. Callers change one word each; the math itself
+   moves once. This is the seam that most directly reduces #22-invariant risk on future edits.
+2. **Ref/tick consolidation (lower priority):** The dozen module-level refs + `*Tick` integers
+   carry implicit contracts (set-once, clears-on-upload, raw-read-poisons-origin) that are
+   invisible to a reader. Consolidate into a few named containers so the contracts become
+   explicit in the type rather than in CLAUDE.md prose.
+3. **Shape-kind dispatch table (cosmetic):** Scattered if/shapeKind branches across ~13 render +
+   7 hit-test sites → a dispatch table. Each site becomes a one-liner; adding a shape kind
+   becomes one row in one place.
+
+**Method (mandatory — not negotiable):** Behavior-preserving, Fork-A-style. Audit every call site
+before moving any code. Verify by exercising EXISTING behavior in the browser to prove nothing
+moved — the success criterion is "nothing changed." A refactor is the least browser-verifiable
+change type; the discipline is what makes it safe.
+
+**Model assignment:** Opus/high to plan the seam and define the boundary precisely; Sonnet/medium
+for the mechanical extraction once the seam is defined and agreed.
+
+**Hard gate:** Do NOT start before #5 fully lands. Region-pages touches the same files and the
+#22 seam — starting early creates a collision with itself.
+
+---
+
+### (b) ROADMAP RECONCILIATION + GATE-REPHRASING
+
+**Purpose:** Reset the deferred register against reality before the next large feature block
+begins. A one-time pass, not a recurring obligation — but scheduled now so it is not skipped
+when the moment comes.
+
+**Scope:**
+- Mark true built/building/deferred state. Several items marked "deferred" are done; B5 is
+  marked DONE but delivered only line-wireframe (element-Z is NOT done and should not be
+  claimed as done).
+- Re-walk EVERY deferred item's stated gate. Tag each one:
+  **gate-still-real** / **gate-lifted-ready** / **gate-partially-lifted**.
+- **Named deliverable:** Rewrite every gate as a CHECKABLE CONDITION, not a vibe. Not "needs R3"
+  but the specific thing that must exist (e.g. "needs per-element `z` field on
+  `completedShapesRef` entries"). A future session must be able to test the gate yes/no without
+  relying on institutional memory. This is the direct fix for the F280-drift failure mode —
+  items sitting ready behind a gate that barely exists anymore.
+- Reorganize the near-term sequence around what is actually unblocked after the sweep.
+
+**Scope boundary:** Lightweight prose only — do NOT build a formal dependency graph or tracking
+system; that would itself rot. Larger strategic questions (refs architecture, #8/#17
+discipline-layer model) belong at the ⏸ deep-review waypoint below, not here.
+
+---
+
 ## What this leads to (not started, not this chat's job)
 
 Once the infrastructure above is solid, a fresh planning chat picks up at the actual

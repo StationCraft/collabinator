@@ -1861,3 +1861,33 @@ There is no post-placement path to add or edit `uw`/`shgc` on an existing openin
 
 **Status:** Logged, deferred. No geometry dependency; pure UI/data wiring work.
 
+---
+
+### 109. Overlay-to-underlay repaint gap on resize / page-nav
+
+**Category:** Rendering / robustness. **Logged:** Session 59 (2026-06-29).
+
+**Description:**
+
+After a window resize or page-switch, traced shapes (openings, grade line, and other overlay
+geometry) render misaligned to the PDF backdrop until the canvas receives a clean redraw — at
+which point everything snaps back into correct registration. Stored geometry is CORRECT (canvas-pixel
+coordinates are intact). The failure is the render-time transform reapplication not firing on
+resize and nav events, not a storage error.
+
+**Root cause location:** The redraw-trigger path — resize and page-nav events are not reliably
+flushing all overlay render passes. The fix lives in those event handlers, NOT in stored coordinates.
+
+**Important invariant:** Storing a "corrected" pixel offset at event time would reintroduce the
+#22 frozen-offset trap (recalibration-independence). The canvas-pixel coordinates must remain
+unmodified; only the repaint timing is the fix.
+
+**Relationship to other entries:** Sibling to #24 (global drag-release robustness) — both are
+window-level event handler gaps where the app-level event listener misses a transition. Batch
+into the same redraw/event robustness polish pass rather than fixing individually.
+
+**Severity:** Visual-only, low-risk. Does not corrupt stored geometry, does not block any build.
+A single mouse move restores correct display. Fix when convenient, not urgently.
+
+**Status:** Logged. Batch with #24 in a dedicated redraw/event-robustness polish session.
+

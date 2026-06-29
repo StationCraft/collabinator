@@ -30,6 +30,8 @@ This project is built by Ben (solo, first-time builder, construction-domain expe
 
 **Session close-out (every session, unprompted):** When a step is committed and pushed, run a close-out: update the five live docs (CLAUDE.md, SESSION_HANDOFF_NOTES.md, BUILD_ROADMAP.md, FUNCTIONALITY_SUMMARY.md, ADDITIONAL_FUNCTIONALITY.md) to match what was built, commit and push the doc update. The five docs are the source of truth for the next session — keep them current.
 
+**Gate-expiry sweep (session-start AND every major-feature boundary):** When regenerating the status board from the five live docs at session start, also scan ADDITIONAL_FUNCTIONALITY.md for any deferred item whose stated gate is now satisfied by completed work — tag it GATED-READY in the entry and flag it to Ben before the session's build work begins. The sweep fires again whenever a #5-sized feature lands: do the sweep before picking the next item. This makes gate-expiry automatic and recurring (part of the process, not of Ben's vigilance) rather than ad-hoc.
+
 **Environment:** Project at C:\Users\ben\Collabinator\pdf-viewer (Code can default to a stale G: path — always confirm the folder at session start). State is in-memory only, lost on reload — build test state in one un-reloaded tab. Per-folder `.claude/settings.local.json` recreation is no longer needed — global user-level Claude Code settings (`~/.claude/settings.json`) now set `defaultMode: acceptEdits` and allow Bash/PowerShell, covering all projects.
 
 ## What this is
