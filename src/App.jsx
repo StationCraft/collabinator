@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import ThreeDView from './ThreeDView.jsx'
 import * as pdfjsLib from 'pdfjs-dist'
+import F280_WEATHER from './data/f280-weather.json'
 import './App.css'
 import {
   makeVertex, distToSegment, segmentGeom, projT, applyAxisSnap, parseDisplayDistInput, pointInPolygon,
@@ -90,6 +91,24 @@ const CONFIG_FIELDS = [
       { value: 'obc',   label: 'Ontario Building Code' },
       { value: 'other', label: 'Other / TBD' },
     ],
+    multi: false,
+    spawns: null,
+  },
+  // ── Climate ──────────────────────────────────────────────────────────────
+  {
+    id: 'location-station',
+    category: 'Climate',
+    label: 'Location (climate station)',
+    // value is "station|||region" composite — unique across provinces (e.g. Richmond appears in BC and ON)
+    options: F280_WEATHER.map(e => ({ value: `${e.station}|||${e.region}`, label: `${e.station}, ${e.region}` })),
+    multi: false,
+    spawns: null,
+  },
+  {
+    id: 'toh-override',
+    category: 'Climate',
+    label: 'Override heating design temp (°C)',
+    kind: 'number',
     multi: false,
     spawns: null,
   },
@@ -314,6 +333,26 @@ const CONFIG_CROSS_FIELD_RULES = [
     id: 'heat-pump-ducted-implies-cooling',
     when: (raw) => raw['space-heating'] === 'heat-pump-ducted' && (raw['cooling'] == null),
     apply: () => ({ cooling: 'heat-pump-ducted' }),
+  },
+  {
+    // Resolve 'toh' (outdoor heating design temp, °C) from location station or manual override.
+    // Override wins over register lookup. 'toh' is derived — never stored as raw intent.
+    id: 'resolve-toh',
+    when: () => true,
+    apply: (raw) => {
+      const override = raw['toh-override']
+      if (override !== null && override !== undefined && override !== '') {
+        const n = Number(override)
+        if (!isNaN(n)) return { toh: n }
+      }
+      const stationVal = raw['location-station']
+      if (stationVal) {
+        const [stationName, region] = stationVal.split('|||')
+        const entry = F280_WEATHER.find(e => e.station === stationName && e.region === region)
+        if (entry) return { toh: entry.dhdbt }
+      }
+      return { toh: null }
+    },
   },
 ]
 
@@ -5562,6 +5601,62 @@ function App() {
         console.log(`  ${e.id}: ${e.mark} (${e.openingKind}) ×${e.remaining}  ${e.operationType ?? ''}  frame ${e.frameWidthM}×${e.frameHeightM}m`)
       }
     }
+
+    // __verifyToh(): DEV check for Climate slice — weather register + resolver sanity.
+    // Checks: (1) register loaded, (2) Vernon exact match, (3) Victoria disambiguation,
+    // (4) location-station → resolved toh, (5) override wins, (6) neither → null.
+    window.__verifyToh = () => {
+      let pass = 0; let fail = 0
+      const check = (label, actual, expected) => {
+        const ok = actual === expected
+        console.log(`[toh] ${ok ? 'PASS' : 'FAIL'} ${label}: got ${JSON.stringify(actual)}${ok ? '' : ', expected ' + JSON.stringify(expected)}`)
+        ok ? pass++ : fail++
+      }
+
+      // (1) Register loaded and count > 650 (679 entries after skipping blank rows)
+      const count = F280_WEATHER.length
+      const c1 = count > 650
+      console.log(`[toh] ${c1 ? 'PASS' : 'FAIL'} (1) register count > 650: got ${count}`)
+      c1 ? pass++ : fail++
+
+      // (2) Vernon exact match → dhdbt = -20
+      const vernonEntry = F280_WEATHER.find(e => e.station === 'Vernon')
+      check('(2) Vernon dhdbt', vernonEntry?.dhdbt, -20)
+
+      // (3) Victoria disambiguation — 'Victoria' and 'Victoria Gonzales Height' are distinct
+      const victoria     = F280_WEATHER.find(e => e.station === 'Victoria')
+      const victoriaGH   = F280_WEATHER.find(e => e.station === 'Victoria Gonzales Height')
+      const c3 = victoria !== undefined && victoriaGH !== undefined && victoria !== victoriaGH
+      console.log(`[toh] ${c3 ? 'PASS' : 'FAIL'} (3) Victoria disambiguation: Victoria dhdbt=${victoria?.dhdbt}, Gonzales Height dhdbt=${victoriaGH?.dhdbt}`)
+      c3 ? pass++ : fail++
+
+      // Save original values and restore after tests
+      const origVals = { ...projectSetupRef.current.values }
+
+      // (4) location-station = 'Vernon|||BC', no override → resolved toh = -20
+      projectSetupRef.current.values['location-station'] = 'Vernon|||BC'
+      projectSetupRef.current.values['toh-override'] = null
+      const r4 = resolveEffectiveConfig(projectSetupRef.current.values)
+      check('(4) Vernon station → toh', r4.toh, -20)
+
+      // (5) toh-override = -25 → resolved toh = -25 (override wins)
+      projectSetupRef.current.values['toh-override'] = -25
+      const r5 = resolveEffectiveConfig(projectSetupRef.current.values)
+      check('(5) override -25 wins', r5.toh, -25)
+
+      // (6) neither set → resolved toh = null
+      projectSetupRef.current.values['location-station'] = null
+      projectSetupRef.current.values['toh-override'] = null
+      const r6 = resolveEffectiveConfig(projectSetupRef.current.values)
+      check('(6) neither set → null', r6.toh, null)
+
+      // Restore
+      projectSetupRef.current.values = { ...origVals }
+
+      const total = pass + fail
+      if (fail === 0) console.log(`[toh] ✓ ALL ${total} checks PASSED`)
+      else console.warn(`[toh] ${fail}/${total} checks FAILED`)
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -6506,7 +6601,28 @@ function App() {
                     return (
                       <div key={field.id} className="fh-row ps-field-row">
                         <div className="fh-field-label ps-field-label">{field.label}</div>
-                        {field.kind === 'count' ? (
+                        {field.kind === 'number' ? (
+                          <input
+                            type="number"
+                            step="0.5"
+                            placeholder="— auto from station —"
+                            className="ps-select ps-count-input"
+                            value={psCountDrafts[field.id] ?? (current != null ? String(current) : '')}
+                            onChange={e => {
+                              const raw = e.target.value
+                              setPsCountDrafts(prev => ({ ...prev, [field.id]: raw }))
+                              const n = parseFloat(raw)
+                              setConfigValue(field.id, raw === '' || isNaN(n) ? null : n)
+                            }}
+                            onBlur={e => {
+                              const raw = e.target.value
+                              const n = parseFloat(raw)
+                              const stored = raw === '' || isNaN(n) ? null : n
+                              setPsCountDrafts(prev => ({ ...prev, [field.id]: stored != null ? String(stored) : '' }))
+                              setConfigValue(field.id, stored)
+                            }}
+                          />
+                        ) : field.kind === 'count' ? (
                           <input
                             type="number"
                             min="0"
