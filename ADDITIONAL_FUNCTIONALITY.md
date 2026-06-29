@@ -1710,3 +1710,25 @@ Under this model doors are always opaque (`shgc = 0`) and glazed doors need no s
 
 **Status:** Deferred. Own design pass required before build.
 
+---
+
+### 105. Climate-change resiliency mode — heat loss at extreme design temperature
+
+**Category:** F280 / heat-loss output. **Logged:** Session 53 (2026-06-28).
+
+**Description:**
+
+A user-facing toggle on the F280 heat-loss output panel that re-runs the same above-grade conductive heat-loss calculation (`HLage = A / RSI × DTDh`) against a user-set **extreme outdoor design temperature**, displayed alongside — never replacing — the official F280 design-temperature result.
+
+F280 design temperatures are the compliance requirement and remain the authoritative output. Resiliency mode lets the user see how the envelope performs under a harsher future-climate design condition, for design-decision purposes, without altering the compliant number.
+
+**Shape:**
+- Rides on the location/Toh override layer being built for the F280 endpoint: same ΔT input mechanism, just a second (extreme) outdoor design temperature value (`TohExtreme`).
+- The compliant `Toh` (from the F280 weather register) and `TohExtreme` are stored as two distinct values; `DTDhExtreme = Tin − TohExtreme`.
+- The official output always uses the register `Toh`. Resiliency is an **additive view**, not a replacement — both numbers are shown, never blended.
+- The toggle is a UI affordance on the F280 results panel; no new `deriveEnumeration` machinery required (same surface data, different DTDh scalar).
+
+**Gating:** Build after the F280 above-grade conductive endpoint + location/Toh override layer exist. Not part of the first endpoint slice.
+
+**Status:** Logged, deferred. Gated on #F280-conductive-endpoint + location/Toh override layer.
+
