@@ -2086,11 +2086,42 @@ function App() {
         const rw = Math.abs(drag.x2 - drag.x1), rh = Math.abs(drag.y2 - drag.y1)
         if (rw >= 20 && rh >= 20 && currentPage && pdf) {
           const pNum = currentPage
+          const sourcePageId = currentPageId   // the page being carved FROM
           regionCounterRef.current[pNum] = (regionCounterRef.current[pNum] ?? 0) + 1
           const k = regionCounterRef.current[pNum]
           const newPageId = `page-${pNum}-r${k}`
-          const crop = { x: rx, y: ry, w: rw, h: rh }
+          // ── Change 1 — crop ∘ T⁻¹ (Build 2) ────────────────────────────────
+          // The carve box (rx,ry,rw,rh) is captured in the source page's UNTRANSFORMED
+          // canvas-world frame (getCanvasPos, unchanged). Fold the source's align transform
+          // back out so the STORED crop is a raw-sheet rectangle matching what the user
+          // visually boxed over the aligned backdrop. T = translate(tx,ty)·scale(s) is a
+          // uniform similarity (angle ≡ 0), so T⁻¹(p) = (p − t)/s. Read defensively: an
+          // un-aligned source has no transform ⇒ identity (tx=ty=0, s=1) ⇒ crop stored
+          // unchanged (today's full-sheet behavior, byte-for-byte). The fold is consumed
+          // HERE only — never frozen into a stored vertex; the region's geometry stays
+          // crop-local (raw-sheet px) by construction.
+          const srcT = pageTransformsRef.current[sourcePageId]
+          const tS  = (srcT && srcT.s) ? srcT.s : 1
+          const tTx = srcT?.tx ?? 0
+          const tTy = srcT?.ty ?? 0
+          const crop = {
+            x: (rx - tTx) / tS,
+            y: (ry - tTy) / tS,
+            w: rw / tS,
+            h: rh / tS,
+          }
           pageCropsRef.current[newPageId] = crop
+          // ── Change 3 — scale propagation onto the region's OWN pageId (Build 2) ──
+          // The region's stored geometry is crop-local in RAW-SHEET px — change 1 rescaled
+          // the frame by 1/s — while the source's scale is canvas-world px/m. Divide by the
+          // SAME s so the propagated scale lives in the region's raw-sheet frame (else walls
+          // measured in an aligned-source region come out by factor s wrong — silent #22).
+          // Un-aligned source (s=1) ⇒ carries directly. Lands on the region's own pageId;
+          // NO pageRefParentRef write, NO borrow chain. Uncalibrated source ⇒ leave uncalibrated.
+          const srcScale = getEffectiveScale(sourcePageId)
+          if (srcScale && srcScale.pxPerMeter) {
+            pageScalesRef.current[newPageId] = { ...srcScale, pxPerMeter: srcScale.pxPerMeter / tS }
+          }
           // Push to pages; stay on the source sheet (no navigation — Item 3).
           // pageCropsRef is already set; the new page appears in the sidebar immediately.
           setPages(prev => [...prev, { pageId: newPageId, pageNum: pNum, crop, category: null, subLabel: null, subLabelNote: null }])
@@ -5098,7 +5129,13 @@ function App() {
         for (const r of regions) {
           const rShapes = completedShapesRef.current.filter(s => s.pageId === r.pageId && s.status === 'locked')
           const cat = r.category ? `${r.category}${r.subLabel ? '/' + r.subLabel : ''}` : 'uncategorized'
-          console.log(`  ${r.pageId}  crop=(${r.crop.x},${r.crop.y} ${r.crop.w}×${r.crop.h})  [${cat}]  ${rShapes.length} shape(s)`)
+          // Build-2 verification aid: a region carved from an aligned/scaled source must carry its
+          // OWN propagated scale (source pxPerMeter ÷ s) on its OWN pageId, with NO refParent.
+          const own = pageScalesRef.current[r.pageId]
+          const ownStr = own?.pxPerMeter ? `ownScale=${own.pxPerMeter.toFixed(2)}px/m` : 'uncalibrated'
+          const parentStr = pageRefParentRef.current[r.pageId] ? ` refParent=${pageRefParentRef.current[r.pageId]}` : ' refParent=none'
+          const cx = r.crop.x.toFixed(1), cy = r.crop.y.toFixed(1), cw = r.crop.w.toFixed(1), ch = r.crop.h.toFixed(1)
+          console.log(`  ${r.pageId}  crop=(${cx},${cy} ${cw}×${ch})  ${ownStr}${parentStr}  [${cat}]  ${rShapes.length} shape(s)`)
           // Partition check: none of these shapes should appear on other regions from the same sheet
           const otherRegionIds = regions.filter(q => q.pageId !== r.pageId).map(q => q.pageId)
           for (const s of rShapes) {
