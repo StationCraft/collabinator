@@ -760,6 +760,22 @@ function App() {
   const getPageId = (pageNum) =>
     pageNum != null ? (pageIdMapRef.current[pageNum] ?? `page-${pageNum}`) : null
 
+  // Decode a pageId back to its source PDF sheet number. Every pageId encodes its sheet:
+  // 'page-8' → 8, 'page-8-r2' → 8. This is the AUTHORITATIVE pageId→pageNum direction —
+  // renderPage derives the sheet to rasterize from the pageId, so logical-page identity is
+  // never re-guessed from a (lossy) sheet number. Returns null for a malformed id.
+  const pageNumFromId = (pageId) => {
+    const m = /^page-(\d+)/.exec(pageId || '')
+    return m ? parseInt(m[1], 10) : null
+  }
+
+  // Region index within a sheet: 'page-8' → 0 (the full sheet), 'page-8-r2' → 2.
+  // Used to order logical pages (sheet, then carve order) for arrow navigation.
+  const regionIndexOf = (pageId) => {
+    const m = /-r(\d+)$/.exec(pageId || '')
+    return m ? parseInt(m[1], 10) : 0
+  }
+
   // Returns a page's floor-level string (one of FLOOR_ORDER) if it is a known level, else null.
   const getFloorLevel = (pageId) => {
     const page = pages.find(p => p.pageId === pageId)
@@ -772,9 +788,13 @@ function App() {
   // geometry repaint useEffect can paint fresh). false on same-page enhance
   // re-renders — measureRef is already the correct size and must NOT be touched
   // (assigning canvas.width clears it; no state change means no repaint fires).
-  const renderPage = useCallback(async (pdfDoc, pageNum, { resizeMeasure = true, forPageId } = {}) => {
+  const renderPage = useCallback(async (pdfDoc, pageId, { resizeMeasure = true } = {}) => {
     setRenderingPage(true)
     try {
+      // pageId is the authoritative logical-page identity supplied by the caller.
+      // The PDF sheet to rasterize is DERIVED from it — there is no sheet-number
+      // fallback that could silently collapse a region onto its source sheet.
+      const pageNum = pageNumFromId(pageId)
       const page = await pdfDoc.getPage(pageNum)
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
@@ -788,9 +808,6 @@ function App() {
       // stays pixel-aligned with measureRef. measureRef stays at logical size —
       // the geometry coordinate space is completely unchanged.
       const mult = BACKDROP_MULTIPLIERS[backdropTierRef.current] ?? 1
-      // forPageId: explicit pageId override used when navigating to a region-page
-      // (multiple region-pages share the same pageNum but have distinct pageIds and crops).
-      const pageId = forPageId ?? getPageId(pageNum)
       const crop = pageCropsRef.current[pageId] || null
 
       if (crop) {
@@ -919,7 +936,7 @@ function App() {
       }
       setPages(newPages)
       setPdf(pdfDoc); setPageCount(pdfDoc.numPages)
-      await renderPage(pdfDoc, 1)
+      await renderPage(pdfDoc, getPageId(1))
     } catch {
       setError('Failed to load PDF. Make sure the file is a valid PDF.')
     } finally {
@@ -927,34 +944,14 @@ function App() {
     }
   }
 
-  const goToPage = (pageNum) => {
-    if (!pdf || renderingPage) return
-    setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
-    setDrawMode(false); setReviewShape(null)
-    setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
-    setRunDrawing(false); runItemSnapRef.current = null
-    gradeEndSnapRef.current = null; gradeFloorLineSnapRef.current = null
-    setPlacingOpeningMode(false); setOpeningCorner1(null); setOpeningDraftShape(null)
-    setPlacingEquipmentItem(false); setPlacingItemType(null); setPlacingInstanceKey(null)
-    setPlacingFromEntry(false); setPendingEntryToPlace(null)
-    setRoofRoleMode(false); setRoofRoleHover(null); setRoofRoleSelected(null)
-    setRoofLineMode(false); setRoofChainStartId(null)
-    resetEditState()
-    setElevAlignMode(false)
-    setAlignMode(false); alignDragRef.current = null
-    backdropTierRef.current = 'normal'; setBackdropTier('normal')
-    resetZoomPan()
-    drawVerticesRef.current = []; mousePosRef.current = null
-    renderPage(pdf, pageNum)
-  }
-
   // Navigate to any logical page (root sheet OR region-page) by its stable pageId.
-  // For root sheets: equivalent to goToPage(pageNum). For region-pages: calls renderPage
-  // with forPageId so the correct crop is applied and currentPageId is set to the region.
-  const goToRegionPage = (pageId) => {
+  // This is the SINGLE navigation entry point. renderPage derives the PDF sheet to
+  // rasterize from the pageId, so the rendered crop/identity is correct for root
+  // sheets and region-pages alike — there is no sheet-number path that could
+  // collapse a region onto its source sheet.
+  const goToPageId = (pageId) => {
     if (!pdf || renderingPage) return
-    const pageEntry = pages.find(p => p.pageId === pageId)
-    if (!pageEntry) return
+    if (!pages.some(p => p.pageId === pageId)) return
     setCalibMode(false); setCalibPoints([]); setShowScaleDialog(false); setScaleError('')
     setDrawMode(false); setReviewShape(null)
     setShowGradeLinePrompt(false); setGradeLinePending(false); setGradeLineDrawing(false)
@@ -971,7 +968,7 @@ function App() {
     backdropTierRef.current = 'normal'; setBackdropTier('normal')
     resetZoomPan()
     drawVerticesRef.current = []; mousePosRef.current = null
-    renderPage(pdf, pageEntry.pageNum, { forPageId: pageId })
+    renderPage(pdf, pageId)
   }
 
   // ── Canvas utilities ────────────────────────────────────────────────────
@@ -2083,9 +2080,11 @@ function App() {
           const newPageId = `page-${pNum}-r${k}`
           const crop = { x: rx, y: ry, w: rw, h: rh }
           pageCropsRef.current[newPageId] = crop
-          // Push to pages then navigate. renderPage uses forPageId directly (ref is already set).
+          // Push to pages then navigate. renderPage keys off the region pageId directly
+          // (pageCropsRef is already set above; goToPageId can't be used yet because the
+          // setPages update has not flushed, so the new page isn't in `pages` state).
           setPages(prev => [...prev, { pageId: newPageId, pageNum: pNum, crop, category: null, subLabel: null, subLabelNote: null }])
-          renderPage(pdf, pNum, { forPageId: newPageId })
+          renderPage(pdf, newPageId)
         } else {
           // Too small — just clear the overlay
           redrawFrontFaceLayer(null)
@@ -4005,7 +4004,7 @@ function App() {
       const idx = (currIdx + step) % pagesList.length
       const p = pagesList[idx]
       if (srcSheets.has(p.pageId)) continue
-      if (!p.category) { goToRegionPage(p.pageId); return }
+      if (!p.category) { goToPageId(p.pageId); return }
     }
   }
 
@@ -4044,7 +4043,7 @@ function App() {
     setCatReentry(true)
     setCategorizeMode(true)
     const first = pages.find(p => !p.category && !sheetsWithRegions.has(p.pageId))
-    if (first && first.pageId !== currentPageId) goToRegionPage(first.pageId)
+    if (first && first.pageId !== currentPageId) goToPageId(first.pageId)
   }
 
   // Pointer handlers for dragging the compass overlay body
@@ -4146,7 +4145,7 @@ function App() {
 
   // ── Sidebar sections ───────────────────────────────────────────────────────
   // category is stored as a key ('floor-plan', 'elevation', …), not a label.
-  // All entries now carry pageId so the sidebar can navigate via goToRegionPage (handles
+  // All entries now carry pageId so the sidebar can navigate via goToPageId (handles
   // both root sheets and region-pages uniformly). isSourceSheet drives the "(full sheet)" chip.
   const sidebarSections = (() => {
     const byCat = (key) => pages.filter(p => p.category === key)
@@ -4338,32 +4337,34 @@ function App() {
     else { setFhExpandedLevel(level); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false) }
   }
 
-  // Page-arrow navigation. While categorizing, arrows cycle every page. After
-  // Done (not categorizing), arrows step through categorized pages only,
-  // skipping uncategorized ones. Falls back to sequential nav if nothing is
-  // categorized yet so the user is never stranded.
-  // Source sheets excluded from navigation sets (they can't be categorized).
-  const categorizedPageNums = pages.filter(p => p.category && !sheetsWithRegions.has(p.pageId)).map(p => p.pageNum).sort((a, b) => a - b)
-  const uncategorizedPageNums = pages.filter(p => !p.category && !sheetsWithRegions.has(p.pageId)).map(p => p.pageNum).sort((a, b) => a - b)
-  // Which subset the arrows cycle through. Re-entry mode → uncategorized only;
-  // post-Done (not categorizing, some categorized) → categorized only;
-  // otherwise (initial/auto categorization) → null = sequential, all pages.
-  const navSet =
-    categorizeMode && catReentry ? uncategorizedPageNums
-    : !categorizeMode && categorizedPageNums.length > 0 ? categorizedPageNums
-    : null
-  const prevNavDisabled = renderingPage || (navSet
-    ? !navSet.some(pn => pn < currentPage)
-    : currentPage <= 1)
-  const nextNavDisabled = renderingPage || (navSet
-    ? !navSet.some(pn => pn > currentPage)
-    : currentPage >= pageCount)
+  // Page-arrow navigation — operates on LOGICAL pages (by pageId), so each carved region
+  // is a distinct stop just like a full sheet. Re-entry → cycle uncategorized; post-Done
+  // (some categorized) → cycle categorized; initial categorization (nothing categorized yet)
+  // → step through every logical page. Source sheets (which carry regions) are always
+  // excluded — you navigate to the regions, not the carve surface. Ordered by sheet number,
+  // then by carve order (region index) within a sheet.
+  const orderLogical = (arr) =>
+    [...arr].sort((a, b) => (a.pageNum - b.pageNum) || (regionIndexOf(a.pageId) - regionIndexOf(b.pageId)))
+  const categorizedLogical   = orderLogical(pages.filter(p => p.category && !sheetsWithRegions.has(p.pageId)))
+  const uncategorizedLogical = orderLogical(pages.filter(p => !p.category && !sheetsWithRegions.has(p.pageId)))
+  const allLogical           = orderLogical(pages.filter(p => !sheetsWithRegions.has(p.pageId)))
+  const navPages =
+    categorizeMode && catReentry ? uncategorizedLogical
+    : !categorizeMode && categorizedLogical.length > 0 ? categorizedLogical
+    : allLogical
+  // Monotonic order key over (sheet, region). region index < 1000 by any sane use, so the
+  // ×1000 keeps the sheet number dominant. Works even when the current page is NOT in
+  // navPages (e.g. sitting on a source sheet): next/prev are still found by key comparison.
+  const navOrderKey = (pageNum, pageId) => pageNum * 1000 + regionIndexOf(pageId)
+  const curNavKey = currentPageId != null ? navOrderKey(currentPage, currentPageId) : -1
+  const prevNavDisabled = renderingPage || !navPages.some(p => navOrderKey(p.pageNum, p.pageId) < curNavKey)
+  const nextNavDisabled = renderingPage || !navPages.some(p => navOrderKey(p.pageNum, p.pageId) > curNavKey)
   const handlePageNav = (dir) => {
-    if (!navSet) { goToPage(currentPage + dir); return }
+    if (!navPages.length) return
     const target = dir > 0
-      ? navSet.find(pn => pn > currentPage)
-      : [...navSet].reverse().find(pn => pn < currentPage)
-    if (target != null) goToPage(target)
+      ? navPages.find(p => navOrderKey(p.pageNum, p.pageId) > curNavKey)
+      : [...navPages].reverse().find(p => navOrderKey(p.pageNum, p.pageId) < curNavKey)
+    if (target) goToPageId(target.pageId)
   }
   const pageHasScale = currentPageId && !!getEffectiveScale(currentPageId)
   const ghostSrc = currentPageId ? getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current) : null
@@ -4771,6 +4772,7 @@ function App() {
         documents,
         // React state (scenario-defining only; ephemeral mode flags excluded)
         currentPage,
+        currentPageId,
         pageCount,
         fileName,
         pages,
@@ -4813,6 +4815,17 @@ function App() {
       // Fork B: restore crop hot-store. Prefer obj.pageCrops; else derive from pages[i].crop.
       pageCropsRef.current = obj.pageCrops ?? {}
       if (!obj.pageCrops) (obj.pages ?? []).forEach(p => { if (p.crop) pageCropsRef.current[p.pageId] = p.crop })
+      // Defect-2 self-heal: regionCounterRef is not snapshotted. Rebuild it from the highest
+      // region index already present on each sheet so the NEXT carve picks max+1 and cannot
+      // collide with an existing region id (page-N-rK), even if the counter was lost.
+      regionCounterRef.current = {}
+      ;(obj.pages ?? []).forEach(p => {
+        const m = /^page-(\d+)-r(\d+)$/.exec(p.pageId)
+        if (m) {
+          const n = parseInt(m[1], 10), k = parseInt(m[2], 10)
+          regionCounterRef.current[n] = Math.max(regionCounterRef.current[n] ?? 0, k)
+        }
+      })
       floorHeightsRef.current      = obj.floorHeights      ?? {}
       elevationEdgeRef.current     = obj.elevationEdge     ?? {}
       elevBaseYRef.current         = obj.elevBaseY         ?? {}
@@ -4877,17 +4890,19 @@ function App() {
       setPageCount(obj.pageCount ?? pdfDoc.numPages)
       setPdf(pdfDoc)
 
-      // 4. Render the target page (async — must be after setPdf so canvasRef is ready)
+      // 4. Render the target page (async — must be after setPdf so canvasRef is ready).
+      // currentPageId is the authoritative target (correct for region pages); fall back to
+      // decoding the sheet number for pre-region snapshots that stored only currentPage.
       backdropTierRef.current = 'normal'; setBackdropTier('normal')
-      const targetPage = obj.currentPage ?? 1
-      await renderPage(pdfDoc, targetPage)
+      const targetPageId = obj.currentPageId ?? getPageId(obj.currentPage ?? 1)
+      await renderPage(pdfDoc, targetPageId)
 
       // 5. Bump ticks to force dependent repaints (alignTick drives pdf-align-layer, floorHeightsTick drives ref lines)
       setAlignTick(t => t + 1)
       setFloorHeightsTick(t => t + 1)
       setEnumerationTick(t => t + 1)
 
-      console.log('[fixture] restore complete → page', targetPage, '| shapes:', completedShapesRef.current.length, '| scales:', Object.keys(pageScalesRef.current))
+      console.log('[fixture] restore complete → page', targetPageId, '| shapes:', completedShapesRef.current.length, '| scales:', Object.keys(pageScalesRef.current))
     }
 
     // __dumpWorld(): DEV console verification for B1+B2 seams (meters throughout).
@@ -4959,7 +4974,7 @@ function App() {
       if (crop) pageCropsRef.current[pageId] = crop
       else delete pageCropsRef.current[pageId]
       setPages(prev => prev.map(p => p.pageId === pageId ? { ...p, crop: crop || null } : p))
-      if (getPageId(currentPage) === pageId && pdf) renderPage(pdf, currentPage)
+      if (currentPageId === pageId && pdf) renderPage(pdf, currentPageId)
       console.log(`[crop] ${pageId} →`, crop)
     }
 
@@ -4989,12 +5004,12 @@ function App() {
 
       const renderCrop = async (crop) => {
         pageCropsRef.current[opid] = crop
-        await renderPage(pdf, opage.pageNum)
+        await renderPage(pdf, opid)
         await sleep(150)
       }
       const clearCrop = async () => {
         delete pageCropsRef.current[opid]
-        await renderPage(pdf, opage.pageNum)
+        await renderPage(pdf, opid)
         await sleep(150)
       }
       const dimsOk = (crop, label) => {
@@ -6064,7 +6079,7 @@ function App() {
           const changeBackdropTier = (tier) => {
             backdropTierRef.current = tier
             setBackdropTier(tier)
-            renderPage(pdf, currentPage, { resizeMeasure: false })
+            renderPage(pdf, currentPageId, { resizeMeasure: false })
           }
           return (
             <>
@@ -6768,7 +6783,7 @@ function App() {
           </div>
 
           <div className="cat-panel-body">
-            {catReentry && uncategorizedPageNums.length === 0 ? (
+            {catReentry && uncategorizedLogical.length === 0 ? (
               <span className="cat-all-done">All pages are categorized. Click Done to finish.</span>
             ) : currentPageIsSourceSheet ? (
               <span className="cat-panel-hint" style={{ display: 'block', padding: '8px 0' }}>
@@ -6919,7 +6934,7 @@ function App() {
                     <button
                       key={entry.pageId}
                       className={`sidebar-entry ${entry.pageId === currentPageId ? 'sidebar-entry--active' : ''}`}
-                      onClick={() => goToRegionPage(entry.pageId)}
+                      onClick={() => goToPageId(entry.pageId)}
                       title={entry.label}
                     >
                       {entry.label}
