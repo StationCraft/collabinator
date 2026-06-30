@@ -10,6 +10,66 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 67 — #115 fix + #110 region outlines + viewport-as-unit reframe (2026-06-30)
+
+**Branch:** main | **Commit (code):** 2521bbd | **Docs commit:** (this close-out) | **Harness (fresh restore):** __verifyFixture **44/44**, __verifyCrop **17/17**.
+
+**What this session built:**
+
+Three interrelated features shipped together in commit 2521bbd:
+
+1. **#115 forced-categorize-on-carve modal.** When a region is carved, instead of silently pushing
+   `category: null`, a non-dismissable modal opens targeting the new region's `pageId`. Stores
+   `category` + semantic `subLabel` (floor level / elevation direction / freetext) and a separate
+   display `regionName`. Cancel discards the region and reverses all companion state
+   (`pageCropsRef`, `pageScalesRef`, `regionCounterRef`). Key mechanism: new `carvePending` state
+   holds the just-carved region info while the modal is open; `confirmCarveCategory` /
+   `cancelCarveCategory` handlers; `writePageCategory` extended with `extra={}` param so the carve
+   path can write `regionName` without clobbering it on recategorize.
+
+2. **#110 standing region outlines on the source sheet.** `drawRegionOutlines(ctx, regions, zoom)`
+   in canvasRenderer.js draws solid green (#22c55e) labeled rectangles on the source sheet for all
+   confirmed (non-null category) regions. The crop rect is mapped through the source page's align
+   transform `T = translate(t)·scale(s)` before drawing so the outline lands at the correct
+   visual position on an aligned source. Label chip: `regionName || subLabel || categoryLabel(category)`.
+   Gated to source-sheet views only (`regionIndexOf(currentPageId) === 0`).
+
+3. **Two-field model (settled mid-build after a wrong first attempt merged the fields into
+   `subLabel`).** `subLabel` = semantic meaning only (floor level / compass direction); `regionName`
+   = display name only. Independent; `writePageCategory` `extra={}` keeps them separate.
+
+**Architectural decision logged to VISION_SUPPLEMENT.md §11:** the viewport-as-unit model — a
+carved region and an un-carved full sheet are both first-class classified geometry units differing
+only in extent. Category cannot be silently inherited from the source sheet; every viewport must be
+explicitly classified.
+
+**Three regressions reconned (read-only) — none caused by this arc:**
+
+- **Source-sheet arrow-nav exclusion** (`!sheetsWithRegions.has()` filter on all three `navPages`
+  lists, App.jsx ~4510-4512): by-design Session-61 exclusion, now considered wrong under the
+  viewport model. Logged as **#118**.
+- **`__restoreFixture` `_version` error on cold call**: pre-existing since Session 21; only fires
+  when called with stale/no-arg object in console. Button path works correctly (feeds current file
+  with `_version:1`). Not a new regression.
+- **Bottom-right overlay mis-registration on aligned pages (transform-registration failure)**:
+  confirmed pre-existing by `git stash` test (persists on f7aff47). Root cause: the PDF backdrop
+  (`.pdf-align-layer` with `getCSSTransform(t)`) and the overlay (`measureRef`, sibling) diverge
+  because only one receives the align CSS transform. Logged as **#117** — HIGH PRIORITY, next
+  high-priority recon. Supersedes/batches with #109 and #24.
+
+**Arc safety confirmed:** `git stash` test proved the mis-registration is pre-existing; the arc's
+edits were stashed, fixture restored, same offset visible → stash popped, arc confirmed safe.
+
+**Open items going into next session (priority order):**
+1. **#117 recon + fix** (transform-registration, HIGH): read-only recon of the align-transform
+   authoring-vs-application path before any fix attempt. See ADDITIONAL_FUNCTIONALITY #117 for the
+   full recon checklist.
+2. **#118 fix** (source-sheet nav exclusion, low-risk one-liner): remove `!sheetsWithRegions.has()`
+   from all three navPages lists.
+3. **#119** (opening dialog door/window option sets, low priority): deferred to opening-entry polish.
+
+---
+
 ## SESSION 66 — #114 fix: overlay repaints on same-sheet logical-page navigation (2026-06-30)
 
 **Branch:** main | **Commit (code):** f1fffac | **Docs commit:** (this close-out) | **Harness:** unchanged

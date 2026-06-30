@@ -520,6 +520,23 @@ blank overlay; batch with #24) and **#115** (carved elevation region has no Plac
 category-inheritance gap; needs recon). This is ALIGNED with waypoint (a): the repaint-trigger dependency
 seam is now correct; the coordinate/transform extraction (item 1) remains the highest-value plateau work.
 
+**Session 67 follow-on (commit 2521bbd) — #115 fix + #110 region outlines + viewport-as-unit reframe (does NOT change plateau status):**
+Three region-pages UX items shipped together. **#115** (carved elevation has no Place-opening): fixed with a
+forced-categorize-on-carve modal — every new region must be explicitly classified before it enters navigation;
+cancel discards the carve and reverses all companion state. **#110** (standing region outlines on source
+sheet): `drawRegionOutlines` in canvasRenderer.js draws green labeled rectangles for confirmed regions,
+mapped through the source's align transform. **Viewport-as-unit model** settled (VISION_SUPPLEMENT §11):
+carved regions and full sheets are both first-class classified viewports; silent category inheritance is
+architecturally wrong and is rejected. Two-field model: `subLabel` = semantic (Z-stack / ghosting consumers);
+`regionName` = display name only. Harness: 44/44 + 17/17.
+Three regressions reconned read-only — none caused by this arc: **#118** (source-sheet arrow-nav exclusion
+wrong under viewport model — low-risk fix); **#117** (transform-registration failure on aligned pages —
+HIGH PRIORITY, pre-existing since at least f7aff47; PDF backdrop `.pdf-align-layer` + overlay `measureRef`
+diverge when `s≠1`; supersedes/batches #109 + #24); `__restoreFixture _version` error pre-existing cold-call
+only (button path correct).
+**Next highest-priority work: #117 recon** (read-only, transform-authoring vs. application path) before any
+fix attempt.
+
 **Session 62 follow-up (commit ee9427f):** A post-#5 interactive-verification defect was fixed before
 the plateau — region render cross-bleed + regionCounter restore-collision. As a side effect, `renderPage`
 is now **identity-first** (`renderPage(pdfDoc, pageId, …)`; sheet number derived via `pageNumFromId`;

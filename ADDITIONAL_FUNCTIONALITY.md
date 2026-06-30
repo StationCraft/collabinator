@@ -2186,3 +2186,89 @@ a wrong registration.
 resolved) AND deriveWireframe planes carry a stable identity that a captured raster can be keyed to.
 
 **Status:** DEFERRED. Logged for the post-stabilization track; do not start until the gate above holds.
+
+### 117. Transform-registration failure on aligned pages — PDF backdrop and overlay diverge
+
+**Category:** Bug / coordinate-registration / align-transform. **Logged:** Session 67 (2026-06-30). **Priority: HIGH.**
+
+**Description:** On any page whose `pageTransformsRef` carries a non-identity align transform
+(`tx/ty/s ≠ 0/0/1`), the PDF backdrop canvas (inside `.pdf-align-layer`, which receives
+`getCSSTransform(t)`) and the overlay/geometry canvas (`measureRef`, a sibling div carrying only
+the pan+zoom CSS transform) diverge visually. The result: drawn geometry is mis-registered against
+the PDF backdrop — not merely offset, but at a different scale because `s` is applied to one layer
+and not the other.
+
+**Confirmed pre-existing:** a `git stash` test reverting all Session-67 code edits confirmed the
+offset persists on commit f7aff47 (the last clean main before Session 67). The fixture's page-2
+align transform is `{tx:−625.6, ty:−508.5, s:1.5017, angle:0}` — the mis-registration is large
+and unmissable when the overlay repaints.
+
+**Symptom vs. #109/#114:** #114 was a not-painted-at-all repaint-trigger gap (FIXED). #109 was
+described as "mis-registration on source-sheet return" — but that description was formed WHILE #114
+was masking this issue (the overlay was blank, so any registration that DID appear after a mode
+change looked like a "return" artifact). This entry (#117) is the root mis-registration. Do NOT
+assume #109 and #117 are separate bugs; they are likely the same root cause now that #114 is fixed.
+Batch #117, #109, and #24 into one recon pass.
+
+**Suspected root cause (to be confirmed by recon):** The align transform stored in `pageTransformsRef`
+was authored in one coordinate frame (canvas-world pixels at the time of the align interaction) but
+applied to the `.pdf-align-layer` DOM element in a different frame (the element's own local CSS
+context, after the outer `canvas-world` pan+zoom transform is already applied). The `measureRef`
+overlay sits OUTSIDE `.pdf-align-layer` and receives no align CSS at all — only pan+zoom. At `s=1`
+(un-aligned) the two layers are co-registered because neither has an align transform. At `s≠1` or
+`tx/ty≠0`, `.pdf-align-layer` moves/scales relative to its sibling `measureRef`, breaking registration.
+
+**Recon needed (read-only first):**
+1. Trace `getCSSTransform` → `.pdf-align-layer` style → how `tx/ty/s` compose with the outer
+   `canvas-world` CSS transform (pan+zoom).
+2. Trace where `pageTransformsRef` is written (align-drag branch in `handleMeasureMouseMove` and the
+   handle-drag scale branch) — what coordinate frame is the authoring happening in?
+3. Determine if the fix is: (a) compensate the stored transform before applying to the DOM element,
+   (b) move the overlay canvas INSIDE `.pdf-align-layer` so both canvases share the align transform,
+   or (c) a different architectural approach.
+4. Verify the fix leaves `getEffectiveScale`, crop, and geometry coordinates untouched (#22 invariant).
+
+**Status:** OPEN — HIGH PRIORITY. Recon-and-fix is the next high-priority work after the doc
+close-out. Do NOT attempt a blind fix; read the transform-application path first. Supersedes the
+"batch with #24" note on #109.
+
+### 118. Source-sheet arrow-navigation exclusion is wrong under the viewport model
+
+**Category:** Navigation / region-pages / UX. **Logged:** Session 67 (2026-06-30).
+
+**Description:** All three `navPages` source lists (`categorizedLogical`, `uncategorizedLogical`,
+`allLogical`) filter out source sheets via `!sheetsWithRegions.has(p.pageId)` (App.jsx ~4510-4512,
+Session 61 design). This means a sheet that has at least one carved region is ARROW-UNREACHABLE —
+the user cannot navigate to it with the page arrows. The sidebar still links to it.
+
+**Why it is wrong under the viewport model (Session 67 decision):** the viewport model frames every
+page — including a full un-carved sheet — as a viewport. A source sheet IS a valid viewport; it just
+happens to also be the parent of carved sub-viewports. Excluding it from navigation breaks the
+ability to do source-sheet-level work (e.g. adding another carve, checking the full-sheet backdrop)
+without going through the sidebar.
+
+**Fix (low-risk, one-liner per list):** Remove the `!sheetsWithRegions.has(p.pageId)` filter from
+all three `navPages` lists. Source sheets become arrow-reachable again; toolbar suppresses
+Draw/Edit/Scale/Categorize on them (the `currentPageIsSourceSheet` gate is independent and
+unchanged). No geometry or coordinate change.
+
+**Status:** OPEN, low-risk. Flag for the next cleanup pass; can be batched with any other
+nav/toolbar polish work.
+
+### 119. Opening dialog option sets should differ between window and door
+
+**Category:** Opening-entry / UX / data model. **Logged:** Session 67 (2026-06-30).
+
+**Description:** `OPENING_TYPES` is a flat list `['Tilt-turn', 'Casement', 'Fixed', 'Slider',
+'Hinged door']` shared between window and door kinds (App.jsx, module-level constant). The dialog
+does not branch by kind: a "window" kind can be typed as "Hinged door" and a "door" kind can be
+typed as "Casement." The option set should split by kind — windows get window-operation types
+(Tilt-turn, Casement, Fixed, Slider, Awning, …); doors get door-operation types (Hinged,
+Sliding, French, Bi-fold, …).
+
+**Why deferred:** the current shared list was a pragmatic first-pass. The split requires a
+coordinated change to `OPENING_TYPES` data structure (one list per kind → `WINDOW_TYPES` /
+`DOOR_TYPES`), the dialog `<select>` population, and the `openingType` field values on existing
+fixtures. Low impact; deferred until opening-entry polish is prioritized.
+
+**Status:** DEFERRED. Log here; pick up in an opening-entry polish pass.

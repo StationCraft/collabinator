@@ -413,3 +413,36 @@ advisor/window-supplier/F280 win).
 ---
 
 *Append future architectural decisions below this line.*
+
+---
+
+## 11. The viewport-as-unit model (Session 67, 2026-06-30)
+
+**Decision:** A carved region and an un-carved full sheet are both **viewports** — first-class
+classified geometry units. They are not different things; they differ only in extent. A carved
+elevation IS an elevation; it requires a direction sub-label (N/S/E/W) exactly as a full-sheet
+elevation does, because the same downstream consumers (Z-stack, elevation-edge reference, opening
+placement, enumeration) need the same semantic metadata regardless of whether the viewport is a
+crop of a full sheet or the full sheet itself. An un-carved page is the degenerate single full-page
+viewport.
+
+**Why this matters:** it closes the category-inheritance question definitively. A carved region
+CANNOT inherit its source sheet's category silently, because: (a) a single sheet can contain
+multiple view types (a detail sheet might hold both a section and a floor-plan fragment — each
+carved region is a different category); and (b) silent inheritance would corrupt the Z-stack, the
+ghosting chain, and the enumeration, all of which key on semantic category + sub-label. The correct
+behavior — **enforced by the forced-categorize-on-carve modal (#115 fix, commit 2521bbd)** — is
+that every newly carved region must be explicitly classified before it is admitted to navigation.
+
+**Two-field model (also settled Session 67):**
+- `subLabel` — semantic meaning only: the floor level for floor-plan viewports (feeds FLOOR_ORDER /
+  Z-stack / ghost chain); the compass direction for elevation viewports (feeds elevation-edge
+  association and sidebar grouping). Required for confirm; never overloaded as a display name.
+- `regionName` — display name only: user-editable free text, pre-filled with a formula
+  (`${sourceName}: Region 01`) at carve time. Drives the sidebar chip and the outline label drawn
+  on the source sheet. Never read by Z-stack, ghosting, enumeration, or any geometric consumer.
+
+**Governing principle:** the two fields are INDEPENDENT. A `subLabel` change on recategorize
+NEVER clobbers `regionName`; a `regionName` edit NEVER changes `subLabel`. `writePageCategory`
+enforces this via the `extra={}` parameter — recategorize paths pass no extra, carve-confirm paths
+pass `{ regionName }` only.
