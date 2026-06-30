@@ -10,6 +10,117 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 63 — Plateau deep-review (overnight, unsupervised) — review + reconciliation (2026-06-29)
+
+**Branch:** main | **Commits:** d78bd40 (cosmetic) + this docs commit | **Harness:** __verifyFixture
+44/44, __verifyCrop 10/10 on fresh restore (verified live via dev server).
+
+**What this session was:** the post-#5 / pre-#29 PLATEAU waypoint, run as an unsupervised overnight
+deep review. Full five-section review + adversarial self-critique + triage into EXECUTE-NOW vs
+HOLD-FOR-BEN. The arbiter for every call was the documented source intention (VISION_SUPPLEMENT,
+FUNCTIONALITY_SUMMARY, BUILD_ROADMAP). Almost everything substantive triaged to HOLD (by design —
+the plateau is a refactor-planning + reconciliation moment, not a feature-build moment, and the one
+large item — coordinate-layer extraction — is explicitly "design, don't build unsupervised").
+
+**What was LANDED (both harness-verified / reversible / non-seam):**
+1. **d78bd40** — collapsed a dead `carveMode` cursor ternary in App.jsx (`carveMode ?
+   (carveDragRef.current ? 'crosshair' : 'crosshair') : …` → both inner branches identical).
+   Provably behavior-identical. Cosmetic readability only.
+2. **Doc reconciliation (this commit):** gate-expiry sweep + stale-claim fixes (below).
+
+**Gate-expiry sweep (the recurring must-do):** #5 (region-pages, all forks + crop-carving) and the
+identity-first renderPage/goToPageId/navPages refactor lifted exactly three gates:
+- **#3 (Duplicate page) → SUPERSEDED** by #5 crop-carving. Do not build a separate duplicate feature.
+- **#110 (region ghost overlay on source sheet) → GATED-READY** (regions now exist). New user-facing
+  rendering — HELD for Ben, not auto-built. Checkable gate: `pages.some(p => p.crop != null)`.
+- **#111 (region auto-fit) → already GATED-READY** (Session 62). User-facing viewport behavior — HELD.
+The big gates remain genuinely CLOSED: R3 / per-vertex z (#66), geometry back-to-basics review
+(#106–108), #74/#75 spreadsheet schema (Beat 2b, #79 penetration), #28 plan reader. None expired.
+
+**Stale-claim fixes:** App.jsx line count in CLAUDE.md (`~3400` → `~8090`, with debt metrics);
+B5 scope clarification in BUILD_ROADMAP (DONE = line wireframe only; element-Z is NOT done, gated
+on R3 — checkable condition stated).
+
+**Five-section review — headline findings** (full prose was delivered in the review chat):
+- **§1 Strategy — PLAN STILL RIGHT.** Wireframe-first dependency chain (VISION_SUPPLEMENT §9) holds;
+  built order matches it. No redundant/over-scoped active items. The only drift risk is doc-claim
+  optimism (B5 "DONE"), now corrected. Recommendation: run waypoint (a) then (b) before #29, as planned.
+- **§2 UI — accretion is real but not yet urgent.** The toolbar gate-chains (`!calibMode &&
+  !drawMode && … && !carveMode && !elevEdgeMode && !elevAlignMode`) are repeated inline at ~15 sites
+  with DIFFERENT mode-sets per button — there is NO single `anyActiveMode` to collapse to safely.
+  This is a genuine simplification but NOT a blind one (the sets differ); belongs in waypoint (a).
+  #112 (carveMode sticky across nav) is the one concrete UX leak. HELD (Ben's UX call, recommend fix a).
+- **§3 Code — the concentration IS the debt.** One 8090-line component: 66 refs, 108 states, 7 ticks,
+  ~47 shapeKind branches, geometry.js duplicating the shape-kind exclusion list inline
+  (getEligibleShapes:232). geometry.js itself is clean and well-tested; no latent bugs found there.
+  The getEffectiveScale cycle guard is correct. No correctness-risk findings landed; all structural
+  debt routes into waypoint (a).
+- **§4 Process — the discipline is working.** Recurring lessons (over-broad seam wiring caught &
+  reverted S37; storage-shape-add-not-replace S35; compile-clean≠verification; trust-runtime) are all
+  captured and were respected this session (I hit a FALSE 2/44 from running __verifyFixture while
+  __verifyCrop had parked the app on page-3 — diagnosed as test-sequencing, re-ran clean = 44/44, did
+  NOT touch code on a false red). **Protocol note for next sessions: run __verifyFixture immediately
+  after a fresh __restoreFixture; run __verifyCrop separately (it navigates to the origin floor page
+  and pollutes currentPage for any subsequent __verifyFixture, whose placement checks p.w/p.d then fail).**
+- **§5 Gate-expiry — covered above.**
+
+**WITHDRAWN on self-critique** (review that withdraws nothing wasn't skeptical):
+- *Auto-collapse toolbar gate-chains into one `anyActiveMode`* — withdrawn as a standalone fix: the
+  per-button mode-sets are NOT identical, so a blind collapse would change which buttons show in which
+  mode. Folded into waypoint (a) instead.
+- *Land #112 / #110 / #111 now* — withdrawn from EXECUTE: all three are user-facing behavior changes;
+  discipline holds user-facing 50/50s for Ben even when low-risk. Emitted as HOLD prompts.
+- *Add `isPolygonShape` helper to geometry.js and dedupe the getEligibleShapes exclusion list* —
+  withdrawn as a one-off: it is one instance of the shape-kind-dispatch-table item (waypoint a, item 3);
+  doing it alone fragments that work.
+
+### READY-TO-RUN HOLD PROMPTS (ranked; fire after morning review)
+
+**HOLD-1 — Coordinate/transform-layer extraction (plateau waypoint a, item 1). HIGHEST VALUE.**
+Model: Opus/high to plan + define the seam boundary; Sonnet/medium for the mechanical move once agreed.
+Prompt: "Behavior-preserving extraction (Fork-A discipline). Move the coordinate/transform seam —
+`pxToMeters`/`metersToPx` (already in canvasRenderer.js), `getEffectiveScale`, `getWorldOriginM`,
+`pageVertexToWorld`, `elevYToWorldZ`, and `makeVertex` — behind ONE clean module boundary so App.jsx
+never does raw px/meter arithmetic inline. CONSTRAINTS (load-bearing, do not violate): geometry stays
+stored in PIXELS (Path 3); the crop offset is never folded into scale (#5 Fork B); scale is ALWAYS
+resolved via getEffectiveScale, never raw pageScalesRef (origin-poisoning guard); recalibration-
+independence (#22) preserved. Do NOT widen the seam into a universal read path — the S37 lesson
+(resolveEffectiveConfig wired into getConfigValue, reverted) applies directly: keep named consumers.
+AUDIT every call site before moving any code; the success criterion is 'nothing changed'. Verify:
+__verifyFixture 44/44 + __verifyCrop 10/10 on fresh restore, AND __dumpWorld output byte-identical
+before/after. Land in one reviewable commit; STOP-ON-RED revert if any check drops."
+
+**HOLD-2 — Full gate-rephrase pass (plateau waypoint b completion).** Doc-only, judgment-heavy.
+Prompt: "Walk EVERY deferred entry in ADDITIONAL_FUNCTIONALITY.md. Tag each gate gate-still-real /
+gate-lifted-ready / gate-partially-lifted, and rewrite each as a CHECKABLE CONDITION (the specific
+thing that must exist — e.g. 'needs non-null z on completedShapesRef vertices via a named seam' — not
+'needs R3'). Lightweight prose only; no formal dependency graph. Session 63 already did the bounded
+expiry sweep (#3/#110/#111) and the near-term gates; this is the exhaustive remainder. Do WITH Ben for
+the construction-domain gates (#106 U-values, #18 roof slope, #79 penetration)."
+
+**HOLD-3 — #112 carveMode reset on navigation.** One-liner, but user-facing → Ben's call.
+Recommended: add `setCarveMode(false); carveDragRef.current = null` to `goToPageId` (App.jsx:952),
+matching how it already resets every other mode. Safe for multi-carve: the carve-commit path navigates
+via `renderPage` directly (App.jsx:2088), not goToPageId, so chained carving is unaffected. Verify:
+carve a region, then sidebar-nav away → carve exits and Set Scale/Draw reappear; harness still green.
+
+**HOLD-4 — #110 region ghost overlay on source sheet (GATED-READY).** New stateless drawer in
+canvasRenderer.js stroking labeled rectangles for each region whose source is the current sheet
+(crops from `pageCropsRef` filtered by `pageIdMapRef.current[pageNum] === currentPageId`); gate on
+`currentPageIsSourceSheet`; read-only, no hit-testing. UX call: whether the carve map shows.
+
+**HOLD-5 — #111 region auto-fit to viewport (GATED-READY).** In `goToPageId`/`renderPage`, derive an
+initial zoom/pan from crop dims vs. viewport so a small region fills the canvas like a full sheet does.
+Must NOT touch stored geometry or the crop offset (#22). UX call: how regions present on selection.
+
+**HOLD-6 — #106 assembly-inheritance fix (thermal arc, gated on geometry review).** Wire the four
+Project Setup `assembly-*` CONFIG_FIELDS to the `getSurfaceAssembly` miss path via an
+`ASSEMBLY_TYPE_DEFAULTS` lookup (U + thickness, Ben's construction values); Project Setup = project
+default, Envelope per-surface inputs = override. Touches the assembly resolver seam + changes F280
+results → HOLD. Gated until the geometry back-to-basics review completes.
+
+---
+
 ## SESSION 62 — Page-region fix: render-identity + regionCounter self-heal — DONE (2026-06-29)
 
 **Branch:** main | **Commit:** ee9427f (fix) + docs commit

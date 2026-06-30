@@ -180,6 +180,12 @@ building."
             calibrated with live Z (Z@anchor=0.0000). Verified via __dumpWorld round-trip from
             committed default.
     [x] B5: 3D envelope wireframe — DONE (Session 31; commits 7c44e24, 622e76d)
+        SCOPE CLARIFICATION (gate-expiry sweep, Session 63): "DONE" = LINE wireframe only.
+        Floor/ceiling RINGS are lifted to their datum Z via accumulateZ — correct. What is NOT
+        done and must NOT be claimed: (1) per-ELEMENT z (the makeVertex z field — gated on R3,
+        see #66); (2) envelope SURFACES / fill (B6, deferred #54). Checkable "element-Z done"
+        condition: `completedShapesRef` vertices carry a non-null `z` resolved through a named
+        seam. That field does not exist today (makeVertex returns {x,y}). So element-Z = NOT done.
         Piece 1 (7c44e24): deriveWireframe() pure fn (component scope, outside DEV block) returning
           { floorRings, roofRing, soffitLines, openingLines } in world meters; ThreeDView.jsx component
           (three.js LineSegments, OrbitControls, PerspectiveCamera, cleanup on unmount); "3D View" toolbar
@@ -480,6 +486,17 @@ in sequence.
 
 **STATUS: Trigger condition met.** #5 is fully done (Forks A–D + crop-carving UI, 44/44 verified).
 Run (a) then (b) before starting #29. Start (a) with an Opus planning discussion.
+
+**Session 63 (overnight plateau deep-review, unsupervised):** Ran the full five-section review
+(strategy / UI / code / process / gate-expiry) + self-critique + triage. Findings and ready-to-run
+HOLD prompts are in SESSION_HANDOFF_NOTES Session 63. Landed only what was harness-provable and
+non-seam: one cosmetic fix (commit d78bd40 — dead `carveMode` cursor ternary) + this doc
+reconciliation. Waypoint (a) coordinate-extraction was DESIGNED, not built (too large for
+unsupervised — see the HOLD prompt). Waypoint (b) executed as: gate-expiry sweep (#3 SUPERSEDED by
+#5; #110 GATED-READY; #111 already GATED-READY) + stale-claim fixes (this file + CLAUDE.md). A
+full per-item gate-rephrase across all 112 register entries was NOT mass-edited unsupervised
+(judgment-heavy, error-prone); it is a HOLD prompt for a focused pass with Ben. Harness on
+fresh restore: __verifyFixture 44/44, __verifyCrop 10/10.
 
 **Session 62 follow-up (commit ee9427f):** A post-#5 interactive-verification defect was fixed before
 the plateau — region render cross-bleed + regionCounter restore-collision. As a side effect, `renderPage`

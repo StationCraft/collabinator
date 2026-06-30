@@ -75,7 +75,12 @@ plan and an elevation on the same sheet), a "Duplicate this page" button creates
 virtual copies of that page, each independently assigned a category and working area.
 **Why deferred:** Edge case on most residential plan sets. The pageId architecture
 being introduced in Step 4a is designed to support this cleanly when prioritized.
-**Status:** Deferred. pageId design accommodates it without a rewrite.
+**Status:** **SUPERSEDED by #5 crop-carving UI (Session 61, commit 8d6e57d; gate-expiry
+sweep Session 63).** The "Duplicate this page" concept is replaced by the carve-a-region
+gesture: a source sheet now yields N independent region-pages, each with its own pageId
+(`page-N-rK`), crop, category, sub-label, scale, and reference-tree slot. That is strictly
+more than two virtual copies. Do not build a separate duplicate-page feature; the need is
+met. (Historical note retained for traceability.)
 
 ---
 
@@ -1927,7 +1932,13 @@ Read-only overlay; the rectangles are not interactive (navigation stays via side
   `pageCropsRef` filtered by `pageIdMapRef.current[pageNum] === currentPageId`.
 - Gate: only when `currentPageIsSourceSheet`. No geometry, no hit-testing.
 
-**Status:** New scope, logged not built.
+**Status:** **GATED-READY (gate-expiry sweep, Session 63).** Checkable gate: "at least one
+region-page exists (`pages.some(p => p.crop != null)`) AND a source-sheet view exists
+(`currentPageIsSourceSheet` reachable)." Both are now true — region-pages and the
+carve-surface-only source-sheet view both landed with #5 (commit 8d6e57d). The feature is
+buildable today. NOT auto-built here: it is a new user-facing rendering addition (a UX call
+on whether/how to show the carve map), so it is held for Ben rather than landed unsupervised.
+Read-only overlay; must not touch stored geometry or the crop offset (#22).
 
 ---
 

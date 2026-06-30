@@ -1285,7 +1285,10 @@ All of the above are cleared on PDF upload.
 - `src/canvasRenderer.js` — stateless drawing primitives that take explicit
   data params (drawLockedShapes, drawShapePoly, drawAlignGuide, pxToDisplayDist)
 - `src/App.jsx` — all React state, refs, event handlers, stateful canvas
-  drawing (drawEditCanvas, redrawDrawCanvas), and JSX (~3400 lines)
+  drawing (drawEditCanvas, redrawDrawCanvas), and JSX (~8090 lines as of Session 63 —
+  the prior "~3400" was stale; 66 useRefs, 108 useStates, 7 `*Tick` integers, ~47
+  `shapeKind` branch sites. This size/concentration is exactly what the plateau (a)
+  simplification pass targets — see BUILD_ROADMAP §⏸ waypoint (a))
 
 ## Working environment notes
 
