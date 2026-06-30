@@ -1410,6 +1410,13 @@ The user has a separate Claude.ai Project called "Collabinator" containing:
   — drop your real test PDF there on a fresh clone). Snapshot with
   `copy(JSON.stringify(window.__snapshotFixture()))`. LOAD FIXTURE and SAVE FIXTURE buttons
   are live in the DEV strip (Session 22; #31 done).
+- **`__verifyFixture` is DESTRUCTIVE — run it exactly once per fresh restore:** the harness
+  deletes a door as part of its checks, so running it a second time in the same JS session yields
+  a false partial-fail (e.g. "6/32, door entry still present"). Standing rule: fresh LOAD FIXTURE →
+  `__verifyFixture` once → if re-running is needed, fresh restore again first. This false-fail has
+  cost multiple diagnostic detours; always re-restore before concluding a harness regression is real.
+  Pairs with: run `__verifyFixture` immediately after restore, before any interaction or
+  `__verifyCrop` (which parks the app on another page).
 - **Storage-shape changes must add a layer, not replace (Session 35 lesson):** when a shape
   grows a new identity layer (`pointSlots`), keep the raw geometry layer (`vertices`). Many
   uniform iterators (getVisibleVertices, snapshotShapes, etc.) have no shapeKind guard and
