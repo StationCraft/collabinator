@@ -32,7 +32,7 @@ This project is built by Ben (solo, first-time builder, construction-domain expe
 
 **Gate-expiry sweep (session-start AND every major-feature boundary):** When regenerating the status board from the five live docs at session start, also scan ADDITIONAL_FUNCTIONALITY.md for any deferred item whose stated gate is now satisfied by completed work — tag it GATED-READY in the entry and flag it to Ben before the session's build work begins. The sweep fires again whenever a #5-sized feature lands: do the sweep before picking the next item. This makes gate-expiry automatic and recurring (part of the process, not of Ben's vigilance) rather than ad-hoc.
 
-**Environment:** Project at C:\Users\ben\Collabinator\pdf-viewer (Code can default to a stale G: path — always confirm the folder at session start). State is in-memory only, lost on reload — build test state in one un-reloaded tab. Per-folder `.claude/settings.local.json` recreation is no longer needed — global user-level Claude Code settings (`~/.claude/settings.json`) now set `defaultMode: acceptEdits` and allow Bash/PowerShell, covering all projects.
+**Environment:** Project at C:\dev\collabinator (always confirm the folder at session start; older docs may reference a stale C:\Users\ben\Collabinator\pdf-viewer or G: path). State is in-memory only, lost on reload — build test state in one un-reloaded tab. Per-folder `.claude/settings.local.json` recreation is no longer needed — global user-level Claude Code settings (`~/.claude/settings.json`) now set `defaultMode: acceptEdits` and allow Bash/PowerShell, covering all projects.
 
 ## What this is
 
@@ -54,7 +54,7 @@ BC, Canada. Working on a laptop, which requires zoom for readability.
 
 ## Current project location
 
-`C:\Users\ben\Collabinator\pdf-viewer`
+`C:\dev\collabinator`
 
 ## What is built so far (current state)
 
@@ -830,9 +830,31 @@ A React + Vite app with:
     Source sheets with regions become carve-surface-only (`currentPageIsSourceSheet` gate suppresses
     Draw/Edit/Set Scale/Categorize and all mode-specific buttons). Sidebar: "(full sheet)" chip on
     source sheet; "Region K of p.N" entries in Unused Pages until categorized.
-    `goToRegionPage(pageId)` helper; `advanceToNextUncategorized` reworked to skip source sheets.
+    `goToRegionPage(pageId)` helper (renamed `goToPageId` in Session 62); `advanceToNextUncategorized` reworked to skip source sheets.
     `__dumpRegions()` DEV helper (partition check + unique-ID summary). Snapshot/restore confirmed.
     Verified: 44/44; canvas resizes to crop dims; sidebar correct; partition check passes.
+  * **Region render-identity fix + regionCounter self-heal — DONE (commit ee9427f, Session 62):**
+    Closed a render-only cross-bleed (geometry was always safe — `__verifyCrop` 10/10) and a
+    restore-then-carve data collision.
+    - **`renderPage` is identity-first:** signature is now `renderPage(pdfDoc, pageId, {resizeMeasure})`
+      (was `(pdfDoc, pageNum, {…, forPageId})`). The PDF sheet to rasterize is DERIVED from the pageId
+      via **`pageNumFromId(pageId)`** (decodes `page-8`→8, `page-8-r2`→8). The lossy
+      `forPageId ?? getPageId(pageNum)` resolution is GONE — every caller passes the authoritative pageId,
+      so no path can silently resolve a region to its source sheet. `pageNum` now means only "which PDF
+      sheet to rasterize," never identity.
+    - **`goToPage` + `goToRegionPage` → single `goToPageId(pageId)`** (handles roots and regions uniformly).
+    - **Toolbar arrows are region-aware:** `navSet` (pageNums) replaced by `navPages` (ordered LOGICAL
+      pages via `orderLogical`, sorted `(pageNum, regionIndexOf)`); `handlePageNav` steps by `navOrderKey`
+      (robust even when the current page is a source sheet not in the set). Each region is a distinct stop
+      rendering its own cut; source sheets excluded. New helper **`regionIndexOf(pageId)`**.
+    - **Snapshot stores `currentPageId`;** restore renders `obj.currentPageId ?? getPageId(obj.currentPage)`
+      (decode fallback for pre-region snapshots) — restore can now target a region.
+    - **`regionCounterRef` self-heals on restore:** rebuilt from the max existing `-rK` per sheet (it is NOT
+      snapshotted), so a carve after restore picks max+1 and cannot collide on an existing `page-N-rK`.
+    - Browser-verified: Enhance on a region keeps the cut AND scales resolution (300→600); arrows step each
+      region; restore-onto-region renders the region; restore+carve→r3 no collision; calibrating one region
+      writes scale to ONLY that region's pageId (no sibling/source leak); `__verifyFixture` 44/44 +
+      `__verifyCrop` 10/10 on fresh restore.
 
 **Not yet built (next increments):**
 - **Next: ⏸ PLATEAU WAYPOINTS — now triggered** (#5 fully done). Fire in sequence BEFORE #29:

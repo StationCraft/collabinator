@@ -1903,3 +1903,85 @@ A single mouse move restores correct display. Fix when convenient, not urgently.
 
 **Status:** Logged. Batch with #24 in a dedicated redraw/event-robustness polish session.
 
+---
+
+### 110. Region ghost overlay on source sheet
+
+**Category:** Region-pages (#5) / UX / rendering. **Logged:** 2026-06-29 (region scale/crop recon).
+
+**Description:**
+
+Once a source sheet has regions carved from it, the full-sheet view becomes carve-surface-only
+(`currentPageIsSourceSheet` suppresses Draw/Edit/Set-Scale/Categorize, App.jsx ~4141). But the
+source sheet gives no visual indication of WHERE the regions were carved — the user sees the bare
+full sheet with no marks. They have to rely on the sidebar list ("Region K of p.N") to know regions
+exist at all.
+
+Render each carved region as a labeled ghost outline (rectangle = the region's `crop` box, plus its
+region label/category) on the full-sheet backdrop, so the source sheet shows the carve map directly.
+Read-only overlay; the rectangles are not interactive (navigation stays via sidebar / region entries).
+
+**Fix shape:**
+- New stateless drawer (canvasRenderer.js) that takes the crop boxes of all regions whose source is
+  the current sheet and strokes labeled rectangles on the overlay. Source-sheet crops come from
+  `pageCropsRef` filtered by `pageIdMapRef.current[pageNum] === currentPageId`.
+- Gate: only when `currentPageIsSourceSheet`. No geometry, no hit-testing.
+
+**Status:** New scope, logged not built.
+
+---
+
+### 111. Region-page auto-fit to viewport
+
+**Category:** Region-pages (#5) / UX. **Logged:** 2026-06-29 (region scale/crop recon).
+
+**Description:**
+
+When a region is selected, the crop box is rendered at its raw scaled-sheet pixel size (renderPage
+crop branch, App.jsx ~805–811: `canvas.style.width = crop.w`, etc.) at zoom 1. A small carved region
+therefore appears as a small image floating in a large canvas area rather than filling the viewport
+the way a full sheet does. The full sheet gets an implicit fit-to-width via the PDF.js
+`containerWidth / viewport.width` scale (App.jsx ~783); regions get no equivalent fit.
+
+Selecting a region should auto-fit the crop to fill the available canvas viewport — same intent as
+the full-sheet fit, but keyed to the crop's dimensions (w/h) rather than the full page's.
+
+**Fix shape:** small UX adjustment in the region-navigation/render path (likely an initial
+zoom/pan derived from crop dims vs. viewport, or scaling the crop render itself to the container).
+Must not touch stored geometry or the crop offset (recalibration-independence, #22).
+
+**Status:** **GATED-READY (Session 62 gate-expiry sweep).** Its stated gate — "pair with the
+scale/crop-bleed fix session (the `forPageId` plumbing)" — is now satisfied: that fix landed in
+commit ee9427f. The render/nav path is now identity-first (`renderPage(pdfDoc, pageId, …)` with
+`goToPageId`), so the auto-fit hook would live in `goToPageId`/`renderPage` (derive an initial
+zoom/pan from crop dims vs. viewport). Flagged to Ben; not built (kept scoped to the two defects).
+Still must not touch stored geometry or the crop offset (#22).
+
+---
+
+### 112. carveMode not reset by navigation
+
+**Category:** Region-pages (#5) / UX / mode lifecycle. **Logged:** Session 62 (2026-06-29).
+
+**Description:**
+
+`carveMode` is intentionally sticky AFTER a carve commit so the user can carve several regions from one
+source sheet in a row (Session 61 design). But it is NOT reset by navigation: `goToPageId` resets every
+*other* mode (calib, draw, edit, align, roof, opening, equipment…) yet leaves `carveMode` true, and
+`__restoreFixture` doesn't reset it either. Only PDF upload, the "Exit carve ✕" button, and line ~3778
+clear it.
+
+Observed consequence (Session 62 verification): after carving a region you are navigated onto that region
+with carve mode still on; navigating to another page via sidebar/arrows keeps carve on, which hides
+Set Scale / Draw (gated on `!carveMode`) until the user clicks "Exit carve ✕", and a drag on a region
+would begin carving a *sub-region* of it. NOT a regression from the Session-62 fix — neither original
+nav function reset `carveMode` (carve was added after they were written).
+
+**Fix shape (Ben's UX call):** either (a) add `setCarveMode(false)` to `goToPageId` (consistent with how
+it resets every other mode — navigating exits carve; the multi-carve flow still works because the
+carve-commit path navigates via `renderPage` directly, not `goToPageId`), or (b) leave sticky and accept
+the "Exit carve" step. Recommend (a) for consistency.
+
+**Status:** Logged, not built. Low-risk one-liner; deferred as a UX decision (out of scope for the
+two render/counter defects fixed in Session 62).
+

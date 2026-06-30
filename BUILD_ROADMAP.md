@@ -481,6 +481,14 @@ in sequence.
 **STATUS: Trigger condition met.** #5 is fully done (Forks A–D + crop-carving UI, 44/44 verified).
 Run (a) then (b) before starting #29. Start (a) with an Opus planning discussion.
 
+**Session 62 follow-up (commit ee9427f):** A post-#5 interactive-verification defect was fixed before
+the plateau — region render cross-bleed + regionCounter restore-collision. As a side effect, `renderPage`
+is now **identity-first** (`renderPage(pdfDoc, pageId, …)`; sheet number derived via `pageNumFromId`;
+`goToPage`/`goToRegionPage` unified into `goToPageId`; arrows region-aware via `navPages`). This is
+ALIGNED with waypoint (a): the page-identity/navigation seam is already cleaner. The coordinate/transform
+seam (item 1 of the simplification pass) is still untouched and remains the highest-value extraction.
+Also: gate-expiry sweep tagged **#111 (region auto-fit) GATED-READY**; **#112 (carveMode-on-nav)** logged.
+
 ### (a) SIMPLIFICATION PASS — coordinate-layer extraction
 
 **Purpose:** App.jsx has grown to do too many jobs simultaneously: page model, all refs, render

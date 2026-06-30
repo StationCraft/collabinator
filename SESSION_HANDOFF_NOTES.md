@@ -10,6 +10,85 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 62 — Page-region fix: render-identity + regionCounter self-heal — DONE (2026-06-29)
+
+**Branch:** main | **Commit:** ee9427f (fix) + docs commit
+
+### The two defects (from prior read-only recon)
+
+Interactive verification of the Session-61 crop-carving UI surfaced a "scale/crop cross-bleed":
+calibrating/Enhancing one region appeared to change what a *different* region rendered. A read-only
+recon (prior session) diagnosed it as **render-only — geometry was always safe** (crop-local by
+construction; `__verifyCrop` 10/10 proves world coords invariant under crop). Two defects:
+
+**Defect 1 — incomplete `forPageId` plumbing (the cross-bleed).** `renderPage` resolved its target as
+`forPageId ?? getPageId(pageNum)`, and `getPageId(pageNum)` returns the SOURCE sheet's `page-N` for any
+region (regions share their source's `pageNum`; `pageIdMapRef` is 1:1 `pageNum→page-N`). So any
+`renderPage` call WITHOUT `forPageId` — Enhance/De-enhance, toolbar arrows (via `goToPage`), fixture
+restore — rendered the source full sheet instead of the region's cut.
+
+**Defect 2 — `regionCounterRef` not persisted.** Reset on upload, incremented per carve, but NOT
+snapshotted/restored. Restore a fixture with `page-N-r1/r2` then carve → counter restarts at 1 →
+new region collides on `page-N-r1` (true data collision: shared pageId/crop/scale/geometry).
+
+### The fix (root-cause, not per-call-site patch)
+
+**Defect 1 — `renderPage` is now identity-first.** Signature changed `renderPage(pdfDoc, pageNum, {…, forPageId})`
+→ **`renderPage(pdfDoc, pageId, {resizeMeasure})`**. The PDF sheet to rasterize is DERIVED from the pageId
+via the new **`pageNumFromId(pageId)`** helper (decodes `page-8` → 8, `page-8-r2` → 8 — every pageId
+encodes its source sheet). There is NO `getPageId(pageNum)` fallback left to forget. The caller always
+supplies the authoritative pageId: navigation supplies the destination; the Enhance same-page re-render
+supplies `currentPageId` (correct because it isn't navigating).
+- **`goToPage` + `goToRegionPage` unified into `goToPageId(pageId)`** — the single navigation entry point
+  (handles root sheets AND regions; renderPage decodes the sheet). All call sites updated.
+- **Toolbar arrows are now region-aware.** Old `navSet` (pageNums) → new `navPages` (ordered LOGICAL
+  pages by pageId): `orderLogical` sorts by `(pageNum, regionIndexOf)`. `handlePageNav` steps by
+  `navOrderKey` (works even when the current page isn't in the set, e.g. sitting on a source sheet).
+  Each region is a distinct arrow stop rendering its own cut. Source sheets excluded.
+  New helper **`regionIndexOf(pageId)`** (`page-8` → 0, `page-8-r2` → 2).
+- **Snapshot now stores `currentPageId`**; restore renders `obj.currentPageId ?? getPageId(obj.currentPage)`
+  (fallback decodes the sheet for pre-region snapshots like `bates.json`). So restore can target a region.
+- Enhance, restore, and the DEV helpers (`__setCrop` guard, `__verifyCrop` render calls) all pass pageId.
+
+**Defect 2 — restore self-heals the counter.** After restoring `pageCrops`, `regionCounterRef` is rebuilt
+from the max existing `-rK` suffix per sheet (`/^page-(\d+)-r(\d+)$/`). The next carve picks max+1 and
+cannot collide even if the counter was lost. (Self-heal, NOT snapshotting the counter.)
+
+### Verification (browser — bates.json 10-page real set + fixture-elevation.json)
+
+A **missed edit caught at runtime** (this is why we verify, not reason): the Enhance call site still passed
+`currentPage` (a number) after the signature change → `renderPage` threw `getPage(null)` and no-opped, so an
+early "cut stays region" read was a FALSE PASS (Enhance was simply erroring). Fixed (`currentPage` →
+`currentPageId`), then re-verified non-vacuously:
+- Enhance on a region keeps the cut (CSS 300px = region) AND scales resolution (bitmap 300→600);
+  full-sheet enhance still scales (673→1346).
+- Arrows step each region as its own page: Page 1 (673) → Page 3 (673) → R1 (300) → R2 (220) → R3 (210).
+- Restore onto a region renders the region cut (`currentPageId: page-9-r3` → 210px, not the 673 sheet).
+- Restore + carve → `page-9-r3`, no collision, `r1` crop unchanged (defect 2 self-heal).
+- **Original symptom refuted:** calibrating region 1 wrote scale ONLY to `page-9-r1` —
+  `pageScaleKeys: [page-4, page-8, page-9-r1]`; siblings r2/r3 and source page-9 got nothing.
+  A wall drawn on region 1 partitions to its pageId (`__dumpRegions`: 1 shape / 3 regions, IDs unique).
+- Fresh restore: `__verifyFixture` 44/44, `__verifyCrop` 10/10 (geometry untouched). Build clean; lint
+  neutral (76 problems on HEAD and working tree — 0 new).
+
+### Observations / flags for Ben
+
+- **`carveMode` is not reset by navigation** (`goToPageId` resets every OTHER mode but not carve; restore
+  doesn't either). It IS intentionally sticky after a carve-commit (multi-region carving). But navigating
+  to a region via sidebar/arrow while carve is still on hides Set Scale/Draw until "Exit carve ✕", and a
+  drag on a region would carve a sub-region. Logged as **ADDITIONAL_FUNCTIONALITY #112** (UX call — left
+  for Ben; out of scope for these two defects). NOT my regression — neither original nav function reset it.
+- **Gate-expiry sweep:** **#111 (region auto-fit) is now GATED-READY** — its stated gate was "pair with the
+  scale/crop-bleed fix session," which is this one. Flagged below; not built.
+- CLAUDE.md project-path line corrected to `C:\dev\collabinator` (was the stale `pdf-viewer` path).
+
+### Next
+
+Plateau waypoints (still pending, #5 done): (a) simplification pass — coordinate-layer extraction from
+App.jsx (plan with Opus first); (b) roadmap reconciliation. Then #29 (derived elevations).
+
+---
+
 ## SESSION 61 — Page-region model (#5): crop-carving UI — DONE (2026-06-29)
 
 **Branch:** main | **Commit:** 8d6e57d
