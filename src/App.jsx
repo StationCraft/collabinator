@@ -10,7 +10,7 @@ import {
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -640,6 +640,14 @@ function App() {
   // ── Crop-carving (#5 UI) ─────────────────────────────────────────────────────
   const [carveMode, setCarveMode] = useState(false)
   const [carveTick, setCarveTick] = useState(0)  // bumped on each drag-move to trigger canvas repaint
+  // #115 — forced categorize-on-carve. Non-null while a just-carved region awaits its required
+  // category. Shape: { pageId, sourcePageId, pNum, k, rect:{rx,ry,rw,rh} } (rect in source
+  // canvas-world coords, drawn as a ghost behind the modal). Blocks new carving until resolved.
+  const [carvePending, setCarvePending] = useState(null)
+  // #115 — editable region name in the carvePending modal. Pre-filled on modal open with
+  // `${sourceName}: Region NN`; written to the region's subLabel on confirm (the standing-outline
+  // chip reads subLabel). Cleared → null subLabel (chip falls back to the category label).
+  const [carveRegionName, setCarveRegionName] = useState('')
 
   // ── PDF alignment (Step 6, sub-step 2) ──────────────────────────────────────
   const [alignMode, setAlignMode] = useState(false)
@@ -915,7 +923,7 @@ function App() {
     resetEditState()
     completedShapesRef.current = []; pageScalesRef.current = {}; pageGridOriginRef.current = {}
     pageIdMapRef.current = {}; pageTransformsRef.current = {}; pageCropsRef.current = {}; regionCounterRef.current = {}; floorHeightsRef.current = {}
-    setCarveMode(false); carveDragRef.current = null
+    setCarveMode(false); carveDragRef.current = null; setCarvePending(null); setCarveRegionName('')
     drawVerticesRef.current = []; mousePosRef.current = null
     setCompassAngleDeg(null); setCompassCardinal(null)
     setCompassDraftAngle(0); setCompassPos({ x: null, y: null })
@@ -975,7 +983,7 @@ function App() {
     resetEditState()
     setElevAlignMode(false)
     setAlignMode(false); alignDragRef.current = null
-    setCarveMode(false); carveDragRef.current = null
+    setCarveMode(false); carveDragRef.current = null; setCarvePending(null); setCarveRegionName('')
     backdropTierRef.current = 'normal'; setBackdropTier('normal')
     resetZoomPan()
     drawVerticesRef.current = []; mousePosRef.current = null
@@ -1043,7 +1051,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, currentPageId, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick])
+  }, [calibMode, drawMode, editMode, currentPage, currentPageId, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick, carvePending])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -1885,6 +1893,8 @@ function App() {
     // Carve mode: start a drag rectangle to define a new region-page.
     if (carveMode) {
       if (e.button !== 0) return
+      // #115 — forced categorize modal open: block starting a new carve until it is resolved.
+      if (carvePending) return
       const pos = getCanvasPos(e)
       carveDragRef.current = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y }
       e.preventDefault()
@@ -2125,6 +2135,22 @@ function App() {
           // Push to pages; stay on the source sheet (no navigation — Item 3).
           // pageCropsRef is already set; the new page appears in the sidebar immediately.
           setPages(prev => [...prev, { pageId: newPageId, pageNum: pNum, crop, category: null, subLabel: null, subLabelNote: null }])
+          // #115 — forced categorize-on-carve: stay on the source sheet, stay in carve mode, and
+          // open a non-dismissable modal targeted at the new region's pageId. The region ghost
+          // (rect in source canvas-world coords) is repainted behind the modal by the passive
+          // view-mode redraw (carvePending is a dep). CANCEL discards the region + all companion
+          // state (cancelCarveCategory); category is user-set per region — never inherited.
+          setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote('')
+          // Pre-fill the region name: `${sourceName}: Region NN`. sourceName follows the existing
+          // display scheme (subLabel → category label → "Page N"); NN = k, this region's actual
+          // sequence number (regionCounter was incremented BEFORE k was read, so k is correct and
+          // matches the -rK pageId suffix and the sidebar "Region K"). Per-source-sheet counter.
+          const srcEntry = pages.find(p => p.pageId === sourcePageId)
+          const sourceName = srcEntry?.subLabel
+            || (srcEntry?.category ? categoryLabel(srcEntry.category) : null)
+            || `Page ${pNum}`
+          setCarveRegionName(`${sourceName}: Region ${String(k).padStart(2, '0')}`)
+          setCarvePending({ pageId: newPageId, sourcePageId, pNum, k, rect: { rx, ry, rw, rh } })
           redrawFrontFaceLayer(null)
         } else {
           // Too small — just clear the overlay
@@ -3773,6 +3799,36 @@ function App() {
     // Elevation floor/ceiling reference lines (read-only; only when confirmed scale exists).
     drawElevRefLines(ctx)
 
+    // #110 / #115 follow-on — standing outlines for CONFIRMED regions on their source sheet.
+    // Read-only. Only when viewing the ROOT sheet (regionIndexOf === 0), never a region viewing
+    // itself (its crop-local frame would mis-place the rects). Each region's stored crop is
+    // raw-sheet px; map forward through THIS sheet's align transform T = translate(t)·scale(s) —
+    // the exact inverse of the carve-commit T⁻¹ fold — so each outline lands where it was boxed.
+    // A cancelled region is already gone from `pages`, so it never draws; the still-pending region
+    // has category == null (excluded here) and shows its own teal modal ghost below.
+    if (regionIndexOf(currentPageId) === 0) {
+      const tr = pageTransformsRef.current[currentPageId]
+      const ts = (tr && tr.s) ? tr.s : 1
+      const ttx = tr?.tx ?? 0, tty = tr?.ty ?? 0
+      const regionRects = pages
+        .filter(p => p.pageNum === currentPage && p.category != null)
+        .map(p => {
+          const crop = pageCropsRef.current[p.pageId] || p.crop
+          if (!crop) return null
+          return {
+            x: crop.x * ts + ttx,
+            y: crop.y * ts + tty,
+            w: crop.w * ts,
+            h: crop.h * ts,
+            // Prefer the display name; fall back to the semantic subLabel (level/direction),
+            // then the category label. subLabel still drives geometry independently.
+            label: p.regionName || p.subLabel || categoryLabel(p.category),
+          }
+        })
+        .filter(Boolean)
+      drawRegionOutlines(ctx, regionRects, zoomRef.current)
+    }
+
     // Carve mode: live amber dashed rectangle overlay during drag.
     if (carveMode && carveDragRef.current) {
       const { x1, y1, x2, y2 } = carveDragRef.current
@@ -3785,6 +3841,20 @@ function App() {
       ctx.setLineDash([6 / zoomRef.current, 4 / zoomRef.current])
       ctx.strokeRect(rx, ry, rw, rh)
       ctx.fillStyle = 'rgba(245,158,11,0.08)'
+      ctx.fillRect(rx, ry, rw, rh)
+      ctx.restore()
+    }
+
+    // #115 — pending carved region awaiting its forced category: draw its outline as a teal
+    // ghost on the source sheet behind the modal. rect is in this sheet's canvas-world coords.
+    if (carvePending && carvePending.sourcePageId === currentPageId && carvePending.rect) {
+      const { rx, ry, rw, rh } = carvePending.rect
+      ctx.save()
+      ctx.strokeStyle = '#06b6d4'
+      ctx.lineWidth = 2 / zoomRef.current
+      ctx.setLineDash([8 / zoomRef.current, 4 / zoomRef.current])
+      ctx.strokeRect(rx, ry, rw, rh)
+      ctx.fillStyle = 'rgba(6,182,212,0.10)'
       ctx.fillRect(rx, ry, rw, rh)
       ctx.restore()
     }
@@ -3816,6 +3886,9 @@ function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
+        // #115 — forced categorize modal: Esc maps to CANCEL (discard region), never a silent
+        // close that would strand an uncategorized region. Checked before the carve-mode exit.
+        if (carvePending) { cancelCarveCategory(); return }
         if (carveMode) { setCarveMode(false); carveDragRef.current = null; return }
         if (calibMode) exitCalibMode()
         else if (placingFromEntry) {
@@ -3883,7 +3956,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, gradeLineDrawing, placingEquipmentItem, placingFromEntry, carveMode])
+  }, [calibMode, drawMode, reviewShape, roofShapeDraft, roofRoleMode, roofLineMode, roofChainStartId, snapAngle, snapDist, currentPage, editMode, gradeLineDrawing, placingEquipmentItem, placingFromEntry, carveMode, carvePending])
 
   // ── Wheel zoom (non-passive so preventDefault works) ─────────────────────
 
@@ -4049,15 +4122,24 @@ function App() {
     }
   }
 
+  // Single category-write path (Fork-D, keyed by pageId). Used by confirmCatPage (currentPageId)
+  // and by the forced categorize-on-carve modal (the new region's pageId) — no parallel write.
+  // `extra` merges additional per-page fields (e.g. regionName); omitted by the normal panel so
+  // it never clobbers a region's display name on recategorize.
+  const writePageCategory = (targetPageId, category, subLabel, subLabelNote, extra = {}) => {
+    const newPages = pages.map(p =>
+      p.pageId === targetPageId ? { ...p, category, subLabel, subLabelNote, ...extra } : p
+    )
+    setPages(newPages)
+    return newPages
+  }
+
   const confirmCatPage = () => {
     if (!catDraftCategory || catConfirmDisabled) return
     const subLabel = resolveSubLabel()
     // subLabelNote is a floor-plan-only extra descriptor; never carries level meaning.
     const subLabelNote = catDraftCategory === 'floor-plan' ? (catDraftNote.trim() || null) : null
-    const newPages = pages.map(p =>
-      p.pageId === currentPageId ? { ...p, category: catDraftCategory, subLabel, subLabelNote } : p
-    )
-    setPages(newPages)
+    const newPages = writePageCategory(currentPageId, catDraftCategory, subLabel, subLabelNote)
     setRecatPageId(null)
     // If the front-face prompt opens, stay on the anchor page so the user can
     // pick the edge; otherwise advance to the next uncategorized page as usual.
@@ -4076,6 +4158,45 @@ function App() {
   const startRecategorize = () => {
     loadDraftFromEntry(pages.find(p => p.pageId === currentPageId))
     setRecatPageId(currentPageId)
+  }
+
+  // #115 — forced categorize-on-carve modal: CONFIRM writes the chosen category to the new
+  // region via the shared write path (keyed to the region's pageId), then closes. We stay on
+  // the source sheet and remain in carve mode, ready to box the next region.
+  const confirmCarveCategory = () => {
+    if (!carvePending) return
+    if (!catDraftCategory) return
+    // Two coexisting fields: subLabel keeps its SEMANTIC value (floor level / N-S-E-W direction)
+    // from the pickers — it drives the Z-stack and elevation-direction logic. regionName is the
+    // separate DISPLAY name shown on the standing-outline chip. Both written through the shared
+    // path, keyed to the region's pageId. Gate is category-only; neither field blocks confirm.
+    const subLabel = resolveSubLabel()
+    const subLabelNote = catDraftCategory === 'floor-plan' ? (catDraftNote.trim() || null) : null
+    const regionName = carveRegionName.trim() || null
+    writePageCategory(carvePending.pageId, catDraftCategory, subLabel, subLabelNote, { regionName })
+    setCarvePending(null); setCarveRegionName('')
+    setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote('')
+    // No imperative redraw: setCarvePending(null) re-fires the view-mode passive redraw with the
+    // updated `pages`, so the pending teal ghost is replaced by the green standing outline in a
+    // single repaint (no stale-state double-draw / flicker).
+  }
+
+  // CANCEL discards the just-carved region ENTIRELY — remove its pages entry and every companion
+  // ref the carve commit wrote for this pageId (crop, borrowed scale, region-counter increment).
+  // State returns to as-if-no-carve, leaving no orphan. Stay on source sheet, stay in carve mode.
+  const cancelCarveCategory = () => {
+    if (!carvePending) return
+    const { pageId, pNum, k } = carvePending
+    setPages(prev => prev.filter(p => p.pageId !== pageId))
+    delete pageCropsRef.current[pageId]
+    delete pageScalesRef.current[pageId]
+    // Reverse the region-counter increment iff it is still at k. The forced modal blocks any
+    // intervening carve, so this holds; the guard keeps the next carve's id collision-free either way.
+    if (regionCounterRef.current[pNum] === k) regionCounterRef.current[pNum] = k - 1
+    setCarvePending(null); setCarveRegionName('')
+    setCatDraftCategory(null); setCatDraftSubLabel(''); setCatDraftNote('')
+    // No imperative redraw: setCarvePending(null) re-fires the passive redraw with the discarded
+    // region already removed from `pages`, so no standing outline is added for it.
   }
 
   // Re-enter categorization to work through what remains: cycle uncategorized
@@ -4917,7 +5038,7 @@ function App() {
       setFrontFacePromptOpen(false)
       setCategorizeMode(false); setRecatPageId(null); setCatReentry(false)
       setShowFloorHeights(false)
-      setCarveMode(false); carveDragRef.current = null
+      setCarveMode(false); carveDragRef.current = null; setCarvePending(null); setCarveRegionName('')
       resetZoomPan()
 
       // Scenario state
@@ -8011,6 +8132,66 @@ function App() {
             <div className="modal-actions">
               <button className="btn-secondary" onClick={exitCalibMode}>Back</button>
               <button className="btn-primary" onClick={handleConfirmScale}>Confirm Scale</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* #115 — forced categorize-on-carve modal. Non-dismissable: no backdrop-click close, no
+          Esc-to-nothing (Esc maps to Cancel/discard). Two explicit actions only. */}
+      {carvePending && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2 className="modal-title">Categorize Region</h2>
+            <p className="modal-sub">
+              This carved region must be categorized before you continue. Pick its view type —
+              a single sheet can hold mixed views, so each region is set on its own.
+            </p>
+            <div className="cat-category-row">
+              {CATEGORY_OPTIONS.map(opt => (
+                <button key={opt.key}
+                  className={`cat-cat-btn ${catDraftCategory === opt.key ? 'cat-cat-btn--active' : ''}`}
+                  onClick={() => selectCatCategory(opt.key)}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {catDraftCategory && (
+              <div className="cat-sublabel-row">
+                {catDraftCategory === 'floor-plan' && (
+                  <>
+                    <select className="cat-sublabel-select" value={catDraftSubLabel}
+                      onChange={e => setCatDraftSubLabel(e.target.value)}>
+                      <option value="">— level —</option>
+                      {FLOOR_SUBLABELS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <input className="cat-sublabel-input" type="text" placeholder="Note (optional)"
+                      value={catDraftNote} onChange={e => setCatDraftNote(e.target.value)} />
+                  </>
+                )}
+                {catDraftCategory === 'elevation' && (
+                  <select className="cat-sublabel-select" value={catDraftSubLabel}
+                    onChange={e => setCatDraftSubLabel(e.target.value)}>
+                    <option value="">— direction —</option>
+                    {ELEVATION_DIRS.map(d => <option key={d} value={d}>{d} elevation</option>)}
+                  </select>
+                )}
+                {FREETEXT_SUBLABEL_CATEGORIES.includes(catDraftCategory) && (
+                  <input className="cat-sublabel-input" type="text" placeholder="Sub-label (optional)"
+                    value={catDraftSubLabel} onChange={e => setCatDraftSubLabel(e.target.value)} />
+                )}
+              </div>
+            )}
+            <div className="cat-sublabel-row">
+              <label className="cat-sublabel-label" htmlFor="carve-region-name">Region name</label>
+              <input id="carve-region-name" className="cat-sublabel-input" type="text"
+                placeholder="Region name"
+                value={carveRegionName} onChange={e => setCarveRegionName(e.target.value)} />
+            </div>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={cancelCarveCategory}>Cancel (discard region)</button>
+              <button className="btn-primary" onClick={confirmCarveCategory}
+                disabled={!catDraftCategory}>Confirm</button>
             </div>
           </div>
         </div>

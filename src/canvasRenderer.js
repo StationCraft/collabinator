@@ -338,6 +338,38 @@ export function drawRunPaths(ctx, completedShapes, pageId) {
   }
 }
 
+// Standing outlines for CONFIRMED carved regions, drawn on their source sheet (#110 / #115
+// follow-on). Read-only display — no geometry, no hit-testing. `regions` is an array of
+// { x, y, w, h, label } already resolved into the source sheet's canvas-world frame by the
+// caller (the caller applies the sheet's align transform to each stored raw-sheet crop). A
+// "locked/placed" green, distinct from the amber live carve-drag and the teal pending-modal
+// ghost. zoom keeps stroke width and label size constant on screen.
+export function drawRegionOutlines(ctx, regions, zoom = 1) {
+  if (!regions || regions.length === 0) return
+  for (const r of regions) {
+    ctx.save()
+    ctx.strokeStyle = '#22c55e'
+    ctx.lineWidth = 1.5 / zoom
+    ctx.setLineDash([])
+    ctx.strokeRect(r.x, r.y, r.w, r.h)
+    ctx.fillStyle = 'rgba(34,197,94,0.06)'
+    ctx.fillRect(r.x, r.y, r.w, r.h)
+    ctx.restore()
+    if (r.label) {
+      ctx.save()
+      ctx.font = `${12 / zoom}px sans-serif`
+      ctx.textBaseline = 'top'
+      const padX = 4 / zoom, padY = 4 / zoom
+      const tw = ctx.measureText(r.label).width
+      ctx.fillStyle = 'rgba(21,128,61,0.85)'
+      ctx.fillRect(r.x, r.y, tw + padX * 2, 16 / zoom)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(r.label, r.x + padX, r.y + padY)
+      ctx.restore()
+    }
+  }
+}
+
 // Build a CSS transform string for a per-page PDF alignment transform.
 // t = { tx, ty, s, angle } where tx,ty are canvas pixels, s is a unitless
 // scale multiplier, angle is degrees. Order: translate -> rotate -> scale.
