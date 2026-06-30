@@ -1961,12 +1961,21 @@ the full-sheet fit, but keyed to the crop's dimensions (w/h) rather than the ful
 zoom/pan derived from crop dims vs. viewport, or scaling the crop render itself to the container).
 Must not touch stored geometry or the crop offset (recalibration-independence, #22).
 
-**Status:** **GATED-READY (Session 62 gate-expiry sweep).** Its stated gate — "pair with the
-scale/crop-bleed fix session (the `forPageId` plumbing)" — is now satisfied: that fix landed in
-commit ee9427f. The render/nav path is now identity-first (`renderPage(pdfDoc, pageId, …)` with
-`goToPageId`), so the auto-fit hook would live in `goToPageId`/`renderPage` (derive an initial
-zoom/pan from crop dims vs. viewport). Flagged to Ben; not built (kept scoped to the two defects).
-Still must not touch stored geometry or the crop offset (#22).
+**Status:** **DONE (Session 64; commits 5468153, cdb5639, 9ce66df, ccc45e0).** Auto-fit is baked
+into `renderPage`'s crop branch (App.jsx ~824–835): on initial navigation (`resizeMeasure:true`) a
+`displayScale` is applied to the backdrop CSS dimensions so the region fills the viewport at uniform
+scale. **Rule (Session 64, Ben's stated preference): ALWAYS fit-to-HEIGHT** — `displayScale =
+availableHeight / crop.h` (availableHeight = `window.innerHeight − 200`), applied uniformly to both
+axes (no-distortion invariant). Width overflows when scaled width exceeds the viewport; the
+`.canvas-stack` / `.canvas-wrapper` `overflow-x:auto` scrolls to the full width. The earlier
+constraining-axis branch (`isHeightBound`) was removed — one consistent rule, no per-region axis
+choice. **Companion CSS fix (commit ccc45e0):** the global `canvas { max-width: 100% }` rule was
+clamping the backdrop's *rendered* width to the container while the inline style set the auto-fit
+width — squishing wide regions horizontally and defeating the scroll. Scoped exemption
+`.canvas-world canvas { max-width: none }` (App.css ~228) fixes this; full sheets are unaffected
+(inline width = scaled.width ≤ container). Geometry / crop offset untouched (#22 honored).
+`__verifyCrop` extended with a rendered-box-aspect == bitmap-aspect check (the on-screen layer the
+inline-style uniform-scale check missed) + a deliberately-wide `cropWide` case (now 17 checks).
 
 ---
 

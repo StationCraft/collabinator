@@ -818,10 +818,20 @@ A React + Vite app with:
     composes on top unchanged, so recalibration-independence (#22) is untouched. The CSS transform
     stack is unchanged; crop_viewport is the innermost transform realized at the rasterization read.
     `pageCropsRef` resets on PDF upload and round-trips through snapshot/restore.
-  * **DEV:** `window.__setCrop(pageId, crop)` writer; `window.__verifyCrop()` — 10 checks (frame
-    sizing at two crops + cleared, plus the placed-point world-coordinate assertion: traced world
-    coords invariant under crop). Verified: `__verifyFixture` 44/44 (no-crop unchanged) + `__verifyCrop`
-    10/10 + screenshot of offset+clip.
+  * **DEV:** `window.__setCrop(pageId, crop)` writer; `window.__verifyCrop()` — 17 checks (frame
+    sizing at three crops incl. a deliberately-wide `cropWide` + cleared, the placed-point
+    world-coordinate assertion: traced world coords invariant under crop, AND a rendered-box-aspect
+    == bitmap-aspect check per crop — the on-screen layer the inline-style uniform-scale check
+    misses; was 10 checks pre-Session-64). Verified: `__verifyFixture` 44/44 (no-crop unchanged) +
+    `__verifyCrop` 17/17 + screenshot of offset+clip.
+  * **Region auto-fit (Session 64; commits 5468153/cdb5639/9ce66df/ccc45e0):** `renderPage` crop
+    branch bakes a `displayScale` into the backdrop CSS dims so a region fills the viewport. Rule:
+    **ALWAYS fit-to-HEIGHT** (`displayScale = (innerHeight − 200) / crop.h`, uniform both axes);
+    width overflows → `overflow-x:auto` horizontal scroll reaches full width. Companion CSS fix:
+    `.canvas-world canvas { max-width: none }` (App.css) exempts the backdrop/overlay from the global
+    `canvas { max-width: 100% }` cap that was clamping rendered width and squishing wide regions
+    horizontally; full sheets unaffected (inline width = scaled.width ≤ container). Geometry / crop
+    offset untouched (#22). See ADDITIONAL_FUNCTIONALITY.md #111 (DONE).
   * **Fork C resolved** (dissolved with Fork A). **Fork D — DONE (commit 579bbf1, Session 60)** —
     categorization handlers rekeyed from `pageNum` to `pageId` (see Fork D notes below).
   * **Crop-carving UI — DONE (commit 8d6e57d, Session 61):** User-facing half of #5. "Add region"

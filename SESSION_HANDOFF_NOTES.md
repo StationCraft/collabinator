@@ -10,6 +10,44 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 64 — Region auto-fit: always fit-to-height + wide-region squish fix (2026-06-30)
+
+**Branch:** main | **Commits:** 5468153, cdb5639 (auto-fit landed pre-session) → 9ce66df (always
+fit-to-height) → ccc45e0 (max-width squish fix + harness check) | **Harness:** __verifyFixture 44/44,
+__verifyCrop **17/17** on fresh restore (live dev-server verified, viewport 1280×800).
+
+**What this session was:** finished #111 (region auto-fit to viewport). Two defects fixed in sequence,
+each recon'd before the fix.
+
+1. **Axis rule wrong for wide/short regions (commit 9ce66df).** Auto-fit picked the constraining axis
+   (`isHeightBound`), so wide/short regions fit-to-WIDTH and sat as a short band with empty space below.
+   Per Ben's stated preference, made it **universal fit-to-HEIGHT**: `displayScale = (innerHeight−200) /
+   crop.h`, uniform both axes; width overflows → horizontal scroll. Removed the per-region axis branch.
+
+2. **Wide regions rendered horizontally SQUISHED (commit ccc45e0).** Recon pinned it: the global
+   `canvas { max-width: 100% }` (App.css) clamped the backdrop's *rendered* width to the container
+   (~1200px) while the inline style set the auto-fit width (e.g. 3840px) — the bitmap (aspect 6.4) was
+   drawn into a 2.0-aspect box. It also defeated the `overflow-x:auto` scroll (canvas could never exceed
+   container → shrank instead of scrolling). **`__verifyCrop` passed despite this** because it checked
+   only `c.style.width/height` (inline, uniform) and never `getBoundingClientRect` (the clamped rendered
+   box). Fix: scoped `.canvas-world canvas { max-width: none }`. Harness gap closed: `__verifyCrop`
+   `dimsOk` now asserts rendered-box aspect == bitmap aspect (transform-robust) + a deliberately-wide
+   `cropWide` (aspect 6.4) case that gives the check teeth.
+
+**Verification highlights (live):** wide region → rendered 3840×600, fills viewport height, aspect 6.4
+matches bitmap, stack scrollWidth 3840 > clientWidth 1200 (genuinely scrolls). Tall region → fills
+height, aspect correct, no unwanted scroll. **Full-sheet regression** → 1200×800, 1:1, scrollWidth ==
+clientWidth (no scroll) — removing the cap did NOT cause full-sheet overflow (inline width =
+scaled.width ≤ container). **Sanity test (not rubber-stamped):** reimposing `max-width:100%` via injected
+style made the new check FAIL (rendered aspect 2.0 vs bitmap 6.4). Geometry / crop offset untouched (#22).
+
+**Process note:** `__verifyFixture` is DESTRUCTIVE (it deletes a door and checks removal) — it must run
+exactly ONCE per fresh `__restoreFixture`. Running it repeatedly in one JS session pollutes state and
+yields a false "6/32 FAILED". Confirmed unrelated to this session's changes by reproducing 6/32 with the
+changes git-stashed, then 44/44 on a fresh server + single restore + single verify.
+
+---
+
 ## SESSION 63 — Plateau deep-review (overnight, unsupervised) — review + reconciliation (2026-06-29)
 
 **Branch:** main | **Commits:** d78bd40 (cosmetic) + this docs commit | **Harness:** __verifyFixture
@@ -109,9 +147,10 @@ canvasRenderer.js stroking labeled rectangles for each region whose source is th
 (crops from `pageCropsRef` filtered by `pageIdMapRef.current[pageNum] === currentPageId`); gate on
 `currentPageIsSourceSheet`; read-only, no hit-testing. UX call: whether the carve map shows.
 
-**HOLD-5 — #111 region auto-fit to viewport (GATED-READY).** In `goToPageId`/`renderPage`, derive an
-initial zoom/pan from crop dims vs. viewport so a small region fills the canvas like a full sheet does.
-Must NOT touch stored geometry or the crop offset (#22). UX call: how regions present on selection.
+**HOLD-5 — #111 region auto-fit to viewport — DONE (Session 64; commits 9ce66df, ccc45e0).** Baked
+into `renderPage`'s crop branch: always fit-to-HEIGHT (`displayScale = (innerHeight−200)/crop.h`,
+uniform), width overflows → horizontal scroll. Companion CSS fix exempts `.canvas-world canvas` from
+the global `max-width:100%` cap (was squishing wide regions). Geometry / crop offset untouched (#22).
 
 **HOLD-6 — #106 assembly-inheritance fix (thermal arc, gated on geometry review).** Wire the four
 Project Setup `assembly-*` CONFIG_FIELDS to the `getSurfaceAssembly` miss path via an
