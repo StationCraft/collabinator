@@ -2154,3 +2154,35 @@ not a repaint gap.
 **Status:** Logged, gated. Needs recon to confirm root cause (category inheritance vs. gate logic) before a
 fix is scoped. Do NOT fix blind.
 
+### 116. Locked-region PDF capture as visual surface skin
+
+**Category:** Visual / 3D-render / output-documents. **Logged:** Session 66 (2026-06-30).
+
+**Mental model (Ben's words):** "drawn shape capture screenshot and apply as possible visual surface."
+
+**What:** Once a region or shape is locked (floor-plan polygon, elevation outline, carved
+region-page, roof plan), capture the slice of the underlying reference PDF that the locked
+geometry overlays as a raster image, and make it a TOGGLEABLE visual layer. Two consumers:
+  1. **3D wireframe render** — the captured raster applied as a surface material/texture on the
+     corresponding plane.
+  2. **Output documents** — the captured PDF slice shown as a visible underlay/overlay layer.
+
+**Why deferred:** hard-depends on stable locked geometry with settled coordinate frames — i.e.
+the region-page / carve / coordinate-transform layer must be solid first (the layer being
+stabilized in the current track). Capturing a raster against an unsettled transform would bake in
+a wrong registration.
+
+**Dependency notes:**
+  - Capture is a read-time projection of (locked geometry frame) x (source PDF page raster) —
+    store the minimal authoritative source (the geometry + a reference to the source page region),
+    derive the raster on demand where possible, per VISION_SUPPLEMENT principle 5.1. Do NOT store a
+    frozen screenshot as the authoritative artifact if it can be re-derived from geometry + source page.
+  - Relates to the coordinate-registration work (#109) — a correct capture requires a correct
+    overlay->backdrop registration, so this cannot be trusted until #109 is resolved.
+  - 3D-surface consumer pairs with the existing deriveWireframe / ThreeDView path (planes already
+    exist as geometry; this adds an optional material).
+
+**Gate (checkable):** region-page coordinate frames stable (carve + repaint + #109 registration all
+resolved) AND deriveWireframe planes carry a stable identity that a captured raster can be keyed to.
+
+**Status:** DEFERRED. Logged for the post-stabilization track; do not start until the gate above holds.
