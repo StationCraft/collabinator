@@ -1307,6 +1307,27 @@ All of the above are cleared on PDF upload.
   was a scalar canvas-X offset formula that mirrored openings when the reference edge was
   traced right-to-left. Fixed by projecting the full 2D canvas offset vector onto the A→B
   edge direction (dot-product / edgeLenPx). 15/15 harness PASS; Ben visual confirmed.
+- **Overlay blank until forced re-render on same-sheet logical-page nav (#114): RESOLVED
+  (commit f1fffac, Session 66).** The three overlay passive-redraw `useEffect`s keyed on
+  `currentPage` (sheet number) but not `currentPageId` (logical-page identity); a source sheet
+  and its carved regions share one sheet number, so navigating among them changed `currentPageId`
+  + cleared `measureRef` in `renderPage` but re-fired no passive effect → blank overlay until a
+  mode change / imperative redraw. Fix = add `currentPageId` to the dep arrays of all three
+  effects (view ~1046, edit ~1607, draw ~1616). Effect bodies + renderPage + goToPageId + carve
+  path untouched; pure repaint-trigger, no coordinate/scale math. Different-sheet nav unaffected
+  (setCurrentPage + setCurrentPageId batch into one render → effect still fires once). Refined
+  trigger: "≥2 logical pages sharing one sheet number" (single region + source qualifies;
+  overlapping is incidental). Verified by Ben's eyeball (harness was never the detector). Two
+  PRE-EXISTING bugs were exposed (not caused): #109 (mis-registration on source-sheet return —
+  was masked by the blank overlay) and #115 (carved elevation region has no Place-opening). See
+  ADDITIONAL_FUNCTIONALITY.md.
+- **#109 overlay mis-registration on return — now has a reliable repro (Session 66, DEFERRED):**
+  after #114 the source overlay repaints on return, exposing pre-existing mis-registration
+  (overlay offset from backdrop; clean redraw with current transform corrects it). DISTINCT from
+  #114 (paints-but-mis-registered vs. not-painted-at-all). Recon-and-fix pending; batch with #24.
+- **#115 carved elevation region has no Place-opening (Session 66, DEFERRED):** a freshly carved
+  region starts `category: null`, so `isElevationPage` is false and the Place-opening gate hides.
+  Opening-entry/category-inheritance gap, not a repaint gap. Needs recon before fix.
 
 ### Design gaps (deferred to Phase 2):
 - **Inherited geometry displays on all pages:** Locked polygons from page N show on

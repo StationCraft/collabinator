@@ -10,6 +10,52 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 66 — #114 fix: overlay repaints on same-sheet logical-page navigation (2026-06-30)
+
+**Branch:** main | **Commit (code):** f1fffac | **Docs commit:** (this close-out) | **Harness:** unchanged
+(harness was NEVER the detector — the defect is an invisible-to-harness blank overlay; verification is Ben's
+eyeball on a navigation sequence).
+
+**What this was:** the fix for #114, scoped in a planning chat against the Session-65 read-only recon. Root
+cause was SETTLED before any code: the three overlay passive-redraw `useEffect`s (view ~1041, edit ~1605,
+draw ~1609) keyed their dependency arrays on `currentPage` (numeric sheet number) but NOT `currentPageId`
+(logical-page identity). A source sheet and every region carved from it share one sheet number, so navigating
+among them changed `currentPageId` + cleared `measureRef` in `renderPage`, but re-fired no passive effect
+(`currentPage` unchanged) → blank overlay until a mode change or imperative redraw kicked it.
+
+**The fix (approach-(a), surgical):** add `currentPageId` to each of the three dependency arrays. THREE
+single-line additions. Effect bodies unchanged; `renderPage` / `goToPageId` / carve path / imperative-draw
+handlers untouched. No coordinate/scale/crop/geometry math — pure repaint-trigger.
+
+**Refined trigger condition:** "≥2 logical pages sharing one sheet number." A single region + its source
+sheet already qualifies (item 3 verified). The OVERLAPPING-siblings framing in the original symptom was
+incidental to Ben's repro, not causal — overlap touches nothing in the render path.
+
+**Different-sheet nav (the one regression risk) — safe by construction:** `renderPage`'s `setCurrentPage` +
+`setCurrentPageId` (App.jsx ~855-856) batch into ONE render under React 18 auto-batching (Vite + createRoot,
+batched even after the `await`), so the effect still fires exactly ONCE on different-sheet nav. The dep
+addition only adds a new same-sheet wake condition; it can't split a single existing fire into two.
+
+**Verification (Ben's eyeball, his dev-server tab):**
+- VERIFIED: drawn shape survives nav and paints on its own region without a mode change; source sheet
+  repaints its elevation lines + placed openings on return without a mode change; sibling paints on arrival.
+- Item 2 (no double-paint/flicker on different-sheet nav): NOT explicitly eyeballed; structurally single-fire
+  per the batching argument. Cheap follow-up glance recommended; no double-paint expected.
+- Item 4: `__verifyFixture` 44/44, `__verifyCrop` 17/17 on a fresh restore. Item 5: recovery paths unchanged.
+
+**TWO PRE-EXISTING BUGS EXPOSED (not caused) by this fix — logged, NOT fixed this session:**
+- **#109 (note appended):** mis-registration on source-sheet RETURN after a region draw (and on some fixture
+  loads). Before the fix the source overlay was blank, so this registration bug was invisible; now that the
+  overlay repaints, the mis-registration shows (overlay offset from backdrop, corrected by a clean redraw
+  with the current transform). The #114 fix REVEALED it, did not create it. DISTINCT from #114 (that was a
+  not-painted-at-all trigger gap; this is paints-but-mis-registered — different fix). Recon-and-fix pending.
+- **#115 (new entry):** carved elevation region does not surface "Place opening" (opening-entry gap on
+  region-pages — a freshly carved region starts `category: null`, so `isElevationPage` is false and the
+  Place-opening gate hides). Blocked the opening-revert sub-check of #114 item 1. Needs recon (category
+  inheritance vs. gate logic) before a fix.
+
+---
+
 ## SESSION 65 — Build 2: carve-on-aligned-elevation crop∘T⁻¹ + scale propagation (2026-06-30)
 
 **Branch:** main | **Commit (code):** e92aae3 | **Harness (fresh restore):** __verifyFixture **44/44**,

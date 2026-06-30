@@ -1906,7 +1906,17 @@ into the same redraw/event robustness polish pass rather than fixing individuall
 **Severity:** Visual-only, low-risk. Does not corrupt stored geometry, does not block any build.
 A single mouse move restores correct display. Fix when convenient, not urgently.
 
-**Status:** Logged. Batch with #24 in a dedicated redraw/event-robustness polish session.
+**Update (Session 66 — exposed by the #114 fix):** now reproducible on SOURCE-SHEET RETURN after a region
+draw, and on some fixture loads. Before #114's repaint-trigger fix the source overlay was BLANK on return
+(nothing painted), so this pre-existing registration bug was invisible; now that the overlay repaints
+(commit f1fffac), the mis-registration shows — overlay geometry paints in the WRONG location relative to the
+backdrop (overlay offset from the elevation drawing), corrected by a clean redraw with the current transform.
+The #114 fix did NOT create this — it REVEALED it. This ties to the load-time misalignment Ben has flagged
+repeatedly. Recon-and-fix still pending; remains DISTINCT from #114 (that was a not-painted-at-all trigger
+gap; this is a paints-but-mis-registered transform/timing gap — different fix).
+
+**Status:** Logged. Batch with #24 in a dedicated redraw/event-robustness polish session. Now has a stronger,
+more reliable repro (source-sheet return after a region draw) since Session 66.
 
 ---
 
@@ -2060,13 +2070,87 @@ and console confirms data intact ("restore complete → page-2 | shapes:5 | scal
 Geometry reappears INTACT whenever a render is forced (Edit shapes, Place Opening). Signature = a draw path
 that does not repaint siblings / region overlays until something kicks the canvas.
 
-**Relation to #109:** adjacent to the overlay-to-underlay repaint gap (#109) but distinct — this is specific
-to the carve/region render path with OVERLAPPING SIBLINGS present on an aligned page. May share a root cause
-with #109 or may be its own trigger; recon to determine.
+**Relation to #109:** RECON-CONFIRMED DISTINCT trigger and distinct fix (same robustness family).
+#109 is paints-but-mis-registered (transform/redraw-timing on resize and different-sheet nav — geometry
+shows in the wrong place, a clean redraw with the current transform corrects it). #114 was not-painted-at-all
+(passive-redraw effect never fired). Adding `currentPageId` (the #114 fix) does NOT resolve #109 and vice
+versa. See the appended #109 note: now that #114 makes the source overlay repaint, the pre-existing #109
+mis-registration on source-sheet return is VISIBLE (was masked by the blank overlay).
 
 **Scope note:** Build 2 (changes 1+3) measurement seam is UNAFFECTED and held correctly; this is downstream
 display only. Does NOT gate any Build-2 commit.
 
-**Status:** Logged, gated. Read-only recon (Opus/high) to identify the repaint trigger and render-path
-interaction BEFORE any fix is scoped.
+**ROOT CAUSE (recon-confirmed, Session 66):** the three overlay passive-redraw `useEffect`s (view-mode
+App.jsx ~1041, edit-mode ~1605, draw-mode ~1609) keyed their dependency arrays on `currentPage` (the numeric
+PDF sheet number) but NOT on `currentPageId` (logical-page identity). A source sheet and every region carved
+from it share ONE sheet number (`page-2`, `page-2-r1`, `page-2-r2` all → `currentPage === 2`). Navigating
+among them changes `currentPageId` and clears `measureRef` inside `renderPage`, but re-fires NO passive
+effect because `currentPage` is unchanged → the overlay sits blank until an unrelated dependency changes
+(editMode/drawMode/a tick) or an imperative redraw runs (the Edit-shapes / Place-opening recovery Ben used).
+
+**REFINED TRIGGER CONDITION:** "≥2 logical pages sharing one sheet number." A single region + its source
+sheet already qualifies (verified — see item 3 below); the OVERLAPPING-siblings case in the original
+symptom was incidental to Ben's repro, not causal. Overlap touches nothing in the render path
+(`pageCropsRef` is per-pageId, no cross-region composition).
+
+**FIX (approach-(a), commit f1fffac, Session 66):** add `currentPageId` to the dependency array of EACH of
+the three effects — three single-line additions, effect BODIES unchanged, `renderPage` / `goToPageId` / carve
+path / imperative-draw handlers all untouched. Pure repaint-trigger fix; NO coordinate/scale/crop/geometry
+math touched (measurement untouched by construction). Same-sheet logical-page nav now wakes the effects
+exactly as a mode change does today (the recovery path Ben already used successfully).
+
+**Different-sheet nav (the one regression risk) — not a regression by construction:** `renderPage` calls
+`setCurrentPage` then `setCurrentPageId` back-to-back (App.jsx ~855-856). Under React 18 automatic batching
+(Vite + createRoot, batched even after the `await`), both commit in ONE render, so the effect's dependency
+check runs ONCE — exactly as before the fix. The dep addition only adds a NEW same-sheet wake condition; it
+cannot split an existing single different-sheet fire into two. Before: different-sheet nav fired once. After:
+still once.
+
+**VERIFICATION STATE (Session 66):**
+- Repaint trigger: VERIFIED (Ben's eyeball) — drawn shape survives nav and paints on its own region without
+  a mode change; source sheet repaints its elevation lines + placed openings on return without a mode change;
+  sibling region paints its own geometry on arrival.
+- Item 2 (no double-paint/flicker on different-sheet nav): NOT explicitly eyeballed; structurally single-fire
+  per the batching argument above. A quick different-sheet glance is a cheap follow-up but no double-paint is
+  expected.
+- Opening-revert sub-check of item 1: BLOCKED by #115 (carved elevation region has no Place-opening), NOT failed.
+- Visual registration of the repainted overlay: BLOCKED by #109 (mis-registration on return), NOT failed —
+  out of scope for #114 (a repaint-trigger fix, not a registration fix).
+- Item 4: `__verifyFixture` 44/44, `__verifyCrop` 17/17 on a fresh restore (harness was never the detector here).
+- Item 5: Edit-shapes / Place-opening recovery unchanged.
+
+**Status:** RESOLVED (approach-(a) dependency addition, commit f1fffac, Session 66). Two PRE-EXISTING bugs
+were EXPOSED (not caused) by this fix and logged separately: #109 (mis-registration on return, note appended)
+and #115 (carved elevation region has no Place-opening). Neither gates this fix.
+
+---
+
+### 115. Carved elevation region does not surface Place-opening (opening-entry gap on region-pages)
+
+**Category:** Region-pages (#5) / Elevation / opening-entry. **Logged:** Session 66 (2026-06-30).
+
+**Exposed by (not caused by):** the #114 repaint-trigger fix. While replaying #114's item-1 break sequence,
+the opening-revert sub-check could not be tested because a region carved from an elevation page does NOT
+expose the "Place opening" button.
+
+**Description:**
+
+A region carved from an Elevation source sheet does not surface "Place opening", so openings cannot be placed
+while working inside a region. The Place-opening button gate (App.jsx ~6397) requires `isElevationPage`
+(derived from the page's category) AND `pageHasScale` AND no active mode AND not a source sheet. A freshly
+carved region-page starts UNCATEGORIZED (`category: null` — set in the carve-commit `setPages`, App.jsx ~2127),
+so `isElevationPage` is false for it until the user categorizes the region as an Elevation. Suspected primary
+cause: the region inherits neither the source sheet's Elevation category nor an obvious path to Place-opening.
+NEEDS RECON to confirm whether the gap is (a) the region being uncategorized, (b) category not inheriting from
+the source sheet on carve, or (c) the Place-opening gate not accounting for region-pages — before any fix.
+
+**Why it matters:** openings are an Elevation-page workflow; if elevation work moves to carved regions
+(the point of #5 region-pages), opening placement must follow into the region. Otherwise openings can only be
+placed on the full source sheet, which is carve-surface-only once regions exist.
+
+**Refined-trigger note:** independent of #114's trigger; this is an opening-entry/category-inheritance gap,
+not a repaint gap.
+
+**Status:** Logged, gated. Needs recon to confirm root cause (category inheritance vs. gate logic) before a
+fix is scoped. Do NOT fix blind.
 

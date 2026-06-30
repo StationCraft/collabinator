@@ -508,6 +508,18 @@ overhang) was surfaced and DEFERRED** — it's a shared-layout seam (measureRef 
 overflow); logged as ADDITIONAL_FUNCTIONALITY **#113**. Harness on fresh restore: __verifyFixture 44/44,
 __verifyCrop 17/17.
 
+**Session 66 follow-on (commit f1fffac) — #114 repaint-trigger fix (does NOT change plateau status):**
+The three overlay passive-redraw `useEffect`s keyed on `currentPage` (sheet number) but not `currentPageId`
+(logical-page identity), so navigating among a source sheet and its carved regions (which share a sheet
+number) cleared `measureRef` but re-fired no repaint → blank overlay until a mode change. Fix = add
+`currentPageId` to all three dep arrays (approach-(a), 3 single-line additions; bodies/renderPage/nav/carve
+untouched; pure repaint-trigger, no measurement math). Refined trigger: "≥2 logical pages sharing one sheet
+number." Verified by Ben's eyeball (harness never the detector). Exposed two PRE-EXISTING bugs, logged not
+fixed: **#109** (mis-registration on source-sheet return — now reliably reproducible, was masked by the
+blank overlay; batch with #24) and **#115** (carved elevation region has no Place-opening — opening-entry/
+category-inheritance gap; needs recon). This is ALIGNED with waypoint (a): the repaint-trigger dependency
+seam is now correct; the coordinate/transform extraction (item 1) remains the highest-value plateau work.
+
 **Session 62 follow-up (commit ee9427f):** A post-#5 interactive-verification defect was fixed before
 the plateau — region render cross-bleed + regionCounter restore-collision. As a side effect, `renderPage`
 is now **identity-first** (`renderPage(pdfDoc, pageId, …)`; sheet number derived via `pageNumFromId`;
