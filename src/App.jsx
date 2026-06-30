@@ -5027,7 +5027,12 @@ function App() {
         const m = measureRef.current, c = canvasRef.current
         check(`${label}: measureRef = crop box`, m.width === crop.w && m.height === crop.h, `got ${m.width}×${m.height} expect ${crop.w}×${crop.h}`)
         check(`${label}: backdrop bitmap = crop × mult`, c.width === Math.round(crop.w * mult) && c.height === Math.round(crop.h * mult), `got ${c.width}×${c.height} mult=${mult}`)
-        check(`${label}: backdrop CSS = crop box`, c.style.width === `${crop.w}px` && c.style.height === `${crop.h}px`, `got ${c.style.width}×${c.style.height}`)
+        // Auto-fit legitimately scales CSS dimensions beyond the raw crop box, so we
+        // check UNIFORM scale (scaleX ≈ scaleY) rather than absolute pixels.
+        // This directly tests the no-distortion guarantee; a non-uniform stretch fails it.
+        const cssW = parseFloat(c.style.width), cssH = parseFloat(c.style.height)
+        const sX = cssW / crop.w, sY = cssH / crop.h
+        check(`${label}: backdrop CSS uniform scale (no distortion)`, Math.abs(sX - sY) < 0.001, `got ${c.style.width}×${c.style.height}  scaleX=${sX.toFixed(4)} scaleY=${sY.toFixed(4)}`)
       }
 
       const cropA = { x: 120, y: 90, w: 520, h: 380 }
