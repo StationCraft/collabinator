@@ -822,14 +822,14 @@ function App() {
         canvas.width  = Math.round(crop.w * mult)
         canvas.height = Math.round(crop.h * mult)
         // On initial navigation (resizeMeasure:true) bake a display scale into the CSS
-        // dimensions so the region fills the available viewport at uniform scale.
-        // Tall/narrow regions fill the height; wide/short regions fill the width.
+        // dimensions so the region always fills the available viewport HEIGHT at uniform scale.
+        // Width may overflow the viewport — horizontal scroll (overflow-x:auto on the container)
+        // lets the user reach the full width. One consistent rule: height fills, width scrolls.
         // getCanvasPos compensates via c.width/rect.width, so coordinates are unaffected.
         // Enhance re-renders (resizeMeasure:false) keep the existing CSS size unchanged.
         if (resizeMeasure) {
           const availH = Math.max(200, window.innerHeight - 200)
-          const isHeightBound = (crop.w / crop.h) < (containerWidth / availH)
-          const displayScale = isHeightBound ? (availH / crop.h) : (containerWidth / crop.w)
+          const displayScale = availH / crop.h
           canvas.style.width  = `${crop.w * displayScale}px`
           canvas.style.height = `${crop.h * displayScale}px`
         }
