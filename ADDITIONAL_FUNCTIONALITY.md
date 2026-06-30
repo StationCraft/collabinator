@@ -2042,3 +2042,31 @@ ENTIRE aligned page — needs Ben's eyeball) belongs to this deferred change, no
 **Status:** Logged, deferred by explicit decision (Session 65). Measurement core (changes 1+3) DONE and
 verified; this is the reachability/layout half.
 
+### 114. Region geometry/openings don't paint until a forced re-render (overlapping carved regions, aligned page)
+
+**Category:** Region-pages (#5) / repaint / render-path. **Logged:** Session 65 (2026-06-30).
+
+**Observed** (Session 65 post-Build-2 eyeball verification, fixture page-2 aligned elevation):
+After carving two OVERLAPPING regions on the aligned elevation and drawing a shape in one:
+- The whole elevation (lines + previously-placed openings) disappeared from the source-sheet view.
+- The drawn shape showed in only ONE sub-region display; vanished on scrolling/navigating away; reappeared
+  when "Edit shapes" was clicked.
+- Elevation lines and placed openings reappeared when "Place Opening" was clicked.
+
+**Diagnosis (provisional, from symptom shape — NOT yet recon'd):**
+This is a REPAINT/VISIBILITY bug, not a measurement or data bug. Confirmed NOT a measurement problem: the
+drawn shape returns at the correct place and correct real-world size (2'0.0"×2'6.0", no ~1.5× distortion),
+and console confirms data intact ("restore complete → page-2 | shapes:5 | scales:['page-3','page-2']").
+Geometry reappears INTACT whenever a render is forced (Edit shapes, Place Opening). Signature = a draw path
+that does not repaint siblings / region overlays until something kicks the canvas.
+
+**Relation to #109:** adjacent to the overlay-to-underlay repaint gap (#109) but distinct — this is specific
+to the carve/region render path with OVERLAPPING SIBLINGS present on an aligned page. May share a root cause
+with #109 or may be its own trigger; recon to determine.
+
+**Scope note:** Build 2 (changes 1+3) measurement seam is UNAFFECTED and held correctly; this is downstream
+display only. Does NOT gate any Build-2 commit.
+
+**Status:** Logged, gated. Read-only recon (Opus/high) to identify the repaint trigger and render-path
+interaction BEFORE any fix is scoped.
+
