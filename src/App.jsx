@@ -821,8 +821,18 @@ function App() {
         // a vertex. The user-driven align transform (pdf-align-layer) composes on top unchanged.
         canvas.width  = Math.round(crop.w * mult)
         canvas.height = Math.round(crop.h * mult)
-        canvas.style.width  = `${crop.w}px`
-        canvas.style.height = `${crop.h}px`
+        // On initial navigation (resizeMeasure:true) bake a display scale into the CSS
+        // dimensions so the region fills the available viewport at uniform scale.
+        // Tall/narrow regions fill the height; wide/short regions fill the width.
+        // getCanvasPos compensates via c.width/rect.width, so coordinates are unaffected.
+        // Enhance re-renders (resizeMeasure:false) keep the existing CSS size unchanged.
+        if (resizeMeasure) {
+          const availH = Math.max(200, window.innerHeight - 200)
+          const isHeightBound = (crop.w / crop.h) < (containerWidth / availH)
+          const displayScale = isHeightBound ? (availH / crop.h) : (containerWidth / crop.w)
+          canvas.style.width  = `${crop.w * displayScale}px`
+          canvas.style.height = `${crop.h * displayScale}px`
+        }
         if (resizeMeasure && measureRef.current) {
           measureRef.current.width = crop.w
           measureRef.current.height = crop.h
@@ -965,6 +975,7 @@ function App() {
     resetEditState()
     setElevAlignMode(false)
     setAlignMode(false); alignDragRef.current = null
+    setCarveMode(false); carveDragRef.current = null
     backdropTierRef.current = 'normal'; setBackdropTier('normal')
     resetZoomPan()
     drawVerticesRef.current = []; mousePosRef.current = null
@@ -2080,11 +2091,10 @@ function App() {
           const newPageId = `page-${pNum}-r${k}`
           const crop = { x: rx, y: ry, w: rw, h: rh }
           pageCropsRef.current[newPageId] = crop
-          // Push to pages then navigate. renderPage keys off the region pageId directly
-          // (pageCropsRef is already set above; goToPageId can't be used yet because the
-          // setPages update has not flushed, so the new page isn't in `pages` state).
+          // Push to pages; stay on the source sheet (no navigation — Item 3).
+          // pageCropsRef is already set; the new page appears in the sidebar immediately.
           setPages(prev => [...prev, { pageId: newPageId, pageNum: pNum, crop, category: null, subLabel: null, subLabelNote: null }])
-          renderPage(pdf, newPageId)
+          redrawFrontFaceLayer(null)
         } else {
           // Too small — just clear the overlay
           redrawFrontFaceLayer(null)
@@ -4876,6 +4886,7 @@ function App() {
       setFrontFacePromptOpen(false)
       setCategorizeMode(false); setRecatPageId(null); setCatReentry(false)
       setShowFloorHeights(false)
+      setCarveMode(false); carveDragRef.current = null
       resetZoomPan()
 
       // Scenario state

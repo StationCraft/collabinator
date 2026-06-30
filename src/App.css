@@ -211,7 +211,8 @@ body {
   display: none;
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
   border-radius: 4px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: white;
 }
 
@@ -234,12 +235,14 @@ canvas {
 /* ── Canvas stack ── */
 .canvas-stack {
   display: block;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .canvas-world {
   position: relative;
   display: block;
+  width: fit-content;
   line-height: 0;
 }
 
