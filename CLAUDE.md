@@ -865,6 +865,34 @@ A React + Vite app with:
       region; restore-onto-region renders the region; restore+carve→r3 no collision; calibrating one region
       writes scale to ONLY that region's pageId (no sibling/source leak); `__verifyFixture` 44/44 +
       `__verifyCrop` 10/10 on fresh restore.
+  * **Build 2 — carve-on-aligned-elevation: crop∘T⁻¹ + scale propagation (DONE; Session 65; commit e92aae3):**
+    Carving a region from an *aligned/scaled* source page now stores a correct raw-sheet crop and arrives
+    calibrated. Both changes live in the `handleMeasureMouseUp` carve-commit branch (~line 2087).
+    - **Change 1 — crop ∘ T⁻¹:** the carve box is still captured in the source's UNTRANSFORMED canvas-world
+      frame (`getCanvasPos`, unmodified). At commit, the source's align transform `T = translate(t)·scale(s)`
+      (uniform similarity, `angle≡0`) is folded back out so the STORED crop is a raw-sheet rectangle matching
+      what the user visually boxed: `crop = { x:(rx−tx)/s, y:(ry−ty)/s, w:rw/s, h:rh/s }`. Read defensively
+      (`tS=(srcT&&srcT.s)?srcT.s:1`, `tTx/tTy ?? 0`) ⇒ un-aligned source = identity = crop stored
+      byte-for-byte as before. The fold is consumed at commit ONLY — never frozen into a stored vertex; the
+      region's geometry stays crop-local in raw-sheet px (recalibration-independence #22 untouched).
+    - **Change 3 — scale propagation ÷s onto the region's OWN pageId:**
+      `pageScalesRef.current[newRegionPageId] = { ...getEffectiveScale(sourceId), pxPerMeter: src.pxPerMeter / s }`.
+      The `÷s` is geometrically forced and is the SAME `s` change 1 uses: change 1 rescales the region's
+      pixel frame by `1/s`, so the source's canvas-world px/m must divide by `s` to live in the region's
+      raw-sheet frame — else aligned-source region walls measure by factor s (~1.5×) wrong (silent #22).
+      `s=1` (un-aligned) ⇒ carries directly. Lands on the region's OWN pageId — **no `pageRefParentRef`
+      write, no borrow chain.** Uncalibrated source ⇒ region left uncalibrated.
+    - **`__dumpRegions` extended:** prints each region's `ownScale` (`pageScalesRef`) + `refParent`
+      (`pageRefParentRef`) — Build-2 verify aid, DEV-only.
+    - **Change 2 DEFERRED** (full-page carve reachability over the negative align overhang —
+      ADDITIONAL_FUNCTIONALITY #113). The fixture's aligned page-2 transform is large-negative
+      (`tx≈−625.6, ty≈−508.5, s≈1.5017`); covering the negative overhang requires repositioning `measureRef`
+      (offset-fold the literal formula doesn't state) + shared layout CSS — surfaced per STOP condition,
+      deferred. Carving works correctly across the *reachable* zone today; the top-left overhang is a dead
+      zone (not pan). Verification **item 1** (entire-page carve, Ben's eyeball) belongs to #113.
+    - Verified on fresh `__restoreFixture`: `__verifyFixture` 44/44, `__verifyCrop` 17/17; two overlapping
+      page-2 regions each `crop=(R−t)/s`, `ownScale=76.47=114.83/s`, `refParent=none`, partition unique;
+      un-aligned page-3 carve stores identity crop + direct 114.83 scale.
 
 **Not yet built (next increments):**
 - **Next: ⏸ PLATEAU WAYPOINTS — now triggered** (#5 fully done). Fire in sequence BEFORE #29:
@@ -1030,13 +1058,18 @@ pageTransformsRef.current[pageId] = {
 
 **Per-page region crop** (Fork B / #5; added Session 59):
 ```
-pageCropsRef.current[pageId] = { x, y, w, h }  // scaled-sheet pixels (the measureRef unit)
+pageCropsRef.current[pageId] = { x, y, w, h }  // RAW-SHEET pixels (the region's measureRef unit)
 // Hot-read store for renderPage (useCallback []; ref read is stale-closure-safe).
 // pages[i].crop is the serialized mirror (UI/snapshot). Absent ⇒ renderPage uses the full sheet.
 // Consumed ONLY at backdrop rasterization (viewport offsetX/offsetY = -crop.x/.y * mult) and to
 // size measureRef/canvasRef to the crop box. NEVER written into stored geometry, pageTransformsRef,
 // or getEffectiveScale — the crop offset is passive/visual and never frozen (recalibration-indep #22).
 // Cleared on PDF upload; round-tripped through __snapshotFixture/__restoreFixture (obj.pageCrops).
+// Build 2 (Session 65): the crop stored at carve time is the RAW-SHEET rectangle T⁻¹(boxed canvas-world
+//   region) = (R−t)/s, where T = the SOURCE page's pageTransformsRef align transform (un-aligned ⇒
+//   identity ⇒ R unchanged). So crop is in raw-sheet px = the region's own measureRef frame. A region
+//   carved from an *aligned* source also gets pageScalesRef[regionId] = source pxPerMeter ÷ s at commit
+//   (same s) so its scale lives in that raw-sheet frame. See carve-on-aligned-elevation Build 2 above.
 ```
 
 **Stable shape identity counter** (added Session 26):

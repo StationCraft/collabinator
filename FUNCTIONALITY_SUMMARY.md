@@ -119,6 +119,18 @@ own scale, and own position in the reference tree. Source sheets with regions be
 is sized to its crop and its (0,0) origin is the crop's top-left — stored geometry is crop-local by
 construction (recalibration-independence #22 honored). Snapshot/restore round-trips all carved regions.
 
+**Carving from an aligned source (Build 2, Session 65):** when the source page carries a non-identity PDF
+align transform `T = translate(t)·scale(s)` (e.g. an aligned elevation), the carve box — boxed by the user
+in aligned-view space but captured in the page's untransformed canvas-world frame — is folded through `T⁻¹`
+at commit so the stored crop is the RAW-SHEET rectangle the user visually selected: `crop = (R−t)/s`. The
+region also inherits the source's metric scale **divided by the same `s`** (`pxPerMeter ÷ s`), because the
+crop re-bases the region into raw-sheet px; without the `÷s` an aligned-source region would mis-measure by
+factor `s`. Un-aligned sources (`s=1`) are unaffected — crop and scale pass through unchanged. The decision:
+**carve boxes are defined in aligned-view space (what you see is what you get)**; `getCanvasPos` is never
+modified; the transform is consumed at commit only, never frozen into a vertex. Making the *entire* aligned
+page reachable for carving (over the negative-translate overhang) is a separate deferred layout change
+(ADDITIONAL_FUNCTIONALITY #113).
+
 **High-res toggle:**
 - Temporary, not persistent. Used specifically when setting scale, to make small
   dimension text legible. Reverts to normal (fast/nimble) resolution otherwise.

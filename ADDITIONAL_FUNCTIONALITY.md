@@ -2005,3 +2005,40 @@ the "Exit carve" step. Recommend (a) for consistency.
 **Status:** Logged, not built. Low-risk one-liner; deferred as a UX decision (out of scope for the
 two render/counter defects fixed in Session 62).
 
+### 113. Build 2 change 2 — full-page carve reachability over the negative align overhang
+
+**Category:** Region-pages (#5) / carve-on-aligned-elevation / layout seam. **Logged:** Session 65 (2026-06-30).
+
+**Description:**
+
+Build 2 (Session 65) shipped the measurement core of carve-on-aligned-elevation — change 1 (crop ∘ T⁻¹
+at commit) and change 3 (scale propagation ÷s onto the region's own pageId). The **third** coupled
+change — making the ENTIRE aligned page carve-able — was **deferred** after recon found the real align
+transform is large and **negative** (fixture page-2: `tx≈−625.6, ty≈−508.5, s≈1.5017`).
+
+Why it's its own seam: the carve box is captured in the source page's untransformed canvas-world frame via
+`getCanvasPos`, whose origin is `measureRef`'s top-left (canvas-world `(0,0)`). The settled change-1 commit
+formula `(R−t)/s` is only correct while that origin stays at canvas-world `(0,0)` (offset 0). The visible
+aligned page extends far into **negative** canvas-world space (the top-left overhang), and `measureRef`
+(CSS `position:absolute; top:0; left:0; width:100%; height:100%`, sized by `.canvas-world`'s `fit-content`
+= the *untransformed* backdrop) cannot receive mouse events out there. Covering it requires repositioning
+`measureRef` to a negative offset, which (a) forces the commit to reconstruct the canvas-world point as
+`getCanvasPos() + off` before `(W−t)/s` — a generalization the literal formula doesn't state; get it wrong
+→ silent ~±400px raw-sheet error — and (b) fights `.canvas-stack { overflow-y:hidden; overflow-x:auto }`
+and `.canvas-world { width:fit-content }`, i.e. it touches **shared layout CSS**. Per the build's STOP
+condition ("if the measureRef resize requires touching the shared geometry-capture sizing path → STOP"),
+this was surfaced and deferred so a layout change cannot be confused with a measurement change.
+
+**Current consequence:** on an aligned elevation, carving works correctly across the **reachable** zone
+(canvas-world `[0,scaled.w]×[0,scaled.h]`, where the traced geometry sits) — crop is correctly composed
+and the region arrives calibrated — but the negative top-left overhang of the visible page is unreachable
+(mousedown there lands on `.canvas-world`/`.canvas-stack`, which have no handler — a dead zone, NOT pan).
+
+**Gate / fix shape (for the planning chat):** settle the `measureRef` offset mechanics + `canvas-stack`
+overflow handling as their own change, keeping `getCanvasPos` unmodified and folding the offset back into
+the commit so stored crop stays `T⁻¹(canvas-world point boxed)`. Verification item 1 (carve across the
+ENTIRE aligned page — needs Ben's eyeball) belongs to this deferred change, not to Build 2.
+
+**Status:** Logged, deferred by explicit decision (Session 65). Measurement core (changes 1+3) DONE and
+verified; this is the reachability/layout half.
+

@@ -10,6 +10,73 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 65 — Build 2: carve-on-aligned-elevation crop∘T⁻¹ + scale propagation (2026-06-30)
+
+**Branch:** main | **Commit (code):** e92aae3 | **Harness (fresh restore):** __verifyFixture **44/44**,
+__verifyCrop **17/17** (live preview, port 5175).
+
+**What this build was:** the measurement core of carving a region out of an *aligned* elevation page.
+Scoped in a planning chat against the read-only recon as "three coupled changes." Two were built; one
+was deferred. Two forks were surfaced and settled mid-build before any code (see below).
+
+**The scenario (why it mattered):** the fixture's elevation page-2 carries a large, **negative** PDF-align
+transform `pageTransformsRef['page-2'] = {tx:−625.6163, ty:−508.4895, s:1.5016695524872303, angle:0}`
+(uniform similarity, angle 0). Before this build, carving from it stored a raw crop at the *untransformed*
+canvas-world coordinates and propagated no scale — so the region showed the wrong slice of the sheet and
+came up uncalibrated.
+
+**Change 1 — crop ∘ T⁻¹ at carve commit** (`handleMeasureMouseUp`, carve branch ~line 2087). The carve
+box `(rx,ry,rw,rh)` is still captured exactly as before (untransformed canvas-world via `getCanvasPos`,
+unmodified). At commit, the source page's align transform is folded back out so the **stored** crop is a
+raw-sheet rectangle matching what the user visually boxed: `T⁻¹(p) = (p−t)/s`, i.e.
+`{ x:(rx−tx)/s, y:(ry−ty)/s, w:rw/s, h:rh/s }`. Read defensively (`tS = (srcT&&srcT.s)?srcT.s:1`, `tTx/tTy
+?? 0`) ⇒ un-aligned source = identity = crop stored byte-for-byte as before. Consumed at commit only;
+never frozen into a vertex; region geometry stays crop-local (raw-sheet px).
+
+**Change 3 — scale propagation onto the region's OWN pageId, ÷s** (same block). Propagate
+`getEffectiveScale(sourceId)` to `pageScalesRef.current[newRegionPageId]` **divided by the same s**:
+`{ ...srcScale, pxPerMeter: srcScale.pxPerMeter / tS }`. Geometrically forced — change 1 rescales the
+region's pixel frame by `1/s`, so the source's canvas-world px/m must divide by `s` to live in the region's
+raw-sheet frame. No `pageRefParentRef` write, no borrow chain; uncalibrated source ⇒ region left
+uncalibrated. **This corrected the build prompt's literal change-3 text** ("carries directly"), which
+would have made walls in an aligned-source region measure by factor s (~1.5×) wrong — silent #22.
+
+**Change 2 — DEFERRED** (full-page carve reachability over the negative align overhang). Recon found that
+covering the negative top-left overhang requires repositioning `measureRef` to a negative offset (forcing
+an offset-fold the literal `(R−t)/s` doesn't state) and touching shared layout CSS (`.canvas-stack`
+overflow, `.canvas-world` fit-content). Surfaced per the build's STOP condition; Ben chose "ship 1+3 now,
+defer 2." Logged as ADDITIONAL_FUNCTIONALITY **#113**. Verification **item 1** (carve across the ENTIRE
+aligned page — Ben's eyeball) belongs to that deferred change, NOT to this build.
+
+**Two forks surfaced & settled before coding:**
+1. *Change-2 scope* — large-negative transform makes full-page reachability a layout seam → **defer**.
+2. *Change-3 ÷s* — proved the region frame is raw-sheet px (change 1's ÷s), source scale is canvas-world
+   px/m, so propagation must ÷s → **apply ÷s** (Ben confirmed his written formula was wrong).
+
+**Verification (live preview, fresh `__restoreFixture` each):**
+- `__verifyFixture` **44/44** (run once, immediately, before any interaction — destructive).
+- Re-restore → `__verifyCrop` **17/17**.
+- Re-restore → page-2 (aligned) → real carve via dispatched mouse events through the actual handler ×2
+  overlapping: `__dumpRegions` showed `page-2-r1 crop≈(483.2,391.5 133.2×106.4)` and
+  `page-2-r2 crop≈(549.8,438.1 119.9×99.7)` — matching `(R−t)/s` (x/w exact; ~0.4px y delta is a 338-vs-339
+  sub-pixel artifact of synthetic dispatch, not the code) — **ownScale=76.47 = 114.83/1.5017** on each,
+  **refParent=none** each, partition unique=true. (Items 2-scale, 3.)
+- Re-restore → page-3 (un-aligned, no transform) → carve → `page-3-r1 crop=(120.0,89.5 220.0×159.7)`
+  (x/w **exact** identity), **ownScale=114.83** (carries directly, s=1), refParent=none. (Item 5.)
+- Item 2's "wall lands at correct WORLD coord via __dumpWorld" is satisfied by construction: the region's
+  own pxPerMeter is verified-correct (76.47), `pageVertexToWorld` is unchanged, and `__verifyCrop` already
+  proves crop-local vertices are world-invariant. (A literal end-to-end draw+__dumpWorld in a region needs
+  the full categorize+draw UI; Ben can confirm that in his tab alongside the deferred item-1 eyeball.)
+
+**Verify aid added:** `__dumpRegions` now prints each region's `ownScale` (from `pageScalesRef`) and
+`refParent` (from `pageRefParentRef`) — DEV-only, tree-shaken.
+
+**Next:** ADDITIONAL_FUNCTIONALITY **#113** (change 2 reachability) when the planning chat scopes the
+offset + overflow mechanics; then the still-pending plateau waypoints (a) App.jsx simplification pass,
+(b) roadmap reconciliation, then #29 derived elevations.
+
+---
+
 ## SESSION 64 — Region auto-fit: always fit-to-height + wide-region squish fix (2026-06-30)
 
 **Branch:** main | **Commits:** 5468153, cdb5639 (auto-fit landed pre-session) → 9ce66df (always

@@ -498,6 +498,16 @@ full per-item gate-rephrase across all 112 register entries was NOT mass-edited 
 (judgment-heavy, error-prone); it is a HOLD prompt for a focused pass with Ben. Harness on
 fresh restore: __verifyFixture 44/44, __verifyCrop 10/10.
 
+**Session 65 follow-on (commit e92aae3) — Build 2 carve-on-aligned-elevation, changes 1+3 of 3:**
+A post-#5 measurement-correctness fix landed before the plateau (does NOT change plateau status). Carving
+a region from an *aligned/scaled* source now stores a correct raw-sheet crop (`crop = T⁻¹(boxed) = (R−t)/s`)
+and propagates the source scale ÷s onto the region's own pageId (no borrow chain). The build prompt's
+literal change-3 ("scale carries directly") was corrected to ÷s — geometrically forced, prevents a silent
+factor-s wall mis-measurement (#22). **Change 2 (full-page carve reachability over the negative align
+overhang) was surfaced and DEFERRED** — it's a shared-layout seam (measureRef offset + canvas-stack
+overflow); logged as ADDITIONAL_FUNCTIONALITY **#113**. Harness on fresh restore: __verifyFixture 44/44,
+__verifyCrop 17/17.
+
 **Session 62 follow-up (commit ee9427f):** A post-#5 interactive-verification defect was fixed before
 the plateau — region render cross-bleed + regionCounter restore-collision. As a side effect, `renderPage`
 is now **identity-first** (`renderPage(pdfDoc, pageId, …)`; sheet number derived via `pageNumFromId`;
