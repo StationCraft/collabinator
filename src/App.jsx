@@ -5033,10 +5033,29 @@ function App() {
         const cssW = parseFloat(c.style.width), cssH = parseFloat(c.style.height)
         const sX = cssW / crop.w, sY = cssH / crop.h
         check(`${label}: backdrop CSS uniform scale (no distortion)`, Math.abs(sX - sY) < 0.001, `got ${c.style.width}×${c.style.height}  scaleX=${sX.toFixed(4)} scaleY=${sY.toFixed(4)}`)
+        // RENDERED-BOX aspect must equal the BITMAP aspect. The inline-style check above only
+        // proves the style is internally uniform; it does NOT prove the browser HONORED that
+        // style. A max-width clamp (the wide-region squish) reduces the USED width below the
+        // inline width while leaving height intact, so the rendered box aspect diverges from
+        // the bitmap aspect even though the inline style stayed uniform. Aspect ratio is
+        // invariant under the uniform zoom/align transforms in the stack, so this is
+        // transform-robust (comparing absolute widths would not be). This is the check that
+        // measures the on-screen layer the inline-style check misses.
+        const rect = c.getBoundingClientRect()
+        const renderedAspect = rect.width / rect.height
+        const bitmapAspect = c.width / c.height
+        check(`${label}: rendered box aspect = bitmap aspect (no clamp/squish)`,
+          Math.abs(renderedAspect - bitmapAspect) / bitmapAspect < 0.02,
+          `rendered ${rect.width.toFixed(0)}×${rect.height.toFixed(0)} (a=${renderedAspect.toFixed(3)}) vs bitmap ${c.width}×${c.height} (a=${bitmapAspect.toFixed(3)})`)
       }
 
       const cropA = { x: 120, y: 90, w: 520, h: 380 }
       const cropB = { x: 300, y: 200, w: 440, h: 300 }
+      // Deliberately wide/short crop (aspect ≈ 6.4): displayScale bakes an inline width far
+      // exceeding the container, so a max-width:100% clamp WOULD squish it. This is the case
+      // that gives the rendered-aspect check teeth — cropA/cropB are narrow enough that their
+      // inline width fits the container and would not trip the clamp.
+      const cropWide = { x: 30, y: 40, w: 960, h: 150 }
 
       await renderCrop(cropA)
       dimsOk(cropA, 'cropA')
@@ -5045,6 +5064,10 @@ function App() {
       await renderCrop(cropB)
       dimsOk(cropB, 'cropB')
       check('cropB: world coords invariant (crop-origin independent)', worldOf() === baseline, worldOf() === baseline ? '' : 'world coords depend on crop origin')
+
+      await renderCrop(cropWide)
+      dimsOk(cropWide, 'cropWide')
+      check('cropWide: world coords invariant', worldOf() === baseline, worldOf() === baseline ? '' : 'world coords depend on crop')
 
       await clearCrop()
       const m = measureRef.current

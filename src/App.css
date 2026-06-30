@@ -225,6 +225,18 @@ canvas {
   max-width: 100%;
 }
 
+/* The backdrop + overlay canvases inside .canvas-world must be exempt from the global
+   max-width:100% cap. Region auto-fit bakes an inline width (crop.w × displayScale) that
+   intentionally exceeds the container so the wrapper's overflow-x:auto can scroll to the
+   full width. The cap would instead clamp the rendered width below the inline width while
+   leaving height intact — squishing wide regions horizontally (the bitmap is drawn into a
+   shorter-aspect box). Full sheets set inline width = scaled.width ≤ container, so they do
+   not overflow and are unaffected by removing the cap. Other canvases (e.g. 3D view) keep
+   the global cap. */
+.canvas-world canvas {
+  max-width: none;
+}
+
 .empty-state {
   margin-top: 4rem;
   text-align: center;
