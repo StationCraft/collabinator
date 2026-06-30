@@ -1043,7 +1043,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick])
+  }, [calibMode, drawMode, editMode, currentPage, currentPageId, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -1604,7 +1604,7 @@ function App() {
 
   useEffect(() => {
     if (editMode && currentPage) drawEditCanvas(editHoverRef.current)
-  }, [editMode, currentPage, alignMode, showGhostByPageId, alignTick, floorHeightsTick])
+  }, [editMode, currentPage, currentPageId, alignMode, showGhostByPageId, alignTick, floorHeightsTick])
 
   useEffect(() => {
     if (!drawMode || !currentPage) return
@@ -1613,7 +1613,7 @@ function App() {
     } else {
       redrawDrawCanvas(mousePosRef.current, drawVerticesRef.current, snapAngle, snapDist, currentPageId)
     }
-  }, [drawMode, currentPage, alignMode, showGhostByPageId, alignTick, snapAngle, snapDist, roofShapeDraft, floorHeightsTick])
+  }, [drawMode, currentPage, currentPageId, alignMode, showGhostByPageId, alignTick, snapAngle, snapDist, roofShapeDraft, floorHeightsTick])
 
 
   // ── Edit hit tests ───────────────────────────────────────────────────────
