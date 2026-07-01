@@ -10,6 +10,19 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## STANDING CONVENTIONS (durable — apply every session)
+
+*Cross-session working conventions that outlive any single session log. Add to this
+section, do not bury conventions inside a dated session entry.*
+
+- **Terminal/git command sequences in copy-paste prompts are given as a SINGLE code
+  block, not separate blocks per command.** When a prompt hands Ben a sequence of
+  terminal or git commands to run, put the whole sequence in one fenced code block so
+  it can be copied and pasted in a single action. Do not split each command into its
+  own block.
+
+---
+
 ## SESSION 75 — #106 assembly-inheritance default DONE (2026-07-01)
 
 **Branch:** main | **Code commit:** `f2d5a57` | **Docs commit:** (this close-out).
