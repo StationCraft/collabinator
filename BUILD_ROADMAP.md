@@ -576,6 +576,14 @@ for the mechanical extraction once the seam is defined and agreed.
 **Hard gate:** Do NOT start before #5 fully lands. Region-pages touches the same files and the
 #22 seam — starting early creates a collision with itself.
 
+**Partially pre-paid by #117 (Session 68):** the #117 C-REDERIVE fix converged full-sheet pages onto
+the same "frame is intrinsic, window is only viewport" model that crop/region pages already used —
+`measureRef` (and everything reading off it) is now window-independent, pinned in `renderPage`, with
+window-dependence confined to the viewport (fit-zoom). That is exactly the kind of frame-consistency
+groundwork the coordinate/transform seam extraction (item 1 above) depends on. Treat the convergence
+as DONE groundwork when the seam is planned — do not re-litigate the frame model; extend it. This
+does not change the waypoint order: run **(a) then (b) before #29**, unchanged.
+
 ---
 
 ### (b) ROADMAP RECONCILIATION + GATE-REPHRASING

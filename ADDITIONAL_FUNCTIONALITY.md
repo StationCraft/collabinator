@@ -529,7 +529,14 @@ projection exist.
 
 **Why deferred:** Surfaced mid-close-out, not mid-build; doesn't block any current workflow unless the user releases outside the window (an uncommon but real path). Deserves its own small, focused polish pass that touches all drag interactions at once rather than patching each individually.
 
-**Status:** Deferred. Good candidate for a dedicated drag-robustness pass before Phase 2.
+**Update (Session 68 — un-batched from #109/#117):** #109 and #117 (which had referenced batching #24
+into a shared "redraw/event robustness" pass) are both resolved by the #117 C-REDERIVE frame pin. That
+fix does NOT touch #24: #24 is a genuine window-level EVENT gap (`mouseup`/`pointercancel` outside the
+window not tearing down the drag ref), unrelated to the coordinate-frame split #109/#117 shared. #24
+keeps its original scope and remains OPEN on its own.
+
+**Status:** OPEN — Deferred. Good candidate for a dedicated drag-robustness pass before Phase 2.
+Un-batched from #109/#117 (those are frame-registration; #24 is drag-release event handling).
 
 ---
 
@@ -1915,8 +1922,16 @@ The #114 fix did NOT create this — it REVEALED it. This ties to the load-time 
 repeatedly. Recon-and-fix still pending; remains DISTINCT from #114 (that was a not-painted-at-all trigger
 gap; this is a paints-but-mis-registered transform/timing gap — different fix).
 
-**Status:** Logged. Batch with #24 in a dedicated redraw/event-robustness polish session. Now has a stronger,
-more reliable repro (source-sheet return after a region draw) since Session 66.
+**Update (Session 68 — RESOLVED BY #117):** this was never a separate bug. The "paints-but-mis-registered"
+symptom was the same overlay/backdrop frame split diagnosed and fixed as #117 — the full-sheet render frame
+was window-derived, so the overlay and backdrop lived in different frames whenever load width ≠ author width
+(the resize/return that triggered #109 changed that width). The #117 C-REDERIVE frame pin (commit 57fb605)
+makes `measureRef` window-independent, so overlay and backdrop share one frame by construction and can no
+longer diverge. #109 is resolved as a CONSEQUENCE of #117, not by a separate redraw/event fix. It is
+un-batched from #24 (see #24 — its remaining scope is unrelated).
+
+**Status:** ✅ RESOLVED BY #117 (Session 68; commit 57fb605). Same root cause (window-derived frame →
+overlay/backdrop split); the frame pin eliminates it.
 
 ---
 
@@ -2210,27 +2225,47 @@ change looked like a "return" artifact). This entry (#117) is the root mis-regis
 assume #109 and #117 are separate bugs; they are likely the same root cause now that #114 is fixed.
 Batch #117, #109, and #24 into one recon pass.
 
-**Suspected root cause (to be confirmed by recon):** The align transform stored in `pageTransformsRef`
-was authored in one coordinate frame (canvas-world pixels at the time of the align interaction) but
-applied to the `.pdf-align-layer` DOM element in a different frame (the element's own local CSS
-context, after the outer `canvas-world` pan+zoom transform is already applied). The `measureRef`
-overlay sits OUTSIDE `.pdf-align-layer` and receives no align CSS at all — only pan+zoom. At `s=1`
-(un-aligned) the two layers are co-registered because neither has an align transform. At `s≠1` or
-`tx/ty≠0`, `.pdf-align-layer` moves/scales relative to its sibling `measureRef`, breaking registration.
+**Root cause (confirmed by recon + instrumentation, Session 68):** the full-sheet render frame was
+derived from LIVE WINDOW WIDTH. `renderPage` computed `containerWidth = min(innerWidth−48, 1200)` and
+sized `measureRef` (hence the whole geometry/interaction frame) to it. Geometry authored at one window
+width (the fixture: `scaled=1200`) was frozen in a 1200-px frame; loaded at a narrower window it was
+drawn on a smaller (e.g. 952-px) `measureRef` while the backdrop re-rasterized at that narrower scale
+— the two frames diverged, scaling with the width ratio. Instrumentation confirmed the printed
+features land on the traced geometry to <0.3px when load `scaled` == author `scaled`, and diverge
+otherwise. The frame was window-dependent; it should have been intrinsic. (The earlier "align
+transform authored in a different frame" hypothesis was wrong — the stored `{tx,ty,s}` is correct.)
 
-**Recon needed (read-only first):**
-1. Trace `getCSSTransform` → `.pdf-align-layer` style → how `tx/ty/s` compose with the outer
-   `canvas-world` CSS transform (pan+zoom).
-2. Trace where `pageTransformsRef` is written (align-drag branch in `handleMeasureMouseMove` and the
-   handle-drag scale branch) — what coordinate frame is the authoring happening in?
-3. Determine if the fix is: (a) compensate the stored transform before applying to the DOM element,
-   (b) move the overlay canvas INSIDE `.pdf-align-layer` so both canvases share the align transform,
-   or (c) a different architectural approach.
-4. Verify the fix leaves `getEffectiveScale`, crop, and geometry coordinates untouched (#22 invariant).
+**Fix — C-REDERIVE (Session 68; commit 57fb605):** pin the full-sheet render footprint to the page's
+`authorScaled` (fallback 1200 — the clamp ceiling, proven correct for pre-#117 fixtures) instead of
+the live-window `containerWidth`. Because `measureRef`, `getCanvasPos`, `clampToCanvas`, every draw
+path (ghost/shapes/openings/outline/ref-lines/align-handles), and pan all read off `measureRef`'s
+size, this SINGLE pin lands them all at a window-independent frame — no per-consumer adjustment. The
+backdrop uses the RAW stored `{tx,ty,s}` (no read-time ratio). `authorScaled` is stamped at the four
+confirm sites (`confirmElevAlign` + the three floor/roof "Confirm scale & alignment" buttons) as the
+render-target pin. A viewport-only **fit-zoom** `zoom = min(1, (innerWidth−48)/footprint)` keeps the
+whole sheet visible on load at narrow windows; it governs the viewport ONLY and never feeds back into
+the frame.
 
-**Status:** OPEN — HIGH PRIORITY. Recon-and-fix is the next high-priority work after the doc
-close-out. Do NOT attempt a blind fix; read the transform-application path first. Supersedes the
-"batch with #24" note on #109.
+**Ratio approach (v1) tried and REVERTED — do not resurrect:** a first fix compensated only the
+backdrop by `ratio = authorScaled/currentScaled`. It re-registered the ink but split the overlay the
+other way — pan reached only the load-visible region, and ghost/shapes clipped to the narrow frame.
+Recon proved a *working* A-EXTEND (patch every frame consumer with the ratio) collapses into
+C-REDERIVE (pin the frame at the derivation), so C is the correct and smaller-blast-radius fix.
+
+**Verified (Session 68):** wide + ~1000px — ink registers identically at both widths (door head/sill
+177.8/376.0 at both), pan reaches the full sheet, ghost/shapes render complete (edge at x=1032.5 now
+within the pinned `measureRef`), whole sheet visible on load. Harness `__verifyFixture` 44/44 +
+`__verifyCrop` 17/17. #22 held — no writes to `getEffectiveScale` / `pageScalesRef` / `pageCropsRef` /
+vertices; only the render footprint + initial zoom changed.
+
+**Architectural note:** full-sheet pages now follow the SAME "frame is intrinsic, window is only
+viewport" model that crop/region pages already used (`measureRef` sized to `crop.w`, window-
+independent). This convergence is the established pattern — a future coordinate/frame change should
+extend it, not reintroduce a window-derived frame. Partially pre-pays SIMPLIFICATION WAYPOINT (a).
+
+**Status:** ✅ FIXED (Session 68; commit 57fb605). Resolves #109 as a consequence (same root cause —
+overlay/backdrop frame split; see #109). #24 remains OPEN and un-batched — its scope (global
+drag-release robustness, a window-level event gap) is NOT addressed by the frame pin.
 
 ### 118. Source-sheet arrow-navigation exclusion is wrong under the viewport model
 

@@ -1423,6 +1423,19 @@ After A.0.1–A.0.3 cleanup, Phase 1.5 builds the foundational architecture for 
   the coordinate system geometry is drawn in. Therefore 1 meter is always `srcPxPerMeter` pixels
   regardless of the PDF's original drawing scale; after correct alignment the elevation's `pxPerMeter`
   equals the source plan's. Do not assume the PDF transform feeds into px/m — it does not.
+- **Render frame is INTRINSIC; the window is ONLY the viewport (#117, Session 68 — established pattern):**
+  A page's render footprint (the `measureRef` size, hence the frame `getCanvasPos`, `clampToCanvas`, all
+  draw paths, and pan read off) is now WINDOW-INDEPENDENT. Full-sheet pages pin it to the page's
+  `authorScaled` (fallback 1200 — the clamp ceiling) in `renderPage`; region/crop pages already pinned
+  it to `crop.w`. Window width governs ONLY the viewport (initial fit-zoom `min(1,(innerWidth−48)/
+  footprint)`, plus pan/zoom/scroll) — it never sizes the coordinate frame. This closed #117: the frame
+  used to be derived from live window width, so geometry authored at one width mis-registered against the
+  backdrop at another. **This is the established model — a future coordinate/frame change should EXTEND
+  it (keep the frame intrinsic, put window-dependence in the viewport only), never reintroduce a
+  window-derived frame.** The full-sheet↔crop convergence is done groundwork for SIMPLIFICATION WAYPOINT
+  (a) (coordinate-layer extraction): treat it as settled, do not re-litigate it there. The backdrop still
+  carries the raw stored `{tx,ty,s}` align transform (visual-only, per the note above); the frame pin and
+  the align transform are orthogonal.
 - **Real-world coordinate system — Path 3 / 3-minimal (R2 foundation — DONE, Session 18):**
   Geometry is STORED IN PIXELS. Meters are a READ-TIME PROJECTION through the named conversion seam
   (`pxToMeters` / `metersToPx` in canvasRenderer.js). Refs hold pixels; no frozen conversion ratio

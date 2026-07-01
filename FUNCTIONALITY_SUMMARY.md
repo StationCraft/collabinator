@@ -222,6 +222,14 @@ geometry" approach is **not** being rebuilt.
   zoom/pan; `.pdf-align-layer` nests inside and applies the per-page transform to the
   PDF only. `getCanvasPos()` uses `getBoundingClientRect()` → auto-compensates for all
   nested transforms (no coordinate mapping changes in existing handlers).
+- **Render frame is window-independent (#117, Session 68):** a full-sheet page's render
+  footprint — the `measureRef` size, and therefore the coordinate frame that `getCanvasPos`,
+  `clampToCanvas`, every draw path, and pan all read off — is pinned to the page's
+  `authorScaled` (fallback 1200) in `renderPage`, NOT to the live window width. Region/crop
+  pages already pinned to `crop.w`. The window governs ONLY the viewport: an initial
+  **fit-zoom** (`min(1, (innerWidth−48)/footprint)`) keeps the whole sheet visible on load,
+  and never feeds back into the coordinate frame. This is what lets geometry authored at one
+  window width register against the backdrop at any load width.
 
 ---
 

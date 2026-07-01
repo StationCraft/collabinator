@@ -10,6 +10,55 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 68 — #117 transform-registration FIXED via C-REDERIVE (frame pin) (2026-06-30)
+
+**Commit:** `57fb605` (code) + this doc close-out. Resolves #117 and, as a consequence, #109.
+
+**Four-beat arc:**
+1. **Recon (read-only):** mapped the two transform paths. Established the apply path is CLEAN and
+   author-frame == apply-frame, so the stored `{tx,ty,s}` cannot be the culprit — a load-time
+   divergence requires a parameter that changed between author and load.
+2. **Instrumentation (confirmed cause (i)):** temporary logging + backdrop-pixel measurement proved
+   the printed door/window head-sill land on the traced geometry to **<0.3px when load `scaled`
+   == author `scaled` (1200)** and diverge (scaling with the width ratio) otherwise. Root cause:
+   the full-sheet render frame was derived from live window width (`containerWidth =
+   min(innerWidth−48,1200)`), so geometry frozen at author width mis-registered at any other width.
+3. **Ratio fix (v1) built and REVERTED:** compensated only the backdrop by `ratio =
+   authorScaled/currentScaled`. It re-registered the ink at both widths (and passed a two-width
+   INK check) but regressed the overlay the other way — pan reached only the load-visible region,
+   ghost/shapes clipped to the narrow frame, main-floor ghost badly offset. A follow-on consumer-map
+   recon proved a *working* A-EXTEND (patch every frame consumer with the ratio) collapses into
+   C-REDERIVE.
+4. **C-REDERIVE (shipped):** pin the full-sheet render footprint to the page's `authorScaled`
+   (fallback 1200) instead of the live-window `containerWidth`. `measureRef` — and everything reading
+   off it (`getCanvasPos`, `clampToCanvas`, all draw paths, pan) — is now window-independent by
+   construction. Backdrop uses the RAW stored `{tx,ty,s}`. `authorScaled` stamped at the four confirm
+   sites as the render-target pin. Viewport-only **fit-zoom** `min(1,(innerWidth−48)/footprint)` keeps
+   the whole sheet visible on load; it never feeds back into the frame.
+
+**Both-width verification (wide + ~1000px):** ink registers identically at both widths (door head/sill
+177.8/376.0 at both); pan reaches the full sheet; ghost/shapes render complete (edge x=1032.5 now
+within the pinned `measureRef`, was clipped under v1); whole sheet visible on load (fit-zoom 0.793 at
+1000px). Harness `__verifyFixture` **44/44** + `__verifyCrop` **17/17** on fresh restores. #22 held —
+no writes to `getEffectiveScale` / `pageScalesRef` / `pageCropsRef` / vertices; render footprint +
+initial zoom only.
+
+**KEY LEARNINGS (record explicitly):**
+- **A two-width INK-registration pass is NOT sufficient to verify a frame fix.** The v1 ratio fix
+  passed ink-registration at both widths and still regressed pan / ghost / shape completeness.
+  Verifying a frame fix must exercise the FULL interaction + render surface (pan reach, ghost/shape
+  completeness, on-load fit), not just ink-on-geometry at a couple of widths.
+- **A-EXTEND collapses into C-REDERIVE.** When a frame is derived from an ephemeral parameter (here,
+  live window width), do NOT patch each downstream consumer to compensate — fix it at the DERIVATION.
+  Patching N consumers is fragile (each a place the compensation can be silently dropped) and, done
+  coherently, converges to the single-point source fix anyway.
+
+**#109 resolved as a consequence** (same window-derived-frame → overlay/backdrop split). **#24 stays
+OPEN and un-batched** — its scope (global drag-release: `mouseup`/`pointercancel` outside the window)
+is a real event-handler gap unrelated to the frame pin.
+
+---
+
 ## SESSION 67 — #115 fix + #110 region outlines + viewport-as-unit reframe (2026-06-30)
 
 **Branch:** main | **Commit (code):** 2521bbd | **Docs commit:** (this close-out) | **Harness (fresh restore):** __verifyFixture **44/44**, __verifyCrop **17/17**.
