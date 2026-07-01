@@ -807,9 +807,7 @@ function App() {
       const page = await pdfDoc.getPage(pageNum)
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
-      const containerWidth = Math.min(window.innerWidth - 48, 1200)
       const viewport = page.getViewport({ scale: 1 })
-      const scale = containerWidth / viewport.width  // crop branch only (raster resolution)
 
       // Backdrop resolution tier: rasterize at multiplier × logical size,
       // but pin the CSS display size to the logical dimensions so the backdrop
@@ -827,6 +825,16 @@ function App() {
         // (viewport translate + clip). The crop offset is consumed HERE only — it is never
         // written to pageTransformsRef, never folded into getEffectiveScale, never stored on
         // a vertex. The user-driven align transform (pdf-align-layer) composes on top unchanged.
+        //
+        // #124: PIN the region backdrop raster to the SOURCE sheet's intrinsic footprint (the
+        // frame the crop was captured in — authorScaled, fallback 1200 — via getPageId(pageNum),
+        // since the region's own transform carries no authorScaled). This mirrors the full-sheet
+        // #117 pin. crop.x/crop.w and the offset (-crop.x*mult) / backing store (crop.w*mult) are
+        // already in that intrinsic frame, so the window-derived raster scale was the ONE
+        // remaining window-dependence and is what broke Enhance on a region. measureRef stays
+        // crop.w×crop.h (the geometry frame — window-independent already).
+        const cropFootprint = pageTransformsRef.current[getPageId(pageNum)]?.authorScaled ?? 1200
+        const cropRasterScale = cropFootprint / viewport.width
         canvas.width  = Math.round(crop.w * mult)
         canvas.height = Math.round(crop.h * mult)
         // On initial navigation (resizeMeasure:true) bake a display scale into the CSS
@@ -845,7 +853,7 @@ function App() {
           measureRef.current.width = crop.w
           measureRef.current.height = crop.h
         }
-        const cropVp = page.getViewport({ scale: scale * mult, offsetX: -crop.x * mult, offsetY: -crop.y * mult })
+        const cropVp = page.getViewport({ scale: cropRasterScale * mult, offsetX: -crop.x * mult, offsetY: -crop.y * mult })
         await page.render({ canvasContext: ctx, viewport: cropVp }).promise
       } else {
         // Full-sheet (#117 C-rederive): PIN the coordinate frame to the page's authored footprint
