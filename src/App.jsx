@@ -580,6 +580,10 @@ function App() {
 
   // ── Multi-floor ghost reference (Step 6) ─────────────────────────────────────
   const [showGhostByPageId, setShowGhostByPageId] = useState({})
+  // #29 Piece A: per-page toggle for the plan-derived envelope face overlay.
+  // Independent of showGhostByPageId — the ghost (raw source plan) and the derived
+  // envelope face are different artifacts and toggle separately. Default-on via ?? true.
+  const [showEnvelopeFaceByPageId, setShowEnvelopeFaceByPageId] = useState({})
 
   // ── Reference-layer model (Step 6, sub-step 5) ──────────────────────────────
   const primaryReferenceIdRef = useRef(null)   // pageId of first manually-calibrated page; set once, never overwritten
@@ -975,6 +979,7 @@ function App() {
     setAlignMode(false); alignDragRef.current = null
     primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
     setShowGhostByPageId({})
+    setShowEnvelopeFaceByPageId({})
     setShowFloorHeights(false); setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false)
     setFhFtVals({}); setFhInVals({})
     backdropTierRef.current = 'normal'; setBackdropTier('normal')
@@ -1087,7 +1092,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, currentPageId, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick, carvePending])
+  }, [calibMode, drawMode, editMode, currentPage, currentPageId, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, showEnvelopeFaceByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick, carvePending])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -3947,6 +3952,48 @@ function App() {
       }
     }
 
+    // ── #29 Piece A: plan-derived envelope face (read-only overlay) ────────────
+    // Single-reference-edge v1 (NO faceKey clustering). Registered canvas-native:
+    // horizontal extent = the reference edge's canvas endpoints (A.x→B.x, same edge
+    // the readout uses); vertical extent = lowest floorZ → topmost ceilingZ via the
+    // EXACT zFeetToElevY + anchorY + fhZStack + pxPerMeter drawElevRefLines uses — so
+    // the face bottom coincides with the drawn base-floor line and the top with the
+    // topmost ceiling line (same inputs → same pixels). Derived fresh, stores nothing,
+    // no hit-test. Skip if the reference edge has no horizontal canvas separation.
+    // Gates on its OWN toggle (showEnvelopeFace) — independent of the ghost (showGhost):
+    // the raw source plan and the derived envelope face are different artifacts. This
+    // is the diagnostic overlay for judging derived-vs-drawn (plan is source-of-truth;
+    // fix is upstream).
+    if (storedElevEdge && !elevEdgeMode && !elevAlignMode && showEnvelopeFace) {
+      const elevScaleFace = pageScalesRef.current[currentPageId]
+      const edgeFace = resolveElevEdge(currentPageId)
+      const topCeilingZ = fhZStack.length ? fhZStack[fhZStack.length - 1].ceilingZ : null
+      if (elevScaleFace?.pxPerMeter && edgeFace && fhZStack.length && topCeilingZ != null
+          && Math.abs(edgeFace.A.x - edgeFace.B.x) >= 1) {
+        const { A, B } = edgeFace
+        const { pxPerMeter } = elevScaleFace
+        const anchorY = elevBaseYRef.current[currentPageId] ?? (A.y + B.y) / 2
+        const lowestFloorZ = fhZStack[0].floorZ ?? 0
+        const bottomY = zFeetToElevY(lowestFloorZ, anchorY, lowestFloorZ, pxPerMeter)
+        const topY = zFeetToElevY(topCeilingZ, anchorY, lowestFloorZ, pxPerMeter)
+        const zoom = zoomRef.current
+        ctx.save()
+        ctx.beginPath()
+        ctx.moveTo(A.x, bottomY)
+        ctx.lineTo(B.x, bottomY)
+        ctx.lineTo(B.x, topY)
+        ctx.lineTo(A.x, topY)
+        ctx.closePath()
+        ctx.fillStyle = 'rgba(34,197,94,0.08)'   // very light green — drawn elevation stays visible
+        ctx.fill()
+        ctx.strokeStyle = '#22c55e'               // bright green — distinct from amber ghost / purple ref-edge / cyan openings
+        ctx.lineWidth = 2.5 / zoom
+        ctx.setLineDash([])
+        ctx.stroke()
+        ctx.restore()
+      }
+    }
+
     // ── #29: aligned-edge setback/protrusion hover-label (elevation view, idle only) ──
     // The source floor plan is drawn by the ghost mechanism above (drawGhostShapes via
     // effective source); this block only rides the hover-readout on top of it. Requires
@@ -4522,6 +4569,7 @@ function App() {
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const showGhost = showGhostByPageId[currentPageId] ?? true
+  const showEnvelopeFace = showEnvelopeFaceByPageId[currentPageId] ?? true
   const currentPageEntry = pages.find(p => p.pageId === currentPageId) || null
 
   // Source sheets: root pages (no crop) that have at least one region-page (crop != null) carved from them.
@@ -5176,6 +5224,7 @@ function App() {
         frontFace,
         snapIncrement,
         showGhostByPageId,
+        showEnvelopeFaceByPageId,
         // Refs
         completedShapes: completedShapesRef.current,
         pageScales:      pageScalesRef.current,
@@ -5281,6 +5330,7 @@ function App() {
       setFrontFace(obj.frontFace ?? null)
       setSnapIncrement(obj.snapIncrement ?? 0.1524)
       setShowGhostByPageId(obj.showGhostByPageId ?? {})
+      setShowEnvelopeFaceByPageId(obj.showEnvelopeFaceByPageId ?? {})
       setFileName(obj.fileName ?? 'test-fixture.pdf')
       setPageCount(obj.pageCount ?? pdfDoc.numPages)
       setPdf(pdfDoc)
@@ -6777,6 +6827,20 @@ function App() {
               setShowGhostByPageId(m => ({ ...m, [currentPageId]: !(m[currentPageId] ?? true) }))
             }}
           >Show floor plan {showGhost ? 'ON' : 'OFF'}</button>
+        )}
+
+        {/* #29 Piece A: toggle the plan-derived envelope face overlay on an elevation
+            page. Independent of "Show floor plan" — the ghost (raw source plan) and the
+            derived envelope face are different artifacts. Same gate as the ghost button
+            (an aligned edge gives a stored elevationEdge → effective ghost source). */}
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isElevationPage && getEffectiveGhostSource(currentPageId) && (
+          <button
+            className={`snap-btn ${showEnvelopeFace ? 'snap-btn--on' : ''}`}
+            title="Show the plan-derived envelope face (green) laid over the drawn elevation"
+            onClick={() => {
+              setShowEnvelopeFaceByPageId(m => ({ ...m, [currentPageId]: !(m[currentPageId] ?? true) }))
+            }}
+          >Show envelope face {showEnvelopeFace ? 'ON' : 'OFF'}</button>
         )}
 
         {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isElevationPage && !placingOpeningMode && (
