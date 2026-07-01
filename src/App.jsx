@@ -8413,6 +8413,48 @@ function App() {
                           ) : (
                             <div className="enum-row-detail" style={{opacity:0.5}}>(no assembly — unset)</div>
                           )}
+                          <div className="enum-assembly-inputs">
+                            <label className="enum-assembly-label">U-value W/m²K</label>
+                            <input
+                              type="number"
+                              key={`${el.id}-uv-${el.assemblySource}-${el.effectiveUValue}`}
+                              className="enum-assembly-input"
+                              defaultValue={el.effectiveUValue ?? ''}
+                              step="0.001" min="0"
+                              placeholder="e.g. 0.150"
+                              onBlur={e => {
+                                const v = parseFloat(e.target.value)
+                                if (!isNaN(v) && v > 0) {
+                                  surfaceAssemblyRef.current[el.id] = {
+                                    ...(surfaceAssemblyRef.current[el.id] ?? {}),
+                                    tier: 'manual', assemblyId: null,
+                                    effectiveUValue: v,
+                                  }
+                                  setEnumerationTick(t => t + 1)
+                                }
+                              }}
+                            />
+                            <label className="enum-assembly-label">Thickness m</label>
+                            <input
+                              type="number"
+                              key={`${el.id}-th-${el.assemblySource}-${el.thicknessM}`}
+                              className="enum-assembly-input"
+                              defaultValue={el.thicknessM ?? ''}
+                              step="0.001" min="0"
+                              placeholder="e.g. 0.400"
+                              onBlur={e => {
+                                const v = parseFloat(e.target.value)
+                                if (!isNaN(v) && v > 0) {
+                                  surfaceAssemblyRef.current[el.id] = {
+                                    ...(surfaceAssemblyRef.current[el.id] ?? {}),
+                                    tier: 'manual', assemblyId: null,
+                                    thicknessM: v,
+                                  }
+                                  setEnumerationTick(t => t + 1)
+                                }
+                              }}
+                            />
+                          </div>
                         </>)}
                         {kind === 'soffit' && (<>
                           <div className="enum-row-title">{el.side} overhang</div>
