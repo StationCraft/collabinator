@@ -409,6 +409,21 @@ previous floor polygon and the user aligns on matching portions naturally. The
 per-page transform captures the correct spatial relationship for the whole floor.
 This question is closed.
 
+- **#29 first piece — aligned-edge setback/protrusion hover-label (Session 71; commit ed43c6d):**
+  On an Elevation page that has an aligned edge (`elevationEdgeRef`), the source floor plan is shown
+  as a toggleable amber reference ghost (routed through the EXISTING `drawGhostShapes` via new
+  `getEffectiveGhostSource(pageId)` — floor/roof unchanged, else the elevation's
+  `elevationEdgeRef.sourcePageId`). Hovering a wall edge of that ghost, in **view mode**, shows a small
+  label with the edge's signed perpendicular distance to the aligned reference face — **"protrusion"**
+  (forward of the face) or **"setback"** (behind it), in imperial ft+in. Sign is anchored to the source
+  polygon's centroid so it is independent of how the edge was drawn. A **"Show floor plan"** toggle
+  (view toolbar, reusing the per-page ghost-visibility state) turns the ghost + readout on/off. The
+  label appears only on walls **strictly parallel** to the reference face (both endpoints equidistant to
+  ~1 mm); perpendicular/angled walls stay hoverable in the ghost but show no label (a non-parallel
+  midpoint distance is a meaningless artifact). Scope: view-mode only; single-source-page (#88). This
+  is the first slice of the #29 derived-elevation model (remaining: simple-massing derived block,
+  confirm-view, isometric depth view #126). Supersedes/closes #53 as a sub-output.
+
 ---
 
 ## 9. Cross-sections

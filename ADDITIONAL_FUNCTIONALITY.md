@@ -74,7 +74,7 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#25 / #37** — edge-select button labels + "select the edge this elevation faces" copy; UI strings, no dep (batch).
 - **#26** — categorization exit-nav bug; nav logic only, no dep.
 - **#27 / #51** — elevation ref-line snap-suggest / auto-seat on confirmed reference edge; all inputs derive from stored geometry (relates #123).
-- **#29** — derived elevations. Checkable: region-pages exist (#5 DONE) AND read-time world-meter projection exists (`pageVertexToWorld`, B1/B2) → **MET**. Queued behind #5; next after Beat-0. (No #125 dependency.)
+- **#29** — derived elevations. **FIRST PIECE DONE** (Session 71, ed43c6d): aligned-edge setback/protrusion hover-label on the toggleable floor-plan ghost (elevation-hosted, view-mode only, single-source-page #88, strictly-parallel walls). Remaining pieces (simple-massing derived block, confirm-view, iso depth #126) not built.
 - **#32** — categorize-as-you-go shortcut; draw-mode toolbar button, no dep.
 - **#33** — button colour/priority audit; write a color-state spec then apply, no code dep.
 - **#35** — align-handle cursor mirroring (`nesw-resize` on NE/SW); one-liner.
@@ -106,7 +106,7 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#46** — window-schedule import. Stage Two (place-from-structured-list) DONE; Stage One (recognition) gated on #28 fence. Placement-first-slice buildable against a structured input now.
 - **#58** — config field-interdependency layer. Cross-field seam built (Session 37); case-(a) option-gating gated on #75 spreadsheet schema → not fully met.
 - **#92** — elevation ref-edge rotation + multi-elevation/page. (a) rotation = visual-only transform, no dep (ready); (b) two-elevations-per-page — region-pages (#5) now exist as one route, or a multi-entry `elevationEdgeRef` — design decision pending.
-- **#116** — locked-region PDF raster skin. Frame-stability half now MET (#117/#124 done, #109 resolved); the `deriveWireframe`-plane stable-identity-for-keying half is NOT confirmed → partial.
+- **#116** — locked-region PDF raster skin. Frame-stability half now MET (#117/#124 done, #109 resolved); the `deriveWireframe`-plane stable-identity-for-keying half is NOT confirmed → partial. (#29 note added Session 71: aligned reference face = the capturable elevation surface region; key raster to it.)
 
 **gate-still-real (named missing prerequisite):**
 - **#1** — parallel/off-axis snap + dwell. Missing: a defined snap-priority precedence + dwell-duration spec (design spec, not a code dep).
@@ -138,8 +138,9 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#102** — window-schedule reader asset. Missing: #28 unblocked (deep-review waypoint). Known asset for #46 Stage One.
 - **#104** — glazing-in-door sub-item. Missing: #44/#45 (parent/child + subdivision) + its own design pass (opaque-door model complete for F280 now).
 - **#120** — elevation-opening depth recede in 3D. Missing: elevation↔floor-plan wall association (auto-corner) mapping each opening to its host wall depth.
-- **#53** — SUPERSEDED-BY-#29. Reference datum changed: the correct reference is the aligned wall face (not the floor-below polygon). Checkable: needs #29's aligned wall-face reference-plane datum — NOT met (existing `reconcile` tags measure against the floor-below polygon, wrong datum). Word + signed distance (imperial), "protrusion"/"setback" vocabulary becomes a #29 sub-output. Do NOT build #53 code against the current reconcile datum.
+- **#53** — **DONE as a #29 sub-output** (Session 71, ed43c6d): aligned-edge setback/protrusion hover-label, view-mode only, single-source-page #88, on the toggleable floor-plan ghost, strictly-parallel walls only. The floor-below `reconcile` datum was correctly NOT reused (wrong datum).
 - **#125** — openings don't render on a carved region. Checkable: openings placed on a carved elevation region paint in the region overlay — NOT met; needs a focused read-only recon (entry-gap vs render/repaint vs pageId filter) before any fix. Beat-0/#29-adjacent candidate; NOT a #29 dependency and NOT instrumentation.
+- **#126** — isometric depth view for setback/protrusion legibility (Ben, Session 71). Checkable: a recon confirms a flat scalar-Z iso of plan geometry builds WITHOUT tripping the #23/#17 projection fence (no per-element z) — NOT yet reconned. gate-still-real; do NOT build before that recon.
 
 ---
 
@@ -761,9 +762,37 @@ distance, imperial; "protrusion" = forward-of-face, "setback" = behind-face) bec
 Reference datum = the page's aligned wall face, NOT the floor-below polygon. Vocabulary: "protrusion"
 for forward-of-face, "setback" for behind-face.
 
-**OPEN RECON ITEM for #29 start:** Confirm whether an aligned/reference face exists on floor-plan
-pages or only on elevation pages (`elevationEdgeRef` is elevation-scoped today). This determines whether
-a floor-plan hover-label has a datum to measure against, or whether the hover-label is elevation-page-only.
+**OPEN RECON ITEM — RESOLVED (Session 71).** The aligned/reference face is stored per-ELEVATION-page in
+`elevationEdgeRef` (keyed by elevation pageId; points via `sourcePageId` + shapeIndex/segmentIndex into a
+floor-plan polygon edge). No floor-plan-scoped datum exists. Ben's decision: host the readout on the
+ELEVATION page, drawing the source floor plan as a ghost there. So the hover-label is elevation-page-only.
+
+**FIRST PIECE — DONE (Session 71; commit ed43c6d).** Aligned-edge setback/protrusion hover-label,
+built on the elevation page:
+- `signedPerpDist(pt, refA, refB)` (geometry.js) — unclamped signed perpendicular distance to the
+  infinite reference line via `segmentGeom`'s unit normal. `formatDistM(m, unit)` (coords.js) — world-metre
+  value in the app's imperial ft+in format.
+- `getEffectiveGhostSource(pageId)` (App.jsx) — floor/roof via `getGhostSourcePageId` (unchanged), else an
+  elevation page's `elevationEdgeRef.sourcePageId`. `getGhostSourcePageId` itself untouched.
+- The source floor plan renders through the EXISTING ghost mechanism (`drawGhostShapes` via the effective
+  source, standard amber) in `redrawFrontFaceLayer`; falls back to the plain source during elev-edge/align to
+  avoid double-draw. The one-off faint-purple draw was removed. Per-page `showGhostByPageId` reused; a
+  view-mode "Show floor plan" toggle exposed on elevation pages. Ghost + readout gated on `showGhost`.
+- Readout: `resolveElevMeasureRef` (reference-edge world endpoints + source-polygon centroid sign-anchor,
+  so protrusion/setback is winding-independent — centroid side = setback), `hitTestElevMeasureSegment`,
+  `drawElevMeasureLabel`, `elevMeasureHoverRef` (cleared on nav + on toggle).
+- **Strictly-parallel label gate (`PARALLEL_EPS_M = 0.001` m):** both hovered-edge endpoints must be
+  equidistant from the reference plane to ~1 mm, else no label (perpendicular/angled walls stay hoverable/
+  visible in the ghost but emit no label — a non-parallel midpoint distance is a meaningless artifact).
+- **Scope:** view-mode only; single-source-page (#88 — the aligned edge points at one floor-plan page).
+  In draw/edit/review the elevation floor-ghost stays hidden (feature is view-mode-only by design).
+- Browser-verified (Ben): parallel walls label with correct sign; perpendicular/angled suppressed;
+  coincident/flush suppressed; toggle + persistence correct; no regression to floor/roof ghost + toggle.
+
+**Remaining #29 pieces (NOT built):** simple-massing derived block (bbox/polygon projection extruded flat
+floor→ceiling on scalar Z), confirm-view (derived faces shown for confirm rather than freehand trace),
+isometric depth view (see the ISOMETRIC DEPTH VIEW entry below). `faceKey` facing-direction grouping is
+still read-time-derivable and not yet materialized.
 
 ---
 
@@ -1060,13 +1089,15 @@ Needs a short planning pass to verify the math is neutral before any code change
 **Description:** Hover a wall edge on a floor-plan page → show reconcile tag (cantilever / setback / coincident) + signed distance inline. No user input required — read-only derivation display.
 **Why deferred:** Needs a hover-label render pass wired into redrawFrontFaceLayer + drawEditCanvas; minor scope mid-B4. Deferred until panel/render work is active.
 
-**Status:** **SUPERSEDED-BY-#29 (Session 70+).** Reference datum changed: the correct reference is
-the **aligned wall face** (the PDF/elevation reference face), not the floor-below polygon. "Protrusion"
-means forward-of-face; "setback" means behind-face. This is a datum change, not a relabel — the existing
-`reconcile` tags in `deriveEnumeration` measure against the floor-below polygon (wrong datum). The
-hover-label (word + signed distance, imperial) becomes a #29 sub-output rather than a standalone cheap win.
-Do NOT build #53 code against the current reconcile datum. See #29 entry for the OPEN RECON ITEM on
-whether `elevationEdgeRef` (elevation-scoped today) can also serve floor-plan pages.
+**Status:** **DONE as a #29 sub-output (Session 71; commit ed43c6d).** Reference datum changed (per
+Session 70): the reference is the **aligned wall face** (`elevationEdgeRef`, elevation-scoped), NOT the
+floor-below polygon — so the `deriveEnumeration` reconcile tags were the wrong datum and were not reused.
+Shipped: aligned-edge setback/protrusion hover-label (word + signed distance, imperial), **view-mode
+only**, **single-source-page scope** (#88), riding on the **toggleable floor-plan ghost** shown on the
+elevation page, labelling **strictly-parallel walls only** (perpendicular/angled suppressed by design,
+`PARALLEL_EPS_M = 0.001` m). "Protrusion" = forward-of-face, "setback" = behind-face; sign anchored to the
+source-polygon centroid so it is winding-independent. Built on the elevation page (not floor-plan) per
+Ben's decision — see #29 entry for the full first-piece record and the resolved OPEN RECON ITEM.
 
 ---
 
@@ -2342,7 +2373,14 @@ a wrong registration.
 **Gate (checkable):** region-page coordinate frames stable (carve + repaint + #109 registration all
 resolved) AND deriveWireframe planes carry a stable identity that a captured raster can be keyed to.
 
-**Status:** DEFERRED. Logged for the post-stabilization track; do not start until the gate above holds.
+**#29 dependency note (Session 71):** the #29 aligned reference face (`elevationEdgeRef` — a specific
+floor-plan polygon edge, per elevation page) IS the capturable PDF surface region on the elevation side.
+When #116 is built, key the captured raster to this reference-face surface (the same datum the #29
+setback/protrusion readout measures against). This does not lift the gate — the frame-stability half is
+MET, but the `deriveWireframe`-plane stable-identity-for-keying half is still unconfirmed.
+
+**Status:** GATE-PARTIALLY-LIFTED. Frame-stability half MET (#117/#124 done, #109 resolved); the
+plane stable-identity-for-keying half is NOT confirmed. Do not start until the full gate above holds.
 
 ### 117. Transform-registration failure on aligned pages — PDF backdrop and overlay diverge
 
@@ -2630,3 +2668,30 @@ it is an open bug observation.
 
 **Status:** **OPEN** — observation only (Session 70). Not investigated, not fixed. Needs its own read-only
 recon session (Opus/high) before any fix. Do NOT close on the strength of #115's entry-gap resolution.
+
+### 126. Isometric depth view for setback/protrusion legibility
+
+**Category:** Visual / 3D-render / #29. **Logged:** Session 71 (2026-07-01, Ben's request during #29 first-piece close-out).
+
+**Mental model (Ben):** an orthographic elevation is a straight-on projection and CANNOT show depth — so
+the #29 setback/protrusion of a wall (its perpendicular offset from the aligned reference face) is a number
+with no visual counterpart on the elevation. The #29 first piece surfaces that number as a hover-label; it
+would be far more legible if the depth were actually *shown*.
+
+**What:** an ISOMETRIC (or otherwise depth-revealing) render of the flat plan geometry — the floor-plan
+wall polygons extruded on their scalar floor-stack Z (`accumulateZ`) — so that setback/protrusion reads
+visually as depth rather than only as a hover-label number. Off the orthographic elevation; a separate
+depth-aware view.
+
+**Why deferred / NEEDS RECON before scoping:** a flat scalar-Z isometric of the plan geometry MAY avoid R3
+(per-element z stays absent; the extrusion uses only `pageVertexToWorld` XY + scalar floor/ceiling Z, the
+same inputs the simple-massing derived block would use). But that is **unconfirmed** — it must be checked
+against the **#23 / #17 projection fence** (isometric multi-reference / projection-model constraints) before
+any scoping. Do NOT assume the flat-scalar-Z iso is free of the fenced projection machinery.
+
+**Gate (checkable):** **gate-still-real.** Condition: a recon confirms a flat scalar-Z isometric render of
+plan geometry can be built WITHOUT tripping the #23/#17 projection fence (no per-element z, no fenced
+multi-reference projection). Until that recon is done and passes, do NOT build.
+
+**Status:** DEFERRED — recon-gated. Ben's request; logged, not scoped, not built. Relates to #29 (remaining
+pieces), #23/#17 (projection fence), #54 (envelope surfaces / 3D fill).

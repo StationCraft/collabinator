@@ -491,10 +491,14 @@ crop-carving UI, 44/44 verified). Waypoint (a) coordinate-seam extraction is DON
 **SETTLED SEQUENCE (Session 70):**
 Waypoint (a) coordinate-seam extraction is DONE and pushed (`src/coords.js`, Stages 0–6). Waypoint (b)
 reconciliation is this pass. Settled near-term order after (b) lands and docs re-upload:
-  1. **Beat 0 cheap wins:** #53 (cantilever/setback hover-label), #118 (source-sheet arrow-nav exclusion
-     removal), #112 (carveMode nav-reset).
-  2. **#29 derived elevations.** (The #125 opening-on-carve item is an OPEN render-gap bug, NOT a #29
-     dependency and NOT instrumentation — do not couple it to #29.)
+  1. **Beat 0 cheap wins:** #53 (cantilever/setback hover-label — **DONE as a #29 sub-output, Session 71,
+     ed43c6d**), #118 (source-sheet arrow-nav exclusion removal — DONE), #112 (carveMode nav-reset — RESOLVED).
+  2. **#29 derived elevations — FIRST PIECE DONE (Session 71; commit ed43c6d):** aligned-edge
+     setback/protrusion hover-label on the toggleable floor-plan ghost (elevation-hosted via
+     `getEffectiveGhostSource` + `drawGhostShapes`; view-mode only; single-source-page #88; strictly-parallel
+     walls, `PARALLEL_EPS_M = 0.001`). Remaining pieces: simple-massing derived block, confirm-view,
+     isometric depth view (#126, recon-gated). (The #125 opening-on-carve item is an OPEN render-gap bug,
+     NOT a #29 dependency and NOT instrumentation — do not couple it to #29.)
   3. **Thermal arc:** #106 (assembly-inheritance default), #107 (flat-roof UI gap), #108 (window/door
      `uw` post-placement edit) — geometry-review gate SATISFIED (geometry-stable review passed after the
      #117/#124 frame work).

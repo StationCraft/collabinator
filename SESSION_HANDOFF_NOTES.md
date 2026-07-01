@@ -10,6 +10,64 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 71 — #29 first piece: aligned-edge setback/protrusion hover-label (2026-07-01)
+
+**Branch:** main | **Code commit:** `ed43c6d` | **Docs commit:** (this close-out).
+
+**What this session built:** the first #29 piece and the #53 sub-output, in one arc, verified in Ben's
+browser before commit.
+
+**Three recons first (read-only), then build:**
+1. *Reference-face datum scope* — established the aligned/reference face is stored per-ELEVATION-page in
+   `elevationEdgeRef` (points into a floor-plan polygon edge via `sourcePageId`), NOT on floor-plan pages;
+   facing direction is otherwise only read-time `orientationDeg`. Resolves #29's OPEN RECON ITEM.
+2. *First-piece wiring* — confirmed the elevation→wall-edges correspondence is directly resolvable
+   (mirrors the opening-association map at App.jsx STEP-A pre-pass), both project into one world frame via
+   `pageVertexToWorld`, and the only new primitive needed is a signed-perp-distance-to-one-edge helper
+   (the polygon-based `pointInPolygon` sign does NOT transfer to a single reference edge).
+3. *Ghost-hosting* — confirmed `drawGhostShapes` draws at raw source-page coords (same frame as the
+   one-off draw), is page-type-agnostic, and already hosts the elevation case transiently in
+   elev-edge/elev-align. Verdict (a): route through the existing ghost, don't keep a one-off draw.
+
+**Consequential fork surfaced (Ben decided):** which page hosts the readout. Ben chose the ELEVATION page
+(source floor plan drawn there as a ghost), not the floor-plan page.
+
+**Build shape (final):**
+- `signedPerpDist(pt, refA, refB)` (geometry.js) + `formatDistM(m, unit)` (coords.js).
+- `getEffectiveGhostSource(pageId)` (App.jsx): floor/roof via `getGhostSourcePageId` (untouched), else the
+  elevation's `elevationEdgeRef.sourcePageId`.
+- Ghost routed through `drawGhostShapes` in `redrawFrontFaceLayer` (falls back to plain source during
+  elev-edge/align → no double-draw); one-off faint-purple draw removed.
+- View-mode **"Show floor plan"** toggle added to the elevation view toolbar (reuses per-page
+  `showGhostByPageId`). NOTE: the spec's "widen the ~6879/~7018 toggle gate" was based on a slightly
+  inaccurate toolbar map — those two toggles are the DRAW and EDIT toolbars, and there was NO pre-existing
+  view-mode toggle. Since the feature is view-mode-only, a NEW view-toolbar toggle was added instead of
+  widening draw/edit (which would control a ghost those renderers don't draw for elevations). Flagged to
+  Ben; accepted.
+- Readout: `resolveElevMeasureRef` (reference-edge world endpoints + source-polygon-centroid sign-anchor,
+  winding-independent), `hitTestElevMeasureSegment`, `drawElevMeasureLabel`, `elevMeasureHoverRef`.
+- **Strictly-parallel label gate** (`PARALLEL_EPS_M = 0.001` m, module-level const): both hovered-edge
+  endpoints must be equidistant from the reference plane, else no label — perpendicular/angled walls stay
+  hoverable/visible in the ghost but a non-parallel midpoint distance is a meaningless artifact (Ben's
+  refinement after first verification).
+
+**Verification (Ben's eyeball, twice):** ghost-routing pass — all 5 checks (amber ghost, toggle +
+persistence, sign correct, no draw/edit/review label, no floor/roof regression). Parallel-gate pass — all
+5 checks (parallel labels unchanged number/sign, perpendicular + angled suppressed, coincident still
+suppressed, sign correct).
+
+**Scope held:** view-mode only; single-source-page (#88). Remaining #29 pieces (simple-massing derived
+block, confirm-view, isometric depth view) NOT built.
+
+**New deferred entry logged:** #126 ISOMETRIC DEPTH VIEW (Ben's request) — an iso render of flat plan
+geometry on scalar floor Z to make setback/protrusion legible visually; recon-gated against the #23/#17
+projection fence before scoping (a flat scalar-Z iso may avoid R3, unconfirmed). Do NOT build.
+
+**Register close-out:** #53 → DONE-as-#29-sub-output; #29 → first-piece recorded + open-recon-item
+resolved; #116 → #29 dependency note (reference face = capturable surface region); #126 → new entry.
+
+---
+
 ## SESSION 70 — Waypoint (b) roadmap reconciliation (docs-only) (2026-07-01)
 
 **Branch:** main | **Scope:** DOCS ONLY — no `src/` edits, no harness runs, no behavior change.

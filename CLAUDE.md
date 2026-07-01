@@ -904,9 +904,21 @@ A React + Vite app with:
 - **Settled near-term sequence (Session 70):** Beat 0 cheap wins (#53, #118, #112) → #29 derived
   elevations → thermal arc (#106/#107/#108, geometry-review gate satisfied). #125 is an OPEN render-gap
   bug, NOT a #29 dependency.
-- **#29 (derived elevations)** — derives elevation view from floor-plan edge + accumulateZ, shown for
-  confirm rather than freehand-traced; gate lifted (region-pages #5 done + `pageVertexToWorld` projection
-  exists).
+- **#29 (derived elevations) — FIRST PIECE DONE (Session 71; commit ed43c6d):** aligned-edge
+  setback/protrusion hover-label. On an elevation page with an aligned edge (`elevationEdgeRef`), the
+  source floor plan renders as a toggleable amber ghost via the EXISTING ghost mechanism
+  (`drawGhostShapes` through new `getEffectiveGhostSource(pageId)` — floor/roof via `getGhostSourcePageId`
+  unchanged, else the elevation's `elevationEdgeRef.sourcePageId`), and each hovered wall edge is labelled
+  with its signed perpendicular distance to the aligned reference face ("protrusion" forward / "setback"
+  behind). New pure helpers: `signedPerpDist(pt, refA, refB)` (geometry.js, unclamped signed perp dist via
+  `segmentGeom` normal) + `formatDistM(m, unit)` (coords.js, imperial ft+in). Readout: `resolveElevMeasureRef`
+  (reference-edge world endpoints + source-polygon-centroid sign-anchor → winding-independent),
+  `hitTestElevMeasureSegment`, `drawElevMeasureLabel`, `elevMeasureHoverRef`. View-mode "Show floor plan"
+  toggle reuses per-page `showGhostByPageId`; ghost + readout gated on `showGhost`. **Strictly-parallel
+  label gate** (`PARALLEL_EPS_M = 0.001` m): both edge endpoints equidistant from the reference plane, else
+  no label (perpendicular/angled walls stay hoverable but a non-parallel midpoint distance is a meaningless
+  artifact). Scope: **view-mode only, single-source-page (#88)**. Remaining #29 pieces (simple-massing
+  derived block, confirm-view, isometric depth view #126) not built. Supersedes/closes #53 as a sub-output.
 - **Page-region #5 Fork D — DONE (commit 579bbf1, Session 60):** `recatPageNum` → `recatPageId`
   (state); all confirm/skip handlers rekeyed from `p.pageNum === currentPage` to `p.pageId === currentPageId`.
   `advanceToNextUncategorized` left on pageNum (PDF nav). Multi-crop payoff landed with crop-carving UI.
