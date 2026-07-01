@@ -2307,3 +2307,38 @@ coordinated change to `OPENING_TYPES` data structure (one list per kind → `WIN
 fixtures. Low impact; deferred until opening-entry polish is prioritized.
 
 **Status:** DEFERRED. Log here; pick up in an opening-entry polish pass.
+
+### 120. Elevation-opening depth recede in 3D
+
+**Category:** 3D render / openings / geometry association. **Logged:** Session 69 (2026-06-30).
+
+**Description:** Openings placed on an elevation page render in the elevation's flat picture plane
+in 3D View, rather than being pushed back (receded) to the depth position of the actual wall the
+opening belongs to. Visually the openings float in the elevation's own plane instead of sitting in
+their host wall's plane at the correct building depth.
+
+**Why deferred (gate):** an opening cannot know which wall-plane depth to recede to until the
+elevation↔floor-plan **wall association** exists — i.e. the auto-corner / elevation-to-wall
+association work that maps each elevation opening onto the specific floor-plan wall segment (and
+therefore that wall's XY depth line). Until that association lands, there is no correct depth to
+recede to; guessing would be worse than the honest flat-plane placement today.
+
+**Status:** DEFERRED until elevation↔wall association (auto-corner) work lands. Then recede each
+opening to its host wall's depth plane.
+
+### 121. Opening-placement id collision with restored fixture shapes
+
+**Category:** Shape identity / id-assignment. **Logged:** Session 69 (2026-06-30).
+
+**Description:** Manually placing an opening can reuse a shape `id` already held by a shape restored
+from a fixture. Observed during a Stage-1 test placement: a **second** `window-sh-0-page-2` appeared
+in `__dumpEnumeration` output alongside a React **duplicate-key** warning. It disappears on a clean
+load (no restore), so the collision is at **placement-time id assignment**, not a stored-fixture
+defect — the monotonic `shapeIdCounterRef` is not advanced past the ids baked into a restored
+snapshot, so the next `nextShapeId()` can hand back an id the restore already used.
+
+**Likely fix direction (not committed):** on `__restoreFixture`, self-heal `shapeIdCounterRef`
+(and possibly `psCounterRef`/`ssCounterRef`) to `max(existing sh-N) + 1`, mirroring the
+`regionCounterRef` self-heal already done on restore (Session 62). Investigate before implementing.
+
+**Status:** DEFERRED, low priority. id-assignment investigation; only bites restore-then-place.
