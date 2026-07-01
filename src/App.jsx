@@ -11,7 +11,7 @@ import {
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform, similarityFromHandleDrag, screenDeltaToWorld } from './coords.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform, similarityFromHandleDrag, screenDeltaToWorld, invSimilarityPoint, zoomAnchorPan } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -2131,11 +2131,14 @@ function App() {
           // crop-local (raw-sheet px) by construction.
           const srcT = pageTransformsRef.current[sourcePageId]
           const tS  = (srcT && srcT.s) ? srcT.s : 1
-          const tTx = srcT?.tx ?? 0
-          const tTy = srcT?.ty ?? 0
+          // Origin corner is a POINT inverse → coords.invSimilarityPoint (reads srcT.s/tx/ty
+          // with the same defensive identity defaults tS uses). w/h are DELTA-scale divisions
+          // (a size under inverse scaling, no translation), so they stay inline /tS — not
+          // point-inverse math; likewise the ÷tS scale propagation below.
+          const cropOrigin = invSimilarityPoint({ x: rx, y: ry }, srcT)
           const crop = {
-            x: (rx - tTx) / tS,
-            y: (ry - tTy) / tS,
+            x: cropOrigin.x,
+            y: cropOrigin.y,
             w: rw / tS,
             h: rh / tS,
           }
@@ -3983,15 +3986,13 @@ function App() {
       const c = measureRef.current
       if (!c) return
       const rect = c.getBoundingClientRect()
-      // Canvas pixel under cursor stays fixed: worldX = (clientX - rect.left) / zoom
-      const worldX = (e.clientX - rect.left) / zoomRef.current
-      const worldY = (e.clientY - rect.top) / zoomRef.current
-      // New pan so worldX stays under cursor after zoom
-      const newPanX = panRef.current.x + worldX * (zoomRef.current - newZoom)
-      const newPanY = panRef.current.y + worldY * (zoomRef.current - newZoom)
+      // Canvas pixel under cursor: screen delta from rect origin ÷ zoom → world point.
+      const worldPt = screenDeltaToWorld({ x: e.clientX - rect.left, y: e.clientY - rect.top }, zoomRef.current)
+      // New pan so that world point stays under the cursor after the zoom change.
+      const newPan = zoomAnchorPan(panRef.current, worldPt, zoomRef.current, newZoom)
       zoomRef.current = newZoom
-      panRef.current = { x: newPanX, y: newPanY }
-      setViewTransform({ zoom: newZoom, panX: newPanX, panY: newPanY })
+      panRef.current = newPan
+      setViewTransform({ zoom: newZoom, panX: newPan.x, panY: newPan.y })
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
