@@ -5947,9 +5947,8 @@ function App() {
       let fieldId = null, assemblyType = null
       if (surfaceId.startsWith('wall-'))           { fieldId = 'assembly-wall'; assemblyType = 'wall' }
       else if (surfaceId.startsWith('flat-roof-')) { fieldId = 'assembly-roof'; assemblyType = 'roof' }
-      // Stubs for surface kinds that do not exist yet — wire when they do:
-      // else if (surfaceId.startsWith('foundation-')) { fieldId = 'assembly-foundation'; assemblyType = 'foundation' }
-      // else if (surfaceId.startsWith('floor-'))      { fieldId = 'assembly-floor';      assemblyType = 'floor' }
+      else if (surfaceId.startsWith('foundation-')) { fieldId = 'assembly-foundation'; assemblyType = 'foundation' }  // below-grade wall
+      else if (surfaceId.startsWith('floor-'))      { fieldId = 'assembly-floor';      assemblyType = 'floor' }       // slab / floor
       if (fieldId) {
         const optVal = getConfigValue(fieldId)
         const def = optVal ? ASSEMBLY_TYPE_DEFAULTS[optVal] : null
@@ -6196,6 +6195,140 @@ function App() {
         })
       }
 
+      // ── STEP A.6: Slab surface — lowest floor footprint (area + soil-contact perimeter) ──
+      // Read-time takeoff mirroring STEP A.5 (flat-roof). Produces slab AREA and soil-contact
+      // PERIMETER only — whether it is an on-grade slab or a basement floor is a downstream
+      // config distinction, NOT modeled here. surfaceId prefix 'floor-' inherits the
+      // assembly-floor project default via getSurfaceAssembly. No geometry is carved.
+      {
+        const lowestRow  = zStack.length > 0 ? zStack[0] : null   // accumulateZ is base→top
+        const lowestPage = lowestRow ? floorPageMap[lowestRow.level] : null
+        if (lowestRow && lowestPage) {
+          const slabShapes = completedShapesRef.current.filter(
+            s => s.pageId === lowestPage.pageId && s.status === 'locked' && !s.shapeKind
+          )
+          let slabAreaM2 = 0
+          let perimM = 0
+          for (const shape of slabShapes) {
+            const wv = shape.vertices.map(v => pageVertexToWorld(v, lowestPage.pageId)).filter(Boolean)
+            if (wv.length < 3) continue
+            let a = 0
+            for (let i = 0; i < wv.length; i++) {
+              const p = wv[i], q = wv[(i + 1) % wv.length]
+              a += p.x * q.y - q.x * p.y              // shoelace
+              perimM += Math.hypot(q.x - p.x, q.y - p.y)  // edge length
+            }
+            slabAreaM2 += Math.abs(a) / 2
+          }
+          if (slabAreaM2 > 0) {
+            const slabFloorZm = feetToMeters(lowestRow.floorZ ?? 0)
+            const surfaceId = `floor-${lowestPage.pageId}`
+            const sa = getSurfaceAssembly(surfaceId)
+            elements.push({
+              id: surfaceId,
+              kind: 'slab-surface',
+              floorLevel: lowestRow.level,
+              pageId: lowestPage.pageId,
+              grossAreaM2: slabAreaM2,
+              netAreaM2: slabAreaM2,      // no openings in a slab
+              openingAreaM2: 0,
+              insideFaceAreaM2: slabAreaM2,  // horizontal slab: interior face = traced footprint
+              soilContactPerimeterM: perimM,
+              floorZm: slabFloorZm,
+              effectiveUValue: sa.effectiveUValue,
+              effectiveRSI:    sa.effectiveRSI,
+              controlLayers:   sa.controlLayers,
+              thicknessM:      sa.thicknessM,
+              assemblySource:  sa.source,
+            })
+          }
+        }
+      }
+
+      // ── STEP A.7: Below-grade wall extent (#41 read-time grade-vs-wall) ──────────
+      // For the reference-edge wall face (elevationEdgeRef / #88 single-reference-edge
+      // attribution — EXPECTED limitation, NOT solved here) compare the grade line's
+      // world-Z against the wall face's bottom Z (floorZm of the reference level).
+      // belowGradeHeightM = the vertical wall extent BELOW grade; the area is that height
+      // × the reference-segment run length.
+      //
+      // #41 INVARIANT: the intact wall polygon is NEVER divided by the grade line — this is
+      // a pure read-time comparison of stored shapes; no geometry is carved.
+      //
+      // GRADE-Z MODEL (v1): one grade line → one representative grade elevation = the MEAN
+      // world-Z of its vertices (projected via elevYToWorldZ). Per-segment sloped-grade
+      // sampling is deferred — it pairs with solving #88 (per-segment grade needs a
+      // per-segment horizontal position, which the single-reference-edge model does not have).
+      //
+      // Honest absence: if the elevation is not aligned/scaled, fhZStack is empty, no grade
+      // line exists, or the reference level/segment cannot resolve — emit NOTHING (not a zero).
+      for (const ep of pages.filter(p => p.category === 'elevation')) {
+        if (!pageScalesRef.current[ep.pageId]?.pxPerMeter) continue
+        if (!fhZStack.length) continue
+        const stored = elevationEdgeRef.current[ep.pageId]
+        if (!stored) continue
+        const gradeShapes = completedShapesRef.current.filter(
+          s => s.pageId === ep.pageId && s.status === 'locked' && s.shapeKind === 'grade-line'
+        )
+        if (!gradeShapes.length) continue
+
+        // Reference level + segment (mirrors the openingsByWallId resolution above)
+        const refShape = completedShapesRef.current[stored.shapeIndex]
+        if (!refShape) continue
+        const srcPage = pages.find(p => p.pageId === stored.sourcePageId)
+        if (!srcPage || !isKnownFloorLabel(srcPage.subLabel)) continue
+        const refLevel = srcPage.subLabel
+        const row = zStack.find(r => r.level === refLevel)
+        if (!row) continue
+        const wallBottomZm = feetToMeters(row.floorZ ?? 0)
+        const wallHeightM  = row.floorToCeiling != null ? feetToMeters(row.floorToCeiling) : null
+
+        // Reference-segment run length in world meters (same mechanic as STEP A widthM)
+        const segCount = refShape.vertices.length
+        const vA = refShape.vertices[stored.segmentIndex]
+        const vB = refShape.vertices[(stored.segmentIndex + 1) % segCount]
+        const wA = vA ? pageVertexToWorld(vA, stored.sourcePageId) : null
+        const wB = vB ? pageVertexToWorld(vB, stored.sourcePageId) : null
+        if (!wA || !wB) continue
+        const runLengthM = Math.hypot(wB.x - wA.x, wB.y - wA.y)
+
+        // Representative grade world-Z = mean of grade-line vertex Zs (v1 model)
+        let zSum = 0, zCount = 0
+        for (const g of gradeShapes) {
+          for (const v of g.vertices) {
+            const wz = elevYToWorldZ(v.y, ep.pageId)
+            if (wz != null) { zSum += wz; zCount++ }
+          }
+        }
+        if (zCount === 0) continue  // grade could not project — honest absence
+        const gradeZm = zSum / zCount
+
+        let belowGradeHeightM = Math.max(0, gradeZm - wallBottomZm)
+        if (wallHeightM != null) belowGradeHeightM = Math.min(belowGradeHeightM, wallHeightM)
+        const belowGradeWallAreaM2 = belowGradeHeightM * runLengthM
+
+        const surfaceId = `foundation-${refShape.id}-seg${stored.segmentIndex}-${refLevel.replace(/\s/g, '_')}`
+        const sa = getSurfaceAssembly(surfaceId)
+        elements.push({
+          id: surfaceId,
+          kind: 'below-grade-wall',
+          floorLevel: refLevel,
+          pageId: srcPage.pageId,     // the wall lives on the floor plan
+          elevPageId: ep.pageId,      // grade line is on this elevation page
+          runLengthM,
+          gradeZm,
+          wallBottomZm,
+          wallTopZm: wallHeightM != null ? wallBottomZm + wallHeightM : null,
+          belowGradeHeightM,
+          belowGradeWallAreaM2,
+          effectiveUValue: sa.effectiveUValue,
+          effectiveRSI:    sa.effectiveRSI,
+          controlLayers:   sa.controlLayers,
+          thicknessM:      sa.thicknessM,
+          assemblySource:  sa.source,
+        })
+      }
+
       // ── STEP C: Soffit/eave — roof bbox vs wall-below bbox ──────────────────
       // Roof polygon larger than wall below on a side → overhang → soffit element.
       // Coincident-but-distinct surfaces are not merged (#19).
@@ -6355,6 +6488,33 @@ function App() {
             `  ${el.id}\n` +
             `    page:${el.pageId}\n` +
             `    footprintArea=${aStr}  roofCeilingZ=${zStr}\n` +
+            `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}`
+          )
+        } else if (el.kind === 'slab-surface') {
+          const aStr = el.grossAreaM2 != null ? el.grossAreaM2.toFixed(4) + 'm²' : 'null'
+          const pStr = el.soilContactPerimeterM != null ? el.soilContactPerimeterM.toFixed(4) + 'm' : 'null'
+          const zStr = el.floorZm != null ? el.floorZm.toFixed(4) + 'm' : 'null'
+          const uvStr = el.effectiveUValue != null ? el.effectiveUValue.toFixed(4) + ' W/m²K' : 'null'
+          const thStr = el.thicknessM    != null ? el.thicknessM.toFixed(4)    + ' m'      : 'null'
+          console.log(
+            `  ${el.id}\n` +
+            `    page:${el.pageId}  floor:${el.floorLevel}\n` +
+            `    footprintArea=${aStr}  soilContactPerimeter=${pStr}  floorZ=${zStr}\n` +
+            `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}`
+          )
+        } else if (el.kind === 'below-grade-wall') {
+          const bhStr = el.belowGradeHeightM   != null ? el.belowGradeHeightM.toFixed(4)   + 'm'  : 'null'
+          const baStr = el.belowGradeWallAreaM2 != null ? el.belowGradeWallAreaM2.toFixed(4) + 'm²' : 'null'
+          const rStr  = el.runLengthM   != null ? el.runLengthM.toFixed(4)   + 'm' : 'null'
+          const gStr  = el.gradeZm      != null ? el.gradeZm.toFixed(4)      + 'm' : 'null'
+          const wbStr = el.wallBottomZm != null ? el.wallBottomZm.toFixed(4) + 'm' : 'null'
+          const uvStr = el.effectiveUValue != null ? el.effectiveUValue.toFixed(4) + ' W/m²K' : 'null'
+          const thStr = el.thicknessM    != null ? el.thicknessM.toFixed(4)    + ' m'      : 'null'
+          console.log(
+            `  ${el.id}\n` +
+            `    wall page:${el.pageId}  grade page:${el.elevPageId}  floor:${el.floorLevel}\n` +
+            `    belowGradeHeight=${bhStr}  runLength=${rStr}  belowGradeWallArea=${baStr}\n` +
+            `    gradeZ=${gStr}  wallBottomZ=${wbStr}\n` +
             `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}`
           )
         } else if (el.kind === 'window' || el.kind === 'door') {
@@ -8395,10 +8555,70 @@ function App() {
             if (!byKind[el.kind]) byKind[el.kind] = []
             byKind[el.kind].push(el)
           }
-          const KIND_ORDER = ['wall-surface', 'flat-roof-surface', 'soffit', 'window', 'door']
-          const KIND_LABELS = { 'wall-surface': 'Wall Surfaces', 'flat-roof-surface': 'Flat Roof Surface', soffit: 'Soffits', window: 'Windows', door: 'Doors' }
+          const KIND_ORDER = ['wall-surface', 'below-grade-wall', 'flat-roof-surface', 'slab-surface', 'soffit', 'window', 'door']
+          const KIND_LABELS = { 'wall-surface': 'Wall Surfaces', 'below-grade-wall': 'Below-Grade Walls', 'flat-roof-surface': 'Flat Roof Surface', 'slab-surface': 'Slab / Floor', soffit: 'Soffits', window: 'Windows', door: 'Doors' }
           const fmtM = v => v != null ? v.toFixed(3) + ' m' : '—'
           const fmtDeg = v => v != null ? v.toFixed(1) + '°' : '—'
+          // Shared assembly status + manual-override inputs (mirrors flat-roof treatment).
+          // Used by flat-roof, slab, and below-grade rows (no worldA/B snapshot — horizontal
+          // / foundation surfaces are not reconciled against a floor below).
+          const assemblyBlock = (el, uvPh, thPh) => (<>
+            {el.assemblySource === 'manual' ? (
+              <div className="enum-row-detail enum-assembly-status">
+                Manual · U={el.effectiveUValue != null ? el.effectiveUValue.toFixed(3) + ' W/m²K' : '—'} · t={el.thicknessM != null ? (el.thicknessM * 1000).toFixed(0) + ' mm' : '—'}
+              </div>
+            ) : el.assemblySource === 'project-default' ? (
+              <div className="enum-row-detail enum-assembly-status enum-assembly-inherited">
+                Project default · U={el.effectiveUValue != null ? el.effectiveUValue.toFixed(3) + ' W/m²K' : '—'} · t={el.thicknessM != null ? (el.thicknessM * 1000).toFixed(0) + ' mm' : '—'}
+              </div>
+            ) : el.assemblySource === 'library-unresolved' ? (
+              <div className="enum-row-detail enum-assembly-status">Library (data pending)</div>
+            ) : (
+              <div className="enum-row-detail" style={{opacity:0.5}}>(no assembly — unset)</div>
+            )}
+            <div className="enum-assembly-inputs">
+              <label className="enum-assembly-label">U-value W/m²K</label>
+              <input
+                type="number"
+                key={`${el.id}-uv-${el.assemblySource}-${el.effectiveUValue}`}
+                className="enum-assembly-input"
+                defaultValue={el.effectiveUValue ?? ''}
+                step="0.001" min="0"
+                placeholder={uvPh}
+                onBlur={e => {
+                  const v = parseFloat(e.target.value)
+                  if (!isNaN(v) && v > 0) {
+                    surfaceAssemblyRef.current[el.id] = {
+                      ...(surfaceAssemblyRef.current[el.id] ?? {}),
+                      tier: 'manual', assemblyId: null,
+                      effectiveUValue: v,
+                    }
+                    setEnumerationTick(t => t + 1)
+                  }
+                }}
+              />
+              <label className="enum-assembly-label">Thickness m</label>
+              <input
+                type="number"
+                key={`${el.id}-th-${el.assemblySource}-${el.thicknessM}`}
+                className="enum-assembly-input"
+                defaultValue={el.thicknessM ?? ''}
+                step="0.001" min="0"
+                placeholder={thPh}
+                onBlur={e => {
+                  const v = parseFloat(e.target.value)
+                  if (!isNaN(v) && v > 0) {
+                    surfaceAssemblyRef.current[el.id] = {
+                      ...(surfaceAssemblyRef.current[el.id] ?? {}),
+                      tier: 'manual', assemblyId: null,
+                      thicknessM: v,
+                    }
+                    setEnumerationTick(t => t + 1)
+                  }
+                }}
+              />
+            </div>
+          </>)
           return (
             <div className="fh-panel enum-panel">
               <div className="fh-panel-head">
@@ -8546,6 +8766,20 @@ function App() {
                               }}
                             />
                           </div>
+                        </>)}
+                        {kind === 'below-grade-wall' && (<>
+                          <div className="enum-row-title">{el.floorLevel} · below-grade</div>
+                          <div className="enum-row-detail">below-grade height {fmtM(el.belowGradeHeightM)} · run {fmtM(el.runLengthM)}</div>
+                          <div className="enum-row-detail">area {el.belowGradeWallAreaM2 != null ? el.belowGradeWallAreaM2.toFixed(3) + ' m²' : '—'}</div>
+                          <div className="enum-row-detail">gradeZ {fmtM(el.gradeZm)} · bottomZ {fmtM(el.wallBottomZm)}</div>
+                          {assemblyBlock(el, 'e.g. 0.300', 'e.g. 0.250')}
+                        </>)}
+                        {kind === 'slab-surface' && (<>
+                          <div className="enum-row-title">{el.floorLevel} slab footprint</div>
+                          <div className="enum-row-detail">area {el.grossAreaM2 != null ? el.grossAreaM2.toFixed(3) + ' m²' : '—'}</div>
+                          <div className="enum-row-detail">soil-contact perimeter {fmtM(el.soilContactPerimeterM)}</div>
+                          <div className="enum-row-detail">floorZ {fmtM(el.floorZm)}</div>
+                          {assemblyBlock(el, 'e.g. 0.400', 'e.g. 0.150')}
                         </>)}
                         {kind === 'soffit' && (<>
                           <div className="enum-row-title">{el.side} overhang</div>
