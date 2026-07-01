@@ -2399,3 +2399,44 @@ when a height entry fires `floorHeightsTick` — likely the base line falls back
 interactive recon before any fix.
 
 **Status:** DEFERRED, pre-existing. Elevation ref-line polish; pick up outside the coord-seam pass.
+
+---
+
+### 124. Enhance on a carved region page breaks the frame (crop-branch never got the #117 frame-pin)
+
+**Category:** Frame model / backdrop resolution / carved regions. **Logged:** Session 70 (2026-06-30).
+**Pre-existing (proven byte-identical vs 5888e4e — NOT caused by the coord-seam refactor).**
+
+**Symptom (Ben's observation):** On a carved region page, hitting Enhance re-renders the crop branch
+and breaks the frame — the view zooms into the lower-right area and the fit looks wrong (the backdrop
+no longer fills/aligns the way it did before the Enhance re-render).
+
+**Localization (Session 70, coord-seam Stage-5b localization pass):** the complete Stage-5b diff vs
+5888e4e is three edits, all inside the two 5b sites (carve-commit T⁻¹ origin in `handleMeasureMouseUp`,
+runs once at carve time; wheel zoom-anchor in `onWheel`, wheel events only; plus their import).
+`coords.js` and everything else are byte-for-byte unchanged. The entire Enhance path — Enhance button →
+`changeBackdropTier` → `renderPage(pdf, currentPageId, {resizeMeasure:false})` → the crop branch — does
+NOT appear in the diff, and the one 5b edit that writes crop data produces a byte-identical `crop` value
+(proven in Stage 5b's inline-vs-primitive numeric baseline). So Enhance-on-a-carved-region executes
+identical code on identical data on both trees → the break is present identically on 5888e4e →
+pre-existing, exposed by carving during 5b testing.
+
+**Root flavor — CROP-BRANCH-SPECIFIC, NOT "fit-zoom fails to skip":** the crop branch of `renderPage`
+contains **no fit-zoom block at all** (the `Math.min(1, (innerWidth−48)/footprint)` fit-zoom lives only
+in the full-sheet `else` branch, and is already correctly gated by `resizeMeasure` so it's skipped on
+Enhance). Likely mechanism is a **branch asymmetry**: the full-sheet branch re-applies
+`canvas.style.width/height` on every render (including Enhance) and was #117-pinned to a
+window-independent footprint (`authorScaled`); the crop branch gates `canvas.style` + `measureRef`
+sizing behind `if (resizeMeasure)` (so an Enhance re-render bumps the backing store `canvas.width =
+crop.w × mult` without re-establishing the display-size/frame relationship the full-sheet branch
+re-establishes) AND still uses the window-dependent `scale = min(innerWidth−48, 1200) / viewport.width`
+that #117 deliberately pinned away from in the full-sheet branch.
+
+**Explicit — this is #117's unfinished other half:** the crop branch never received the #117 frame-pin
+treatment. The eventual fix likely **extends the `authorScaled`/intrinsic-frame model to the crop
+branch**, the same full-sheet↔crop convergence #117 established for full sheets. Tie this entry to
+**#117** and to **simplification waypoint (a)** (coordinate-layer extraction): the crop-branch frame
+should converge onto the same intrinsic-frame model, so the eventual fix and the simplification pass are
+the same territory.
+
+**Status:** DEFERRED, do NOT fix this pass. Focused frame-pass item; converge with #117.
