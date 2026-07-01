@@ -10,7 +10,8 @@ import {
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, getCSSTransform, HANDLE_PX } from './canvasRenderer.js'
+import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, getCSSTransform } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',

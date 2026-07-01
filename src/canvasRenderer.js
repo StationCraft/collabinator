@@ -1,30 +1,8 @@
 // ── Stateless canvas drawing primitives ───────────────────────────────────
 // All functions take explicit data parameters — no closure over App state.
-
-export function pxToMeters(px, pageScales, pageId) {
-  const scale = pageScales[pageId]
-  if (!scale || !scale.pxPerMeter) return null
-  return px / scale.pxPerMeter
-}
-
-export function metersToPx(m, pageScales, pageId) {
-  const scale = pageScales[pageId]
-  if (!scale || !scale.pxPerMeter) return null
-  return m * scale.pxPerMeter
-}
-
-export function pxToDisplayDist(px, pageScales, pageId) {
-  const scale = pageScales[pageId]
-  if (!scale || px <= 0) return null
-  const meters = pxToMeters(px, pageScales, pageId)
-  if (scale.displayUnit === 'ft') {
-    const totalInches = meters / 0.0254
-    const feet = Math.floor(totalInches / 12)
-    const inches = totalInches % 12
-    return `${feet}' ${inches.toFixed(1)}"`
-  }
-  return `${meters.toFixed(3)} m`
-}
+// Coordinate/unit conversion primitives (pxToMeters, metersToPx,
+// pxToDisplayDist, getCSSTransform) now live in coords.js — this module is
+// drawing only.
 
 function isOpening(shape) {
   return shape.shapeKind === 'window' || shape.shapeKind === 'door'
@@ -370,14 +348,3 @@ export function drawRegionOutlines(ctx, regions, zoom = 1) {
   }
 }
 
-// Build a CSS transform string for a per-page PDF alignment transform.
-// t = { tx, ty, s, angle } where tx,ty are canvas pixels, s is a unitless
-// scale multiplier, angle is degrees. Order: translate -> rotate -> scale.
-// Pair with transformOrigin: '0 0' on the element (matches zoom/pan convention).
-// Returns 'none' for a null/identity transform so it can be assigned directly.
-export function getCSSTransform(t) {
-  if (!t) return 'none'
-  const { tx = 0, ty = 0, s = 1, angle = 0 } = t
-  if (tx === 0 && ty === 0 && s === 1 && angle === 0) return 'none'
-  return `translate(${tx}px, ${ty}px) rotate(${angle}deg) scale(${s})`
-}
