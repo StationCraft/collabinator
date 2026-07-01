@@ -11,7 +11,7 @@ import {
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, feetToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform } from './coords.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -1107,7 +1107,7 @@ function App() {
     if (scaleUnit === 'imperial') {
       const feet = parseFloat(feetVal) || 0, inches = parseFloat(inchesVal) || 0
       if (feet === 0 && inches === 0) { setScaleError('Enter a dimension greater than zero.'); return }
-      realWorldMeters = (feet * 12 + inches) * 0.0254
+      realWorldMeters = feetInchesToMeters(feet, inches)
     } else {
       realWorldMeters = parseFloat(metersVal) || 0
       if (realWorldMeters <= 0) { setScaleError('Enter a dimension greater than zero.'); return }
@@ -1131,7 +1131,7 @@ function App() {
   const isEquipmentItem = (s) => s.shapeKind === 'equipment-item'
   const isRun = (s) => s.shapeKind === 'run'
 
-  const ONE_INCH_M = 0.0254
+  const ONE_INCH_M = inchesToMeters(1)
   const saveAndDefaultSnapIncrement = () => {
     priorSnapIncrementRef.current = snapIncrementRef.current
     snapIncrementRef.current = ONE_INCH_M
@@ -3130,8 +3130,7 @@ function App() {
   const parseFtIn = (ftStr, inStr) => {
     const ft = parseFloat(ftStr) || 0
     const inches = parseFloat(inStr) || 0
-    const totalInches = ft * 12 + inches
-    return totalInches * 0.0254  // meters
+    return feetInchesToMeters(ft, inches)
   }
 
   // When opening dialog is opened, seed the width/height draft fields from pixel distances.
@@ -4469,7 +4468,7 @@ function App() {
     { label: '16″ I-joist/truss', inches: 17.375 },
     { label: '24″ truss',         inches: 25.375 },
   ]
-  const inchesToFhUnit = (inches) => fhDisplayUnit === 'ft' ? inches / 12 : inches * 0.0254
+  const inchesToFhUnit = (inches) => fhDisplayUnit === 'ft' ? inches / 12 : inchesToMeters(inches)
   const SHEATHING_INCHES = 1.375
   const setFloorHeight = (level, field, value) => {
     const cur = floorHeightsRef.current[level] || { floorToCeiling: null, floorSystemAbove: null }
@@ -6418,6 +6417,12 @@ function App() {
               }}
             >
               {isImperial
+                // NOTE: these option values are canonical snap-grid DATA constants (the stored
+                // snap increment in metres), matched BY VALUE against snapIncrement state whose
+                // defaults/resets use the same literals project-wide. They are NOT dialog
+                // conversion math — routing through inchesToMeters(N) shifts them ~1 ULP
+                // (0.0254*6 = 0.15239999999999998 ≠ 0.1524) and breaks <select> option matching.
+                // Intentional coord-seam exception (see coords.js header).
                 ? <><option value={0.0254}>1″</option><option value={0.0762}>3″</option>
                     <option value={0.1524}>6″</option><option value={0.3048}>12″</option></>
                 : <><option value={0.025}>2.5 cm</option><option value={0.075}>7.5 cm</option>
