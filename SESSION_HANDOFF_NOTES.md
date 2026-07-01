@@ -10,6 +10,45 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 69 — Coordinate-seam extraction, waypoint (a) DONE (2026-06-30)
+
+**Branch:** main | **Commits:** 8381ef3 (Stage 0) → 7b2479d (Stage 6) — 11 commits total.
+**Harness (fresh restore at Stage 6):** `__verifyFixture` **44/44** + `__verifyCrop` **17/17**. Two-width live eyeball (wide + ~1000px narrow): backdrop/overlay register, pan + zoom correct at both widths.
+
+**What this session built:**
+
+Full behavior-preserving extraction of all coordinate, unit-conversion, similarity/T⁻¹, and CSS-transform-string math from App.jsx into `src/coords.js`. The waypoint (a) goal — "no raw conversion arithmetic in App.jsx" — is met. End-state: `coords.js` + the six Tier-2 ref-bound wrappers are the only places that math may appear.
+
+**Stage-by-stage summary:**
+- **Stage 0** (`8381ef3`): coords.js seam file created; `pxToMeters`/`metersToPx`/`pxToDisplayDist` moved from canvasRenderer.js; `ft/in` helpers added; `buildViewTransformCSS`/`getCSSTransform` seeded (from earlier Stage 0 groundwork in prior sub-step commits); `similarityFromHandleDrag`, `screenDeltaToWorld`, `invSimilarityPoint`, `zoomAnchorPan` added.
+- **Stage 1** (`f32c159`): opening placement px↔m routing (all placement/sizing paths through `pxToMeters`/`metersToPx`).
+- **Stage 2** (`edb908f`): derivation feet→m in `deriveWireframe`/`deriveEnumeration`; byte-identical output proved by `__dumpEnumeration` dump comparison.
+- **Stage 3** (`ba38404`): elevation Y↔Z — `elevYToZFeet`/`zFeetToElevY` unified to one core; all four draw paths + the DEV oracle route through them.
+- **Stage 4** (`dc70b72`): ft/in dialog entry conversions (calibration dialog, opening dialog, floor-heights panel, label-edit commit) all routed through `feetInchesToMeters`/`metersToInches`.
+- **Stage 5a** (`5888e4e`): align-drag similarity — `handleAlignMouseMove` (both floor and elevation handlers) through `similarityFromHandleDrag`; `screenDeltaToWorld`/`invSimilarityPoint`/`zoomAnchorPan` wired.
+- **Stage 5b** (`2e7caf5`): carve-commit T⁻¹ through `invSimilarityPoint`; wheel zoom-anchor through `zoomAnchorPan`. These two paths are NOT exercised by the harness — verified only by live carve + scroll interaction.
+- **Stage 6** (`7b2479d`): JSX pan/zoom CSS — last remaining hand-built transform literal in JSX replaced with `buildPanZoomTransformCSS(panX, panY, zoom)`.
+
+**Key deviation (Stage 6 — approved):** The two CSS-transform sites emit genuinely different byte-level strings (comma spacing, rotate term, identity shortcut). The fence required byte-identical output, so they use **two dedicated builders** rather than one shared shape. `buildViewTransformCSS` serves the backdrop align layer; `buildPanZoomTransformCSS` serves the canvas-world pan/zoom. This is the correct outcome — do not unify them.
+
+**Snap-grid ULP fence catch (Stage 4):** snap-grid `<option>` value literals were initially in scope. Routing them through `inchesToMeters(1)` shifts by 1 ULP from the hardcoded `0.0254` (floating-point identity break), causing `<select value>` matching to fail silently. They were excluded and documented as intentional exceptions.
+
+**Two-commit Stage 1/2 split recovery:** Stage 1 was initially over-scoped (derivation paths included). Reverted to the correct scope (opening placement only) before Stage 2 — caught by explicit dump comparison before commit.
+
+**KEY LEARNINGS (record for future refactors):**
+
+1. **A behavior-preserving refactor's verification must exercise the full interactive + render surface**, not just harness dumps. The harness does NOT traverse the carve-commit T⁻¹ path or the wheel zoom-anchor — those paths required live interaction to verify. Dump equality proves the math routed correctly into the seam; it does not prove the wiring was correct end-to-end.
+
+2. **Byte-identity proves the MATH routed correctly; it does not prove the WIRING.** For each stage: byte-identical dump output confirms the math is unchanged; live browser interaction (pan/zoom, carve, wheel) closes the wiring half. Both halves are required.
+
+3. **"One seam" is the goal, but never at the cost of changing an emitted byte.** When two CSS sites emit genuinely different string shapes, two dedicated builders preserving each shape is the correct outcome. Do not relax the byte-identical fence to force a single builder.
+
+**Open items after this session:**
+- **(b) ROADMAP RECONCILIATION** — next plateau waypoint; run before #29.
+- `.claude/launch.json` is **tracked** (not gitignored like `settings.local.json`). A session's temp port config can leak into a commit. Consider gitignoring + untracking to match `settings.local.json` — flag to Ben before actioning.
+
+---
+
 ## SESSION 68 — #117 transform-registration FIXED via C-REDERIVE (frame pin) (2026-06-30)
 
 **Commit:** `57fb605` (code) + this doc close-out. Resolves #117 and, as a consequence, #109.

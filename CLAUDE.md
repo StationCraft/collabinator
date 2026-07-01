@@ -1348,11 +1348,57 @@ All of the above are cleared on PDF upload.
   plus module-level constants (CLOSE_SNAP_RADIUS, HIT_VERT_DIST, etc.)
 - `src/canvasRenderer.js` — stateless drawing primitives that take explicit
   data params (drawLockedShapes, drawShapePoly, drawAlignGuide, pxToDisplayDist)
+- `src/coords.js` — **the coordinate conversion seam** (Session 69; waypoint (a) done).
+  ALL px↔m, ft/in↔m, screen↔canvas, similarity/T⁻¹, and CSS-transform-string math lives here.
+  See "Coordinate seam architecture" section below.
 - `src/App.jsx` — all React state, refs, event handlers, stateful canvas
   drawing (drawEditCanvas, redrawDrawCanvas), and JSX (~8090 lines as of Session 63 —
   the prior "~3400" was stale; 66 useRefs, 108 useStates, 7 `*Tick` integers, ~47
-  `shapeKind` branch sites. This size/concentration is exactly what the plateau (a)
-  simplification pass targets — see BUILD_ROADMAP §⏸ waypoint (a))
+  `shapeKind` branch sites. Waypoint (a) coordinate-layer extraction is DONE — see seam
+  architecture below for the end-state invariant)
+
+## Coordinate seam architecture (Session 69 — waypoint (a) DONE)
+
+**Two-tier model:**
+
+- **Tier 1 — pure primitives in `src/coords.js`** (the seam's public surface): `pxToMeters`,
+  `metersToPx`, `feetToMeters`, `metersToInches`, `feetInchesToMeters`, `inchesToMeters`,
+  `elevYToZFeet`, `zFeetToElevY`, `pxToDisplayDist`, `similarityFromHandleDrag`,
+  `screenDeltaToWorld`, `invSimilarityPoint`, `zoomAnchorPan`, `buildViewTransformCSS`,
+  `getCSSTransform`, `buildPanZoomTransformCSS`. No React imports; no ref reads; pure functions
+  only.
+
+- **Tier 2 — ref-bound resolvers in `App.jsx`** (thin wrappers that read live refs and call
+  Tier-1 primitives): `getEffectiveScale`, `getWorldOriginM`, `pageVertexToWorld`,
+  `elevYToWorldZ`, `getCanvasPos`, `clampToCanvas`. These stay in App.jsx because they close
+  over live refs — they are NOT eligible for extraction without a larger ref-architecture change.
+
+**Checkable invariant (the end-state a future session tests against):** those six Tier-2 wrappers
++ `coords.js` are the **ONLY** places raw `scale.pxPerMeter` / `0.3048` / `0.0254` / T⁻¹
+similarity math may appear in App.jsx. Any new inline conversion arithmetic in App.jsx is a
+**regression** against this invariant.
+
+**Frame model (reinforced — do NOT change):** The render footprint (`measureRef` size, and
+everything reading off it — `getCanvasPos`, `clampToCanvas`, all draw paths, pan) is
+window-independent. Full-sheet pages pin it to `authorScaled` in `renderPage`; crop/region pages
+pin it to `crop.w/h`. Window width governs ONLY the viewport (fit-zoom). This is the
+"frame-is-intrinsic" model established by #117 (Session 68); it is settled groundwork for the
+coordinate seam and must NOT be reintroduced from a window-derived path.
+
+**Intentional exceptions — DELIBERATE, do NOT "fix":**
+- `geometry.js` `parseDisplayDistInput` keeps its own `0.0254` — pre-existing pure seam; adding a
+  `geometry→coords` dependency is not in scope.
+- DEV harness `expectedAnchorZm` (~App line 5128) keeps raw `0.3048` — it is an INDEPENDENT
+  oracle; routing it through the same primitive it checks would defeat the verification.
+- Snap-grid `<option>` value literals (~App line 6426) keep raw `0.0254` — these are canonical
+  data constants, not conversion math; routing them shifts by 1 ULP and breaks `<select value>`
+  matching (a visual regression documented in-code).
+- **Two CSS-transform builders** (`buildViewTransformCSS` for the backdrop align layer,
+  `buildPanZoomTransformCSS` for the canvas-world pan/zoom) are **NOT unified into one**. The two
+  sites emit genuinely different byte-level string shapes: comma spacing, presence of `rotate()`,
+  and identity-shortcut behaviour all differ. Forcing one shape changes emitted bytes (not just
+  CSS semantics). Two dedicated builders preserving each site's exact string is the correct
+  outcome — do NOT unify them by relaxing byte-identity.
 
 ## Working environment notes
 

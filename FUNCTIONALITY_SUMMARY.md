@@ -44,6 +44,17 @@ describe what should be built instead, the first time, correctly.
   factory in geometry.js, returning `{ x, y }` today with z absent. R3 adds z in one place only.
 - Per-element identity preserved: no coordinate-coincidence merging (#19).
 
+**Coordinate seam extraction (done Session 69 — waypoint (a); commits 8381ef3–7b2479d):**
+- `src/coords.js` is now the **single conversion seam**: all px↔m, ft/in↔m, screen↔canvas,
+  similarity/T⁻¹, and CSS-transform-string math routes through it.
+- **Two-tier model:** Tier-1 pure primitives in `coords.js` (no React, no refs); Tier-2 ref-bound
+  resolvers (`getEffectiveScale`, `getWorldOriginM`, `pageVertexToWorld`, `elevYToWorldZ`,
+  `getCanvasPos`, `clampToCanvas`) stay in App.jsx as thin wrappers that read live refs and
+  call Tier-1 primitives.
+- Intentional exceptions (deliberate — not gaps): `geometry.js` `parseDisplayDistInput`, DEV
+  harness oracle, snap-grid `<option>` data constants, and the two CSS-transform builders (see
+  CLAUDE.md seam architecture for the full list and rationale).
+
 **B1+B2 world-frame composition seams (built Session 27 — commit 9e5bd0d):**
 - `getWorldOriginM()` — building-fixed XY origin in meters; re-derived every call, never stored.
   Resolves anchor-floor scale via `getEffectiveScale` (borrow-safe). Returns `{ x, y, originPageId }`.

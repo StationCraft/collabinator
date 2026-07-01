@@ -487,6 +487,8 @@ in sequence.
 **STATUS: Trigger condition met.** #5 is fully done (Forks A–D + crop-carving UI, 44/44 verified).
 Run (a) then (b) before starting #29. Start (a) with an Opus planning discussion.
 
+**[x] (a) SIMPLIFICATION PASS — coordinate-layer extraction — DONE (Session 69; commits 8381ef3–7b2479d)**
+
 **Session 63 (overnight plateau deep-review, unsupervised):** Ran the full five-section review
 (strategy / UI / code / process / gate-expiry) + self-critique + triage. Findings and ready-to-run
 HOLD prompts are in SESSION_HANDOFF_NOTES Session 63. Landed only what was harness-provable and
@@ -545,44 +547,41 @@ ALIGNED with waypoint (a): the page-identity/navigation seam is already cleaner.
 seam (item 1 of the simplification pass) is still untouched and remains the highest-value extraction.
 Also: gate-expiry sweep tagged **#111 (region auto-fit) GATED-READY**; **#112 (carveMode-on-nav)** logged.
 
-### (a) SIMPLIFICATION PASS — coordinate-layer extraction
+### (a) SIMPLIFICATION PASS — coordinate-layer extraction — DONE (Session 69)
 
-**Purpose:** App.jsx has grown to do too many jobs simultaneously: page model, all refs, render
-dispatch, hit-testing, toolbar handlers, transform stack, derivation triggers. A behavior-preserving
-extraction pass before the next large build phase reduces the surface area that any future change
-must reason about.
+**Outcome:** `src/coords.js` is the single conversion seam. All px↔m, ft/in↔m, screen↔canvas,
+similarity/T⁻¹, and CSS-transform-string math routes through it. No raw conversion arithmetic
+remains in App.jsx (outside the documented intentional exceptions — see CLAUDE.md seam architecture).
 
-**Priority order for extractions:**
-1. **Coordinate/transform seam (highest value):** All px/meter math (`pageVertexToWorld`,
-   `getEffectiveScale`, `pxToMeters`/`metersToPx`) moves behind one clean boundary; App.jsx
-   never does raw pixel/meter arithmetic inline. Callers change one word each; the math itself
-   moves once. This is the seam that most directly reduces #22-invariant risk on future edits.
-2. **Ref/tick consolidation (lower priority):** The dozen module-level refs + `*Tick` integers
-   carry implicit contracts (set-once, clears-on-upload, raw-read-poisons-origin) that are
-   invisible to a reader. Consolidate into a few named containers so the contracts become
-   explicit in the type rather than in CLAUDE.md prose.
-3. **Shape-kind dispatch table (cosmetic):** Scattered if/shapeKind branches across ~13 render +
-   7 hit-test sites → a dispatch table. Each site becomes a one-liner; adding a shape kind
-   becomes one row in one place.
+**Stage commits (Session 69):**
+- Stage 0 `8381ef3` — coords.js seam file created, primitives moved
+- docs `75429bc` — log #120/#121
+- Stage 1 `f32c159` — opening px↔m routing
+- Stage 2 `edb908f` — derivation feet→m, byte-identical
+- Stage 3 `ba38404` — elev Y↔Z unified to one core
+- Stage 4 `dc70b72` — ft/in dialog conversions
+- docs `2146d36` — log #122/#123
+- Stage 5a `5888e4e` — align-drag similarity, both handlers
+- Stage 5b `2e7caf5` — carve T⁻¹ + wheel zoom-anchor
+- docs `874d9bc` — log #124
+- Stage 6 `7b2479d` — JSX pan/zoom CSS builder
 
-**Method (mandatory — not negotiable):** Behavior-preserving, Fork-A-style. Audit every call site
-before moving any code. Verify by exercising EXISTING behavior in the browser to prove nothing
-moved — the success criterion is "nothing changed." A refactor is the least browser-verifiable
-change type; the discipline is what makes it safe.
+**End state (checkable invariant):** the six Tier-2 ref-bound wrappers (`getEffectiveScale`,
+`getWorldOriginM`, `pageVertexToWorld`, `elevYToWorldZ`, `getCanvasPos`, `clampToCanvas`) + `coords.js`
+are the ONLY places raw scale.pxPerMeter / 0.3048 / 0.0254 / T⁻¹ similarity math may appear in
+App.jsx. Any new inline conversion in App.jsx is a regression against this invariant.
 
-**Model assignment:** Opus/high to plan the seam and define the boundary precisely; Sonnet/medium
-for the mechanical extraction once the seam is defined and agreed.
+**Intentional exceptions (DELIBERATE — do NOT "fix"):**
+- `geometry.js` `parseDisplayDistInput` keeps its own 0.0254 — pre-existing pure seam, outside scope
+- DEV harness `expectedAnchorZm` (~App line 5128) keeps raw 0.3048 — independent oracle; routing it
+  through the same primitive it checks would defeat the check
+- Snap-grid `<option>` value literals (~App line 6426) keep raw 0.0254 — data constants, not conversion
+  math; routing them shifts by 1 ULP and breaks `<select value>` matching (a visual regression)
+- Two CSS-transform builders (`buildViewTransformCSS` for backdrop + `buildPanZoomTransformCSS` for
+  pan/zoom) are NOT unified — the two sites emit genuinely different byte-level string shapes; one
+  shared shape can't be byte-identical
 
-**Hard gate:** Do NOT start before #5 fully lands. Region-pages touches the same files and the
-#22 seam — starting early creates a collision with itself.
-
-**Partially pre-paid by #117 (Session 68):** the #117 C-REDERIVE fix converged full-sheet pages onto
-the same "frame is intrinsic, window is only viewport" model that crop/region pages already used —
-`measureRef` (and everything reading off it) is now window-independent, pinned in `renderPage`, with
-window-dependence confined to the viewport (fit-zoom). That is exactly the kind of frame-consistency
-groundwork the coordinate/transform seam extraction (item 1 above) depends on. Treat the convergence
-as DONE groundwork when the seam is planned — do not re-litigate the frame model; extend it. This
-does not change the waypoint order: run **(a) then (b) before #29**, unchanged.
+**Next:** run **(b) ROADMAP RECONCILIATION** before starting #29.
 
 ---
 
