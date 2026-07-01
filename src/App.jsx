@@ -11,7 +11,7 @@ import {
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, feetToMeters, getCSSTransform } from './coords.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, feetToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -3672,9 +3672,11 @@ function App() {
 
   // Inverse of the drawElevRefLines Y→Z mapping: given a canvas-pixel Y on an elevation
   // page, returns the world Z in METERS (uniform with world XY from pageVertexToWorld).
-  // Internal: computes Z in feet (matching floorHeightsRef storage) then converts × 0.3048.
+  // Shares the SINGLE Y↔Z(feet) core with drawElevRefLines (coords.elevYToZFeet /
+  // zFeetToElevY) — Z is computed in feet (matching floorHeightsRef storage) then
+  // routed to metres via feetToMeters. Tier-2 wrapper: reads the live scale ref, then
+  // calls the primitive (recalibration-safe, #22).
   // Returns null if the gate (confirmed pxPerMeter + elevationEdge + fhZStack) is not met.
-  // Reads live refs at call time — no frozen scale ratio stored (recalibration-safe, #22).
   const elevYToWorldZ = (y, elevPageId) => {
     const elevScale = pageScalesRef.current[elevPageId]
     if (!elevScale?.pxPerMeter) return null
@@ -3683,8 +3685,7 @@ function App() {
     if (!fhZStack.length) return null
     const anchorY = elevBaseYRef.current[elevPageId] ?? (edgeData.A.y + edgeData.B.y) / 2
     const lowestFloorZ = fhZStack[0].floorZ ?? 0  // feet
-    const zFeet = lowestFloorZ + (anchorY - y) / (0.3048 * elevScale.pxPerMeter)
-    return zFeet * 0.3048  // convert to meters for uniform world space
+    return feetToMeters(elevYToZFeet(y, anchorY, lowestFloorZ, elevScale.pxPerMeter))
   }
 
   // Draws horizontal floor/ceiling reference lines on aligned Elevation pages.
@@ -3709,8 +3710,8 @@ function App() {
     ctx.textBaseline = 'bottom'
     for (const row of fhZStack) {
       if (row.floorZ != null) {
-        // Y derived via inverse of elevYToWorldZ: y = anchorY - (Z - lowestFloorZ) * 0.3048 * pxPerMeter
-        const y = anchorY - (row.floorZ - lowestFloorZ) * 0.3048 * pxPerMeter
+        // Shared Y↔Z(feet) core with elevYToWorldZ (coords.zFeetToElevY).
+        const y = zFeetToElevY(row.floorZ, anchorY, lowestFloorZ, pxPerMeter)
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasW, y)
         ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 1.5 / zoom
         ctx.globalAlpha = 0.85; ctx.setLineDash([]); ctx.stroke()
@@ -3718,7 +3719,7 @@ function App() {
         ctx.fillText(row.level, 6 / zoom, y - 2 / zoom)
       }
       if (row.ceilingZ != null) {
-        const y = anchorY - (row.ceilingZ - lowestFloorZ) * 0.3048 * pxPerMeter
+        const y = zFeetToElevY(row.ceilingZ, anchorY, lowestFloorZ, pxPerMeter)
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasW, y)
         ctx.strokeStyle = '#d97706'; ctx.lineWidth = 1 / zoom
         ctx.globalAlpha = 0.7; ctx.setLineDash([6 / zoom, 4 / zoom]); ctx.stroke()
