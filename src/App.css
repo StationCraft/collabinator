@@ -1506,6 +1506,11 @@ canvas {
   color: #5eead4;
   margin-top: 2px;
 }
+/* #106 — inherited-from-Project-Setup surfaces read distinctly (amber vs teal manual/library) */
+.enum-assembly-inherited {
+  color: #fbbf24;
+  font-style: italic;
+}
 .enum-assembly-inputs {
   display: grid;
   grid-template-columns: auto 1fr;

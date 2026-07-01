@@ -227,6 +227,31 @@ const CONFIG_FIELDS = [
   },
 ]
 
+// ── #106 Assembly-type placeholder defaults ─────────────────────────────────
+// Keyed VERBATIM by the eight Assemblies CONFIG_FIELDS option.value strings.
+// Provides the PROJECT-LEVEL DEFAULT U-value consumed on the getSurfaceAssembly
+// miss path: a wall/roof surface with no per-surface entry inherits the Project
+// Setup assembly for its kind.
+//
+// U = 1/R, where R is the nominal R-number parsed from the option key. AIR FILMS
+// ARE NOT BAKED IN — these are provisional and get replaced in a later values
+// pass with real air-film-inclusive effective U-values. thicknessM is null for
+// every entry (thickness is intentionally NOT defaulted this slice).
+const ASSEMBLY_TYPE_DEFAULTS = {
+  // assembly-wall
+  '2x6-r22':                { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106)
+  '2x6-r22-ext2':           { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — literal rule: only r-number in key is 22, so this equals '2x6-r22'; the +2" exterior insulation R is NOT encoded in the key. Set the real (lower) value in the values pass.
+  // assembly-foundation
+  '8in-concrete-frost':     { effectiveUValue: 1 / 12, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — no R-number in key; documented placeholder R12 (interior frost wall).
+  'icf':                    { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — no R-number in key; documented placeholder R22.
+  // assembly-roof
+  'vented-attic-r50':       { effectiveUValue: 1 / 50, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106)
+  'unvented-cathedral-r40': { effectiveUValue: 1 / 40, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106)
+  // assembly-floor
+  'eng-i-joist':            { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — no R-number in key; documented placeholder R22.
+  'open-web-truss':         { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — no R-number in key; documented placeholder R22.
+}
+
 // ── §8.2 Item-type obligation table ─────────────────────────────────────────
 // Each entry: { type, label, obligations: [{id, label, kind, blocked, trades, note?, options?}] }
 // kind is open-set: 'placement' | 'run' | 'property' (extend by adding entries here).
@@ -5822,7 +5847,25 @@ function App() {
   // source: 'unset' | 'manual' | 'library' | 'library-unresolved'
   const getSurfaceAssembly = (surfaceId) => {
     const ref = surfaceAssemblyRef.current[surfaceId]
-    if (!ref) return { effectiveUValue: null, effectiveRSI: null, controlLayers: null, thicknessM: null, layers: null, source: 'unset', assemblyType: null }
+    if (!ref) {
+      // ── #106 project-level default (MISS PATH ONLY) ─────────────────────────
+      // No per-surface entry exists. Fall back to the Project Setup assembly for
+      // this surface kind. An explicit manual/library ref always takes precedence
+      // (those paths are below); project-default is consulted ONLY when there is
+      // no ref entry at all. Surface kind is encoded in the surfaceId prefix.
+      let fieldId = null, assemblyType = null
+      if (surfaceId.startsWith('wall-'))           { fieldId = 'assembly-wall'; assemblyType = 'wall' }
+      else if (surfaceId.startsWith('flat-roof-')) { fieldId = 'assembly-roof'; assemblyType = 'roof' }
+      // Stubs for surface kinds that do not exist yet — wire when they do:
+      // else if (surfaceId.startsWith('foundation-')) { fieldId = 'assembly-foundation'; assemblyType = 'foundation' }
+      // else if (surfaceId.startsWith('floor-'))      { fieldId = 'assembly-floor';      assemblyType = 'floor' }
+      if (fieldId) {
+        const optVal = getConfigValue(fieldId)
+        const def = optVal ? ASSEMBLY_TYPE_DEFAULTS[optVal] : null
+        if (def) return { effectiveUValue: def.effectiveUValue ?? null, effectiveRSI: null, controlLayers: null, thicknessM: def.thicknessM ?? null, layers: null, source: 'project-default', assemblyType, assemblyId: null }
+      }
+      return { effectiveUValue: null, effectiveRSI: null, controlLayers: null, thicknessM: null, layers: null, source: 'unset', assemblyType: null }
+    }
     if (ref.tier === 'manual') return { effectiveUValue: ref.effectiveUValue ?? null, effectiveRSI: null, controlLayers: null, thicknessM: ref.thicknessM ?? null, layers: null, source: 'manual', assemblyType: null }
     if (ref.tier === 'library') {
       const rec = ref.assemblyId ? assemblyLibraryRef.current[ref.assemblyId] : null
@@ -8303,6 +8346,10 @@ function App() {
                             <div className="enum-row-detail enum-assembly-status">
                               Manual · U={el.effectiveUValue != null ? el.effectiveUValue.toFixed(3) + ' W/m²K' : '—'} · t={el.thicknessM != null ? (el.thicknessM * 1000).toFixed(0) + ' mm' : '—'}
                             </div>
+                          ) : el.assemblySource === 'project-default' ? (
+                            <div className="enum-row-detail enum-assembly-status enum-assembly-inherited">
+                              Project default · U={el.effectiveUValue != null ? el.effectiveUValue.toFixed(3) + ' W/m²K' : '—'} · t={el.thicknessM != null ? (el.thicknessM * 1000).toFixed(0) + ' mm' : '—'}
+                            </div>
                           ) : (
                             <div className="enum-row-detail" style={{opacity:0.5}}>(no assembly — enter below)</div>
                           )}
@@ -8358,6 +8405,10 @@ function App() {
                           {el.assemblySource === 'manual' ? (
                             <div className="enum-row-detail enum-assembly-status">
                               Manual · U={el.effectiveUValue != null ? el.effectiveUValue.toFixed(3) + ' W/m²K' : '—'} · t={el.thicknessM != null ? (el.thicknessM * 1000).toFixed(0) + ' mm' : '—'}
+                            </div>
+                          ) : el.assemblySource === 'project-default' ? (
+                            <div className="enum-row-detail enum-assembly-status enum-assembly-inherited">
+                              Project default · U={el.effectiveUValue != null ? el.effectiveUValue.toFixed(3) + ' W/m²K' : '—'} · t={el.thicknessM != null ? (el.thicknessM * 1000).toFixed(0) + ' mm' : '—'}
                             </div>
                           ) : (
                             <div className="enum-row-detail" style={{opacity:0.5}}>(no assembly — unset)</div>
