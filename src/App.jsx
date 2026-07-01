@@ -11,7 +11,7 @@ import {
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, getCSSTransform } from './coords.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, getCSSTransform } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -3140,10 +3140,11 @@ function App() {
     if (scale) {
       const wPx = Math.abs(vertices[1].x - vertices[0].x)
       const hPx = Math.abs(vertices[2].y - vertices[1].y)
-      const wM = wPx / scale.pxPerMeter
-      const hM = hPx / scale.pxPerMeter
-      const wIn = wM / 0.0254
-      const hIn = hM / 0.0254
+      const scalesArg = { [currentPageId]: scale }
+      const wM = pxToMeters(wPx, scalesArg, currentPageId)
+      const hM = pxToMeters(hPx, scalesArg, currentPageId)
+      const wIn = metersToInches(wM)
+      const hIn = metersToInches(hM)
       const wFt = Math.floor(wIn / 12), wInPart = wIn % 12
       const hFt = Math.floor(hIn / 12), hInPart = hIn % 12
       setOpeningDraftFt(String(wFt))
@@ -3165,8 +3166,9 @@ function App() {
       if (wM > 0 && hM > 0) {
         storedWidthM = wM
         storedHeightM = hM
-        const wPx = wM * scale.pxPerMeter
-        const hPx = hM * scale.pxPerMeter
+        const scalesArg = { [currentPageId]: scale }
+        const wPx = metersToPx(wM, scalesArg, currentPageId)
+        const hPx = metersToPx(hM, scalesArg, currentPageId)
         const c1 = openingDraftShape.corner1
         vertices = makeRectVerts(c1, { x: c1.x + wPx, y: c1.y + hPx })
       }
@@ -3224,8 +3226,9 @@ function App() {
     const wM = basis === 'frame' ? entry.frameWidthM : entry.roughWidthM
     const hM = basis === 'frame' ? entry.frameHeightM : entry.roughHeightM
     if (!wM || !hM) return
-    const wPx = wM * scale.pxPerMeter
-    const hPx = hM * scale.pxPerMeter
+    const scalesArg = { [currentPageId]: scale }
+    const wPx = metersToPx(wM, scalesArg, currentPageId)
+    const hPx = metersToPx(hM, scalesArg, currentPageId)
     const c1 = { x: pos.x - wPx / 2, y: pos.y - hPx / 2 }
     const c2 = { x: pos.x + wPx / 2, y: pos.y + hPx / 2 }
     const vertices = makeRectVerts(c1, c2)
