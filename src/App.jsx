@@ -124,6 +124,15 @@ const CONFIG_FIELDS = [
     multi: false,
     spawns: null,
   },
+  {
+    id: 'ti-heating',
+    category: 'Climate',
+    label: 'Indoor heating design temp (°C)',
+    kind: 'number',
+    placeholder: '— default 22 —',
+    multi: false,
+    spawns: null,
+  },
   // ── Assemblies ───────────────────────────────────────────────────────────
   {
     id: 'assembly-wall',
@@ -405,8 +414,8 @@ function resolveEffectiveConfig(rawValues) {
 // uw is in W/m²·K (metric); RSI_W = 1/uw in m²·°C/W.
 function getRsiW(uw) { return uw != null && uw > 0 ? 1 / uw : null }
 
-// F280 indoor heating design temperature (°C). Hardcoded pending a project config field.
-// TODO: add 'ti-heating' to CONFIG_FIELDS (Category: Climate) so users can override per project.
+// F280 indoor heating design temperature (°C). Module-level fallback when the
+// 'ti-heating' Climate CONFIG_FIELD is unset (see deriveF280Heating tiC seam).
 const F280_TI_HEATING = 22
 
 // deriveF280Heating — pure, derive-on-demand, stores nothing.
@@ -416,7 +425,9 @@ function deriveF280Heating(enumeration, resolvedConfig) {
   const tohC = resolvedConfig.toh ?? null
   if (tohC === null) return { status: 'no-climate', total: null }
 
-  const tiC = F280_TI_HEATING
+  // Ti from Project Setup 'ti-heating' (Climate) when set; else module fallback.
+  const tiRaw = resolvedConfig['ti-heating']
+  const tiC = (tiRaw != null && !isNaN(Number(tiRaw))) ? Number(tiRaw) : F280_TI_HEATING
   const deltaT = tiC - tohC
 
   const bySurfaceKind = {
@@ -536,6 +547,9 @@ function App() {
   const [openingDraftIn, setOpeningDraftIn] = useState('')             // width in
   const [openingDraftHFt, setOpeningDraftHFt] = useState('')           // height ft
   const [openingDraftHIn, setOpeningDraftHIn] = useState('')           // height in
+  const [openingDraftUw, setOpeningDraftUw] = useState('')             // U-value W/m²K (window + door)
+  const [openingDraftShgc, setOpeningDraftShgc] = useState('')         // SHGC 0–1 (window only)
+  const [openingEditId, setOpeningEditId] = useState(null)             // 'sh-N' when re-editing a placed opening; null = new placement
   const [showDimBasisDialog, setShowDimBasisDialog] = useState(false)  // first-use gate
   // ── Place-from-entry (holding area → single-click placement) ─────────────────
   const [placingFromEntry, setPlacingFromEntry] = useState(false)
@@ -1983,6 +1997,18 @@ function App() {
 
   // ── Canvas mouse handlers ─────────────────────────────────────────────────
 
+  // Double-click a placed opening in Edit Shapes (default sub-mode) to re-open the
+  // Opening Details dialog pre-populated. Only openings are re-editable this way.
+  const handleMeasureDoubleClick = (e) => {
+    if (!editMode || editSubModeRef.current !== null) return
+    const pos = getCanvasPos(e)
+    const idx = hitTestShapeBody(pos)
+    if (idx === null) return
+    const shape = completedShapesRef.current[idx]
+    if (!shape || !isOpening(shape)) return
+    openOpeningEditDialog(shape)
+  }
+
   const handleMeasureMouseDown = (e) => {
     // Carve mode: start a drag rectangle to define a new region-page.
     if (carveMode) {
@@ -3262,7 +3288,36 @@ function App() {
       setOpeningDraftHFt(String(hFt))
       setOpeningDraftHIn(hInPart.toFixed(1))
     }
+    // New placement: blank performance fields, not a re-edit.
+    setOpeningDraftUw('')
+    setOpeningDraftShgc('')
+    setOpeningEditId(null)
     setOpeningDraftShape({ vertices, corner1 })
+  }
+
+  // Re-edit entry: seed ALL draft state from an existing placed opening record
+  // (not from pixels), then open the same Opening Details dialog. confirmOpening
+  // updates the record in place (matched by editId) instead of creating a new one.
+  const openOpeningEditDialog = (shape) => {
+    const kind = shape.shapeKind === 'door' ? 'door' : 'window'
+    setOpeningDraftKind(kind)
+    setOpeningDraftType(shape.openingType || OPENING_TYPES[0])
+    setOpeningDraftLabel(shape.label || '')
+    if (shape.widthM != null) {
+      const wIn = metersToInches(shape.widthM)
+      setOpeningDraftFt(String(Math.floor(wIn / 12)))
+      setOpeningDraftIn((wIn % 12).toFixed(1))
+    } else { setOpeningDraftFt(''); setOpeningDraftIn('') }
+    if (shape.heightM != null) {
+      const hIn = metersToInches(shape.heightM)
+      setOpeningDraftHFt(String(Math.floor(hIn / 12)))
+      setOpeningDraftHIn((hIn % 12).toFixed(1))
+    } else { setOpeningDraftHFt(''); setOpeningDraftHIn('') }
+    setOpeningDraftUw(shape.uw != null ? String(shape.uw) : '')
+    setOpeningDraftShgc(shape.shgc != null ? String(shape.shgc) : '')
+    setOpeningEditId(shape.id)
+    // corner1 = existing top-left so a dimension change re-anchors from the same corner.
+    setOpeningDraftShape({ vertices: shape.vertices, corner1: shape.vertices[0], editId: shape.id })
   }
 
   const confirmOpening = () => {
@@ -3283,32 +3338,68 @@ function App() {
         vertices = makeRectVerts(c1, { x: c1.x + wPx, y: c1.y + hPx })
       }
     }
-    completedShapesRef.current = [
-      ...completedShapesRef.current,
-      {
-        id: nextShapeId(),
-        vertices,
-        pageId: currentPageId,
-        status: 'locked',
-        shapeKind: openingDraftKind,
-        openingType: openingDraftType,
-        label: openingDraftLabel,
-        widthM: storedWidthM,
-        heightM: storedHeightM,
-        dimBasis: dimensionBasisRef.current,
-        uw: null,
-        shgc: openingDraftKind === 'door' ? 0 : null,
-      },
-    ]
+    // Performance fields — INDEPENDENT of the widthM/heightM storage gate; written
+    // unconditionally so a manual record is byte-identical in shape to placeOpeningFromEntry.
+    const uwParsed = parseFloat(openingDraftUw)
+    const uwVal = (openingDraftUw === '' || isNaN(uwParsed)) ? null : uwParsed
+    const shgcParsed = parseFloat(openingDraftShgc)
+    const shgcVal = openingDraftKind === 'door'
+      ? 0                                                              // opaque-door rule (#104)
+      : ((openingDraftShgc === '' || isNaN(shgcParsed)) ? null : shgcParsed)
+
+    const editId = openingDraftShape.editId ?? null
+    if (editId) {
+      // Re-edit: update the existing record in place (same id) — no duplicate.
+      // isOpening guard: re-edit only ever targets openings; guards against any
+      // id collision with a non-opening shape (a DEV fixture-restore quirk where
+      // shapeIdCounterRef is not restored). Behaviour-identical in production.
+      completedShapesRef.current = completedShapesRef.current.map(s =>
+        (isOpening(s) && s.id === editId)
+          ? {
+              ...s,
+              vertices,
+              shapeKind: openingDraftKind,
+              openingType: openingDraftType,
+              label: openingDraftLabel,
+              widthM: storedWidthM,
+              heightM: storedHeightM,
+              dimBasis: dimensionBasisRef.current,
+              uw: uwVal,
+              shgc: shgcVal,
+            }
+          : s
+      )
+    } else {
+      completedShapesRef.current = [
+        ...completedShapesRef.current,
+        {
+          id: nextShapeId(),
+          vertices,
+          pageId: currentPageId,
+          status: 'locked',
+          shapeKind: openingDraftKind,
+          openingType: openingDraftType,
+          label: openingDraftLabel,
+          widthM: storedWidthM,
+          heightM: storedHeightM,
+          dimBasis: dimensionBasisRef.current,
+          uw: uwVal,
+          shgc: shgcVal,
+        },
+      ]
+    }
     setOpeningDraftShape(null)
+    setOpeningEditId(null)
     setOpeningCorner1(null)
     setPlacingOpeningMode(false)
     restoreSnapIncrement()
+    setEnumerationTick(t => t + 1)
     redrawFrontFaceLayer(null)
   }
 
   const discardOpening = () => {
     setOpeningDraftShape(null)
+    setOpeningEditId(null)
     setOpeningCorner1(null)
     setPlacingOpeningMode(false)
     restoreSnapIncrement()
@@ -7768,7 +7859,7 @@ function App() {
                           <input
                             type="number"
                             step="0.5"
-                            placeholder="— auto from station —"
+                            placeholder={field.placeholder ?? '— auto from station —'}
                             className="ps-select ps-count-input"
                             value={psCountDrafts[field.id] ?? (current != null ? String(current) : '')}
                             onChange={e => {
@@ -8607,6 +8698,7 @@ function App() {
               onMouseDown={handleMeasureMouseDown}
               onMouseUp={handleMeasureMouseUp}
               onClick={handleMeasureClick}
+              onDoubleClick={handleMeasureDoubleClick}
               onMouseMove={handleMeasureMouseMove}
             />
           </div>
@@ -8887,12 +8979,30 @@ function App() {
                 <span className="fh-unit">in</span>
               </div>
             </div>
-            <div className="fh-field-row" style={{ marginBottom: 16 }}>
+            <div className="fh-field-row" style={{ marginBottom: 10 }}>
               <span className="fh-field-label">Label</span>
               <input type="text" className="fh-input" placeholder="optional"
                 value={openingDraftLabel}
                 onChange={e => setOpeningDraftLabel(e.target.value)} />
             </div>
+            <div className="fh-field-row" style={{ marginBottom: openingDraftKind === 'window' ? 10 : 16 }}>
+              <span className="fh-field-label">U-value (W/m²K)</span>
+              <div className="fh-input-group">
+                <input type="number" className="fh-input fh-input--sm" placeholder="optional" min="0" step="0.01"
+                  value={openingDraftUw}
+                  onChange={e => setOpeningDraftUw(e.target.value)} />
+              </div>
+            </div>
+            {openingDraftKind === 'window' && (
+              <div className="fh-field-row" style={{ marginBottom: 16 }}>
+                <span className="fh-field-label">SHGC (0–1)</span>
+                <div className="fh-input-group">
+                  <input type="number" className="fh-input fh-input--sm" placeholder="optional" min="0" max="1" step="0.01"
+                    value={openingDraftShgc}
+                    onChange={e => setOpeningDraftShgc(e.target.value)} />
+                </div>
+              </div>
+            )}
             <div className="modal-actions">
               <button className="btn-secondary" onClick={discardOpening}>Cancel</button>
               <button className="btn-primary" onClick={confirmOpening}>Confirm</button>
