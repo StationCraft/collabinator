@@ -95,7 +95,8 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#91** — roof multi-shape; per-shape metadata already on the shape object; runtime triage (a) + post-close picker target-by-index + per-shape role scope.
 - **#95** — angled-elevation-edge opening fixture; formula handles diagonals by construction — build a diagonal-edge fixture + verify (low-priority test coverage).
 - **#105** — climate-resiliency mode; F280 conductive endpoint + Toh override exist (Session 54/56) → MET; additive view.
-- **#106 / #107 / #108** — assembly-inheritance default / flat-roof U-input UI / window-door `uw` post-placement edit. Geometry-stable review passed (Session 70); no geometry dep — buildable now (near-term thermal arc).
+- **#106** — assembly-inheritance default. **DONE (Session 75; commit `f2d5a57`).** Project Setup assemblies feed `getSurfaceAssembly` miss path as `source:'project-default'`; per-surface entries override; placeholder 1/R U-values (values pass pending). Incidentally satisfies #107's default case.
+- **#107 / #108** — flat-roof U-input UI / window-door `uw` post-placement edit. Geometry-stable review passed (Session 70); no geometry dep — buildable now (near-term thermal arc). #107's default case now handled by #106; the explicit per-surface override input for multi-assembly roofs remains.
 - **#119** — split `OPENING_TYPES` → `WINDOW_TYPES`/`DOOR_TYPES` + dialog branch; low impact (opening-entry polish).
 - **#121** — self-heal `shapeIdCounterRef` (+ps/ss) to max+1 on `__restoreFixture` (mirrors `regionCounterRef`); investigate then build.
 - **#122** — seed `fhFtVals`/`fhInVals` from `floorHeightsRef` on load/restore; pre-existing, no coord dep (FH-panel polish).
@@ -2070,10 +2071,10 @@ The `flat-roof-surface` elements appear in the Envelope panel (one row per confi
 
 **Fix:** Add the same `enum-assembly-inputs` block to the flat-roof panel section that exists for wall surfaces. Three inputs: U-value (W/m²K), thickness (mm), Confirm button — same `onBlur` handler writing to `surfaceAssemblyRef.current[el.id]`.
 
-**Note:** This gap is also resolved incidentally by #106 (project-level default reads `assembly-roof` CONFIG_FIELD). The per-surface override UI is still worth building for multi-assembly roofs.
+**Note:** The default case is now resolved by #106 (**DONE Session 75** — flat-roof `getSurfaceAssembly` miss path reads the `assembly-roof` CONFIG_FIELD and returns `source:'project-default'`). The per-surface override UI is still worth building for multi-assembly roofs.
 
-**Status:** **gate-lifted-ready — geometry-stable review passed (Session 70).** Incidentally addressed
-by #106 default-inherit; explicit per-surface UI is a follow-on. No geometry dependency.
+**Status:** **default case DONE via #106 (Session 75);** explicit per-surface U-input UI for flat-roof rows is
+the remaining follow-on (gate-lifted-ready, no geometry dependency).
 
 ---
 

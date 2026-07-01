@@ -632,7 +632,7 @@ line as the final exterior face.
 
 **`deriveF280Heating(enumeration, resolvedConfig)`** — pure, derive-on-demand, never stored. Called at render time from the F280 Results panel. Two arguments: the return value of `deriveEnumeration()` and `resolveEffectiveConfig(projectSetupRef.current.values)`.
 
-**`F280_TI_HEATING = 22`** — module-level const (°C); hardcoded indoor heating design temperature. A comment marks the future `ti-heating` CONFIG_FIELDS entry (#106).
+**`F280_TI_HEATING = 22`** — module-level const (°C); hardcoded indoor heating design temperature. A comment marks the future `ti-heating` CONFIG_FIELDS entry — a SEPARATE open item (the `ti-heating` note in ADDITIONAL_FUNCTIONALITY.md), NOT #106 (which is done and did not add it).
 
 **No-climate guard:** if `resolvedConfig.toh` is null → returns `{ status:'no-climate', total:null }`. No ΔT computation against null.
 
@@ -666,7 +666,7 @@ line as the final exterior face.
 
 **`window.__dumpF280()`** — DEV console function; prints ΔT, per-kind summary (area/U_avg/loss/unresolved-count), subtotal in W and kW, `notModeled[]`. Tree-shakes from production.
 
-**Unresolved-U coverage:** 9/10 walls show `[unresolved U]` on the Bates fixture because `surfaceAssemblyRef` had only one entry when the snapshot was saved — not a seam bug. See #106 for the assembly-inheritance fix that wires Project Setup assemblies to the `getSurfaceAssembly` miss path.
+**Unresolved-U coverage:** walls with no `surfaceAssemblyRef` entry formerly showed `[unresolved U]`. **#106 (DONE Session 75; commit `f2d5a57`)** wires Project Setup assemblies to the `getSurfaceAssembly` miss path as a project-level default (`ASSEMBLY_TYPE_DEFAULTS` lookup, placeholder 1/R U-values), so a surface with no per-surface entry now inherits `source:'project-default'` when the matching Project Setup assembly is set. Precedence: explicit manual/library ref > project-default > unset. Verified: setting `assembly-wall` drops the wall `unresolvedCount` 8→0 on the elevation fixture; `__verifyFixture` 44/44 (unset-assembly fixture unchanged).
 
 ---
 

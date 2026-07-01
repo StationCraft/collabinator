@@ -37,6 +37,7 @@ file concurrently and eliminates merge conflicts between the two repos.
 | Slice 5 | F280 climate layer: `src/data/f280-weather.json` (679 stations national); `location-station` + `toh-override` CONFIG_FIELDS; `resolve-toh` cross-field rule in `resolveEffectiveConfig`; `kind:'number'` panel render branch; `__verifyToh()` 6/6 PASS | `e7a52bf` | 2026-06-28 |
 | Slice 6 | Flat-roof ceiling surface in `deriveEnumeration()` STEP A.5: shoelace area of `roofType:'flat'` polygons in world meters, one `flat-roof-surface` element per confirmed roof page; `insideFaceAreaM2`, `roofCeilingZm`, full assembly seam. Harness check (s)/(s.area) added; 44/44 PASS. | `dccce9e` | 2026-06-28 |
 | Slice 7 | F280 above-grade conductive endpoint: `deriveF280Heating(enumeration, resolvedConfig)` — pure derive-on-demand; `F280_TI_HEATING=22`; four surface kinds (wall/flat-roof/window/door); no-climate guard; `notModeled[]` explicit incompleteness list; extensible spine. F280 Results sidebar tab + panel. `__dumpF280()` DEV hook. NOT golden-gated. Strategic pivot: "nearly-compliant sooner." Building paused for geometry review. | (Session 56) | 2026-06-29 |
+| Slice 8 | #106 assembly-inheritance default: `ASSEMBLY_TYPE_DEFAULTS` lookup (8 keys, placeholder 1/R U-values, thickness null); `getSurfaceAssembly` miss-path returns `source:'project-default'` from Project Setup `assembly-wall`/`assembly-roof` (foundation/floor stubbed); precedence manual/library > project-default > unset; four non-miss paths byte-for-byte unchanged; `.enum-assembly-inherited` amber-italic Envelope row. Verified: `__verifyFixture` 44/44; wall `unresolvedCount` 8→0 on configured wall. Mechanism-only (values pass pending; `2x6-r22-ext2` flagged = base wall under literal rule). | `f2d5a57` | 2026-07-01 |
 
 **Deferred / logged:**
 - #96 — wall corner reconciliation (solid interpenetration + inside-face area overcount; overcount accepted for initial F280 pass)
@@ -46,8 +47,9 @@ file concurrently and eliminates merge conflicts between the two repos.
 - #105 — climate-change resiliency mode (extreme-Toh toggle alongside compliant result; gated on F280 endpoint + this Toh layer — both now present)
 
 **Next (Track A):**
-- Geometry back-to-basics review (planning session, no code) — gating all further F280 builds.
-- After review: #106 assembly-inheritance fix (Project Setup → getSurfaceAssembly miss path); #107 flat-roof UI gap; #108 window/door uw post-placement edit; below-grade + slab geometry; ground-coupled loss (separate engine); solar gain.
+- Geometry back-to-basics review — DONE (geometry-stable review passed, Session 70).
+- ~~#106 assembly-inheritance fix~~ — DONE (Session 75; Slice 8; commit `f2d5a57`).
+- Remaining: #107 flat-roof explicit per-surface U-input UI (default case handled by #106); #108 window/door uw post-placement edit; `ti-heating` CONFIG_FIELD (cheap adjacent win); below-grade + slab geometry; ground-coupled loss (separate engine); solar gain.
 - Ground-coupled F280 note: `BasementHLR.xls` / `SlabOnGradeHLR.xls` are standalone supplemental calculators (separate from above-grade). Base-level interim = U·A·ΔT vs a ground temperature once below-grade geometry is modeled; full workbook method is the compliance pass.
 
 ---

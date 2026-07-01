@@ -779,7 +779,8 @@ A React + Vite app with:
     disambiguation, station→toh, override wins, null fallback); all 6 PASS. Tree-shakes from prod.
 
 - **F280 above-grade conductive endpoint (Session 56; DONE):**
-  * **`F280_TI_HEATING = 22`** (module-level const, °C; hardcoded — see #106 for future config field).
+  * **`F280_TI_HEATING = 22`** (module-level const, °C; hardcoded — future `ti-heating` CONFIG_FIELD is a
+    SEPARATE open item, see the `ti-heating` note in ADDITIONAL_FUNCTIONALITY.md; NOT #106, which is done).
   * **`deriveF280Heating(enumeration, resolvedConfig)`** — pure, derive-on-demand. No-climate guard
     (returns `{status:'no-climate'}` if `toh===null`). Four surface kinds in `bySurfaceKind` map
     (`'wall-surface'` / `'flat-roof-surface'` / `'window'` / `'door'`). Surfaces missing U-value:
@@ -794,13 +795,40 @@ A React + Vite app with:
     compliance is a later pass." Building is **PAUSED for a geometry back-to-basics review**.
     Geometry layer (wireframe / enumeration) is layer one; F280 is downstream. No further thermal
     builds start until the geometry model is reviewed and confirmed stable.
-  * **Dual-entry UI trap identified:** `CONFIG_FIELDS` `assembly-wall`/`assembly-foundation`/
-    `assembly-roof`/`assembly-floor` in Project Setup are NEVER read by `getSurfaceAssembly`.
-    Envelope panel per-surface U inputs are the ONLY load-bearing path. Fix scoped as #106.
-  * **Near-term thermal arc (all gated on geometry review):** #106 assembly-inheritance fix →
-    #107 flat-roof UI gap → #108 window/door uw post-placement edit → below-grade + slab geometry →
-    ground-coupled loss (separate engine from above-grade, using supplemental `BasementHLR.xls` /
-    `SlabOnGradeHLR.xls` calculators) → solar gain.
+  * **Dual-entry UI trap — RESOLVED by #106 (Session 75; commit `f2d5a57`):** the `CONFIG_FIELDS`
+    `assembly-wall`/`assembly-foundation`/`assembly-roof`/`assembly-floor` selections were previously NEVER
+    read by `getSurfaceAssembly`. #106 wires them in as the project-level DEFAULT on the miss path; per-surface
+    Envelope U inputs still override. See the `#106 assembly-inheritance default` entry below.
+  * **Near-term thermal arc (geometry review gate satisfied):** ~~#106 assembly-inheritance fix~~ **DONE
+    (Session 75)** → #107 flat-roof per-surface U-input UI (default case already handled by #106) → #108
+    window/door uw post-placement edit → below-grade + slab geometry → ground-coupled loss (separate engine
+    from above-grade, using supplemental `BasementHLR.xls` / `SlabOnGradeHLR.xls` calculators) → solar gain.
+
+- **#106 assembly-inheritance default (Session 75; commit `f2d5a57`; DONE):** Project Setup assembly
+  selections feed `getSurfaceAssembly` as a project-level default. Mechanism-only slice (placeholder U-values).
+  * **`ASSEMBLY_TYPE_DEFAULTS`** (module-level, ~line 240) — keyed VERBATIM by the eight Assemblies
+    `CONFIG_FIELDS` `option.value` strings. `effectiveUValue = 1/R` (nominal R-number from the key; **air films
+    NOT baked in** — provisional, replaced in a later values pass). `thicknessM: null` on all eight (thickness
+    NOT defaulted this slice). Values: `2x6-r22`/`2x6-r22-ext2`=1/22; `8in-concrete-frost`=1/12 (placeholder
+    R12); `icf`=1/22 (placeholder R22); `vented-attic-r50`=1/50; `unvented-cathedral-r40`=1/40; `eng-i-joist`/
+    `open-web-truss`=1/22 (placeholder R22). ⚠ `2x6-r22-ext2`=1/22 is identical to `2x6-r22` under the literal
+    rule (the +2″ exterior insulation R is not encoded in the key) — real value belongs to the values pass.
+  * **`getSurfaceAssembly` miss-path extension** (~lines 5849–5869; `source:'project-default'` return line
+    5865): the `if (!ref)` early-return became a block. Surface kind from `surfaceId` prefix (`wall-` →
+    `assembly-wall`/`'wall'`; `flat-roof-` → `assembly-roof`/`'roof'`; commented stubs for `foundation-`/
+    `floor-`); reads Project Setup via `getConfigValue(fieldId)`; table hit → `{ ..., source:'project-default',
+    assemblyType, assemblyId:null }`, else the unchanged `'unset'` shape. **Precedence: explicit
+    `surfaceAssemblyRef` entry (manual/library) > project-default > unset.** The four non-miss paths
+    (manual / library / library-unresolved / fallthrough) are BYTE-FOR-BYTE UNCHANGED.
+  * **New `source` vocabulary value `'project-default'`** alongside `unset`/`manual`/`library`/
+    `library-unresolved`. Envelope panel wall + flat-roof rows render it as a distinct amber-italic
+    "Project default · U=… · t=…" (`.enum-assembly-inherited` in App.css); `__dumpEnumeration` prints it via
+    the existing `${el.assemblySource}` interpolation. F280 panel shows no per-surface source (aggregate) — the
+    observable effect there is `unresolvedCount` dropping.
+  * **Verified (Claude preview, fixture-elevation):** `__verifyFixture` 44/44 (fixture assembly-wall unset ⇒
+    no behavior change); setting `assembly-wall` flips all unset walls to `project-default` while library/manual
+    stay; `flat-roof` stays unset until `assembly-roof` set (per-kind independence); `__dumpF280` wall
+    `unresolvedCount` 8→0 on configured wall (loss 477→557 W).
 
 - **Page-region model #5 — Fork A verified + Fork B built (Session 59; commit 4928a5a):**
   * **Fork A (commit f41cb7c, Session 58) navigation gate CLEARED** — `currentPageId` (first-class
@@ -902,8 +930,9 @@ A React + Vite app with:
   don't render on a carved region) logged OPEN, gate-still-real. See BUILD_ROADMAP.md §⏸ and the
   ADDITIONAL_FUNCTIONALITY.md sweep block.
 - **Settled near-term sequence (Session 70):** Beat 0 cheap wins (#53, #118, #112) → #29 derived
-  elevations → thermal arc (#106/#107/#108, geometry-review gate satisfied). #125 is an OPEN render-gap
-  bug, NOT a #29 dependency.
+  elevations → thermal arc (~~#106~~ **DONE Session 75** / #107 flat-roof explicit-UI follow-on / #108
+  window-door uw edit, geometry-review gate satisfied). #125 is an OPEN render-gap bug, NOT a #29 dependency.
+  Adjacent cheap wins now: #107 explicit per-surface flat-roof U-input, `ti-heating` CONFIG_FIELD.
 - **#29 (derived elevations) — FIRST PIECE DONE (Session 71; commit ed43c6d):** aligned-edge
   setback/protrusion hover-label. On an elevation page with an aligned edge (`elevationEdgeRef`), the
   source floor plan renders as a toggleable amber ghost via the EXISTING ghost mechanism

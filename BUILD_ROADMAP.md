@@ -437,12 +437,14 @@ is arranged so most beats are things Ben can see.
     STRATEGIC PIVOT (Session 56): target shifts to "nearly-compliant full heat loss/gain sooner;
     compliance as a later pass." Building paused for geometry back-to-basics review.
 
-    NEAR-TERM ARC (all gated on geometry review first):
-    [ ] #106 — Assembly-inheritance fix: wire CONFIG_FIELDS assembly-wall/roof/floor/foundation to
-        getSurfaceAssembly miss path; add U-value lookup table; make Project Setup the project-level
-        default, Envelope panel inputs per-surface overrides. Unlocks full wall U-coverage.
-    [ ] #107 — Flat-roof UI gap: add assembly/U input block to Envelope panel for flat-roof-surface
-        rows (App.jsx ~7339–7350). Incidentally handled by #106 default-inherit.
+    NEAR-TERM ARC (geometry-review gate satisfied):
+    [x] #106 — Assembly-inheritance default. DONE (Session 75; commit f2d5a57). CONFIG_FIELDS
+        assembly-wall/roof (+ commented foundation/floor stubs) wired to getSurfaceAssembly miss path via
+        ASSEMBLY_TYPE_DEFAULTS lookup (placeholder 1/R U-values); Project Setup = project-level default,
+        Envelope panel inputs = per-surface overrides. Precedence manual/library > project-default > unset.
+        Verified: __verifyFixture 44/44; wall unresolvedCount 8→0 on configured wall.
+    [ ] #107 — Flat-roof UI gap: DEFAULT case now handled by #106 (flat-roof reads assembly-roof). Remaining:
+        explicit per-surface U-input block on flat-roof-surface Envelope rows for multi-assembly roofs.
     [ ] #108 — Window/door uw post-placement edit: add edit dialog to change uw/shgc after placement.
     [ ] Below-grade + slab geometry: geometry modeled before loss engine built.
     [ ] Ground-coupled base-level loss: SEPARATE engine (BasementHLR.xls / SlabOnGradeHLR.xls method;
@@ -519,8 +521,9 @@ reconciliation is this pass. Settled near-term order after (b) lands and docs re
      face) + angled-reference projection branch (fixture is axis-aligned). Hue-subtlety cosmetic logged as
      #129 (defer until protruding fixture available). Remaining: confirm-view posture (B) — open architecture
      question (may dissolve under plan-is-source-of-truth model; no build until resolved in planning chat).
-  3. **Thermal arc:** #106 (assembly-inheritance default), #107 (flat-roof UI gap), #108 (window/door
-     `uw` post-placement edit) — geometry-review gate SATISFIED (geometry-stable review passed after the
+  3. **Thermal arc:** #106 (assembly-inheritance default) — **DONE (Session 75; commit f2d5a57)**; #107
+     (flat-roof explicit per-surface U-input; default case handled by #106), #108 (window/door `uw`
+     post-placement edit) — geometry-review gate SATISFIED (geometry-stable review passed after the
      #117/#124 frame work).
 A parallel-track approach for #106–108 was considered and REJECTED — all three live inside App.jsx (shared
 ground); branch-management overhead is not worth it for a ~5–6 session arc. Run them sequentially on main.

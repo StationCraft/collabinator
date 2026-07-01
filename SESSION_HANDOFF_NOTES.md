@@ -10,6 +10,70 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 75 — #106 assembly-inheritance default DONE (2026-07-01)
+
+**Branch:** main | **Code commit:** `f2d5a57` | **Docs commit:** (this close-out).
+
+**What this session built:** #106 — Project Setup assembly selections now feed `getSurfaceAssembly` as a
+**project-level default** on the miss path; per-surface Envelope entries still override. Mechanism-only slice
+with placeholder U-values (values pass deferred). Recon-first (read-only report), then built, then verified
+end-to-end in Claude's preview harness.
+
+**Three-tier precedence (proven at runtime):** explicit `surfaceAssemblyRef` entry (`manual`/`library`) **wins
+over** project-default **wins over** `unset`. Project-default is consulted ONLY when there is no ref entry at all.
+
+**Changes (all in App.jsx unless noted):**
+1. **`ASSEMBLY_TYPE_DEFAULTS`** (module-level, ~line 240) — keyed verbatim by the eight Assemblies
+   `CONFIG_FIELDS` `option.value` strings. U = 1/R (nominal R-number parsed from the key; **air films NOT baked
+   in** — provisional). `thicknessM: null` on all eight (thickness NOT defaulted this slice). Every entry carries
+   `// PLACEHOLDER U — nominal 1/R, refine later (#106)`.
+2. **Miss-path extension** in `getSurfaceAssembly` (~lines 5849–5869; return line 5865) — the `if (!ref)`
+   early-return became a block. Surface kind from `surfaceId` prefix: `wall-` → `assembly-wall`/`'wall'`,
+   `flat-roof-` → `assembly-roof`/`'roof'`; commented stubs for `foundation-`/`floor-`. Reads Project Setup via
+   `getConfigValue(fieldId)`; on a table hit returns `source:'project-default'`, else the unchanged `'unset'`
+   shape. **The four non-miss paths (manual / library / library-unresolved / fallthrough) are byte-for-byte
+   unchanged.**
+3. **Display** — Envelope panel wall row (~8305) + flat-roof row (~8367) get a distinct amber-italic
+   "Project default · U=… · t=…" branch (new `.enum-assembly-inherited` in App.css). `__dumpEnumeration` already
+   interpolated `${el.assemblySource}` so `project-default` prints with no code change. F280 panel shows no
+   per-surface source (aggregate-by-kind), so no distinct render applies there — the observable effect is
+   `unresolvedCount` dropping.
+
+**The eight placeholder U-values:** `2x6-r22`=1/22=0.0455; `2x6-r22-ext2`=1/22=0.0455 (⚠ see fork);
+`8in-concrete-frost`=1/12=0.0833 (no R in key — placeholder R12); `icf`=1/22=0.0455 (placeholder R22);
+`vented-attic-r50`=1/50=0.0200; `unvented-cathedral-r40`=1/40=0.0250; `eng-i-joist`=1/22=0.0455 (placeholder
+R22); `open-web-truss`=1/22=0.0455 (placeholder R22).
+
+**⚠ Flagged fork — `2x6-r22-ext2`:** the only R-number token in the key is `r22`, so the literal rule yields
+1/22 — **identical to `2x6-r22`**; the `+2″ exterior insulation` R is not encoded in the key. Applied the literal
+rule + inline comment rather than inventing an exterior-R value. Ben's call in the values pass (that's where the
+real, lower value belongs).
+
+**Runtime verification (Claude preview, fixture-elevation):**
+- `__verifyFixture()` → **✓ ALL 44 checks PASSED** (fixture's assembly-wall unset ⇒ miss path still returns
+  `unset` ⇒ zero behavior change; golden sidecar untouched).
+- Enumeration with `assembly-wall` set to `2x6-r22`: all 8 previously-`unset` walls → `project-default U=0.0455
+  t=null`; `wall-sh-1-seg0` stayed `library` (0.28); `wall-sh-1-seg2` stayed `manual` (0.25); `flat-roof-page-7`
+  stayed `unset` (only assembly-wall set — proves per-kind independence).
+- `__dumpF280()` wall bucket, assembly-wall off→on: **`[8 unresolved U]` → 0 unresolved**, loss 477→557 W.
+- Envelope panel: 8 amber-italic ("Project default") rows verified via computed style (`rgb(251,191,36)`,
+  italic) + screenshot; U-input pre-seeded with inherited value so it can be overridden to `manual`.
+
+**Still open (flagged, not blocking):**
+- `2x6-r22-ext2` placeholder value (values pass).
+- **`ti-heating` CONFIG_FIELD unbuilt** — `F280_TI_HEATING = 22` still hardcoded. This is a SEPARATE item (the
+  ti-heating note in ADDITIONAL_FUNCTIONALITY.md), NOT #106. Corrected the stale "#106" pointers that
+  conflated the two.
+- **#107 (flat-roof per-surface U-input UI)** is now incidentally satisfied for the default case by #106
+  (flat-roof reads `assembly-roof`); the explicit per-surface override input for multi-assembly roofs is the
+  remaining follow-on.
+
+**What's next:** thermal arc continues — #108 (window/door `uw` post-placement edit), then below-grade + slab
+geometry → ground-coupled loss → solar gain. #107 explicit-UI follow-on and the `ti-heating` field are cheap
+adjacent wins. Confirm-view posture (B) for #29 remains an open planning question.
+
+---
+
 ## SESSION 74 — #29 multi-face derivation DONE + gitignore cleanup (2026-07-01)
 
 **Branch:** main | **Code commit:** `871ca67` | **Cleanup commit:** `928b39a` | **Docs commit:** (this close-out).
