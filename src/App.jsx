@@ -11,7 +11,7 @@ import {
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform } from './coords.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform, similarityFromHandleDrag, screenDeltaToWorld } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -2536,20 +2536,13 @@ function App() {
       const drag = alignDragRef.current
       if (drag) {
         if (drag.mode === 'scale') {
-          const pos = getCanvasPos(e)
-          const d1 = Math.hypot(pos.x - drag.ax, pos.y - drag.ay)
-          const rawS = drag.startS * (d1 / drag.d0)
-          const newS = Math.max(0.05, Math.min(20, rawS))
-          const ratio = newS / drag.startS
-          const tx1 = drag.ax - (drag.ax - drag.startTx) * ratio
-          const ty1 = drag.ay - (drag.ay - drag.startTy) * ratio
+          const { tx, ty, s } = similarityFromHandleDrag(drag, getCanvasPos(e), 0.05, 20)
           const prev = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
-          pageTransformsRef.current[drag.pageId] = { ...prev, tx: tx1, ty: ty1, s: newS, angle: 0 }
+          pageTransformsRef.current[drag.pageId] = { ...prev, tx, ty, s, angle: 0 }
         } else {
-          const dx = (e.clientX - drag.startClientX) / zoomRef.current
-          const dy = (e.clientY - drag.startClientY) / zoomRef.current
+          const d = screenDeltaToWorld({ x: e.clientX - drag.startClientX, y: e.clientY - drag.startClientY }, zoomRef.current)
           const prev = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
-          pageTransformsRef.current[drag.pageId] = { ...prev, tx: drag.startTx + dx, ty: drag.startTy + dy }
+          pageTransformsRef.current[drag.pageId] = { ...prev, tx: drag.startTx + d.x, ty: drag.startTy + d.y }
         }
         setAlignTick(t => t + 1)
       }
@@ -2582,21 +2575,14 @@ function App() {
       const drag = alignDragRef.current
       if (drag) {
         if (drag.mode === 'scale') {
-          const pos = getCanvasPos(e)
-          const d1 = Math.hypot(pos.x - drag.ax, pos.y - drag.ay)
-          const rawS = drag.startS * (d1 / drag.d0)
-          const newS = Math.max(0.05, Math.min(20, rawS))
-          const ratio = newS / drag.startS
-          const tx1 = drag.ax - (drag.ax - drag.startTx) * ratio
-          const ty1 = drag.ay - (drag.ay - drag.startTy) * ratio
+          const { tx, ty, s } = similarityFromHandleDrag(drag, getCanvasPos(e), 0.05, 20)
           const prevScale = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
-          pageTransformsRef.current[drag.pageId] = { ...prevScale, tx: tx1, ty: ty1, s: newS, angle: 0 }
+          pageTransformsRef.current[drag.pageId] = { ...prevScale, tx, ty, s, angle: 0 }
         } else {
           // mode: 'translate'
-          const dx = (e.clientX - drag.startClientX) / zoomRef.current
-          const dy = (e.clientY - drag.startClientY) / zoomRef.current
+          const d = screenDeltaToWorld({ x: e.clientX - drag.startClientX, y: e.clientY - drag.startClientY }, zoomRef.current)
           const prev = pageTransformsRef.current[drag.pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
-          pageTransformsRef.current[drag.pageId] = { ...prev, tx: drag.startTx + dx, ty: drag.startTy + dy }
+          pageTransformsRef.current[drag.pageId] = { ...prev, tx: drag.startTx + d.x, ty: drag.startTy + d.y }
         }
         setAlignTick(t => t + 1)
       }
