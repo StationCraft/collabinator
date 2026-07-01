@@ -41,8 +41,10 @@ SURFACES (B6/#54 fill) as done.
 
 **CLOSED (done / resolved / superseded — no live gate):** #3, #5, #10(c), #15 (built; only
 reassignment-UI open), #30, #31, #52, #55, #61 (role-label done; person-name open), #69, #78 (resolved
-through #79 scopes), #85, #89, #93, #94, #99, #109, #110, #111, #114, #115 (entry-gap; render question →
-#125), #117, #124.
+through #79 scopes), #85, #89, #93, #94, #99, #109, #110, #111, #112 (stale — `goToPageId` already
+reset `carveMode` since `5468153`/Session 64; carve-commit no longer navigates since `2521bbd`/Session 67;
+fix predated the Session-70 sweep), #114, #115 (entry-gap; render question → #125), #117, #118
+(Session 70+; c459622 — arrow-nav filter removed from three `navPages` lists), #124.
 
 **Architectural records / active invariants (no build gate):** #17 (universal reference-layer — data
 shape adopted, behaviors gated on 3D-coord conversion), #19 (coplanar-distinctness), #21 (planes/edges
@@ -80,7 +82,6 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#39 / #40** — ref-line label stacking + unconfirmed-height indicator; floor-to-floor auto-grey; single-pass display changes, no dep.
 - **#42 / #43** — trackpad zoom-speed clamp; grade-line draw-UI copy; input/UI polish, no dep.
 - **#47** — snap-selector metric label fallback; cosmetic (control disabled anyway), batch #20.
-- **#53** — B4 cantilever/setback hover-label. Checkable: reconcile tags computed in `deriveEnumeration` STEP A (present) + hover-label render into `redrawFrontFaceLayer` → **MET**. Beat-0 cheap win.
 - **#54** — B6 envelope surfaces; B5 line-wireframe substrate exists → MET; off critical path (presentation).
 - **#56** — 3D axis-nub visibility; cosmetic AxesHelper resize/recolor, no dep.
 - **#57** — Project Setup full-page form; `CONFIG_FIELDS` rendering supports it, surface/layout only.
@@ -95,8 +96,6 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#95** — angled-elevation-edge opening fixture; formula handles diagonals by construction — build a diagonal-edge fixture + verify (low-priority test coverage).
 - **#105** — climate-resiliency mode; F280 conductive endpoint + Toh override exist (Session 54/56) → MET; additive view.
 - **#106 / #107 / #108** — assembly-inheritance default / flat-roof U-input UI / window-door `uw` post-placement edit. Geometry-stable review passed (Session 70); no geometry dep — buildable now (near-term thermal arc).
-- **#112** — `carveMode` not reset by nav; one-liner `setCarveMode(false)` in `goToPageId` (or accept sticky). Beat-0 cheap win.
-- **#118** — remove `!sheetsWithRegions` filter from the three `navPages` lists; `currentPageIsSourceSheet` gate is independent. Beat-0 cheap win.
 - **#119** — split `OPENING_TYPES` → `WINDOW_TYPES`/`DOOR_TYPES` + dialog branch; low impact (opening-entry polish).
 - **#121** — self-heal `shapeIdCounterRef` (+ps/ss) to max+1 on `__restoreFixture` (mirrors `regionCounterRef`); investigate then build.
 - **#122** — seed `fhFtVals`/`fhInVals` from `floorHeightsRef` on load/restore; pre-existing, no coord dep (FH-panel polish).
@@ -139,6 +138,7 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#102** — window-schedule reader asset. Missing: #28 unblocked (deep-review waypoint). Known asset for #46 Stage One.
 - **#104** — glazing-in-door sub-item. Missing: #44/#45 (parent/child + subdivision) + its own design pass (opaque-door model complete for F280 now).
 - **#120** — elevation-opening depth recede in 3D. Missing: elevation↔floor-plan wall association (auto-corner) mapping each opening to its host wall depth.
+- **#53** — SUPERSEDED-BY-#29. Reference datum changed: the correct reference is the aligned wall face (not the floor-below polygon). Checkable: needs #29's aligned wall-face reference-plane datum — NOT met (existing `reconcile` tags measure against the floor-below polygon, wrong datum). Word + signed distance (imperial), "protrusion"/"setback" vocabulary becomes a #29 sub-output. Do NOT build #53 code against the current reconcile datum.
 - **#125** — openings don't render on a carved region. Checkable: openings placed on a carved elevation region paint in the region overlay — NOT met; needs a focused read-only recon (entry-gap vs render/repaint vs pageId filter) before any fix. Beat-0/#29-adjacent candidate; NOT a #29 dependency and NOT instrumentation.
 
 ---
@@ -756,6 +756,15 @@ facing-direction stay as separate elements grouped by a `faceKey` (orientation-b
 cluster) so U-court / different-plane walls produce subset elevations automatically. No ghost-align,
 no freehand trace — the floor-plan polygon IS the geometry source.
 
+**#53 sub-output (Session 70+):** The aligned-face setback/protrusion hover-label (word + signed
+distance, imperial; "protrusion" = forward-of-face, "setback" = behind-face) becomes a #29 sub-output.
+Reference datum = the page's aligned wall face, NOT the floor-below polygon. Vocabulary: "protrusion"
+for forward-of-face, "setback" for behind-face.
+
+**OPEN RECON ITEM for #29 start:** Confirm whether an aligned/reference face exists on floor-plan
+pages or only on elevation pages (`elevationEdgeRef` is elevation-scoped today). This determines whether
+a floor-plan hover-label has a datum to measure against, or whether the hover-label is elevation-page-only.
+
 ---
 
 ### 30. Grade / soil line — Elevation Piece 4 sub-piece 2
@@ -1050,12 +1059,14 @@ Needs a short planning pass to verify the math is neutral before any code change
 **Logged:** Session 30, B4 close-out.
 **Description:** Hover a wall edge on a floor-plan page → show reconcile tag (cantilever / setback / coincident) + signed distance inline. No user input required — read-only derivation display.
 **Why deferred:** Needs a hover-label render pass wired into redrawFrontFaceLayer + drawEditCanvas; minor scope mid-B4. Deferred until panel/render work is active.
-**Status:** Deferred. Design alongside any future derivation annotation panel.
 
-**GATED-READY — resurfaced 2026-06-29.** #52 (enumeration panel) is done; reconcile tags
-(`cantilever` / `setback` / `coincident` + signed distance) are already computed in
-`deriveEnumeration` STEP A per wall edge. Cheap visible win — hover-label pass wired into
-`redrawFrontFaceLayer`. Interleave when convenient; no architectural dependency.
+**Status:** **SUPERSEDED-BY-#29 (Session 70+).** Reference datum changed: the correct reference is
+the **aligned wall face** (the PDF/elevation reference face), not the floor-below polygon. "Protrusion"
+means forward-of-face; "setback" means behind-face. This is a datum change, not a relabel — the existing
+`reconcile` tags in `deriveEnumeration` measure against the floor-below polygon (wrong datum). The
+hover-label (word + signed distance, imperial) becomes a #29 sub-output rather than a standalone cheap win.
+Do NOT build #53 code against the current reconcile datum. See #29 entry for the OPEN RECON ITEM on
+whether `elevationEdgeRef` (elevation-scoped today) can also serve floor-plan pages.
 
 ---
 
@@ -2152,8 +2163,8 @@ it resets every other mode — navigating exits carve; the multi-carve flow stil
 carve-commit path navigates via `renderPage` directly, not `goToPageId`), or (b) leave sticky and accept
 the "Exit carve" step. Recommend (a) for consistency.
 
-**Status:** Logged, not built. Low-risk one-liner; deferred as a UX decision (out of scope for the
-two render/counter defects fixed in Session 62).
+**Status:** **RESOLVED — stale entry, no build needed (Session 70+ recon).** Two findings:
+(a) `goToPageId` already resets `carveMode` at ~line 1013 (`setCarveMode(false); carveDragRef.current = null; setCarvePending(null); setCarveRegionName('')`) — present since commit `5468153`/Session 64, predating this entry. The description's "carve-commit path navigates via `renderPage` directly, not `goToPageId`" is also stale: since commit `2521bbd`/Session 67 the carve-commit path does **no navigation at all** — it stays on the source sheet and opens the forced-categorize modal. The bug described (carveMode leaking across arrow/sidebar nav) no longer applies. Fix predated the Session-70 sweep; the sweep missed it.
 
 ### 113. Build 2 change 2 — full-page carve reachability over the negative align overhang
 
@@ -2418,8 +2429,11 @@ all three `navPages` lists. Source sheets become arrow-reachable again; toolbar 
 Draw/Edit/Scale/Categorize on them (the `currentPageIsSourceSheet` gate is independent and
 unchanged). No geometry or coordinate change.
 
-**Status:** OPEN, low-risk. Flag for the next cleanup pass; can be batched with any other
-nav/toolbar polish work.
+**Status:** **DONE (Session 70+; commit c459622).** Arrow-nav filter `!sheetsWithRegions.has(p.pageId)`
+removed from all three `navPages` source lists (`categorizedLogical`, `uncategorizedLogical`,
+`allLogical`); source sheets are now arrow-reachable. Toolbar-suppression gate (`currentPageIsSourceSheet`)
+unchanged and browser-verified intact — Draw/Edit/Set Scale/Categorize remain suppressed on arrival.
+No geometry or coordinate change. `sheetsWithRegions` and its four other readers untouched.
 
 ### 119. Opening dialog option sets should differ between window and door
 
