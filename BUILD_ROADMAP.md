@@ -453,10 +453,24 @@ is arranged so most beats are things Ben can see.
         (isOpening-guarded, no duplicate); record shape identical to placeOpeningFromEntry. 44/44 golden PASS.
     [x] ti-heating CONFIG_FIELD — DONE (Session 76; commit 44615f2). deriveF280Heating tiC seam reads
         resolvedConfig['ti-heating'] with F280_TI_HEATING=22 fallback. Last hardcoded F280 input retired.
-    [ ] Below-grade + slab geometry: geometry modeled before loss engine built.
-    [ ] Ground-coupled base-level loss: SEPARATE engine (BasementHLR.xls / SlabOnGradeHLR.xls method;
-        soil conductivity, depth below grade, exposed perimeter, design month → single Watts result).
-        Base-level interim = U·A·ΔT vs a ground temperature once geometry is present.
+    [x] Below-grade + slab geometry — DONE (Session 77; commit afd0c58). Geometry-only, NO loss math.
+        Two new read-time deriveEnumeration surface kinds (no schema change, no per-vertex z lifted):
+        - STEP A.6 slab-surface: lowest-floor footprint → grossAreaM2 (shoelace) + soilContactPerimeterM
+          (Σ edge lengths) + floorZm; inherits assembly-floor project-default (floor- prefix now live).
+          Fixture cross-check EXACT (Crawlspace 19.742 m² / 20.4216 m).
+        - STEP A.7 below-grade-wall (#41 principle→BUILT): grade-line vertices → world-Z via elevYToWorldZ,
+          compared to reference-edge wall floorZ → belowGradeHeightM + belowGradeWallAreaM2; inherits
+          assembly-foundation project-default (foundation- prefix now live). Grade-Z v1 = mean vertex Z
+          (per-segment slope deferred, pairs with #88). Inherits #88 single-reference-edge limitation.
+          Honest-absence guards emit nothing (not a zero). Wall polygon NEVER carved.
+        notModeled[] / deriveF280Heating UNCHANGED — geometry did not remove anything from notModeled[]
+        (§5 worry #6). 44/44 golden PASS. Fixture reference edge targets Main Floor (above grade) + has no
+        grade line, so below-grade-wall correctly emits nothing there (fixture-setup note, not a bug).
+    [ ] Ground-coupled base-level loss — NOW/NEXT thermal work: SEPARATE engine (BasementHLR.xls /
+        SlabOnGradeHLR.xls method; soil conductivity, depth below grade, exposed perimeter, design month →
+        single Watts result) that CONSUMES the below-grade-wall + slab-surface quantities. This is the
+        first thermal work that will remove entries from notModeled[].
+        Base-level interim = U·A·ΔT vs a ground temperature (geometry now present).
     [ ] Solar gain: additive result row in deriveF280Heating.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED

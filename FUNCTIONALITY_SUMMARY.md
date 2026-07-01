@@ -747,6 +747,22 @@ Currently **44/44 PASS**.
 - Fields: `id` (`flat-roof-page-N`), `kind:'flat-roof-surface'`, `grossAreaM2`/`netAreaM2`/`openingAreaM2` (= gross/0), `insideFaceAreaM2` (= gross; horizontal ceiling, no thickness offset today), `roofCeilingZm` (top of wall-stack ceiling Z), full assembly seam (`effectiveUValue`, `effectiveRSI`, `controlLayers`, `thicknessM`, `assemblySource`).
 - Sloped/pitched surfaces deferred (#18). Visible in Envelope panel under "Flat Roof Surface".
 
+**Slab-surface elements** (in `deriveEnumeration` STEP A.6 output, Session 77; commit `afd0c58`):
+- One element from the LOWEST floor's wall polygon footprint (mirrors flat-roof shoelace + adds per-edge length).
+- Fields: `id` (`floor-page-N`), `kind:'slab-surface'`, `grossAreaM2`/`netAreaM2`/`openingAreaM2` (= gross/0), `insideFaceAreaM2` (= gross), `soilContactPerimeterM` (Σ world-meter edge lengths), `floorZm` (lowest floor), full assembly seam.
+- Inherits `assembly-floor` project-default via `getSurfaceAssembly` (`floor-` prefix now live). Envelope panel "Slab / Floor".
+- Geometry-only: on-grade-slab-vs-basement-floor is a downstream config distinction, NOT modeled here. Fixture cross-check EXACT (Crawlspace 19.742 m² / 20.4216 m).
+
+**Below-grade-wall elements** (in `deriveEnumeration` STEP A.7 output, Session 77; commit `afd0c58` — #41 principle→BUILT):
+- Per elevation page: grade-line vertices → world-Z via `elevYToWorldZ`, compared against the reference-edge wall face's bottom Z (`floorZm` of the reference level).
+- Fields: `id` (`foundation-<shapeId>-seg<i>-<level>`), `kind:'below-grade-wall'`, `belowGradeHeightM` (= `clamp(gradeZ − floorZm, 0, wallHeight)`), `belowGradeWallAreaM2` (= height × reference-segment run length), `runLengthM`, `gradeZm`, `wallBottomZm`, `wallTopZm`, full assembly seam.
+- Inherits `assembly-foundation` project-default via `getSurfaceAssembly` (`foundation-` prefix now live). Envelope panel "Below-Grade Walls".
+- **Grade-Z model v1 = mean world-Z of the grade line's vertices** (per-segment sloped-grade deferred, pairs with #88). **Inherits the #88 single-reference-edge limitation.**
+- **Honest-absence:** emits nothing (not a zero) when the elevation lacks scale/edge, `fhZStack` is empty, no grade line exists, or the reference level/segment can't resolve.
+- **Wall polygon is NEVER carved** (#41 invariant held — pure read-time comparison of stored shapes).
+- **`notModeled[]` and `deriveF280Heating` are UNCHANGED** — modeling the geometry removed nothing from `notModeled[]`. The ground-coupled loss engine (BasementHLR / SlabOnGrade) that CONSUMES these quantities is the next real thermal work, downstream (§5 worry #6).
+- **DEV-fixture note (not a bug):** `fixture-elevation`'s reference edge targets Main Floor (above grade) and has no grade line, so `below-grade-wall` correctly emits nothing there. Exercising it live needs a fixture whose reference edge points at a below-grade level plus a locked `grade-line` on an aligned+scaled elevation with `fhZStack` populated — same class of fixture-setup note as the #121 evidence.
+
 **#28 gate:** the harness existing removed one stated blocker of #28, but #28 (plan reader) remains
 gated on the post-3D-model deep-review waypoint.
 

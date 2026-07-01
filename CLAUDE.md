@@ -804,13 +804,47 @@ A React + Vite app with:
   * **Near-term thermal arc (geometry review gate satisfied):** ~~#106 assembly-inheritance fix~~ **DONE
     (Session 75)** → ~~#108 window/door uw post-placement edit~~ **DONE (Session 76)** + ~~`ti-heating`
     CONFIG_FIELD~~ **DONE (Session 76)** + ~~#107 flat-roof explicit per-surface U-input UI~~ **DONE
-    (shipped Session 76, commit `c8857b6`)** → below-grade + slab
-    geometry → ground-coupled loss (separate engine from above-grade, using supplemental `BasementHLR.xls` /
+    (shipped Session 76, commit `c8857b6`)** → ~~below-grade + slab geometry~~ **DONE (Session 77, commit
+    `afd0c58`)** → ground-coupled loss (separate engine from above-grade, using supplemental `BasementHLR.xls` /
     `SlabOnGradeHLR.xls` calculators) → solar gain.
   * **Thermal-arc status:** the #106/#107/#108 arc + `ti-heating` is **FULLY CLOSED for the base case** in
     both code and docs — #106 (assembly default) DONE, #107 (flat-roof per-surface U-input) DONE, #108
-    (opening uw/shgc edit) DONE, `ti-heating` DONE (last hardcoded F280 input retired). Next real work is
-    below-grade/slab geometry.
+    (opening uw/shgc edit) DONE, `ti-heating` DONE (last hardcoded F280 input retired). Below-grade + slab
+    GEOMETRY is now DONE too (Session 77). **NOW/NEXT is the ground-coupled loss engine** (BasementHLR /
+    SlabOnGrade) that CONSUMES the below-grade-wall + slab-surface quantities — a separate engine from
+    above-grade conductive, and the first thermal work that will remove entries from `notModeled[]`.
+
+- **Below-grade + slab geometry takeoff (Session 77; commit `afd0c58`; DONE):** Two new read-time
+  enumeration surface kinds. Geometry-only — NO heat-loss math; `deriveF280Heating`/`notModeled[]`
+  UNTOUCHED. No schema change, no per-vertex z lifted (both derive from stored pixels + scalar datum Z +
+  `elevYToWorldZ`). The intact wall polygon is NEVER carved — pure read-time comparison of stored shapes.
+  * **STEP A.6 — `slab-surface`** (`deriveEnumeration`): one element from the LOWEST floor's wall polygon
+    footprint. Mirrors flat-roof STEP A.5 shoelace; adds per-edge length sum. Carries `grossAreaM2`
+    (world-meter shoelace), `soilContactPerimeterM` (Σ edge lengths), `floorZm` (lowest floor), plus the
+    full `getSurfaceAssembly` seam. surfaceId `floor-<pageId>`. On-grade-slab-vs-basement-floor is a
+    downstream config distinction, NOT modeled here. Fixture cross-check EXACT: Crawlspace 7.62×2.5908 =
+    19.742 m² area, 20.4216 m perimeter.
+  * **STEP A.7 — `below-grade-wall`** (#41 read-time grade-vs-wall, principle→BUILT): per elevation page,
+    projects the grade-line vertices to world-Z via `elevYToWorldZ`, compares against the reference-edge
+    wall face's bottom Z (`floorZm` of the reference level). `belowGradeHeightM = clamp(gradeZ − floorZm,
+    0, wallHeight)`; `belowGradeWallAreaM2 = belowGradeHeightM × reference-segment run length`. surfaceId
+    `foundation-<shapeId>-seg<i>-<level>`. **Grade-Z v1 = MEAN world-Z of the grade line's vertices** (one
+    grade line → one representative grade elevation; per-segment sloped-grade deferred, pairs with #88).
+    **Inherits the #88 single-reference-edge limitation** (attributes only to the reference-edge level).
+    **Honest-absence guards:** emits NOTHING (not a zero) when the elevation lacks scale/edge, `fhZStack`
+    is empty, no grade line exists, or the reference level/segment can't resolve.
+  * **`getSurfaceAssembly` `foundation-`/`floor-` prefix stubs now LIVE** (were commented, #106 left them):
+    slab inherits `assembly-floor`, below-grade inherits `assembly-foundation` (project-default miss path,
+    same mechanism as `wall-`/`flat-roof-`; verified live: slab → `project-default U=0.0455` under
+    `eng-i-joist`).
+  * **Envelope panel** gains `Below-Grade Walls` + `Slab / Floor` zones (shared `assemblyBlock` helper);
+    `__dumpEnumeration` gains branches for both kinds. `KIND_ORDER` = wall / below-grade / flat-roof /
+    slab / soffit / window / door.
+  * **DEV-fixture note (same class as #121 evidence, NOT a bug):** `fixture-elevation`'s
+    `elevationEdgeRef` reference edge targets **Main Floor** (above grade) and the fixture has no grade
+    line, so `below-grade-wall` correctly emits nothing there. Exercising it live needs a fixture whose
+    reference edge points at a BELOW-grade level AND a locked `grade-line` on an aligned+scaled elevation
+    with `fhZStack` populated. `slab-surface` derives fully today (44/44 golden PASS unaffected).
 
 - **#108 window/door uw+shgc post-placement edit + `ti-heating` CONFIG_FIELD (Session 76; commit `44615f2`; DONE):**
   Two-part slice. No geometry change.
@@ -967,7 +1001,9 @@ A React + Vite app with:
   elevations → thermal arc (~~#106~~ **DONE Session 75** / ~~#108 window-door uw edit~~ **DONE Session 76** /
   ~~`ti-heating`~~ **DONE Session 76** / ~~#107 flat-roof explicit-UI~~ **DONE, commit `c8857b6`**). Thermal
   arc base case is FULLY CLOSED in code and docs.
-  Next real thermal work: below-grade + slab geometry. #125 is an OPEN render-gap bug, NOT a #29 dependency.
+  ~~Next real thermal work: below-grade + slab geometry~~ **DONE (Session 77, commit `afd0c58`)** — now
+  NOW/NEXT is the ground-coupled loss engine (BasementHLR / SlabOnGrade) that CONSUMES the new
+  `below-grade-wall` + `slab-surface` quantities. #125 is an OPEN render-gap bug, NOT a #29 dependency.
 - **#29 (derived elevations) — FIRST PIECE DONE (Session 71; commit ed43c6d):** aligned-edge
   setback/protrusion hover-label. On an elevation page with an aligned edge (`elevationEdgeRef`), the
   source floor plan renders as a toggleable amber ghost via the EXISTING ghost mechanism
@@ -1093,7 +1129,9 @@ completedShapesRef.current = Array<{
                                 // 'window'|'door' = opening rectangle; 'run' = open run path (§8.2 step 4)
   // Grade-line shapes carry NO binding fields. Endpoints may be snapped to corners or the
   // lowest-floor reference line as drawing aids, but nothing is stored. Above/below-grade
-  // meaning is derived at read-time by intersecting the polyline against the wall polygon (#41).
+  // meaning is derived at read-time (#41 — BUILT Session 77 as deriveEnumeration STEP A.7
+  // 'below-grade-wall'): grade-line vertices → world-Z via elevYToWorldZ, compared against the
+  // reference-edge wall face's floorZ. Wall polygon is NEVER carved. Grade-Z v1 = mean vertex Z.
   // Run paths carry THREE co-present layers (§8.3 Build 1):
   //   vertices[]      — raw geometry for uniform iterators (no shapeKind guard on many call sites)
   //   pointSlots[]    — identity + endpoint-binding layer

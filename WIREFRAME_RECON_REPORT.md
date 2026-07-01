@@ -244,7 +244,7 @@ All 4 render functions call `drawGhostShapes` + `drawAlignHandles` when ghost so
 | 4 | Z composition: elevation canvas Y → world Z in meters (`elevYToWorldZ`) | **RESOLVED — B2 (9e5bd0d)** |
 | 5 | Roof Z derivation (slope rules: ridge → eave perimParent topology → Z) | OPEN — #18, needs R3 |
 | 6 | Opening Z placement (window/door sill/head elevation in world Z) | OPEN — needs element Z model (#7, #19) |
-| 7 | Grade-line above/below-grade interpretation (#41) | OPEN — read-time intersection, R3 |
+| 7 | Grade-line above/below-grade interpretation (#41) | **RESOLVED — BUILT Session 77 (afd0c58): deriveEnumeration STEP A.7 below-grade-wall, read-time grade-Z vs floorZ; no R3 z-seam needed** |
 | 8 | B3: Roof Plan pages enter ghost/borrow path (same mechanic, settled arch.) | **RESOLVED — B3 (d4e99d8)** |
 | 9 | 3D render: rotatable wireframe (floor/ceiling rings, verticals, roof, soffits, openings) | **RESOLVED — B5 (7c44e24, 622e76d)** |
 
@@ -273,10 +273,13 @@ All 4 render functions call `drawGhostShapes` + `drawAlignHandles` when ghost so
            gap 5 (roof slope Z, #18) — OPEN, needs R3
            gap 6 (opening element Z, #19) — OPEN: elevYToWorldZ exercised in openingLines path,
              but full element-Z model (sill/head stored Z, #7/#19) is still R3
-           gap 7 (grade-line above/below-grade, #41) — OPEN, R3
+           gap 7 (grade-line above/below-grade, #41) — RESOLVED Session 77 (afd0c58): read-time
+             below-grade-wall in deriveEnumeration STEP A.7; grade-Z (mean vertex Z) vs floorZ.
+             No R3 z-seam required — derived from stored pixels + scalar datum Z + elevYToWorldZ.
 [ ] B6 — envelope surfaces (floor/roof/soffit fill, face culling + transparency) — deferred (#54)
 [ ] Roof Z (slope rules, #18) — needs R3 coordinate model
-[ ] Element-Z openings and grade-line interpretation (#41) — R3/Phase 2
+[x] Grade-line above/below-grade interpretation (#41) — DONE Session 77 (afd0c58)
+[ ] Element-Z openings (sill/head stored Z, #7/#19) — R3/Phase 2
 ```
 
 ---

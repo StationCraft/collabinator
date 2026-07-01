@@ -23,6 +23,60 @@ section, do not bury conventions inside a dated session entry.*
 
 ---
 
+## SESSION 77 — Below-grade + slab geometry takeoff (2026-07-01)
+
+**Branch:** main | **Code commit:** `afd0c58` | **Docs commit:** (this close-out).
+
+**What this session built:** two new READ-TIME `deriveEnumeration` surface kinds. Geometry-only — NO
+heat-loss math. No schema change; no per-vertex z lifted (recon-confirmed everything derives from stored
+pixels + scalar datum Z + `elevYToWorldZ`). The intact wall polygon is NEVER carved (#41 invariant).
+
+- **STEP A.6 `slab-surface`** (App.jsx:6198) — one element from the LOWEST floor's (`zStack[0]`) wall
+  polygon footprint. Mirrors flat-roof STEP A.5 shoelace, adds per-edge length sum. Carries `grossAreaM2`,
+  `soilContactPerimeterM`, `floorZm`, full assembly seam. surfaceId `floor-<pageId>`.
+- **STEP A.7 `below-grade-wall`** (App.jsx:6248) — #41 principle→BUILT. Grade-line vertices → world-Z via
+  `elevYToWorldZ`, compared to the reference-edge wall's `floorZm`. `belowGradeHeightM = clamp(gradeZ −
+  floorZm, 0, wallHeight)`; `belowGradeWallAreaM2 = height × reference-segment run length`. surfaceId
+  `foundation-<shapeId>-seg<i>-<level>`. **Grade-Z v1 = MEAN vertex Z** (documented inline; per-segment
+  slope deferred, pairs with #88). **Inherits the #88 single-reference-edge limitation.** Honest-absence
+  guards emit nothing (not a zero) on missing scale/edge/fhZStack/grade-line/reference-level.
+- **`getSurfaceAssembly` `foundation-`/`floor-` stubs uncommented** (App.jsx:5950) — slab inherits
+  `assembly-floor`, below-grade inherits `assembly-foundation` (project-default miss path, same mechanism
+  as `wall-`/`flat-roof-`).
+- **Envelope panel** gains `Below-Grade Walls` + `Slab / Floor` zones (shared `assemblyBlock` helper);
+  `__dumpEnumeration` gains branches for both kinds.
+
+**Verification (Claude preview, fixture-elevation):**
+- `__verifyFixture()` **44/44 PASS** (no golden regression; new kinds are additive, verify filters by kind).
+- `slab-surface`: `footprintArea=19.7419 m²`, `soilContactPerimeter=20.4216 m`, `floorZ=0`. Cross-checked
+  EXACT against the Crawlspace polygon: edges 7.62+2.5908+7.62+2.5908 = 20.4216 m; 7.62×2.5908 = 19.742 m².
+- `below-grade-wall`: **absent — honest absence** (fixture has no grade line). Correct.
+- Assembly inheritance verified live: setting Project Setup → Floor = `eng-i-joist` flipped slab to
+  `project-default U=0.0455` (=1/22) in both dump and Envelope panel row. Foundation branch is the identical
+  miss-path (also set `8in-concrete-frost`); can't show on a live element without a grade-line fixture.
+- Envelope panel renders `Slab / Floor (1)`; `Below-Grade Walls` correctly absent.
+
+**Kept distinct (§5 worry #6):** `notModeled[]` and `deriveF280Heating` are UNCHANGED. Modeling the geometry
+removed nothing from `notModeled[]`. The ground-coupled loss engine (BasementHLR / SlabOnGrade) that
+CONSUMES these quantities is the next real thermal work and remains downstream.
+
+**DEV-fixture note (not a bug — same class as the #121 evidence):** `fixture-elevation`'s `elevationEdgeRef`
+reference edge targets **Main Floor** (an above-grade level) and the fixture has no grade line, so
+`below-grade-wall` correctly emits nothing there. Exercising it live needs a fixture whose reference edge
+points at a BELOW-grade level plus a locked `grade-line` on an aligned+scaled elevation with `fhZStack`
+populated.
+
+**Grade-Z v1 decision (surfaced, not silently decided):** one grade line → mean vertex world-Z. If a later
+pass wants min-grade (deepest) or reference-face-midpoint sampling instead, it's a one-line change — it
+revisits together with #88 (per-segment grade needs a per-segment horizontal position).
+
+**What's next:** ground-coupled base-level loss engine (BasementHLR / SlabOnGrade) — SEPARATE engine from
+above-grade conductive; first thermal work that removes entries from `notModeled[]`. Then solar gain.
+Confirm-view posture (B) for #29 remains an open planning question. #121 self-heal (`shapeIdCounterRef` on
+restore) is a good DEV-hygiene cheap win when convenient.
+
+---
+
 ## SESSION 76 — #108 opening uw/shgc post-placement edit + ti-heating DONE (2026-07-01)
 
 **Branch:** main | **Code commit:** `44615f2` | **Docs commit:** (this close-out).

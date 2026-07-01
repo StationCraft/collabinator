@@ -991,7 +991,10 @@ The intersection/quantification logic (the "read" half) is R3 / element-layer, d
 
 **Why logged:** To make the no-split decision explicit and durable — so a future build step does not accidentally split the polygon or store redundant area geometry under time pressure.
 
-**Status:** Principle only — no build needed at this stage. Enforce at design-review time before any above/below-grade feature is scoped.
+**Status: BUILT (Session 77; commit `afd0c58`).** The read-time derivation now exists as `deriveEnumeration` STEP A.7 (`kind: 'below-grade-wall'`). For the reference-edge wall face it projects the elevation grade-line vertices to world-Z via `elevYToWorldZ`, compares against the wall face's bottom Z (`floorZm` of the reference level), and emits `belowGradeHeightM = clamp(gradeZ − floorZm, 0, wallHeight)` and `belowGradeWallAreaM2 = belowGradeHeightM × run length`. **The wall polygon is NEVER carved** — the principle held: it is a pure read-time comparison of stored shapes. Honest-absence guards emit nothing (not a zero) when the elevation lacks scale/edge, `fhZStack` is empty, no grade line exists, or the reference level/segment can't resolve.
+- **Grade-Z model v1 = mean world-Z of the grade line's vertices** (one grade line → one representative grade elevation). Per-segment sloped-grade sampling is deferred — it pairs with solving #88 (per-segment grade needs a per-segment horizontal position the single-reference-edge model doesn't have).
+- **Inherits the #88 single-reference-edge limitation** — below-grade extent attributes only to the level the elevation's `elevationEdgeRef` reference edge targets. Emitted surfaceId `foundation-<shapeId>-seg<i>-<level>` inherits the `assembly-foundation` project-default via `getSurfaceAssembly` (the `foundation-` prefix stub is now live).
+- **notModeled[] and `deriveF280Heating` are UNCHANGED** — modeling the geometry did not remove `below-grade-wall`/`slab-on-grade` from `notModeled`. The ground-coupled loss engine (BasementHLR/SlabOnGrade) that consumes these quantities is the next real thermal work and remains downstream (§5 worry #6 kept distinct).
 
 ---
 
