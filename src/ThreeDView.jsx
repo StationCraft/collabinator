@@ -9,6 +9,64 @@ function toVec(x, y, z) {
   return new THREE.Vector3(x, z ?? 0, y)
 }
 
+// ── #126 isometric camera helpers ────────────────────────────────────────────
+// True-isometric elevation angle: atan(1/√2) ≈ 35.264°. Report: true iso used
+// (not the ~28° perspective default) — parallel edges read cleanest at 35.264°.
+const ISO_ELEV = Math.atan(1 / Math.SQRT2)
+// Ortho frustum half-height as a fraction of the model's max bbox dim. 0.75 →
+// vertical extent 1.5·maxDim, comparable margin to the perspective fit.
+const ISO_HALF_K = 0.75
+// Camera stand-off distance for iso placement (ortho: affects only near/far
+// clipping, not scale; kept large enough to sit outside the model).
+const ISO_DIST_K = 2.5
+
+// Place camera on the iso ring at a horizontal azimuth + elevation angle around
+// `center`, looking back at center. Bearing is (cos az, 0, sin az) in SCENE
+// coords: scene-X and scene-Z are the horizontal plane, scene-Y is up. World-Y
+// (plan depth) already lives on scene-Z, so an outward PLAN normal's Y-component
+// belongs in the sin(az)·z term here — never in the up (scene-Y) term.
+function placeOnRing(camera, controls, center, maxDim, azimuth, elev) {
+  const dist = maxDim * ISO_DIST_K
+  const cosE = Math.cos(elev), sinE = Math.sin(elev)
+  camera.position.set(
+    center.x + dist * (Math.cos(azimuth) * cosE),
+    center.y + dist * sinE,
+    center.z + dist * (Math.sin(azimuth) * cosE),
+  )
+  controls.target.copy(center)
+  camera.lookAt(center)
+  controls.update()
+}
+
+// The snap ring is ANCHORED to a reference edge (State 1) or the Front (State 2):
+// 8 azimuth stops 45° apart, all at the TOP elevation (+ISO_ELEV, up=(0,1,0),
+// looking down). Stop 0 = the anchor's outward azimuth (FACE-ON — a derived
+// orthographic-ish elevation of the anchor face); the 90° stops (2,4,6) are the
+// other three faces face-on; the 45° stops (1,3,5,7) are CORNER-ISO views (two
+// faces + top, foreshortening-free). One wheel gives both the flat-elevation and
+// the 3D-corner reads. Ring azimuth is derived inline from orientAzimuth(anchor) +
+// n·45° — no fixed-compass detent set. In State 3 (no anchor) there is no ring at
+// all (free orbit). All stops are above the model — no reversed underside views.
+
+// Free starting azimuth that aims the iso square-on to a reference face's OUTWARD
+// normal. refAw/refBw are the reference edge's world-metre endpoints; refSign is
+// the #29 centroid anchor (interior→negative), so negating perp points outward.
+// The outward PLAN normal (world XY) maps to scene as (outx, 0, outy) — the
+// critical world-Y → scene-Z mapping. azimuth = atan2(scene-z, scene-x).
+function orientAzimuth(orientEdge) {
+  const { refAw, refBw, refSign } = orientEdge
+  const dx = refBw.x - refAw.x, dy = refBw.y - refAw.y
+  const len = Math.hypot(dx, dy)
+  if (len < 1e-9) return Math.PI / 4
+  const dxn = dx / len, dyn = dy / len
+  // left-hand unit normal in world XY (matches segmentGeom.perp)
+  const perpx = -dyn, perpy = dxn
+  // outward = perp · (−refSign)
+  const outx = perpx * -refSign, outy = perpy * -refSign
+  // n_scene = (outx, 0, outy) → azimuth from scene-X (outx) and scene-Z (outy)
+  return Math.atan2(outy, outx)
+}
+
 function addLineLoop(scene, pts3, color) {
   if (pts3.length < 2) return
   const positions = []
@@ -21,11 +79,78 @@ function addLineLoop(scene, pts3, color) {
   scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color })))
 }
 
-export default function ThreeDView({ wireframe, onClose }) {
+export default function ThreeDView({ wireframe, orientEdge = null, onClose }) {
   const mountRef = useRef(null)
   const [showSolids, setShowSolids] = useState(true)
+  // #126: default into iso when opened from a page with an aligned reference face.
+  const [isoMode, setIsoMode] = useState(!!orientEdge)
   // Stable refs so the solid-toggle effect can find the meshes without re-running the scene setup.
   const solidMeshesRef = useRef([])
+  // #126: camera/controls/scene/renderer hoisted into refs so the iso toggle can
+  // swap the camera WITHOUT rebuilding the scene graph. The render loop reads
+  // cameraRef/controlsRef every frame, so a swap takes effect with no scene touch.
+  const cameraRef = useRef(null)
+  const controlsRef = useRef(null)
+  const sceneRef = useRef(null)
+  const rendererRef = useRef(null)
+  const frameRef = useRef({ center: new THREE.Vector3(), maxDim: 10 })  // {center, maxDim}
+  const cornerIdxRef = useRef(0)  // anchored-ring index 0..7 (0 = anchor face-on, ±45° steps); State 1/2 only
+
+  // Build/swap the active camera + its OrbitControls for the given mode, reusing
+  // the stored framing (center/maxDim). Perspective-off restores the exact
+  // default diagonal (byte-identical to the original view). Iso-on builds an
+  // ortho camera and aims it at the reference face (if any) or corner 0.
+  const applyCameraMode = (iso) => {
+    const renderer = rendererRef.current, el = mountRef.current
+    if (!renderer || !el) return
+    const { center, maxDim } = frameRef.current
+    if (controlsRef.current) controlsRef.current.dispose()
+    const aspect = (el.clientWidth || 1) / (el.clientHeight || 1)
+    let cam
+    if (iso) {
+      const halfH = maxDim * ISO_HALF_K
+      cam = new THREE.OrthographicCamera(-halfH * aspect, halfH * aspect, halfH, -halfH, 0.01, 10000)
+    } else {
+      cam = new THREE.PerspectiveCamera(45, aspect, 0.01, 10000)
+    }
+    cameraRef.current = cam
+    const controls = new OrbitControls(cam, renderer.domElement)
+    controls.enableDamping = true
+    controls.dampingFactor = 0.05
+    controlsRef.current = controls
+    controls.target.copy(center)
+    if (iso) {
+      if (orientEdge) {
+        // State 1/2: anchored ring. Entry = corner 0 at the anchor's outward azimuth.
+        cornerIdxRef.current = 0
+        placeOnRing(cam, controls, center, maxDim, orientAzimuth(orientEdge), ISO_ELEV)
+      } else {
+        // State 3: no anchor → ortho FREE-ORBIT. Default iso-ish framing angle;
+        // no anchored ring, no snap detents (◄/► hidden). Not a synthesized corner 0.
+        placeOnRing(cam, controls, center, maxDim, Math.PI / 4, ISO_ELEV)
+      }
+    } else {
+      cam.position.set(center.x + maxDim * 1.5, center.y + maxDim * 0.8, center.z + maxDim * 1.5)
+      cam.lookAt(center)
+      controls.update()
+    }
+  }
+
+  // Snap-rotate the ANCHORED ring (State 1/2 only). The ring's origin is the
+  // anchor's outward azimuth (reference edge or Front); stop 0 = anchor face-on,
+  // ◄/► step the index ±1 mod 8 → ±45° around the model relative to the anchor —
+  // alternating face-on and corner-iso stops. Deterministic: pressing ► from the
+  // same entry always lands on the same stop (fixed ring origin, not "last view on
+  // screen"). No-op in State 3 (no anchor).
+  const stepCorner = (delta) => {
+    if (!isoMode || !orientEdge) return
+    const cam = cameraRef.current, controls = controlsRef.current
+    if (!cam || !controls) return
+    cornerIdxRef.current = ((cornerIdxRef.current + delta) % 8 + 8) % 8
+    const { center, maxDim } = frameRef.current
+    const azimuth = orientAzimuth(orientEdge) + cornerIdxRef.current * (Math.PI / 4)
+    placeOnRing(cam, controls, center, maxDim, azimuth, ISO_ELEV)
+  }
 
   // ── Main scene effect: runs only when wireframe changes.
   // Builds scene, adds ALL meshes (including solid meshes), sets up camera once.
@@ -39,17 +164,14 @@ export default function ThreeDView({ wireframe, onClose }) {
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x0f172a)
+    sceneRef.current = scene
 
     const w = el.clientWidth, h = el.clientHeight
-    const camera = new THREE.PerspectiveCamera(45, w / h, 0.01, 10000)
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setSize(w, h)
     renderer.setPixelRatio(window.devicePixelRatio)
     el.appendChild(renderer.domElement)
-
-    const controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping = true
-    controls.dampingFactor = 0.05
+    rendererRef.current = renderer
 
     scene.add(new THREE.AxesHelper(0.5))
 
@@ -223,26 +345,34 @@ export default function ThreeDView({ wireframe, onClose }) {
       }
     }
 
-    // Frame camera to fit the wireframe (runs once per wireframe change, never on toggle)
+    // Compute framing (center/maxDim) for the wireframe, then build the camera for
+    // the CURRENT mode. (isoMode read here for the initial build — same pattern as
+    // showSolids at mesh.visible below; the [isoMode] toggle effect handles changes.)
     if (!box.isEmpty()) {
       const center = new THREE.Vector3()
       box.getCenter(center)
       const size = new THREE.Vector3()
       box.getSize(size)
       const maxDim = Math.max(size.x, size.y, size.z, 1)
-      controls.target.copy(center)
-      camera.position.set(center.x + maxDim * 1.5, center.y + maxDim * 0.8, center.z + maxDim * 1.5)
-      camera.lookAt(center)
-      controls.update()
+      frameRef.current = { center, maxDim }
     } else {
-      camera.position.set(10, 5, 10)
-      camera.lookAt(0, 0, 0)
+      frameRef.current = { center: new THREE.Vector3(), maxDim: 10 }
     }
+    applyCameraMode(isoMode)
 
     const onResize = () => {
       if (!el) return
-      camera.aspect = el.clientWidth / el.clientHeight
-      camera.updateProjectionMatrix()
+      const cam = cameraRef.current
+      if (!cam) return
+      const aspect = el.clientWidth / el.clientHeight
+      if (cam.isOrthographicCamera) {
+        const halfH = frameRef.current.maxDim * ISO_HALF_K
+        cam.left = -halfH * aspect; cam.right = halfH * aspect
+        cam.top = halfH; cam.bottom = -halfH
+      } else {
+        cam.aspect = aspect
+      }
+      cam.updateProjectionMatrix()
       renderer.setSize(el.clientWidth, el.clientHeight)
     }
     window.addEventListener('resize', onResize)
@@ -250,15 +380,15 @@ export default function ThreeDView({ wireframe, onClose }) {
     let rafId
     const animate = () => {
       rafId = requestAnimationFrame(animate)
-      controls.update()
-      renderer.render(scene, camera)
+      if (controlsRef.current) controlsRef.current.update()
+      if (cameraRef.current) renderer.render(scene, cameraRef.current)
     }
     animate()
 
     return () => {
       cancelAnimationFrame(rafId)
       window.removeEventListener('resize', onResize)
-      controls.dispose()
+      if (controlsRef.current) controlsRef.current.dispose()
       renderer.dispose()
       if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement)
       scene.traverse(obj => {
@@ -266,7 +396,7 @@ export default function ThreeDView({ wireframe, onClose }) {
         if (obj.material) obj.material.dispose()
       })
     }
-  }, [wireframe])  // ← wireframe only; showSolids handled by the effect below
+  }, [wireframe])  // ← wireframe only; showSolids + isoMode handled by the effects below
 
   // ── Solids toggle effect: only flips .visible on existing solid meshes.
   // Camera, controls, and all other scene objects are completely untouched.
@@ -275,6 +405,17 @@ export default function ThreeDView({ wireframe, onClose }) {
       mesh.visible = showSolids
     }
   }, [showSolids])
+
+  // ── Iso toggle effect (#126): swaps the camera (perspective ↔ ortho) WITHOUT
+  // rebuilding the scene graph. Skips the mount run — the main effect already
+  // built the initial camera for isoMode's starting value; this only reacts to
+  // later toggles.
+  const isoDidMount = useRef(false)
+  useEffect(() => {
+    if (!isoDidMount.current) { isoDidMount.current = true; return }
+    if (!isoMode) cornerIdxRef.current = 0  // reset detent when leaving iso
+    applyCameraMode(isoMode)
+  }, [isoMode])
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', flexDirection: 'column' }}>
@@ -304,7 +445,43 @@ export default function ThreeDView({ wireframe, onClose }) {
         >
           {showSolids ? 'Solids ✓' : 'Solids'}
         </button>
-        <span style={{ color: '#64748b', fontSize: '0.7rem', marginLeft: 8 }}>drag to rotate · scroll to zoom · right-drag to pan</span>
+        <button
+          onClick={() => setIsoMode(m => !m)}
+          style={{
+            background: isoMode ? '#334155' : '#1e293b',
+            border: '1px solid #475569',
+            color: '#e2e8f0',
+            padding: '2px 10px',
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontSize: '0.8rem',
+          }}
+        >
+          {isoMode ? 'Iso ✓' : 'Iso'}
+        </button>
+        {isoMode && orientEdge && (
+          <>
+            <button
+              onClick={() => stepCorner(-1)}
+              title="Rotate 90° around model (toward the anchor's left)"
+              style={{ background: '#1e293b', border: '1px solid #475569', color: '#e2e8f0', padding: '2px 8px', borderRadius: 4, cursor: 'pointer', fontSize: '0.8rem' }}
+            >
+              ◄
+            </button>
+            <button
+              onClick={() => stepCorner(1)}
+              title="Rotate 90° around model (toward the anchor's right)"
+              style={{ background: '#1e293b', border: '1px solid #475569', color: '#e2e8f0', padding: '2px 8px', borderRadius: 4, cursor: 'pointer', fontSize: '0.8rem' }}
+            >
+              ►
+            </button>
+          </>
+        )}
+        <span style={{ color: '#64748b', fontSize: '0.7rem', marginLeft: 8 }}>
+          {isoMode
+            ? (orientEdge ? 'iso: ◄ ► rotate around model · drag to orbit · scroll to zoom' : 'iso free-orbit · drag to rotate · scroll to zoom')
+            : 'drag to rotate · scroll to zoom · right-drag to pan'}
+        </span>
         <button
           onClick={onClose}
           style={{ marginLeft: 'auto', background: '#475569', border: 'none', color: '#e2e8f0', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontSize: '0.85rem' }}

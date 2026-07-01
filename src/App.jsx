@@ -537,6 +537,8 @@ function App() {
   // ── 3D wireframe view ─────────────────────────────────────────────────────
   const [show3DView, setShow3DView] = useState(false)
   const [wireframeData, setWireframeData] = useState(null)
+  // #126: reference face to orient the iso camera to on entry (null off a reference-face page).
+  const [orientEdgeData, setOrientEdgeData] = useState(null)
 
   // ── Consolidated side-panel container (#69) ──────────────────────────────────
   const [showSidebar, setShowSidebar] = useState(false)
@@ -1309,25 +1311,37 @@ function App() {
     if (!presentLevels.length) return null
     const zStack = accumulateZ(floorHeightsRef.current, presentLevels, FLOOR_ORDER)
     if (!zStack.length) return null
-    const lowestLevel = zStack[0].level
-    const lowestPage = pages.find(p => p.category === 'floor-plan' && p.subLabel === lowestLevel)
-    if (!lowestPage) return null
-    const scale = getEffectiveScale(lowestPage.pageId)
-    if (!scale) return null
-    const shapes = completedShapesRef.current.filter(
-      s => s.pageId === lowestPage.pageId && s.status === 'locked' && !s.shapeKind
-    )
-    if (!shapes.length) return null
+    // Origin datum = the LOWEST floor level that actually carries wall geometry
+    // (with a resolvable scale). Scanning up the stack — instead of hard-requiring
+    // the single lowest level to have geometry — keeps the origin (hence the whole
+    // 3D view + its button gate) robust to deleting the last wall polygon on a
+    // lower floor. Origin is a pure translation datum, re-derived every call; every
+    // relationship is geometry-to-geometry, so which qualifying level anchors it
+    // does not change any measurement or the #29 depth read.
+    let originPage = null, originScale = null, originShapes = null
+    for (const row of zStack) {
+      const fp = pages.find(p => p.category === 'floor-plan' && p.subLabel === row.level)
+      if (!fp) continue
+      const sc = getEffectiveScale(fp.pageId)
+      if (!sc) continue
+      const shp = completedShapesRef.current.filter(
+        s => s.pageId === fp.pageId && s.status === 'locked' && !s.shapeKind
+      )
+      if (!shp.length) continue
+      originPage = fp; originScale = sc; originShapes = shp
+      break
+    }
+    if (!originPage) return null
     let minX = Infinity, minY = Infinity
-    const scalesArg = { [lowestPage.pageId]: scale }
-    for (const s of shapes) for (const v of s.vertices) {
-      const mx = pxToMeters(v.x, scalesArg, lowestPage.pageId)
-      const my = pxToMeters(v.y, scalesArg, lowestPage.pageId)
+    const scalesArg = { [originPage.pageId]: originScale }
+    for (const s of originShapes) for (const v of s.vertices) {
+      const mx = pxToMeters(v.x, scalesArg, originPage.pageId)
+      const my = pxToMeters(v.y, scalesArg, originPage.pageId)
       if (mx != null && mx < minX) minX = mx
       if (my != null && my < minY) minY = my
     }
     if (!isFinite(minX) || !isFinite(minY)) return null
-    return { x: minX, y: minY, originPageId: lowestPage.pageId }
+    return { x: minX, y: minY, originPageId: originPage.pageId }
   }
 
   // Projects a canvas-space vertex on pageId into building-fixed world XY in METERS.
@@ -3678,6 +3692,31 @@ function App() {
     return { refAw, refBw, sourcePageId: stored.sourcePageId, refSign }
   }
 
+  // #126 State 2 anchor: resolve the project-level Front-face designation to the
+  // SAME { refAw, refBw, refSign } world-anchor shape resolveElevMeasureRef produces
+  // for a reference edge — identical machinery (segmentGeom perp + source-polygon
+  // centroid sign-anchor), just pointed at the Front segment on the anchor floor.
+  // Returns null if no Front is set or its world projection gate is not met.
+  const resolveFrontFaceMeasureRef = () => {
+    if (!frontFace) return null
+    const srcShape = completedShapesRef.current[frontFace.shapeIndex]
+    if (!srcShape || srcShape.pageId !== frontFace.pageId) return null
+    if (frontFace.segmentIndex >= srcShape.vertices.length) return null
+    const rA = srcShape.vertices[frontFace.segmentIndex]
+    const rB = srcShape.vertices[(frontFace.segmentIndex + 1) % srcShape.vertices.length]
+    const refAw = pageVertexToWorld(rA, frontFace.pageId)
+    const refBw = pageVertexToWorld(rB, frontFace.pageId)
+    if (!refAw || !refBw) return null
+    let cx = 0, cy = 0
+    for (const v of srcShape.vertices) { cx += v.x; cy += v.y }
+    cx /= srcShape.vertices.length; cy /= srcShape.vertices.length
+    const cW = pageVertexToWorld({ x: cx, y: cy }, frontFace.pageId)
+    if (!cW) return null
+    const centroidSigned = signedPerpDist(cW, refAw, refBw)
+    const refSign = centroidSigned > 0 ? -1 : 1
+    return { refAw, refBw, refSign }
+  }
+
   // Effective ghost source for a page: the floor/roof-plan reference via
   // getGhostSourcePageId (unchanged), OR — on an elevation page with a stored
   // aligned edge — the source floor plan the edge points into
@@ -4063,6 +4102,16 @@ function App() {
   const skipFrontFace = () => {
     // Dismiss without setting — condition stays true so it can reappear later.
     setFrontFacePromptOpen(false); ffHoverRef.current = null
+    redrawFrontFaceLayer(null)
+  }
+
+  // Un-set an already-designated Front WITHOUT deleting its shape (#126). The only
+  // other paths that null frontFace are PDF upload and fixture restore; skipFrontFace
+  // merely dismisses the pick prompt. Clearing lets a page fall to State 3 (free-orbit)
+  // and lets the user re-pick. The auto-prompt may reappear on the next lock/categorize
+  // (its derived trigger), which is intended.
+  const clearFrontFace = () => {
+    setFrontFace(null); setFrontFacePromptOpen(false); ffHoverRef.current = null
     redrawFrontFaceLayer(null)
   }
 
@@ -6531,9 +6580,19 @@ function App() {
         {pdf && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && !!getWorldOriginM() && (
           <button
             className="three-d-btn"
-            onClick={() => { setWireframeData(deriveWireframe()); setShow3DView(true) }}
+            onClick={() => { setWireframeData(deriveWireframe()); setOrientEdgeData(resolveElevMeasureRef(currentPageId) || resolveFrontFaceMeasureRef()); setShow3DView(true) }}
           >
             3D View
+          </button>
+        )}
+
+        {pdf && frontFace && !calibMode && !drawMode && !editMode && !categorizeMode && !carveMode && !frontFacePromptOpen && (
+          <button
+            className="calib-cancel"
+            onClick={clearFrontFace}
+            title="Un-set the front-face designation (does not delete the wall shape)"
+          >
+            Clear Front
           </button>
         )}
 
@@ -8544,7 +8603,7 @@ function App() {
       )}
 
       {show3DView && wireframeData && (
-        <ThreeDView wireframe={wireframeData} onClose={() => setShow3DView(false)} />
+        <ThreeDView wireframe={wireframeData} orientEdge={orientEdgeData} onClose={() => setShow3DView(false)} />
       )}
     </div>
   )
