@@ -67,6 +67,12 @@ const OPENING_TYPES = ['Tilt-turn', 'Casement', 'Fixed', 'Slider', 'Hinged door'
 // reference plane to within this world-metre epsilon (~1 mm, "parallel to measurement
 // precision" — NOT an angle tolerance; anything off-square is suppressed by design).
 const PARALLEL_EPS_M = 0.001
+// #29 multi-face: two candidate edges face the SAME direction when their outward
+// normals' dot product ≥ this (cos 5°). This is the correctness keystone — the
+// opposite/far wall is excluded by the SIGN of the dot (its outward normal points
+// away, dot ≈ −1), NOT by angle magnitude; perpendicular walls give dot ≈ 0.
+// Generous/Ben-tunable because the user deselects any wrong offers by hand.
+const FACING_DOT_MIN = 0.996
 const categoryLabel = (key) => CATEGORY_OPTIONS.find(o => o.key === key)?.label ?? key
 
 // ── §9 Project-configuration layer — descriptor schema ──────────────────────
@@ -584,6 +590,12 @@ function App() {
   // Independent of showGhostByPageId — the ghost (raw source plan) and the derived
   // envelope face are different artifacts and toggle separately. Default-on via ?? true.
   const [showEnvelopeFaceByPageId, setShowEnvelopeFaceByPageId] = useState({})
+  // #29 multi-face: per-page set of derived-face ids the user has deselected (click-
+  // to-hide). VISUAL-ONLY — read ONLY by the face-draw loop; deriveEnumeration and
+  // deriveF280Heating never read it (an elevation is a view; the wall-surface exists
+  // in the calc regardless). Additive: full face set is derived read-time; we store
+  // only deselections. Mirrors showEnvelopeFaceByPageId (reset/snapshot/restore).
+  const [excludedFaceIdsByPageId, setExcludedFaceIdsByPageId] = useState({})
 
   // ── Reference-layer model (Step 6, sub-step 5) ──────────────────────────────
   const primaryReferenceIdRef = useRef(null)   // pageId of first manually-calibrated page; set once, never overwritten
@@ -701,6 +713,7 @@ function App() {
   const [elevEdgeSourcePageId, setElevEdgeSourcePageId] = useState(null)
   const elevEdgeHoverRef = useRef(null)
   const elevMeasureHoverRef = useRef(null)  // #29 idle-view setback/protrusion hover: {shapeIdx, segIdx} into source floor-plan wall edges
+  const elevFaceHoverRef = useRef(null)     // #29 multi-face: idle-view hovered derived-face id (string) or null
   const elevationEdgeRef = useRef({})  // pageId -> {sourcePageId, shapeIndex, segmentIndex, endpointA, endpointB}
   const elevBaseYRef = useRef({})      // pageId -> anchorY (canvas px) after user drags base line into place
   const surfaceAssemblyRef = useRef({}) // wallId -> { tier:'manual'|'library', effectiveUValue, thicknessM, assemblyId, snapshotA, snapshotB }
@@ -980,6 +993,8 @@ function App() {
     primaryReferenceIdRef.current = null; pageRefParentRef.current = {}
     setShowGhostByPageId({})
     setShowEnvelopeFaceByPageId({})
+    setExcludedFaceIdsByPageId({})
+    elevFaceHoverRef.current = null
     setShowFloorHeights(false); setFhExpandedLevel(null); setFhCustomActive(false); setFhCustomVal(''); setFhCustomSheathing(false)
     setFhFtVals({}); setFhInVals({})
     backdropTierRef.current = 'normal'; setBackdropTier('normal')
@@ -1023,6 +1038,7 @@ function App() {
     resetEditState()
     setElevAlignMode(false)
     elevMeasureHoverRef.current = null
+    elevFaceHoverRef.current = null
     setAlignMode(false); alignDragRef.current = null
     setCarveMode(false); carveDragRef.current = null; setCarvePending(null); setCarveRegionName('')
     backdropTierRef.current = 'normal'; setBackdropTier('normal')
@@ -1092,7 +1108,7 @@ function App() {
     const c = measureRef.current
     if (!c || !currentPage) return
     redrawFrontFaceLayer(null)
-  }, [calibMode, drawMode, editMode, currentPage, currentPageId, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, showEnvelopeFaceByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick, carvePending])
+  }, [calibMode, drawMode, editMode, currentPage, currentPageId, frontFace, frontFacePromptOpen, alignMode, showGhostByPageId, showEnvelopeFaceByPageId, excludedFaceIdsByPageId, alignTick, elevEdgeMode, elevEdgeSourcePageId, elevAlignMode, floorHeightsTick, carveMode, carveTick, carvePending])
 
   // ── Calibration ──────────────────────────────────────────────────────────
 
@@ -2412,6 +2428,23 @@ function App() {
     }
     // Suppress click that followed a pan drag
     if (panDidDragRef.current) { panDidDragRef.current = false; return }
+    // #29 multi-face: idle-view click on a derived envelope face toggles it in/out of
+    // the per-page exclusion set (VISUAL-ONLY — enumeration/F280 untouched). Rides the
+    // same idle interaction as the setback readout; no mode. Only on an aligned
+    // elevation page with the envelope overlay shown.
+    if (!editMode && !drawMode && !calibMode && !placingOpeningMode &&
+        !reviewShape && !roofShapeDraft && !openingDraftShape &&
+        isElevationPage && showEnvelopeFace && elevationEdgeRef.current[currentPageId]) {
+      const faceHit = hitTestElevFace(getCanvasPos(e))
+      if (faceHit) {
+        setExcludedFaceIdsByPageId(m => {
+          const cur = m[currentPageId] || []
+          const next = cur.includes(faceHit) ? cur.filter(id => id !== faceHit) : [...cur, faceHit]
+          return { ...m, [currentPageId]: next }
+        })
+        return
+      }
+    }
     if (editMode) {
       const subMode = editSubModeRef.current
       if (subMode === 'combine') { handleCombineClick(getCanvasPos(e)); return }
@@ -2658,28 +2691,34 @@ function App() {
     if (panDragRef.current?.active) return
     const pos = getCanvasPos(e)
 
-    // #29 idle-view hover: setback/protrusion measurement on elevation pages.
-    // Only when no interaction mode is engaged (view-mode only) AND the floor-plan
-    // ghost is visible (you hover a visible ghost edge). Handled + returns when the
-    // current page is an elevation with a resolvable aligned reference edge.
+    // #29 idle-view hover on aligned elevation pages: two independent overlays share
+    // this idle pass — (1) the multi-face envelope overlay (rides showEnvelopeFace,
+    // hover → highlight, click → deselect), and (2) the setback/protrusion edge readout
+    // (rides showGhost). Both gate view-mode only. Handled + returns when the current
+    // page is an elevation with a stored aligned reference edge.
     if (!editMode && !drawMode && !calibMode && !placingOpeningMode &&
-        !reviewShape && !roofShapeDraft && !openingDraftShape && showGhost) {
-      const measRef = resolveElevMeasureRef(currentPageId)
-      if (measRef) {
-        const hit = hitTestElevMeasureSegment(pos, measRef.sourcePageId)
+        !reviewShape && !roofShapeDraft && !openingDraftShape &&
+        isElevationPage && elevationEdgeRef.current[currentPageId]) {
+      let needRedraw = false
+      // (1) Envelope-face hover — independent of showGhost (its own overlay).
+      if (showEnvelopeFace) {
+        const faceHit = hitTestElevFace(pos)
+        if (faceHit !== elevFaceHoverRef.current) { elevFaceHoverRef.current = faceHit; needRedraw = true }
+      } else if (elevFaceHoverRef.current) { elevFaceHoverRef.current = null; needRedraw = true }
+      // (2) Setback/protrusion edge hover — rides the visible ghost.
+      if (showGhost) {
+        const measRef = resolveElevMeasureRef(currentPageId)
+        const hit = measRef ? hitTestElevMeasureSegment(pos, measRef.sourcePageId) : null
         const prev = elevMeasureHoverRef.current
         const changed = (!hit !== !prev) ||
           (hit && prev && (hit.shapeIdx !== prev.shapeIdx || hit.segIdx !== prev.segIdx))
-        if (changed) {
-          elevMeasureHoverRef.current = hit
-          setEditCursor(hit ? 'pointer' : 'default')
-          redrawFrontFaceLayer(ffHoverRef.current)
-        }
-        return
-      } else if (elevMeasureHoverRef.current) {
-        elevMeasureHoverRef.current = null
+        if (changed) { elevMeasureHoverRef.current = hit; needRedraw = true }
+      } else if (elevMeasureHoverRef.current) { elevMeasureHoverRef.current = null; needRedraw = true }
+      if (needRedraw) {
+        setEditCursor((elevFaceHoverRef.current || elevMeasureHoverRef.current) ? 'pointer' : 'default')
         redrawFrontFaceLayer(ffHoverRef.current)
       }
+      return
     }
 
     if (editMode) {
@@ -3754,6 +3793,139 @@ function App() {
     return best
   }
 
+  // ── #29 multi-face: derive every wall face that FACES this elevation ─────────
+  // Read-time, from the source floor-plan wall polygon(s). Returns an array of
+  // distinct-depth faces; stores nothing. Each face:
+  //   { faceId, xMin, xMax, depth, aligned, sourcePageId, memberIds }
+  //   xMin/xMax — horizontal canvas extent (source-page px = the ghost's coord frame)
+  //   depth     — signed protrusion coord in METRES (refSign-adjusted: + protrusion,
+  //               − setback), same sign convention as the setback/protrusion readout
+  //   aligned   — |depth| ≤ offsetTol (the reference-plane face)
+  //   faceId    — the enumeration id of the cluster's representative segment
+  //               (wall-${shape.id}-seg${si}-${level}); stable across re-derivation
+  // KEYSTONE: facing-bin excludes the opposite/far wall by the SIGN of the outward-
+  // normal dot (its normal faces away, dot ≈ −1), NOT by angle magnitude. Perpendicular
+  // walls give dot ≈ 0 and are excluded too. Only same-facing (dot ≥ FACING_DOT_MIN)
+  // survive. Colinear same-facing+same-offset segments merge into one span — the ONLY
+  // correct merge; faces at different depths are NEVER merged.
+  const deriveElevFaces = (pageId = currentPageId) => {
+    const measRef = resolveElevMeasureRef(pageId)
+    if (!measRef) return []
+    const { refAw, refBw, refSign, sourcePageId } = measRef
+    const refGeom = segmentGeom(refAw, refBw)
+    if (!refGeom) return []
+    // Reference outward normal (world): refSign flips perp to point away from interior.
+    const refOut = { x: refSign * refGeom.perp.x, y: refSign * refGeom.perp.y }
+    // Reference edge in source-canvas px — axis-aligned test + angled projection basis.
+    const refEdge = resolveElevEdge(pageId)
+    const refDirCanvas = refEdge ? segmentGeom(refEdge.A, refEdge.B) : null
+    // Axis-aligned when the reference edge is ~horizontal in the source canvas (the
+    // regime Piece A verified). Then raw endpoint .x IS the horizontal placement.
+    const axisAligned = refDirCanvas ? Math.abs(refDirCanvas.dir.y) <= 0.02 : true
+    const level = getFloorLevel(sourcePageId)
+    const levelKey = level ? level.replace(/\s/g, '_') : 'unknown'
+    const offsetTol = projectConfigRef.current.reconcileThresholdM ?? 0.05
+
+    const cands = []  // {shapeId, segIdx, xLo, xHi, depth}
+    completedShapesRef.current.forEach((shape) => {
+      if (shape.pageId !== sourcePageId || shape.status !== 'locked' || shape.shapeKind) return
+      const verts = shape.vertices
+      let cx = 0, cy = 0
+      for (const v of verts) { cx += v.x; cy += v.y }
+      cx /= verts.length; cy /= verts.length
+      const cW = pageVertexToWorld({ x: cx, y: cy }, sourcePageId)
+      if (!cW) return
+      for (let si = 0; si < verts.length; si++) {
+        const a = verts[si], b = verts[(si + 1) % verts.length]
+        const aW = pageVertexToWorld(a, sourcePageId)
+        const bW = pageVertexToWorld(b, sourcePageId)
+        if (!aW || !bW) continue
+        const eGeom = segmentGeom(aW, bW)
+        if (!eGeom) continue
+        // Edge outward normal: flip perp to point away from THIS polygon's centroid.
+        const centroidSigned = signedPerpDist(cW, aW, bW)
+        const eSign = centroidSigned > 0 ? -1 : 1
+        const eOut = { x: eSign * eGeom.perp.x, y: eSign * eGeom.perp.y }
+        const facingDot = eOut.x * refOut.x + eOut.y * refOut.y
+        if (facingDot < FACING_DOT_MIN) continue  // opposite (dot≈−1) / perp (dot≈0) excluded
+        const midW = { x: (aW.x + bW.x) / 2, y: (aW.y + bW.y) / 2 }
+        const rawDepth = signedPerpDist(midW, refAw, refBw)
+        if (rawDepth == null) continue
+        const depth = rawDepth * refSign
+        let xLo, xHi
+        if (axisAligned) {
+          xLo = Math.min(a.x, b.x); xHi = Math.max(a.x, b.x)
+        } else {
+          // Angled reference edge: project endpoints onto the reference-edge canvas
+          // direction (anchored at refA) so the face lands along the elevation's
+          // horizontal axis. PRESENT-BUT-UNTESTED — the fixture is axis-aligned, so
+          // only the clean .x branch above has been exercised in the browser.
+          const rA = refEdge.A, rDir = refDirCanvas.dir
+          const pa = (a.x - rA.x) * rDir.x + (a.y - rA.y) * rDir.y
+          const pb = (b.x - rA.x) * rDir.x + (b.y - rA.y) * rDir.y
+          const xa = rA.x + pa * rDir.x, xb = rA.x + pb * rDir.x
+          xLo = Math.min(xa, xb); xHi = Math.max(xa, xb)
+        }
+        cands.push({ shapeId: shape.id, segIdx: si, xLo, xHi, depth })
+      }
+    })
+    // Cluster by depth (coarse tol — wall planes are cm apart, NOT PARALLEL_EPS_M).
+    // Merge colinear spans within a cluster via min/max x. Sort by depth so greedy
+    // nearest-cluster assignment is stable.
+    cands.sort((p, q) => p.depth - q.depth || p.xLo - q.xLo)
+    const faces = []
+    for (const c of cands) {
+      const f = faces.find(g => Math.abs(g.depth - c.depth) <= offsetTol)
+      if (f) {
+        f.xMin = Math.min(f.xMin, c.xLo); f.xMax = Math.max(f.xMax, c.xHi)
+        f.members.push({ shapeId: c.shapeId, segIdx: c.segIdx })
+      } else {
+        faces.push({ depth: c.depth, xMin: c.xLo, xMax: c.xHi, members: [{ shapeId: c.shapeId, segIdx: c.segIdx }] })
+      }
+    }
+    return faces.map(f => {
+      const rep = f.members.slice().sort((m, n) =>
+        `${m.shapeId}-${String(m.segIdx).padStart(4, '0')}`.localeCompare(
+        `${n.shapeId}-${String(n.segIdx).padStart(4, '0')}`))[0]
+      return {
+        faceId: `wall-${rep.shapeId}-seg${rep.segIdx}-${levelKey}`,
+        xMin: f.xMin, xMax: f.xMax, depth: f.depth,
+        aligned: Math.abs(f.depth) <= offsetTol,
+        sourcePageId, memberIds: f.members,
+      }
+    })
+  }
+
+  // #29 multi-face: the shared vertical extent (bottomY/topY) of every derived face on
+  // an elevation page — reuses the EXACT anchorY + fhZStack + pxPerMeter drawElevRefLines
+  // uses, so faces register on the drawn floor/ceiling lines (same inputs → same pixels).
+  // Returns null if the gate (own scale + stored edge + fhZStack) is not met.
+  const elevFaceVerticalExtent = (pageId = currentPageId) => {
+    const elevScale = pageScalesRef.current[pageId]
+    const edge = resolveElevEdge(pageId)
+    const topCeilingZ = fhZStack.length ? fhZStack[fhZStack.length - 1].ceilingZ : null
+    if (!elevScale?.pxPerMeter || !edge || !fhZStack.length || topCeilingZ == null) return null
+    const anchorY = elevBaseYRef.current[pageId] ?? (edge.A.y + edge.B.y) / 2
+    const lowestFloorZ = fhZStack[0].floorZ ?? 0
+    const bottomY = zFeetToElevY(lowestFloorZ, anchorY, lowestFloorZ, elevScale.pxPerMeter)
+    const topY = zFeetToElevY(topCeilingZ, anchorY, lowestFloorZ, elevScale.pxPerMeter)
+    return { bottomY, topY }
+  }
+
+  // #29 multi-face: hit-test cursor against the drawn derived faces (idle view).
+  // Returns the faceId of the SMALLEST-area face containing the point (so a small
+  // recessed face nested inside a wide aligned face stays selectable), or null.
+  const hitTestElevFace = (pos) => {
+    const ext = elevFaceVerticalExtent(currentPageId)
+    if (!ext) return null
+    const yLo = Math.min(ext.topY, ext.bottomY), yHi = Math.max(ext.topY, ext.bottomY)
+    if (pos.y < yLo || pos.y > yHi) return null
+    const hits = deriveElevFaces(currentPageId)
+      .filter(f => Math.abs(f.xMax - f.xMin) >= 1 && pos.x >= f.xMin && pos.x <= f.xMax)
+      .sort((a, b) => (a.xMax - a.xMin) - (b.xMax - b.xMin))
+    return hits.length ? hits[0].faceId : null
+  }
+
   // Small tooltip-style label at a hovered edge midpoint (canvas coords). Zoom-
   // compensated so it stays a constant on-screen size, matching drawElevRefLines.
   const drawElevMeasureLabel = (ctx, mx, my, text, isProtrusion) => {
@@ -3952,45 +4124,54 @@ function App() {
       }
     }
 
-    // ── #29 Piece A: plan-derived envelope face (read-only overlay) ────────────
-    // Single-reference-edge v1 (NO faceKey clustering). Registered canvas-native:
-    // horizontal extent = the reference edge's canvas endpoints (A.x→B.x, same edge
-    // the readout uses); vertical extent = lowest floorZ → topmost ceilingZ via the
-    // EXACT zFeetToElevY + anchorY + fhZStack + pxPerMeter drawElevRefLines uses — so
-    // the face bottom coincides with the drawn base-floor line and the top with the
-    // topmost ceiling line (same inputs → same pixels). Derived fresh, stores nothing,
-    // no hit-test. Skip if the reference edge has no horizontal canvas separation.
-    // Gates on its OWN toggle (showEnvelopeFace) — independent of the ghost (showGhost):
-    // the raw source plan and the derived envelope face are different artifacts. This
-    // is the diagnostic overlay for judging derived-vs-drawn (plan is source-of-truth;
-    // fix is upstream).
+    // ── #29 MULTI-FACE: plan-derived envelope faces (read-only overlay) ────────
+    // Derives EVERY wall face that faces this elevation's direction — the aligned
+    // reference-edge face AND recessed/protruding faces at their own plane-offsets —
+    // via deriveElevFaces (facing-bin by outward-normal dot sign; offset-cluster by
+    // signedPerpDist; colinear merge within a same-depth cluster only). Each face is a
+    // registered Piece-A-style quad: shared vertical extent (floorZ→topmost ceilingZ,
+    // the EXACT drawElevRefLines inputs → lands on the drawn floor/ceiling lines),
+    // per-face horizontal extent (its own edge's canvas .x span). Depth-hued: aligned
+    // green / recessed lighter / protruding darker (hue agrees with the setback/
+    // protrusion word via the SAME refSign anchor). Stores nothing, derives fresh.
+    // Per-face click-to-deselect hides an id (excludedFaceIdsByPageId) — VISUAL-ONLY
+    // (enumeration/F280 never read it). Gates on its OWN toggle (showEnvelopeFace),
+    // independent of the ghost (showGhost). Diagnostic overlay for judging derived-vs-
+    // drawn (plan is source-of-truth; fix is upstream).
     if (storedElevEdge && !elevEdgeMode && !elevAlignMode && showEnvelopeFace) {
-      const elevScaleFace = pageScalesRef.current[currentPageId]
-      const edgeFace = resolveElevEdge(currentPageId)
-      const topCeilingZ = fhZStack.length ? fhZStack[fhZStack.length - 1].ceilingZ : null
-      if (elevScaleFace?.pxPerMeter && edgeFace && fhZStack.length && topCeilingZ != null
-          && Math.abs(edgeFace.A.x - edgeFace.B.x) >= 1) {
-        const { A, B } = edgeFace
-        const { pxPerMeter } = elevScaleFace
-        const anchorY = elevBaseYRef.current[currentPageId] ?? (A.y + B.y) / 2
-        const lowestFloorZ = fhZStack[0].floorZ ?? 0
-        const bottomY = zFeetToElevY(lowestFloorZ, anchorY, lowestFloorZ, pxPerMeter)
-        const topY = zFeetToElevY(topCeilingZ, anchorY, lowestFloorZ, pxPerMeter)
+      const ext = elevFaceVerticalExtent(currentPageId)
+      if (ext) {
+        const { bottomY, topY } = ext
         const zoom = zoomRef.current
-        ctx.save()
-        ctx.beginPath()
-        ctx.moveTo(A.x, bottomY)
-        ctx.lineTo(B.x, bottomY)
-        ctx.lineTo(B.x, topY)
-        ctx.lineTo(A.x, topY)
-        ctx.closePath()
-        ctx.fillStyle = 'rgba(34,197,94,0.08)'   // very light green — drawn elevation stays visible
-        ctx.fill()
-        ctx.strokeStyle = '#22c55e'               // bright green — distinct from amber ghost / purple ref-edge / cyan openings
-        ctx.lineWidth = 2.5 / zoom
-        ctx.setLineDash([])
-        ctx.stroke()
-        ctx.restore()
+        const excluded = excludedFaceIdsByPageId[currentPageId] || []
+        const faces = deriveElevFaces(currentPageId)
+        for (const face of faces) {
+          if (excluded.includes(face.faceId)) continue                 // deselected — hidden (visual-only)
+          if (Math.abs(face.xMax - face.xMin) < 1) continue             // degenerate — no horizontal separation
+          const hovered = elevFaceHoverRef.current === face.faceId
+          // Depth → hue. Aligned (offset≈0) = baseline green; recessed (behind, depth<0)
+          // = lighter; protruding (forward, depth>0) = darker. Fixed lighter/darker per
+          // direction (not depth-scaled) — clearest read; depth-scaling is a later refinement.
+          const pal = face.aligned
+            ? { stroke: '#22c55e', fill: 'rgba(34,197,94,0.08)',  fillH: 'rgba(34,197,94,0.20)' }
+            : face.depth < 0
+              ? { stroke: '#86efac', fill: 'rgba(134,239,172,0.12)', fillH: 'rgba(134,239,172,0.26)' }  // recessed — lighter
+              : { stroke: '#15803d', fill: 'rgba(21,128,61,0.12)',   fillH: 'rgba(21,128,61,0.26)' }    // protruding — darker
+          ctx.save()
+          ctx.beginPath()
+          ctx.moveTo(face.xMin, bottomY)
+          ctx.lineTo(face.xMax, bottomY)
+          ctx.lineTo(face.xMax, topY)
+          ctx.lineTo(face.xMin, topY)
+          ctx.closePath()
+          ctx.fillStyle = hovered ? pal.fillH : pal.fill
+          ctx.fill()
+          ctx.strokeStyle = pal.stroke
+          ctx.lineWidth = (hovered ? 4 : 2.5) / zoom
+          ctx.setLineDash([])
+          ctx.stroke()
+          ctx.restore()
+        }
       }
     }
 
@@ -5225,6 +5406,7 @@ function App() {
         snapIncrement,
         showGhostByPageId,
         showEnvelopeFaceByPageId,
+        excludedFaceIdsByPageId,
         // Refs
         completedShapes: completedShapesRef.current,
         pageScales:      pageScalesRef.current,
@@ -5331,6 +5513,7 @@ function App() {
       setSnapIncrement(obj.snapIncrement ?? 0.1524)
       setShowGhostByPageId(obj.showGhostByPageId ?? {})
       setShowEnvelopeFaceByPageId(obj.showEnvelopeFaceByPageId ?? {})
+      setExcludedFaceIdsByPageId(obj.excludedFaceIdsByPageId ?? {})
       setFileName(obj.fileName ?? 'test-fixture.pdf')
       setPageCount(obj.pageCount ?? pdfDoc.numPages)
       setPdf(pdfDoc)

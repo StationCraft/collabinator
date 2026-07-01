@@ -3,7 +3,9 @@
     "allow": [
       "Bash",
       "PowerShell",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Skill(run)",
+      "Skill(run:*)"
     ],
     "defaultMode": "acceptEdits"
   }
