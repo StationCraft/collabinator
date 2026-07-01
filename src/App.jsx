@@ -11,7 +11,7 @@ import {
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform, similarityFromHandleDrag, screenDeltaToWorld, invSimilarityPoint, zoomAnchorPan } from './coords.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform, buildPanZoomTransformCSS, similarityFromHandleDrag, screenDeltaToWorld, invSimilarityPoint, zoomAnchorPan } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -8000,7 +8000,7 @@ function App() {
             ref={canvasWorldRef}
             className="canvas-world"
             style={{
-              transform: `translate(${viewTransform.panX}px,${viewTransform.panY}px) scale(${viewTransform.zoom})`,
+              transform: buildPanZoomTransformCSS(viewTransform.panX, viewTransform.panY, viewTransform.zoom),
               transformOrigin: '0 0',
             }}
           >

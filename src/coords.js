@@ -165,3 +165,14 @@ export function getCSSTransform(t) {
   if (tx === 0 && ty === 0 && s === 1 && angle === 0) return 'none'
   return buildViewTransformCSS({ tx, ty, s, angle })
 }
+
+// Build the canvas-world pan/zoom CSS transform string. This is a DISTINCT
+// 2-term similarity shape from getCSSTransform's align string: no rotate term,
+// no space after the comma, and no identity 'none' shortcut (the canvas-world
+// element always carries a full transform, even at identity). Stage 6 confirmed
+// the two CSS sites do NOT share a byte-identical shape, so they use separate
+// builders rather than being forced into one shape. Byte-identical to the prior
+// inline JSX template literal at the .canvas-world site.
+export function buildPanZoomTransformCSS(panX, panY, zoom) {
+  return `translate(${panX}px,${panY}px) scale(${zoom})`
+}
