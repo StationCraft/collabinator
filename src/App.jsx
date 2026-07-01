@@ -808,8 +808,7 @@ function App() {
       const ctx = canvas.getContext('2d')
       const containerWidth = Math.min(window.innerWidth - 48, 1200)
       const viewport = page.getViewport({ scale: 1 })
-      const scale = containerWidth / viewport.width
-      const scaled = page.getViewport({ scale })
+      const scale = containerWidth / viewport.width  // crop branch only (raster resolution)
 
       // Backdrop resolution tier: rasterize at multiplier × logical size,
       // but pin the CSS display size to the logical dimensions so the backdrop
@@ -848,17 +847,36 @@ function App() {
         const cropVp = page.getViewport({ scale: scale * mult, offsetX: -crop.x * mult, offsetY: -crop.y * mult })
         await page.render({ canvasContext: ctx, viewport: cropVp }).promise
       } else {
-        // Full-sheet (no region crop) — unchanged behavior.
-        const hiDpi = page.getViewport({ scale: scale * mult })
+        // Full-sheet (#117 C-rederive): PIN the coordinate frame to the page's authored footprint
+        // (fallback 1200 — the clamp ceiling, proven correct for pre-#117 fixtures) instead of the
+        // live-window containerWidth. measureRef, getCanvasPos (c.width), clampToCanvas, every draw
+        // path (ghost/shapes/openings/outline/ref-lines/align-handles), and pan all read off
+        // measureRef's size, so this single pin lands them ALL at a WINDOW-INDEPENDENT frame —
+        // geometry authored at one width registers at any load width, no per-consumer ratio. The
+        // window governs only the viewport (initial fit-zoom below), never the frame. Same model as
+        // the crop branch above (measureRef sized to crop.w, window-independent).
+        const footprint = pageTransformsRef.current[pageId]?.authorScaled ?? 1200
+        const pinScale = footprint / viewport.width
+        const pinScaled = page.getViewport({ scale: pinScale })
+        const hiDpi = page.getViewport({ scale: pinScale * mult })
         canvas.width = hiDpi.width
         canvas.height = hiDpi.height
-        canvas.style.width  = `${scaled.width}px`
-        canvas.style.height = `${scaled.height}px`
+        canvas.style.width  = `${pinScaled.width}px`
+        canvas.style.height = `${pinScaled.height}px`
         if (resizeMeasure && measureRef.current) {
-          measureRef.current.width = scaled.width
-          measureRef.current.height = scaled.height
+          measureRef.current.width = pinScaled.width
+          measureRef.current.height = pinScaled.height
         }
         await page.render({ canvasContext: ctx, viewport: hiDpi }).promise
+        // Fit-zoom: the sheet now renders at ~footprint px regardless of window, so scale the
+        // VIEWPORT so the whole sheet is visible on load without overflow. Capped at 1 (never zoom
+        // past 1:1 on wide windows — matches prior on-load visual width). Viewport-only: it must
+        // NOT feed back into the frame. Skipped on enhance re-renders (resizeMeasure:false).
+        if (resizeMeasure) {
+          const fitZoom = Math.min(1, (window.innerWidth - 48) / footprint)
+          zoomRef.current = fitZoom
+          setViewTransform(prev => ({ ...prev, zoom: fitZoom }))
+        }
       }
       setCurrentPage(pageNum)
       setCurrentPageId(pageId)
@@ -3623,6 +3641,10 @@ function App() {
     // Elevation's own independent pxPerMeter — not borrowed, not a child of the source.
     const elevPxPerMeter = elevPixelLen / realLenMeters
     pageScalesRef.current[elevPageId] = { pxPerMeter: elevPxPerMeter, displayUnit: srcScale.displayUnit }
+    // #117 (C-rederive): record the author-frame footprint — renderPage pins this page's render
+    // frame to it (fallback 1200) so it registers at any load width. Additive; tx/ty/s untouched.
+    const prevT = pageTransformsRef.current[elevPageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
+    pageTransformsRef.current[elevPageId] = { ...prevT, authorScaled: prevT.authorScaled ?? 1200 }
     setElevAlignMode(false)
     alignDragRef.current = null
     setAlignTick(t => t + 1)
@@ -6448,7 +6470,9 @@ function App() {
                 <button className="snap-btn" onClick={() => {
                   const pageId = currentPageId
                   const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
-                  pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                  // #117 (C-rederive): record the author-frame footprint; renderPage pins the render
+                  // frame to it (fallback 1200) so it registers at any load width.
+                  pageTransformsRef.current[pageId] = { ...cur, confirmed: true, authorScaled: cur.authorScaled ?? 1200 }
                   if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
                   setAlignMode(false)
                   setAlignTick(t => t + 1)
@@ -6740,7 +6764,8 @@ function App() {
                         <button className="snap-btn" onClick={() => {
                           const pageId = currentPageId
                           const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
-                          pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                          // #117 (C-rederive): record the author-frame footprint (renderPage pins to it).
+                          pageTransformsRef.current[pageId] = { ...cur, confirmed: true, authorScaled: cur.authorScaled ?? 1200 }
                           if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
                           setAlignMode(false)
                           setAlignTick(t => t + 1)
@@ -6882,7 +6907,8 @@ function App() {
                         <button className="snap-btn" onClick={() => {
                           const pageId = currentPageId
                           const cur = pageTransformsRef.current[pageId] || { tx: 0, ty: 0, s: 1, angle: 0 }
-                          pageTransformsRef.current[pageId] = { ...cur, confirmed: true }
+                          // #117 (C-rederive): record the author-frame footprint (renderPage pins to it).
+                          pageTransformsRef.current[pageId] = { ...cur, confirmed: true, authorScaled: cur.authorScaled ?? 1200 }
                           if (ghostSrc) pageRefParentRef.current[pageId] = ghostSrc
                           setAlignMode(false)
                           setAlignTick(t => t + 1)
@@ -7984,7 +8010,10 @@ function App() {
             <div
               className="pdf-align-layer"
               style={{
-                // alignTick read here forces React to re-evaluate after each drag write
+                // alignTick read here forces React to re-evaluate after each drag write.
+                // #117 (C-rederive): backdrop uses the RAW stored {tx,ty,s}. The frame is pinned in
+                // renderPage (window-independent footprint), so backdrop and overlay never split —
+                // no read-time ratio compensation.
                 transform: alignTick >= 0 ? getCSSTransform(pageTransformsRef.current[currentPageId]) : 'none',
                 transformOrigin: '0 0',
               }}
