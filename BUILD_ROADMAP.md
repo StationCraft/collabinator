@@ -443,8 +443,11 @@ is arranged so most beats are things Ben can see.
         ASSEMBLY_TYPE_DEFAULTS lookup (placeholder 1/R U-values); Project Setup = project-level default,
         Envelope panel inputs = per-surface overrides. Precedence manual/library > project-default > unset.
         Verified: __verifyFixture 44/44; wall unresolvedCount 8→0 on configured wall.
-    [ ] #107 — Flat-roof UI gap: DEFAULT case now handled by #106 (flat-roof reads assembly-roof). Remaining:
-        explicit per-surface U-input block on flat-roof-surface Envelope rows for multi-assembly roofs.
+    [x] #107 — Flat-roof per-surface U-input UI — DONE (shipped Session 76, commit c8857b6; S76 close-out
+        missed marking it, reconciled in-session). DEFAULT case handled by #106; explicit per-surface
+        U-value + thickness manual-override inputs added on flat-roof-surface Envelope rows (mirrors wall
+        block). Precedence manual > project-default > unset. Verified in-session at build time: 44/44 golden,
+        manual flat-roof U flip, F280 bucket resolution.
     [x] #108 — Window/door uw+shgc post-placement edit — DONE (Session 76; commit 44615f2). Opening dialog
         gained uw (both kinds) + shgc (window-only; door forced 0); double-click re-edit updates in place
         (isOpening-guarded, no duplicate); record shape identical to placeOpeningFromEntry. 44/44 golden PASS.
@@ -525,11 +528,11 @@ reconciliation is this pass. Settled near-term order after (b) lands and docs re
      face) + angled-reference projection branch (fixture is axis-aligned). Hue-subtlety cosmetic logged as
      #129 (defer until protruding fixture available). Remaining: confirm-view posture (B) — open architecture
      question (may dissolve under plan-is-source-of-truth model; no build until resolved in planning chat).
-  3. **Thermal arc:** #106 (assembly-inheritance default) — **DONE (Session 75; commit f2d5a57)**; #108
+  3. **Thermal arc:** #106 (assembly-inheritance default) — **DONE (Session 75; commit f2d5a57)**; #107
+     (flat-roof per-surface U-input) — **DONE (shipped Session 76; commit c8857b6)**; #108
      (window/door `uw`/`shgc` post-placement edit) + `ti-heating` CONFIG_FIELD — **DONE (Session 76; commit
-     44615f2)**. Arc is FUNCTIONALLY CLOSED for the base case (last hardcoded F280 input, Ti, retired). Only
-     #107 (flat-roof explicit per-surface U-input; default case handled by #106) remains as arc polish. Next
-     real thermal work: below-grade + slab geometry.
+     44615f2)**. Arc is FULLY CLOSED for the base case in both code and docs (last hardcoded F280 input, Ti,
+     retired). Next real thermal work: below-grade + slab geometry.
 A parallel-track approach for #106–108 was considered and REJECTED — all three live inside App.jsx (shared
 ground); branch-management overhead is not worth it for a ~5–6 session arc. Run them sequentially on main.
 

@@ -61,17 +61,20 @@ still co-update on the fixture. **Production ids are unique per session (counter
 #108 is unaffected in production** — this is a DEV-fixture-restore-only defect. #121's register note
 strengthened with this evidence.
 
-**Thermal arc status:** #106 (Session 75) + #108 + `ti-heating` (this session) close the arc for the base
-case. Only #107 (explicit per-surface flat-roof U-input for multi-assembly roofs) remains as arc polish.
+**Thermal arc status:** #106 (Session 75) + #107 (shipped this session, commit `c8857b6`) + #108 +
+`ti-heating` (this session) close the arc for the base case. Thermal arc base case is now FULLY CLOSED in
+both code and docs. **NOTE:** #107's commit `c8857b6` shipped during Session 76 but the close-out below
+originally failed to mark it DONE — reconciled in a subsequent doc-only pass (no code change, verified
+in-session at build time: 44/44 golden, manual flat-roof U flip, precedence + F280 bucket resolution).
 Next real thermal work: below-grade + slab geometry → ground-coupled loss (separate engine) → solar gain.
 
 **Process note:** the DEV two-click opening placement is stale-closure-sensitive when driven from the
 console (React state between synthetic clicks needs a render tick) — fire the two clicks in separate eval
 turns. Restore leaves `dimensionBasisRef` null, so first placement after restore hits the dim-basis gate.
 
-**What's next:** #107 explicit-UI follow-on (cheap), then below-grade + slab geometry. Confirm-view posture
-(B) for #29 remains an open planning question. #121 self-heal (shapeIdCounterRef on restore) is a good
-DEV-hygiene cheap win when convenient.
+**What's next:** below-grade + slab geometry (thermal arc base case fully closed; #107 shipped `c8857b6`).
+Confirm-view posture (B) for #29 remains an open planning question. #121 self-heal (shapeIdCounterRef on
+restore) is a good DEV-hygiene cheap win when convenient.
 
 ---
 

@@ -97,7 +97,7 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#105** — climate-resiliency mode; F280 conductive endpoint + Toh override exist (Session 54/56) → MET; additive view.
 - **#106** — assembly-inheritance default. **DONE (Session 75; commit `f2d5a57`).** Project Setup assemblies feed `getSurfaceAssembly` miss path as `source:'project-default'`; per-surface entries override; placeholder 1/R U-values (values pass pending). Incidentally satisfies #107's default case.
 - **#108** — window-door `uw`/`shgc` post-placement edit. **DONE (Session 76; commit `44615f2`).** Opening Details dialog gained a U-value input (both kinds) + SHGC input (window-only; door forced `shgc:0`); double-click a placed opening in Edit Shapes (default sub-mode) re-opens the dialog pre-populated and updates the record in place (`isOpening`-guarded id match, no duplicate). Record shape byte-identical to `placeOpeningFromEntry`. Browser-verified: 44/44 golden PASS; F280 window `unresolvedCount` drops when a manual `uw` is entered (matches bridge behavior). **Testing surfaced live evidence for #121** (see #121 note).
-- **#107** — flat-roof explicit per-surface U-input UI. Default case handled by #106; the explicit per-surface override input for multi-assembly roofs remains. Geometry-stable review passed (Session 70); no geometry dep.
+- **#107** — flat-roof explicit per-surface U-input UI. **DONE (shipped Session 76; commit `c8857b6`; S76 close-out missed marking it, reconciled in-session).** Default case handled by #106; explicit per-surface U-value + thickness manual-override inputs added to flat-roof-surface Envelope rows (mirrors wall block); precedence manual > project-default > unset. Verified in-session at build time: 44/44 golden, manual flat-roof U flip, F280 bucket resolution. **Thermal arc base case (#106/#107/#108 + `ti-heating`) now FULLY CLOSED.**
 - **#119** — split `OPENING_TYPES` → `WINDOW_TYPES`/`DOOR_TYPES` + dialog branch; low impact (opening-entry polish). Note: #108 added per-kind field visibility (SHGC hidden for doors) but did NOT split the dialog — #119 remains open.
 - **#121** — self-heal `shapeIdCounterRef` (+ps/ss) to max+1 on `__restoreFixture` (mirrors `regionCounterRef`); investigate then build. **Live evidence (Session 76, from #108 testing):** after `__restoreFixture`, `shapeIdCounterRef` is NOT restored, so newly placed shapes collide with fixture ids — observed `sh-0` appearing 3× (two windows + a wall). #108's re-edit adds an `isOpening` guard so a colliding non-opening is never mutated, but two same-id *openings* still co-update on the fixture. Production ids are unique per session (counter cleared on PDF upload), so **#108 is unaffected in production**; this is a DEV-fixture-restore-only defect.
 - **#122** — seed `fhFtVals`/`fhInVals` from `floorHeightsRef` on load/restore; pre-existing, no coord dep (FH-panel polish).
@@ -2072,10 +2072,13 @@ The `flat-roof-surface` elements appear in the Envelope panel (one row per confi
 
 **Fix:** Add the same `enum-assembly-inputs` block to the flat-roof panel section that exists for wall surfaces. Three inputs: U-value (W/m²K), thickness (mm), Confirm button — same `onBlur` handler writing to `surfaceAssemblyRef.current[el.id]`.
 
-**Note:** The default case is now resolved by #106 (**DONE Session 75** — flat-roof `getSurfaceAssembly` miss path reads the `assembly-roof` CONFIG_FIELD and returns `source:'project-default'`). The per-surface override UI is still worth building for multi-assembly roofs.
+**Note:** The default case is resolved by #106 (**DONE Session 75** — flat-roof `getSurfaceAssembly` miss path reads the `assembly-roof` CONFIG_FIELD and returns `source:'project-default'`). The per-surface override UI was then built on top for multi-assembly roofs.
 
-**Status:** **default case DONE via #106 (Session 75);** explicit per-surface U-input UI for flat-roof rows is
-the remaining follow-on (gate-lifted-ready, no geometry dependency).
+**Status:** **DONE (shipped Session 76; commit `c8857b6`; S76 close-out missed marking it, reconciled in a
+doc-only pass).** Default case DONE via #106 (Session 75); explicit per-surface U-value + thickness
+manual-override inputs added to flat-roof-surface Envelope rows (mirrors the wall block, `onBlur` writes
+`surfaceAssemblyRef.current[el.id]` as `tier:'manual'`). Verified in-session at build time: 44/44 golden,
+manual flat-roof U flip, precedence manual > project-default > unset, F280 bucket resolution.
 
 ---
 

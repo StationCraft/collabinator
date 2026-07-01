@@ -803,14 +803,14 @@ A React + Vite app with:
     Envelope U inputs still override. See the `#106 assembly-inheritance default` entry below.
   * **Near-term thermal arc (geometry review gate satisfied):** ~~#106 assembly-inheritance fix~~ **DONE
     (Session 75)** → ~~#108 window/door uw post-placement edit~~ **DONE (Session 76)** + ~~`ti-heating`
-    CONFIG_FIELD~~ **DONE (Session 76)** → #107 flat-roof explicit per-surface U-input UI (default case
-    already handled by #106; explicit override input for multi-assembly roofs remains) → below-grade + slab
+    CONFIG_FIELD~~ **DONE (Session 76)** + ~~#107 flat-roof explicit per-surface U-input UI~~ **DONE
+    (shipped Session 76, commit `c8857b6`)** → below-grade + slab
     geometry → ground-coupled loss (separate engine from above-grade, using supplemental `BasementHLR.xls` /
     `SlabOnGradeHLR.xls` calculators) → solar gain.
-  * **Thermal-arc status (Session 76):** the #106/#107/#108 arc is **functionally closed** for the base case —
-    #106 (assembly default) DONE, #108 (opening uw/shgc edit) DONE, `ti-heating` DONE (last hardcoded F280
-    input retired). Only #107's explicit per-surface flat-roof override UI remains as arc polish. Next real
-    work is below-grade/slab geometry.
+  * **Thermal-arc status:** the #106/#107/#108 arc + `ti-heating` is **FULLY CLOSED for the base case** in
+    both code and docs — #106 (assembly default) DONE, #107 (flat-roof per-surface U-input) DONE, #108
+    (opening uw/shgc edit) DONE, `ti-heating` DONE (last hardcoded F280 input retired). Next real work is
+    below-grade/slab geometry.
 
 - **#108 window/door uw+shgc post-placement edit + `ti-heating` CONFIG_FIELD (Session 76; commit `44615f2`; DONE):**
   Two-part slice. No geometry change.
@@ -965,8 +965,8 @@ A React + Vite app with:
   ADDITIONAL_FUNCTIONALITY.md sweep block.
 - **Settled near-term sequence (Session 70):** Beat 0 cheap wins (#53, #118, #112) → #29 derived
   elevations → thermal arc (~~#106~~ **DONE Session 75** / ~~#108 window-door uw edit~~ **DONE Session 76** /
-  ~~`ti-heating`~~ **DONE Session 76** / #107 flat-roof explicit-UI follow-on remains). Thermal arc is
-  functionally closed for the base case; only #107's explicit per-surface flat-roof override UI remains.
+  ~~`ti-heating`~~ **DONE Session 76** / ~~#107 flat-roof explicit-UI~~ **DONE, commit `c8857b6`**). Thermal
+  arc base case is FULLY CLOSED in code and docs.
   Next real thermal work: below-grade + slab geometry. #125 is an OPEN render-gap bug, NOT a #29 dependency.
 - **#29 (derived elevations) — FIRST PIECE DONE (Session 71; commit ed43c6d):** aligned-edge
   setback/protrusion hover-label. On an elevation page with an aligned edge (`elevationEdgeRef`), the
