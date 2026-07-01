@@ -7,3 +7,6 @@ public/devFixtures/test-fixture.pdf
 # Un-ignore Claude Code local settings (permission modes only — no secrets)
 # Negates the global git ignore rule (**/.claude/settings.local.json)
 !.claude/settings.local.json
+
+# Ignore Claude Code launch config — session-specific port bindings, not project state
+.claude/launch.json
