@@ -790,9 +790,14 @@ built on the elevation page:
   coincident/flush suppressed; toggle + persistence correct; no regression to floor/roof ghost + toggle.
 
 **Remaining #29 pieces (NOT built):** simple-massing derived block (bbox/polygon projection extruded flat
-floor→ceiling on scalar Z), confirm-view (derived faces shown for confirm rather than freehand trace),
-isometric depth view (see the ISOMETRIC DEPTH VIEW entry below). `faceKey` facing-direction grouping is
-still read-time-derivable and not yet materialized.
+floor→ceiling on scalar Z), confirm-view (derived faces shown for confirm rather than freehand trace).
+`faceKey` facing-direction grouping is still read-time-derivable and not yet materialized.
+
+**#126 iso DONE (Session 72; commit 499b1ae) — the depth counterpart to the setback/protrusion readout.**
+The first-piece hover-label surfaces the perpendicular offset as a NUMBER on the flat elevation; #126's
+orthographic-iso mode on `ThreeDView` now SHOWS that depth — a "protrusion" wall visibly sits forward of the
+aligned reference-face plane, a "setback" behind (Ben-confirmed the picture agrees with the label). See the
+ISOMETRIC DEPTH VIEW (#126) entry for the full record.
 
 ---
 
@@ -2683,15 +2688,65 @@ wall polygons extruded on their scalar floor-stack Z (`accumulateZ`) — so that
 visually as depth rather than only as a hover-label number. Off the orthographic elevation; a separate
 depth-aware view.
 
-**Why deferred / NEEDS RECON before scoping:** a flat scalar-Z isometric of the plan geometry MAY avoid R3
-(per-element z stays absent; the extrusion uses only `pageVertexToWorld` XY + scalar floor/ceiling Z, the
-same inputs the simple-massing derived block would use). But that is **unconfirmed** — it must be checked
-against the **#23 / #17 projection fence** (isometric multi-reference / projection-model constraints) before
-any scoping. Do NOT assume the flat-scalar-Z iso is free of the fenced projection machinery.
+**Recon outcome (Session 72):** CONFIRMED distinct-and-buildable, NOT fenced-same-as-#23. #23's fence is
+per-REFERENCE Z across MULTIPLE references projected onto the elevation plane (the #17 collapse-onto-plane
+transform) — disjoint from #126's inputs. #126 needs only plan XY (`pageVertexToWorld`) + scalar floor-stack
+Z (`accumulateZ`), both already existing and unfenced; `makeVertex` untouched (no per-element z). It is a
+REUSE/reframe of the existing three.js `ThreeDView` (swap `PerspectiveCamera`→`OrthographicCamera` at a
+fixed iso angle over the same scene + `deriveWireframe` output), NOT a new 2D-canvas projection.
 
-**Gate (checkable):** **gate-still-real.** Condition: a recon confirms a flat scalar-Z isometric render of
-plan geometry can be built WITHOUT tripping the #23/#17 projection fence (no per-element z, no fenced
-multi-reference projection). Until that recon is done and passes, do NOT build.
+**Status: DONE (Session 72; commit 499b1ae). Ben-verified all states.** Built as an iso mode on `ThreeDView`:
+- **Perspective ↔ orthographic-iso toggle** — camera-only swap (camera/controls/scene/renderer hoisted into
+  refs), no scene-graph rebuild. Ortho frustum from the existing bbox `maxDim`. Auto-enters iso when opened
+  from a page that resolves an anchor.
+- **On-entry orient** — the outward-normal azimuth of the anchor face, computed in world XY and mapped
+  `(outx, 0, outy)` into the scene (the critical **world-Y → scene-Z** mapping; scene-Y is up). Reuses the
+  #29 `resolveElevMeasureRef` `{refAw, refBw, refSign}` (centroid-anchored sign) verbatim.
+- **8-stop anchored ring** — 8 azimuth stops 45° apart, all at `ISO_ELEV` (35.264°), up=(0,1,0), looking
+  down (no underside stops — Ben's call after a 4-vs-8 and a top/bottom-reversal iteration). Stop 0 = anchor
+  **face-on** (a derived-elevation view); interleaved 45° stops = **corner-iso** (two faces + top). ◄/►
+  step ±45° mod 8, **deterministic** against the anchored origin (same entry + same ► = same stop).
+- **Anchor chain:** reference edge (`resolveElevMeasureRef`, State 1) → defined Front
+  (`resolveFrontFaceMeasureRef`, State 2, same `{refAw,refBw,refSign}` machinery pointed at the Front
+  segment) → free-orbit (State 3, no anchor: ortho free-orbit, ◄/► hidden, no synthesized corner).
+- **Verified-verbatim-reused:** world-Y→scene-Z, `orientAzimuth`, `placeOnRing`, both resolvers, the
+  ortho/perspective swap, the #29 depth path. Depth agrees with the #29 label (protrusion forward / setback
+  behind) in iso.
 
-**Status:** DEFERRED — recon-gated. Ben's request; logged, not scoped, not built. Relates to #29 (remaining
-pieces), #23/#17 (projection fence), #54 (envelope surfaces / 3D fill).
+**Follow-on (deferred, gate-lifted-ready, no dep):** the **settable-active-edge PICK** — a UI to choose
+which face the iso orients to (today the anchor is auto-resolved reference-edge → Front). A plain UI pick
+when wanted; nothing in the built piece depends on it.
+
+---
+
+### 127. World-origin single-shape dependency — 3D-View button vanished on wall-shape delete
+
+**Category:** Bug / coordinate-datum. **Logged + RESOLVED:** Session 72 (2026-07-01; commit 499b1ae).
+Surfaced during #126 verification: deleting the wall shape that carried the Front designation made the
+**3D-View button disappear**.
+
+**Root cause (NOT Front-specific).** `getWorldOriginM` derived the world origin from the bbox-min of the
+**lowest present floor LEVEL's** wall polygons and bailed `if (!shapes.length) return null`. When that
+level's last (or only) wall polygon was deleted, the origin nulled → `deriveWireframe` returned empty AND
+the 3D-View button (gated on `getWorldOriginM()` non-null) vanished. The Front was incidental — it merely
+lived on that shape; deleting the last wall polygon on the lowest floor killed it regardless of Front. The
+dependency was "the lowest floor LEVEL must carry wall geometry," a single-level (effectively single-shape)
+fragility.
+
+**Fix.** `getWorldOriginM` now scans the Z-stack **bottom-up** and anchors the origin to the **lowest floor
+level that actually carries wall polygons** (with a resolvable scale), instead of hard-requiring the single
+lowest level. The origin is a pure translation datum, re-derived every call; every relationship is
+geometry-to-geometry (per the design note), so which qualifying level anchors it does **not** change any
+measurement, world-coordinate relationship, or the #29 depth read — the sole observable effect is the 3D
+view + its button staying available as long as SOME calibrated wall geometry remains. Fixing it inside
+`getWorldOriginM` makes both the button gate and `deriveWireframe` robust together.
+
+**Related — Clear Front affordance (built, Session 72; commit 499b1ae).** There was no in-session UI to
+un-set an already-designated Front (`setFrontFace(null)` fired only on PDF upload / fixture restore;
+`skipFrontFace` merely dismissed the pick prompt). Added a minimal **"Clear Front"** toolbar button (shown
+when `frontFace` is set and no mode is active) that un-sets `frontFace` **without deleting the shape** — lets
+a page fall to #126 State 3 (free-orbit) and lets the user re-pick. The front-face **auto-prompt may
+reappear on the next polygon lock / categorization** (its normal derived trigger) — intended, not a bug.
+
+**Status:** **RESOLVED** (commit 499b1ae). Both the origin robustness fix and the Clear Front affordance are
+built and Ben-verified.

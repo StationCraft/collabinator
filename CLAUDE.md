@@ -918,7 +918,20 @@ A React + Vite app with:
   label gate** (`PARALLEL_EPS_M = 0.001` m): both edge endpoints equidistant from the reference plane, else
   no label (perpendicular/angled walls stay hoverable but a non-parallel midpoint distance is a meaningless
   artifact). Scope: **view-mode only, single-source-page (#88)**. Remaining #29 pieces (simple-massing
-  derived block, confirm-view, isometric depth view #126) not built. Supersedes/closes #53 as a sub-output.
+  derived block, confirm-view) not built. Supersedes/closes #53 as a sub-output.
+- **#126 (isometric depth view) — DONE (Session 72; commit 499b1ae):** an ortho-iso mode on `ThreeDView`
+  that SHOWS the #29 setback/protrusion as visible depth (protrusion forward of the reference-face plane,
+  setback behind — Ben-confirmed the picture agrees with the hover-label). Recon confirmed it is distinct
+  from the #23/#17 fence (needs only plan XY `pageVertexToWorld` + scalar `accumulateZ` Z; `makeVertex`
+  untouched). Camera-only perspective↔ortho swap (no scene rebuild); **8-stop anchored ring** 45° apart, all
+  at `ISO_ELEV` (35.264°), above the model (stop 0 = anchor face-on / interleaved 45° stops = corner-iso;
+  ◄/► step ±45° mod 8, deterministic against the anchored origin). Anchor chain reference-edge
+  (`resolveElevMeasureRef`) → defined Front (`resolveFrontFaceMeasureRef`) → free-orbit. Reuses world-Y→
+  scene-Z, `orientAzimuth`, `placeOnRing`, the resolvers, and the ortho/perspective swap verbatim. Settable-
+  active-edge PICK deferred (follow-on, gate-lifted-ready, no dep). Also this session: `getWorldOriginM`
+  robustness fix (#127 — origin from lowest floor level WITH wall polygons; 3D-View button no longer vanishes
+  on deleting the last wall polygon of a lower floor) + minimal **Clear Front** toolbar button (un-sets
+  `frontFace` without deleting its shape).
 - **Page-region #5 Fork D — DONE (commit 579bbf1, Session 60):** `recatPageNum` → `recatPageId`
   (state); all confirm/skip handlers rekeyed from `p.pageNum === currentPage` to `p.pageId === currentPageId`.
   `advanceToNextUncategorized` left on pageNum (PDF nav). Multi-crop payoff landed with crop-carving UI.

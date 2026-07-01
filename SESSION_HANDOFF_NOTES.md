@@ -10,6 +10,68 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 72 — #126 isometric depth view + getWorldOriginM robustness + Clear Front (2026-07-01)
+
+**Branch:** main | **Code commit:** `499b1ae` | **Docs commit:** (this close-out).
+
+**What this session built:** #126 (isometric depth view) as an iso mode on `ThreeDView`, verified in Ben's
+browser before commit — the visual depth counterpart to the #29 setback/protrusion hover-label.
+
+**Recon-first arc (three recon passes, each read-only, reported before building):**
+1. *Fence check* — confirmed #126 (flat-plan scalar-Z iso) is **distinct from the #23/#17 projection fence**,
+   not fenced-same-as-#23. #23 needs per-REFERENCE Z across multiple references projected onto the elevation
+   plane (the #17 collapse-onto-plane transform); #126 needs only plan XY (`pageVertexToWorld`) + scalar
+   `accumulateZ` Z, both existing, `makeVertex` untouched. It is a REUSE of the existing three.js
+   `ThreeDView`, not a new 2D-canvas projection. Also confirmed the simple-massing block is already partly
+   present in `deriveWireframe` (`floorRings`/`roofRing`) and legible in the existing 3D view — so #126 and
+   the massing block are TWO independent beats, not one.
+2. *Camera-from-reference-edge seam* — confirmed the reference edge and the scene share one world frame
+   (both via `getWorldOriginM`/`getEffectiveScale`/`pageVertexToWorld`), and nailed the one
+   correctness-critical mapping: the outward PLAN normal's world-Y component maps to **scene-Z**, never
+   scene-Y (scene-Y is up). Wrong axis → aims at a phantom wall.
+3. *Front datum* — confirmed the Front designation resolves to the SAME `{refAw, refBw, refSign}` world-anchor
+   shape as the reference edge (segmentGeom perp + source-polygon centroid sign), so State 2 is the same
+   machinery pointed at the Front.
+
+**Iterations (Ben's browser findings drove three snap-ring reshapes):**
+- v1: perspective↔ortho toggle + on-entry orient + 8-corner ring (4 top × 4 bottom). Ben: bottom corners
+  "reverse the whole model."
+- v2: reduced to 4 top corners + nearest-corner-on-first-snap. Fork surfaced (4-vs-8) → Ben chose 4.
+- v3: reframed to a **reference-ANCHORED** ring (corner 0 = anchor face, ◄/► rotate relative to it) +
+  State 2 (Front) + State 3 (free-orbit) fallback chain. Ben: entry reads FLAT face-on (useful as a derived
+  elevation — keep it), but wants corner-iso in the same rotation; and deleting the Front-carrying shape
+  vanished the 3D button.
+- v4 (final): **8-stop ring 45° apart, all at ISO_ELEV** (Ben chose "consistent wheel" over dead-flat
+  face-on stops). Stop 0 = anchor face-on; interleaved 45° stops = corner-iso. Deterministic against the
+  anchored origin. + fixed the button-vanish bug + added Clear Front.
+
+**Why entry reads flat (recon A):** entry DOES apply ISO_ELEV; the flat look is because the entry AZIMUTH is
+the face's outward normal (looking straight at the face). Corner-iso needs azimuth ±45° off the normal —
+which is exactly what the interleaved 45° ring stops now provide.
+
+**Button-vanish bug (recon B → #127, RESOLVED):** `getWorldOriginM` required the lowest floor LEVEL to carry
+wall geometry; deleting the last wall polygon there nulled the origin → empty wireframe + vanished button
+(NOT Front-specific). Fixed: origin now derives from the lowest floor level that ACTUALLY carries wall
+polygons (bottom-up Z-stack scan). Pure translation datum, geometry-to-geometry, no measurement/#29-depth
+change.
+
+**Clear Front (recon C gap → built):** no in-session UI existed to un-set a Front without deleting its shape.
+Added a minimal "Clear Front" toolbar button → lets a page reach State 3; auto-prompt may re-trigger on next
+lock/categorize (normal derived trigger).
+
+**Verified-verbatim-reused (no regression):** world-Y→scene-Z, `orientAzimuth`, `placeOnRing`, both
+resolvers, the ortho/perspective swap, the #29 depth path. Ben-verified all 5 checks: 8-stop deterministic
+ring (flat + corner-iso), entry + depth unregressed (protrusion forward / setback behind), button bug fixed,
+States 2/3 reachable, no perspective regression.
+
+**Deferred:** settable-active-edge PICK (#126 follow-on, gate-lifted-ready, no dep — a UI to choose which
+face the iso orients to; today auto-resolved reference-edge → Front).
+
+**Next:** the remaining #29 pieces (simple-massing derived block, confirm-view) or the thermal arc
+(#106/#107/#108) per the settled near-term sequence.
+
+---
+
 ## SESSION 71 — #29 first piece: aligned-edge setback/protrusion hover-label (2026-07-01)
 
 **Branch:** main | **Code commit:** `ed43c6d` | **Docs commit:** (this close-out).

@@ -496,9 +496,12 @@ reconciliation is this pass. Settled near-term order after (b) lands and docs re
   2. **#29 derived elevations — FIRST PIECE DONE (Session 71; commit ed43c6d):** aligned-edge
      setback/protrusion hover-label on the toggleable floor-plan ghost (elevation-hosted via
      `getEffectiveGhostSource` + `drawGhostShapes`; view-mode only; single-source-page #88; strictly-parallel
-     walls, `PARALLEL_EPS_M = 0.001`). Remaining pieces: simple-massing derived block, confirm-view,
-     isometric depth view (#126, recon-gated). (The #125 opening-on-carve item is an OPEN render-gap bug,
-     NOT a #29 dependency and NOT instrumentation — do not couple it to #29.)
+     walls, `PARALLEL_EPS_M = 0.001`). **#126 isometric depth view — DONE (Session 72; commit 499b1ae):**
+     ortho-iso mode on `ThreeDView` that SHOWS the setback/protrusion as visible depth (Ben-confirmed the
+     picture agrees with the hover-label); 8-stop anchored ring (reference-edge → Front → free-orbit); recon
+     confirmed distinct from the #23/#17 fence. Also #127 (getWorldOriginM robustness) + Clear Front button.
+     Remaining #29 pieces: simple-massing derived block, confirm-view. (The #125 opening-on-carve item is an
+     OPEN render-gap bug, NOT a #29 dependency and NOT instrumentation — do not couple it to #29.)
   3. **Thermal arc:** #106 (assembly-inheritance default), #107 (flat-roof UI gap), #108 (window/door
      `uw` post-placement edit) — geometry-review gate SATISFIED (geometry-stable review passed after the
      #117/#124 frame work).
