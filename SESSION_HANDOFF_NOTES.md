@@ -10,6 +10,57 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 74 — #29 multi-face derivation DONE + gitignore cleanup (2026-07-01)
+
+**Branch:** main | **Code commit:** `871ca67` | **Cleanup commit:** `928b39a` | **Docs commit:** (this close-out).
+
+**What this session built:** #29 multi-face derivation — the extension of Piece A (single aligned face) to ALL
+same-facing wall faces (aligned + recessed + protruding), each registered at its correct horizontal position
+and distinguished by depth-based hue.
+
+**Algorithm (three-step read-time derivation in `deriveElevFaces`):**
+1. **Facing-bin:** per-edge outward normal (segmentGeom perp sign-flipped from centroid side) dotted against
+   the reference edge's outward normal. `FACING_DOT_MIN = 0.996 (cos 5°)` threshold. The keystone: opposite
+   wall excluded by dot SIGN (≈ −1, not by angle magnitude — perpendiculars excluded by dot ≈ 0). Only
+   truly co-facing edges survive.
+2. **Offset-cluster:** signed depth = `signedPerpDist(midpoint, refAw, refBw) × refSign`. Cluster by
+   `reconcileThresholdM ?? 0.05 m` (coarse; NOT the 1 mm PARALLEL_EPS_M). Collinear merge via min/max
+   canvas x ONLY within a same-depth cluster — never across depths.
+3. **Draw:** each cluster → one face. Shared vertical extent from `elevFaceVerticalExtent` (reuses
+   `drawElevRefLines` exact `anchorY + fhZStack + pxPerMeter`). Per-face horizontal from that edge's own
+   canvas `.x`. Depth hue: aligned `#22c55e` / recessed `#86efac` (lighter) / protruding `#15803d` (darker).
+
+**New state: `excludedFaceIdsByPageId`** — per-page array of deselected faceIds (idle-view click toggles).
+VISUAL-ONLY: `deriveEnumeration` and `deriveF280Heating` never read it; no enumerationTick bump; confirmed
+by grep. Declared, cleared on PDF upload, snapshot/restore round-tripped, added to view-mode passive-redraw
+dep. `elevFaceHoverRef` for hover highlight.
+
+**Present-but-untested (explicitly flagged):**
+- Protruding hue `#15803d` NOT exercised live (fixture has only a recessed face, no protruding geometry).
+- Angled-reference-edge projection branch present but untested (fixture seg2 is horizontal; only `.x` path ran).
+
+**Cosmetic deferred:** aligned-vs-recessed hue subtlety logged as #129 (defer until protruding fixture exists).
+
+**Confirm-view posture (B):** left as an open architecture question — may dissolve under plan-is-source-of-truth
+model (no manual adjust; fix upstream). Noted for a future planning chat, not sequenced.
+
+**Browser verification (Claude's preview + automated pixel scan):** aligned face renders (wide, baseline green);
+recessed face renders (narrow left strip, lighter green); opposite wall NOT rendered (pixel scan confirmed 0
+green in far-wall region); click-deselect hides only clicked face; re-click restores; snapshot captures
+exclusion; restore keeps aligned hidden; master toggle ("Show envelope face") OFF hides both, ON restores;
+setback-readout regression-free. F280 static check: `excludedFaceIdsByPageId` grep finds 0 occurrences in
+`deriveEnumeration` or `deriveF280Heating`.
+
+**Gitignore cleanup (commit 928b39a):** `Bates.pdf` and `bates.json` rode along in code commit 871ca67 (not
+in the blanket `test-fixture.pdf` rule). `git rm --cached` removed them from tracking; `.gitignore` widened to
+`public/devFixtures/*` with negations for `fixture-elevation.json` + `fixture-elevation.expected.json` (the
+two harness fixtures that must stay tracked).
+
+**What's next:** confirm-view posture (B) planning chat when ready; thermal arc (#106/#107/#108) is the
+other open near-term track (geometry-stable gate satisfied).
+
+---
+
 ## SESSION 73 — #29 Piece A: derived elevation envelope face + independent toggle (2026-07-01)
 
 **Branch:** main | **Code commit:** `fd1106d` | **Docs commit:** (this close-out).

@@ -74,7 +74,7 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#25 / #37** — edge-select button labels + "select the edge this elevation faces" copy; UI strings, no dep (batch).
 - **#26** — categorization exit-nav bug; nav logic only, no dep.
 - **#27 / #51** — elevation ref-line snap-suggest / auto-seat on confirmed reference edge; all inputs derive from stored geometry (relates #123).
-- **#29** — derived elevations. **FIRST PIECE DONE** (Session 71, ed43c6d): aligned-edge setback/protrusion hover-label on the toggleable floor-plan ghost (elevation-hosted, view-mode only, single-source-page #88, strictly-parallel walls). **PIECE A DONE** (Session 73, fd1106d): plan-derived envelope face as a read-only bright-green (#22c55e) quad overlaid on the aligned elevation — single-reference-edge v1, registered canvas-native (horizontal from resolveElevEdge A.x/B.x, vertical from zFeetToElevY reused from drawElevRefLines), own per-page "Show envelope face" toggle (showEnvelopeFaceByPageId) independent of the ghost. Plan-is-source-of-truth / no manual adjustment (Ben's model). Ben-verified registered. **NEXT: MULTI-FACE derivation** — derive every wall face facing this elevation's direction (aligned + recessed faces at different plane-offsets), each extruded to its own floor/ceiling Z, drawn as separate visually-distinct faces at true depths. This IS faceKey = "orientation-bin + plane-offset cluster" correctly understood: group by facing direction, keep distinct depths as SEPARATE faces — NOT merge-coplanar. Iso depth #126 DONE (499b1ae). Remaining after multi-face: confirm-view posture (B).
+- **#29** — derived elevations. **FIRST PIECE DONE** (Session 71, ed43c6d). **PIECE A DONE** (Session 73, fd1106d). **MULTI-FACE DONE** (Session 74, 871ca67): `deriveElevFaces` — facing-bin by outward-normal dot-sign (`FACING_DOT_MIN=0.996`), opposite wall excluded by dot≈−1 SIGN (not magnitude), offset-cluster by `signedPerpDist×refSign` / `reconcileThresholdM`, collinear merge within same-depth cluster only; depth hue aligned/recessed/protruding; click-to-deselect visual-only (`excludedFaceIdsByPageId`); Ben-verified. Two untested branches logged: protruding hue (no fixture) + angled-reference projection. Remaining: confirm-view posture (B) — open architecture question (may dissolve under plan-is-source-of-truth model). Iso depth #126 DONE (499b1ae).
 - **#32** — categorize-as-you-go shortcut; draw-mode toolbar button, no dep.
 - **#33** — button colour/priority audit; write a color-state spec then apply, no code dep.
 - **#35** — align-handle cursor mirroring (`nesw-resize` on NE/SW); one-liner.
@@ -805,17 +805,28 @@ source-of-truth; NO manual adjustment — if the face is wrong, fix is upstream 
 - Ben-verified: registered + toggles independent + no regression. The v1 judgment worked as a DIAGNOSTIC:
   single-edge showed only the aligned face (recessed absent), which correctly surfaced the multi-face need.
 
-**NEXT #29 piece — MULTI-FACE derivation (NOT built):** an elevation shows the aligned reference-edge face
-AND **recessed faces** — walls at different plane-offsets facing the same direction (aligned face + receded
-face behind it, both visible in the drawn elevation, both carrying geometry for F280). v1 derives only the
-single aligned edge. Next = derive EVERY wall face facing this elevation's direction, each extruded to its
-OWN floor/ceiling Z, drawn as SEPARATE, VISUALLY DISTINCT faces at their true depths (aligned vs. recessed by
-distinct color/weight on the flat overlay). This IS `faceKey` correctly understood: **"orientation-bin +
-plane-offset cluster" = group edges by facing direction, keep distinct depths as SEPARATE faces — NOT
-merge-coplanar.** Ben's words: "separate but both shown for geometry input and confirmation."
+**MULTI-FACE — DONE (Session 74; commit 871ca67; code 2026-07-01).**
+`deriveElevFaces(pageId)` (read-time, stores nothing): walks source floor-plan wall polygons and:
+- **Facing-bin (the keystone):** per-edge outward normal (segmentGeom perp, sign-flipped away from the polygon centroid) dotted against the reference edge's outward normal. `dot ≥ FACING_DOT_MIN (0.996 = cos 5°)` = same-facing. Opposite wall excluded by the SIGN (dot ≈ −1, NOT by angle magnitude — that distinction is the keystone). Perpendiculars excluded by dot ≈ 0.
+- **Offset-cluster:** `signedPerpDist(midpoint, refAw, refBw) × refSign` → signed depth (metres); cluster by `reconcileThresholdM ?? 0.05 m` coarse tolerance. Collinear merge (min/max canvas x) ONLY within a same-depth cluster — never across depths.
+- Each cluster → one face with an `faceId` (wall-surface-id format: `wall-${rep.shapeId}-seg${si}-${levelKey}`). The representative member is the lexicographically-first `shapeId-segIdx` pair (deterministic, never floating).
+- **Shared vertical extent** reuses `drawElevRefLines` exact `anchorY + fhZStack + pxPerMeter` via `elevFaceVerticalExtent()` — so face bottom lands on the drawn base-floor line and top on the topmost ceiling line (same inputs → same pixels = registered).
+- **Depth hue:** aligned (`|depth| ≤ offsetTol`) → `#22c55e` (baseline green); recessed (depth < 0) → `#86efac` (lighter green); protruding (depth > 0) → `#15803d` (darker green). Light fill per face. Hover-highlight thicker stroke + brighter fill.
+- **Axis-aligned detection** (`|refDir.y| ≤ 0.02`): axis-aligned → clean `.x` path (what the fixture exercises). Angled reference edge → project via `refDir` dot product, store `xLo/xHi` as projected-back canvas x; **PRESENT but UNTESTED** (fixture seg2 is horizontal).
+- **`elevFaceHoverRef`** — idle-view hover; `hitTestElevFace` (sorts hits by area ascending so smallest face wins under overlap).
+- **Click-to-deselect in idle view**: clicks a face → toggles that `faceId` in `excludedFaceIdsByPageId[currentPageId]`. VISUAL-ONLY: `deriveEnumeration`/`deriveF280Heating` **never** read `excludedFaceIdsByPageId`; enumeration-tick is NOT bumped; F280 is provably untouched (grep-confirmed: exclusion set read only by the draw loop). Additive, mirrors `showEnvelopeFaceByPageId` across declare/reset/snapshot/restore + view-mode passive-redraw dep. `faceId` matches the wall-surface-id format for later association, though the exclusion itself is visual-only.
+- **No faceKey stored structure**: grouping is read-time-derived each render. No new stored fields on shapes.
+- **Rides the existing "Show envelope face" toggle** (`showEnvelopeFaceByPageId`). Scalar-Z (same floor/ceiling Z for all faces — per-element Z is R3).
+- **Ben-verified** in browser: aligned face (wide, baseline green) + recessed face (narrow left-strip, lighter green) both registered on the drawn floor/ceiling lines; opposite wall excluded; click-deselect hides only the clicked face (visual-only — F280 static check confirmed).
 
-**Remaining #29 pieces after multi-face (NOT built):** confirm-view posture (B) — derived faces shown for
-confirm rather than freehand trace.
+**Present-but-untested (logged 2026-07-01):**
+1. **Protruding hue `#15803d` NOT exercised live** — the fixture has only a recessed face (the L-notch behind the main wall). No protruding geometry exists to test the darker hue against real data. Aligned/recessed color difference is confirmed; aligned/protruding awaits a fixture with a forward protrusion.
+2. **Angled-reference-edge projection branch PRESENT but UNTESTED** — fixture seg2 is horizontal (`|refDir.y| ≤ 0.02`), so only the clean `.x` path ran. The `rDir` dot-product projection branch compiles and is exercised in the axis-aligned path's identity degenerate, but angled real-data hasn't run through it.
+
+**Known cosmetic (deferred — see register entry #129):** the aligned-vs-recessed hue difference (`#22c55e` vs `#86efac`) reads as SUBTLE in the recessed-only fixture — both are green; the contrast is gentle. The vertical seam line already conveys the depth boundary, so the hue is redundant reinforcement. Re-judge once a fixture with an actual PROTRUDING face exists: the aligned (`#22c55e`) vs protruding (`#15803d`, darker) contrast is wider and will anchor the scheme. No change now; log only.
+
+**Remaining #29 pieces after multi-face:**
+- **Confirm-view posture (B)** — OPEN QUESTION (not built, no timeline). Ben's model ("plan is source-of-truth, no manual adjustment") means B may reduce to: the derived faces ARE the elevation, no confirm gesture needed, and the user confirms UPSTREAM (plan polygon / reference edge / heights), not in the elevation view. Leave as an open architecture question for a future planning chat. Do NOT design a confirm-flow until that question is answered.
 
 **#126 iso DONE (Session 72; commit 499b1ae) — the depth counterpart to the setback/protrusion readout.**
 The first-piece hover-label surfaces the perpendicular offset as a NUMBER on the flat elevation; #126's
@@ -2774,3 +2785,15 @@ reappear on the next polygon lock / categorization** (its normal derived trigger
 
 **Status:** **RESOLVED** (commit 499b1ae). Both the origin robustness fix and the Clear Front affordance are
 built and Ben-verified.
+
+---
+
+### 129. Aligned-vs-recessed hue subtlety (#29 multi-face cosmetic)
+
+**Logged:** Session 74 (2026-07-01) during #29 multi-face doc close-out.
+
+**Description:** The depth-hue scheme for derived elevation faces uses three greens: aligned = `#22c55e`, recessed = `#86efac` (lighter), protruding = `#15803d` (darker). In the current fixture the contrast between aligned and recessed is gentle — both are green and the step from `#22c55e` to `#86efac` is subtle. The vertical seam line already conveys the depth boundary adequately, so the hue is redundant reinforcement at this stage.
+
+**Why deferred:** The aligned/protruding pair (`#22c55e` vs `#15803d`) has a wider apparent contrast (darker green distinctly separate from baseline green). Judging the three-way scheme requires a fixture that has an actual protruding face. Until that exists, the scheme cannot be evaluated end-to-end. No fix until re-judged with protruding data present.
+
+**Status:** Deferred. Re-examine when a fixture with a protruding wall face is available. If the three-way contrast reads well then, close without change; if not, consider widening the hue spread (e.g., amber for protruding, blue/teal for recessed).

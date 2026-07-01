@@ -506,12 +506,19 @@ reconciliation is this pass. Settled near-term order after (b) lands and docs re
      `drawElevRefLines`), own per-page "Show envelope face" toggle (`showEnvelopeFaceByPageId`) independent
      of the ghost. Plan-is-source-of-truth / no manual adjustment (Ben's model). Ben-verified registered;
      the v1 diagnostic surfaced the multi-face need (single-edge showed only the aligned face).
-     **NEXT #29 piece: MULTI-FACE derivation** — derive every wall face facing this elevation's direction
-     (aligned + recessed at different plane-offsets), each extruded to its own floor/ceiling Z, drawn as
-     SEPARATE visually-distinct faces at true depths. This IS `faceKey` = "orientation-bin + plane-offset
-     cluster" correctly understood: group by facing direction, keep distinct depths SEPARATE — NOT
-     merge-coplanar. Then: confirm-view posture (B). (The #125 opening-on-carve item is an OPEN render-gap
-     bug, NOT a #29 dependency and NOT instrumentation — do not couple it to #29.)
+     **#29 MULTI-FACE — DONE (Session 74; commit 871ca67):** `deriveElevFaces` (read-time, stores nothing)
+     derives ALL co-facing wall faces: facing-bin by outward-normal dot-sign (`FACING_DOT_MIN=0.996`; opposite
+     wall excluded by dot≈−1 SIGN, not angle magnitude — the keystone); offset-cluster by `signedPerpDist ×
+     refSign` / `reconcileThresholdM ?? 0.05 m`; collinear merge min/max canvas x ONLY within same-depth
+     cluster. Each face drawn as a registered quad (shared vertical extent = `elevFaceVerticalExtent` reusing
+     `drawElevRefLines` anchorY/fhZStack/pxPerMeter exactly). Depth hue: aligned `#22c55e` / recessed
+     `#86efac` (lighter) / protruding `#15803d` (darker). Idle-view hover-highlight + click-to-deselect
+     (`excludedFaceIdsByPageId`) VISUAL-ONLY — `deriveEnumeration`/`deriveF280Heating` never read it;
+     snapshot/restore round-tripped. Ben-verified: both faces registered, opposite wall excluded, deselect
+     visual-only (grep + F280 static check). Present-but-untested: protruding hue (no fixture protruding
+     face) + angled-reference projection branch (fixture is axis-aligned). Hue-subtlety cosmetic logged as
+     #129 (defer until protruding fixture available). Remaining: confirm-view posture (B) — open architecture
+     question (may dissolve under plan-is-source-of-truth model; no build until resolved in planning chat).
   3. **Thermal arc:** #106 (assembly-inheritance default), #107 (flat-roof UI gap), #108 (window/door
      `uw` post-placement edit) — geometry-review gate SATISFIED (geometry-stable review passed after the
      #117/#124 frame work).

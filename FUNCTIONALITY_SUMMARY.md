@@ -437,6 +437,23 @@ This question is closed.
   derive every wall face facing this elevation, aligned + recessed, as separate faces at their true depths),
   not a bug. Isometric depth view #126 is DONE (it shows this same setback/protrusion as visible depth).
 
+- **#29 multi-face — DONE (Session 74; commit 871ca67):**
+  `deriveElevFaces(pageId)` (read-time, stores nothing) derives ALL wall faces co-facing this elevation's
+  reference direction. **Facing-bin:** per-edge outward normal (segmentGeom perp, sign-flipped from centroid)
+  dotted against the reference edge's outward normal; `dot ≥ FACING_DOT_MIN (0.996 = cos 5°)` passes;
+  opposite wall excluded by the SIGN of the dot (dot ≈ −1), perpendiculars by dot ≈ 0 — the sign
+  distinction is the keystone (opposite wall excluded by sign, NOT by angle magnitude). **Offset-cluster:**
+  signed depth = `signedPerpDist(midpoint, refAw, refBw) × refSign`; cluster by `reconcileThresholdM ?? 0.05 m`;
+  collinear merge (min/max canvas x) ONLY within a same-depth cluster. Each face extruded to its own shared
+  vertical extent (`elevFaceVerticalExtent` reusing `drawElevRefLines` exact `anchorY + fhZStack + pxPerMeter`).
+  Depth hue: aligned `#22c55e` / recessed `#86efac` (lighter) / protruding `#15803d` (darker). Idle-view
+  hover-highlight + click-to-deselect (`excludedFaceIdsByPageId`, additive) VISUAL-ONLY — `deriveEnumeration`
+  and `deriveF280Heating` never read the exclusion set; no enumerationTick bump; F280 provably untouched.
+  Snapshot/restore round-tripped. Rides existing "Show envelope face" toggle; no stored faceKey structure.
+  Ben-verified. Remaining: confirm-view posture (B) — open architecture question for a future planning chat
+  (may dissolve under plan-is-source-of-truth model). Two untested branches: protruding hue (no fixture
+  protruding face) + angled-reference projection (fixture is axis-aligned); see ADDITIONAL_FUNCTIONALITY #29.
+
 ---
 
 ## 9. Cross-sections

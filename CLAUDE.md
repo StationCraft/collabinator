@@ -943,15 +943,21 @@ A React + Vite app with:
     horizontal extent), toggles independent, no regression. The v1 judgment worked as intended as a
     **diagnostic**: single-edge showed only the aligned face (recessed faces absent), which correctly
     surfaced the multi-face requirement (next piece).
-- **#29 NEXT piece — MULTI-FACE derivation (not built):** an elevation shows the aligned reference-edge
-  face AND **recessed faces** — walls at different plane-offsets facing the same direction (the aligned
-  face plus the receded face behind it, both visible in the drawn elevation, both carrying geometry for
-  F280). v1 derives only the single aligned edge. Next = derive **EVERY** wall face facing this elevation's
-  direction, each extruded to its **own** floor/ceiling Z, drawn as **SEPARATE, VISUALLY DISTINCT** faces at
-  their true depths (aligned vs. recessed distinguished by color/weight on the flat overlay). This IS the
-  `faceKey` grouping correctly understood: **"orientation-bin + plane-offset cluster" = group edges by
-  facing direction, keep distinct depths as separate faces — NOT merge-coplanar** (earlier docs implied
-  merge; that is corrected). Ben's words: "separate but both shown for geometry input and confirmation."
+- **#29 MULTI-FACE — DONE (Session 74; commit 871ca67):** `deriveElevFaces(pageId)` (read-time, stores
+  nothing) derives ALL co-facing wall faces. **Facing-bin:** outward normal dot against reference edge's
+  outward normal; `FACING_DOT_MIN = 0.996 (cos 5°)`; opposite wall excluded by dot SIGN (≈ −1), perpendiculars
+  by dot ≈ 0 — sign distinction is the keystone. **Offset-cluster:** `signedPerpDist(midpoint, refAw, refBw)
+  × refSign` → depth; cluster by `reconcileThresholdM ?? 0.05 m`; collinear merge (min/max canvas x) ONLY
+  within same-depth cluster. Shared vertical extent reuses `elevFaceVerticalExtent` (`drawElevRefLines` exact
+  `anchorY + fhZStack + pxPerMeter`). Depth hue: aligned `#22c55e` / recessed `#86efac` (lighter) /
+  protruding `#15803d` (darker). **Idle-view click-to-deselect** (`excludedFaceIdsByPageId`, additive,
+  VISUAL-ONLY — `deriveEnumeration`/`deriveF280Heating` never read it; no enumerationTick bump; grep-confirmed).
+  Snapshot/restore round-tripped; cleared on PDF upload. Two branches present-but-untested: protruding hue
+  (fixture has no protruding face) + angled-reference projection (fixture is axis-aligned). Hue-subtlety
+  cosmetic logged as #129. Ben-verified in browser: aligned + recessed faces registered, opposite wall
+  excluded, deselect visual-only confirmed. **Remaining: confirm-view posture (B)** — open architecture
+  question for a future planning chat; may dissolve under plan-is-source-of-truth model (no manual
+  adjustment; if face is wrong, fix is upstream in plan/reference-edge/heights).
 - **#126 (isometric depth view) — DONE (Session 72; commit 499b1ae):** an ortho-iso mode on `ThreeDView`
   that SHOWS the #29 setback/protrusion as visible depth (protrusion forward of the reference-face plane,
   setback behind — Ben-confirmed the picture agrees with the hover-label). Recon confirmed it is distinct
