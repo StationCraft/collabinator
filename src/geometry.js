@@ -19,6 +19,19 @@ export function segmentGeom(a, b) {
   return { dir: { x: dx / len, y: dy / len }, perp: { x: -dy / len, y: dx / len }, len }
 }
 
+// Signed perpendicular distance from pt to the INFINITE line through refA→refB.
+// perp is segmentGeom's left-hand unit normal, so the result is a true signed
+// distance in the same units as the inputs (world metres when fed world coords).
+// Unclamped — unlike distToSegment, the reference edge is treated as an infinite
+// line, not a bounded segment. No side-convention is baked in: the sign follows
+// the stored refA→refB winding; callers anchor it to physical meaning (e.g. a
+// known-interior point). Returns null for a degenerate reference edge.
+export function signedPerpDist(pt, refA, refB) {
+  const g = segmentGeom(refA, refB)
+  if (!g) return null
+  return (pt.x - refA.x) * g.perp.x + (pt.y - refA.y) * g.perp.y
+}
+
 export function projT(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y
   const len2 = dx * dx + dy * dy

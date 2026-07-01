@@ -4,14 +4,14 @@ import * as pdfjsLib from 'pdfjs-dist'
 import F280_WEATHER from './data/f280-weather.json'
 import './App.css'
 import {
-  makeVertex, distToSegment, segmentGeom, projT, applyAxisSnap, pointInPolygon,
+  makeVertex, distToSegment, segmentGeom, signedPerpDist, projT, applyAxisSnap, pointInPolygon,
   findCollinearOverlap, prepareForMerge, mergePolygons, splitPolygon, getEligibleShapes,
   CLOSE_SNAP_RADIUS, ALIGN_TOLERANCE, HIT_SEG_DIST, HIT_VERT_DIST,
   FLOOR_ORDER, getAnchorFloor, getGhostSourcePageId, accumulateZ, isKnownFloorLabel,
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, elevYToZFeet, zFeetToElevY, getCSSTransform, buildPanZoomTransformCSS, similarityFromHandleDrag, screenDeltaToWorld, invSimilarityPoint, zoomAnchorPan } from './coords.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, inchesToMeters, feetToMeters, feetInchesToMeters, formatDistM, elevYToZFeet, zFeetToElevY, getCSSTransform, buildPanZoomTransformCSS, similarityFromHandleDrag, screenDeltaToWorld, invSimilarityPoint, zoomAnchorPan } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -62,6 +62,11 @@ const FREETEXT_SUBLABEL_CATEGORIES = ['site-plan', 'cross-section', 'detail', 'r
 const ELEVATION_DIRS = ['North', 'South', 'East', 'West']
 // Editable opening type list — change/add entries here; UI dropdowns derive from this.
 const OPENING_TYPES = ['Tilt-turn', 'Casement', 'Fixed', 'Slider', 'Hinged door']
+// #29: strictly-parallel tolerance for the setback/protrusion label. A wall counts
+// as parallel to the reference face iff its two endpoints are equidistant from the
+// reference plane to within this world-metre epsilon (~1 mm, "parallel to measurement
+// precision" — NOT an angle tolerance; anything off-square is suppressed by design).
+const PARALLEL_EPS_M = 0.001
 const categoryLabel = (key) => CATEGORY_OPTIONS.find(o => o.key === key)?.label ?? key
 
 // ── §9 Project-configuration layer — descriptor schema ──────────────────────
@@ -689,6 +694,7 @@ function App() {
   const [elevEdgeMode, setElevEdgeMode] = useState(false)
   const [elevEdgeSourcePageId, setElevEdgeSourcePageId] = useState(null)
   const elevEdgeHoverRef = useRef(null)
+  const elevMeasureHoverRef = useRef(null)  // #29 idle-view setback/protrusion hover: {shapeIdx, segIdx} into source floor-plan wall edges
   const elevationEdgeRef = useRef({})  // pageId -> {sourcePageId, shapeIndex, segmentIndex, endpointA, endpointB}
   const elevBaseYRef = useRef({})      // pageId -> anchorY (canvas px) after user drags base line into place
   const surfaceAssemblyRef = useRef({}) // wallId -> { tier:'manual'|'library', effectiveUValue, thicknessM, assemblyId, snapshotA, snapshotB }
@@ -1009,6 +1015,7 @@ function App() {
     setRoofLineMode(false); setRoofChainStartId(null)
     resetEditState()
     setElevAlignMode(false)
+    elevMeasureHoverRef.current = null
     setAlignMode(false); alignDragRef.current = null
     setCarveMode(false); carveDragRef.current = null; setCarvePending(null); setCarveRegionName('')
     backdropTierRef.current = 'normal'; setBackdropTier('normal')
@@ -2632,6 +2639,30 @@ function App() {
     if (panDragRef.current?.active) return
     const pos = getCanvasPos(e)
 
+    // #29 idle-view hover: setback/protrusion measurement on elevation pages.
+    // Only when no interaction mode is engaged (view-mode only) AND the floor-plan
+    // ghost is visible (you hover a visible ghost edge). Handled + returns when the
+    // current page is an elevation with a resolvable aligned reference edge.
+    if (!editMode && !drawMode && !calibMode && !placingOpeningMode &&
+        !reviewShape && !roofShapeDraft && !openingDraftShape && showGhost) {
+      const measRef = resolveElevMeasureRef(currentPageId)
+      if (measRef) {
+        const hit = hitTestElevMeasureSegment(pos, measRef.sourcePageId)
+        const prev = elevMeasureHoverRef.current
+        const changed = (!hit !== !prev) ||
+          (hit && prev && (hit.shapeIdx !== prev.shapeIdx || hit.segIdx !== prev.segIdx))
+        if (changed) {
+          elevMeasureHoverRef.current = hit
+          setEditCursor(hit ? 'pointer' : 'default')
+          redrawFrontFaceLayer(ffHoverRef.current)
+        }
+        return
+      } else if (elevMeasureHoverRef.current) {
+        elevMeasureHoverRef.current = null
+        redrawFrontFaceLayer(ffHoverRef.current)
+      }
+    }
+
     if (editMode) {
       const subMode = editSubModeRef.current
 
@@ -3618,6 +3649,86 @@ function App() {
     return { A, B, sourcePageId: stored.sourcePageId }
   }
 
+  // ── #29 setback/protrusion reference resolution ──────────────────────────────
+  // On an elevation page with a stored aligned edge, resolve the reference edge's
+  // world-metre endpoints plus a sign anchor so every measured wall edge reads
+  // "protrusion" (forward of the face) / "setback" (behind it) — independent of the
+  // stored winding direction. Sign anchor = the source polygon centroid projected to
+  // world; whichever side of the reference line the centroid (≈ building interior)
+  // lands on is SETBACK (negative). Returns null if no stored edge or the world
+  // projection gate (getEffectiveScale + getWorldOriginM) is not met.
+  const resolveElevMeasureRef = (pageId = currentPageId) => {
+    const stored = elevationEdgeRef.current[pageId]
+    if (!stored) return null
+    const srcShape = completedShapesRef.current[stored.shapeIndex]
+    if (!srcShape || stored.segmentIndex >= srcShape.vertices.length) return null
+    const rA = srcShape.vertices[stored.segmentIndex]
+    const rB = srcShape.vertices[(stored.segmentIndex + 1) % srcShape.vertices.length]
+    const refAw = pageVertexToWorld(rA, stored.sourcePageId)
+    const refBw = pageVertexToWorld(rB, stored.sourcePageId)
+    if (!refAw || !refBw) return null
+    let cx = 0, cy = 0
+    for (const v of srcShape.vertices) { cx += v.x; cy += v.y }
+    cx /= srcShape.vertices.length; cy /= srcShape.vertices.length
+    const cW = pageVertexToWorld({ x: cx, y: cy }, stored.sourcePageId)
+    if (!cW) return null
+    const centroidSigned = signedPerpDist(cW, refAw, refBw)
+    // refSign flips the raw distance so interior→negative (setback), outside→positive (protrusion).
+    const refSign = centroidSigned > 0 ? -1 : 1
+    return { refAw, refBw, sourcePageId: stored.sourcePageId, refSign }
+  }
+
+  // Effective ghost source for a page: the floor/roof-plan reference via
+  // getGhostSourcePageId (unchanged), OR — on an elevation page with a stored
+  // aligned edge — the source floor plan the edge points into
+  // (elevationEdgeRef.sourcePageId). Pure resolution; no mode gating (callers
+  // that must avoid a double-draw during elev-edge / elev-align gate at the site).
+  // Returns a pageId with locked wall shapes, or null.
+  const getEffectiveGhostSource = (pageId) => {
+    const gs = getGhostSourcePageId(pages, pageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
+    if (gs) return gs
+    const stored = elevationEdgeRef.current[pageId]
+    if (stored && completedShapesRef.current.some(s => s.pageId === stored.sourcePageId && s.status === 'locked')) {
+      return stored.sourcePageId
+    }
+    return null
+  }
+
+  // Hit-test cursor against the source floor-plan wall-polygon edges (drawn on the
+  // elevation canvas at raw source-page pixel coords — same coords as the aligned
+  // edge highlight). Wall polygons only (locked, no shapeKind). Returns {shapeIdx, segIdx}.
+  const hitTestElevMeasureSegment = (pos, sourcePageId) => {
+    let best = null, bestDist = HIT_SEG_DIST
+    completedShapesRef.current.forEach((shape, shapeIdx) => {
+      if (shape.pageId !== sourcePageId || shape.status !== 'locked' || shape.shapeKind) return
+      const verts = shape.vertices
+      for (let segIdx = 0; segIdx < verts.length; segIdx++) {
+        const d = distToSegment(pos, verts[segIdx], verts[(segIdx + 1) % verts.length])
+        if (d < bestDist) { bestDist = d; best = { shapeIdx, segIdx } }
+      }
+    })
+    return best
+  }
+
+  // Small tooltip-style label at a hovered edge midpoint (canvas coords). Zoom-
+  // compensated so it stays a constant on-screen size, matching drawElevRefLines.
+  const drawElevMeasureLabel = (ctx, mx, my, text, isProtrusion) => {
+    const zoom = zoomRef.current
+    const color = isProtrusion ? '#b45309' : '#1d4ed8'
+    ctx.save()
+    ctx.font = `${12 / zoom}px system-ui, sans-serif`
+    const tw = ctx.measureText(text).width
+    const pad = 4 / zoom, h = 18 / zoom, yOff = 22 / zoom
+    const x0 = mx - tw / 2 - pad, y0 = my - yOff
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    ctx.fillRect(x0, y0, tw + pad * 2, h)
+    ctx.strokeStyle = color; ctx.lineWidth = 1 / zoom
+    ctx.strokeRect(x0, y0, tw + pad * 2, h)
+    ctx.fillStyle = color
+    ctx.fillText(text, mx - tw / 2, y0 + h - 5 / zoom)
+    ctx.restore()
+  }
+
   // Returns a padded bbox around the two edge endpoints so handles always have area.
   const ELEV_EDGE_PAD = 24  // world pixels
   const getElevEdgeBbox = (A, B) => ({
@@ -3734,9 +3845,14 @@ function App() {
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, c.width, c.height)
 
-    // Ghost reference (floor below) — drawn BELOW locked shapes
+    // Ghost reference (floor below, or elevation's source floor plan) — drawn BELOW
+    // locked shapes. On elevation pages the effective source is the aligned-edge's
+    // floor plan; during elev-edge / elev-align the mode blocks below own that ghost,
+    // so fall back to the plain floor/roof source here to avoid a double-draw.
     if (showGhost) {
-      const ghostPageId = getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
+      const ghostPageId = (elevEdgeMode || elevAlignMode)
+        ? getGhostSourcePageId(pages, currentPageId, completedShapesRef.current, FLOOR_ORDER, pageRefParentRef.current)
+        : getEffectiveGhostSource(currentPageId)
       if (ghostPageId) { drawGhostShapes(ctx, completedShapesRef.current, ghostPageId); if (alignMode) drawAlignHandles(ctx, completedShapesRef.current, ghostPageId, zoomRef.current) }
     }
 
@@ -3789,6 +3905,52 @@ function App() {
         const ea = srcShape.vertices[storedElevEdge.segmentIndex]
         const eb = srcShape.vertices[(storedElevEdge.segmentIndex + 1) % srcShape.vertices.length]
         drawSegmentHighlight(ctx, ea, eb, 'elev-edge')
+      }
+    }
+
+    // ── #29: aligned-edge setback/protrusion hover-label (elevation view, idle only) ──
+    // The source floor plan is drawn by the ghost mechanism above (drawGhostShapes via
+    // effective source); this block only rides the hover-readout on top of it. Requires
+    // the ghost visible (showGhost) — you hover a visible ghost edge. Skipped during
+    // elev-edge pick / elev-align. This lives in redrawFrontFaceLayer, the view-mode
+    // base pass — so the label is view-mode-only.
+    if (storedElevEdge && !elevEdgeMode && !elevAlignMode && showGhost) {
+      const measRef = resolveElevMeasureRef(currentPageId)
+      if (measRef) {
+        // Hovered edge: highlight + signed-distance label (skip coincident/flush).
+        const hov = elevMeasureHoverRef.current
+        if (hov) {
+          const shape = completedShapesRef.current[hov.shapeIdx]
+          if (shape && shape.pageId === measRef.sourcePageId && hov.segIdx < shape.vertices.length) {
+            const a = shape.vertices[hov.segIdx]
+            const b = shape.vertices[(hov.segIdx + 1) % shape.vertices.length]
+            drawSegmentHighlight(ctx, a, b, 'hover')
+            const aW = pageVertexToWorld(a, measRef.sourcePageId)
+            const bW = pageVertexToWorld(b, measRef.sourcePageId)
+            const midW = pageVertexToWorld({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, measRef.sourcePageId)
+            if (aW && bW && midW) {
+              // Strictly-parallel gate: setback/protrusion is a parallel-wall concept.
+              // Both endpoints must be equidistant from the reference plane (to ~1 mm);
+              // a non-parallel wall's midpoint distance is a meaningless artifact, so
+              // suppress its label (edge stays hoverable/visible in the ghost).
+              const dA = signedPerpDist(aW, measRef.refAw, measRef.refBw)
+              const dB = signedPerpDist(bW, measRef.refAw, measRef.refBw)
+              if (dA != null && dB != null && Math.abs(dA - dB) <= PARALLEL_EPS_M) {
+                const raw = signedPerpDist(midW, measRef.refAw, measRef.refBw)
+                const signed = raw * measRef.refSign
+                const eps = projectConfigRef.current.reconcileThresholdM ?? 0.05
+                if (signed != null && Math.abs(signed) >= eps) {
+                  const unit = getEffectiveScale(measRef.sourcePageId)?.displayUnit || 'ft'
+                  const word = signed > 0 ? 'protrusion' : 'setback'
+                  const distStr = formatDistM(Math.abs(signed), unit)
+                  if (distStr) {
+                    drawElevMeasureLabel(ctx, (a.x + b.x) / 2, (a.y + b.y) / 2, `${word} ${distStr}`, signed > 0)
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
 
@@ -6543,6 +6705,20 @@ function App() {
             </button>
           )
         })()}
+
+        {/* #29: toggle the source floor-plan ghost (with its setback/protrusion hover
+            readout) on an elevation page. View-mode only; reuses the per-page showGhost
+            state. Only appears once an aligned edge gives an effective ghost source. */}
+        {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isElevationPage && getEffectiveGhostSource(currentPageId) && (
+          <button
+            className={`snap-btn ${showGhost ? 'snap-btn--on' : ''}`}
+            title="Show the source floor plan as a reference ghost; hover its wall edges for setback / protrusion"
+            onClick={() => {
+              elevMeasureHoverRef.current = null
+              setShowGhostByPageId(m => ({ ...m, [currentPageId]: !(m[currentPageId] ?? true) }))
+            }}
+          >Show floor plan {showGhost ? 'ON' : 'OFF'}</button>
+        )}
 
         {currentPage && !calibMode && !drawMode && !editMode && !roofRoleMode && !roofLineMode && !categorizeMode && !carveMode && !elevEdgeMode && !elevAlignMode && isElevationPage && !placingOpeningMode && (
           <button

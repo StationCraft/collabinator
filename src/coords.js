@@ -47,6 +47,21 @@ export function pxToDisplayDist(px, pageScales, pageId) {
   return `${meters.toFixed(3)} m`
 }
 
+// Formats a distance already in METERS as a human-readable string in the given
+// display unit ('ft' → feet+inches, identical to pxToDisplayDist's imperial
+// format; else metres). Use when the value is world-metres, not pixels. Returns
+// null for a null/NaN input.
+export function formatDistM(meters, displayUnit) {
+  if (meters == null || !isFinite(meters)) return null
+  if (displayUnit === 'ft') {
+    const totalInches = metersToInches(meters)
+    const feet = Math.floor(totalInches / 12)
+    const inches = totalInches % 12
+    return `${feet}' ${inches.toFixed(1)}"`
+  }
+  return `${meters.toFixed(3)} m`
+}
+
 // ── feet / inches ↔ meters ─────────────────────────────────────────────────
 export function feetToMeters(ft)     { return ft * METERS_PER_FOOT }
 export function metersToFeet(m)      { return m / METERS_PER_FOOT }
