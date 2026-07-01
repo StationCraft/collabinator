@@ -74,7 +74,7 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#25 / #37** — edge-select button labels + "select the edge this elevation faces" copy; UI strings, no dep (batch).
 - **#26** — categorization exit-nav bug; nav logic only, no dep.
 - **#27 / #51** — elevation ref-line snap-suggest / auto-seat on confirmed reference edge; all inputs derive from stored geometry (relates #123).
-- **#29** — derived elevations. **FIRST PIECE DONE** (Session 71, ed43c6d): aligned-edge setback/protrusion hover-label on the toggleable floor-plan ghost (elevation-hosted, view-mode only, single-source-page #88, strictly-parallel walls). Remaining pieces (simple-massing derived block, confirm-view, iso depth #126) not built.
+- **#29** — derived elevations. **FIRST PIECE DONE** (Session 71, ed43c6d): aligned-edge setback/protrusion hover-label on the toggleable floor-plan ghost (elevation-hosted, view-mode only, single-source-page #88, strictly-parallel walls). **PIECE A DONE** (Session 73, fd1106d): plan-derived envelope face as a read-only bright-green (#22c55e) quad overlaid on the aligned elevation — single-reference-edge v1, registered canvas-native (horizontal from resolveElevEdge A.x/B.x, vertical from zFeetToElevY reused from drawElevRefLines), own per-page "Show envelope face" toggle (showEnvelopeFaceByPageId) independent of the ghost. Plan-is-source-of-truth / no manual adjustment (Ben's model). Ben-verified registered. **NEXT: MULTI-FACE derivation** — derive every wall face facing this elevation's direction (aligned + recessed faces at different plane-offsets), each extruded to its own floor/ceiling Z, drawn as separate visually-distinct faces at true depths. This IS faceKey = "orientation-bin + plane-offset cluster" correctly understood: group by facing direction, keep distinct depths as SEPARATE faces — NOT merge-coplanar. Iso depth #126 DONE (499b1ae). Remaining after multi-face: confirm-view posture (B).
 - **#32** — categorize-as-you-go shortcut; draw-mode toolbar button, no dep.
 - **#33** — button colour/priority audit; write a color-state spec then apply, no code dep.
 - **#35** — align-handle cursor mirroring (`nesw-resize` on NE/SW); one-liner.
@@ -789,9 +789,33 @@ built on the elevation page:
 - Browser-verified (Ben): parallel walls label with correct sign; perpendicular/angled suppressed;
   coincident/flush suppressed; toggle + persistence correct; no regression to floor/roof ghost + toggle.
 
-**Remaining #29 pieces (NOT built):** simple-massing derived block (bbox/polygon projection extruded flat
-floor→ceiling on scalar Z), confirm-view (derived faces shown for confirm rather than freehand trace).
-`faceKey` facing-direction grouping is still read-time-derivable and not yet materialized.
+**PIECE A — DONE (Session 73; commit fd1106d).** Plan-derived envelope face as a read-only overlay on
+aligned elevation pages, so the derived envelope can be judged against the drawn elevation (plan is
+source-of-truth; NO manual adjustment — if the face is wrong, fix is upstream in plan/reference-edge/heights).
+- **Single-reference-edge v1** (NO faceKey clustering). **Registered canvas-native** (no world round-trip):
+  horizontal extent = reference edge canvas endpoints `A.x`/`B.x` (`resolveElevEdge`); vertical extent =
+  lowest `floorZ` → topmost `ceilingZ` via `zFeetToElevY` reusing the EXACT `anchorY` + `fhZStack` +
+  `pxPerMeter` `drawElevRefLines` uses — face bottom lands on the drawn base-floor line, top on the topmost
+  ceiling line (same inputs → same pixels). Quad `(A.x,bottomY)-(B.x,bottomY)-(B.x,topY)-(A.x,topY)`.
+- Bright-green `#22c55e` 2.5px stroke + light `rgba(34,197,94,0.08)` fill. Degenerate edge
+  (`|A.x−B.x| < 1`) skipped. Drawn in `redrawFrontFaceLayer`; derives fresh, stores nothing, no hit-test.
+- **Own per-page toggle** `showEnvelopeFaceByPageId` (default-on, snapshot round-tripped), INDEPENDENT of
+  the ghost's `showGhost`. New "Show envelope face" toolbar button beside "Show floor plan"; face guard is
+  `showEnvelopeFace`, ghost + readout stay on `showGhost` (face-only / ghost-only / both / neither).
+- Ben-verified: registered + toggles independent + no regression. The v1 judgment worked as a DIAGNOSTIC:
+  single-edge showed only the aligned face (recessed absent), which correctly surfaced the multi-face need.
+
+**NEXT #29 piece — MULTI-FACE derivation (NOT built):** an elevation shows the aligned reference-edge face
+AND **recessed faces** — walls at different plane-offsets facing the same direction (aligned face + receded
+face behind it, both visible in the drawn elevation, both carrying geometry for F280). v1 derives only the
+single aligned edge. Next = derive EVERY wall face facing this elevation's direction, each extruded to its
+OWN floor/ceiling Z, drawn as SEPARATE, VISUALLY DISTINCT faces at their true depths (aligned vs. recessed by
+distinct color/weight on the flat overlay). This IS `faceKey` correctly understood: **"orientation-bin +
+plane-offset cluster" = group edges by facing direction, keep distinct depths as SEPARATE faces — NOT
+merge-coplanar.** Ben's words: "separate but both shown for geometry input and confirmation."
+
+**Remaining #29 pieces after multi-face (NOT built):** confirm-view posture (B) — derived faces shown for
+confirm rather than freehand trace.
 
 **#126 iso DONE (Session 72; commit 499b1ae) — the depth counterpart to the setback/protrusion readout.**
 The first-piece hover-label surfaces the perpendicular offset as a NUMBER on the flat elevation; #126's

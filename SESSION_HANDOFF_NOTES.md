@@ -10,6 +10,61 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 73 — #29 Piece A: derived elevation envelope face + independent toggle (2026-07-01)
+
+**Branch:** main | **Code commit:** `fd1106d` | **Docs commit:** (this close-out).
+
+**What this session built:** #29 Piece A — a plan-derived envelope face drawn as a **read-only** overlay on
+aligned elevation pages, so Ben can judge derived-vs-drawn correctness. Recon-first (read-only, reported
+before building), then built, then Ben-verified in his browser before commit.
+
+**Recon verdict (all green — the build followed it verbatim):**
+- **Finding 1 (which edges form the face):** v1 = the **single aligned reference edge** extruded floor→ceiling.
+  No `faceKey` clustering exists in code (confirmed — `deriveEnumeration` emits one wall-surface per edge, no
+  orientation/plane-offset grouping); it is not needed for v1. Co-facing walls stay visible as ghost.
+- **Finding 2 (the projection seam — make-or-break):** a **registered** overlay is fully achievable
+  **canvas-native, no world round-trip.** The elevation frame is trivially canvas-X = horizontal,
+  canvas-Y(via `zFeetToElevY`) = height. The source floor plan is drawn on the elevation canvas at raw
+  source-page pixel coords (`drawGhostShapes`), and the elev-align workflow moved the PDF *backdrop* to
+  register to those coords — so the reference edge's canvas `A.x`/`B.x` ARE the registered horizontal extent.
+  Vertical reuses `drawElevRefLines`' exact `zFeetToElevY` + `anchorY` + `fhZStack` + `pxPerMeter`. The
+  elevation's own `pxPerMeter` == the source plan's (set in `confirmElevAlign`), so the face is isotropic.
+- **Finding 3:** single view-mode render pass (`redrawFrontFaceLayer`), no new stored state.
+
+**Build (App.jsx):**
+- Face derived + drawn in `redrawFrontFaceLayer`: quad `(A.x,bottomY)-(B.x,bottomY)-(B.x,topY)-(A.x,topY)`;
+  `bottomY = zFeetToElevY(lowestFloorZ,…)`, `topY = zFeetToElevY(topCeilingZ,…)` — same inputs as the
+  floor/ceiling lines. Bright-green `#22c55e` 2.5px stroke + `rgba(34,197,94,0.08)` fill. Degenerate edge
+  (`|A.x−B.x| < 1`) skipped. Derives fresh, stores nothing, no hit-test/confirm/adjust.
+- **Color choice:** chose green `#22c55e` over the prompt's suggested cyan because elevation openings are
+  already cyan (`#0891b2`) — green is distinct from amber ghost / purple ref-edge / cyan openings.
+- **Independent toggle (Ben's request mid-build):** the face and the ghost are different artifacts, so the
+  face got its **own** per-page toggle `showEnvelopeFaceByPageId` (mirrors `showGhostByPageId`: default-on
+  `?? true`, reset on upload, snapshot/restore round-tripped, added to the view-mode passive-redraw effect
+  deps). New "Show envelope face" toolbar button beside "Show floor plan". Face guard = `showEnvelopeFace`;
+  ghost + setback/protrusion readout stay on `showGhost`. Result: face-only / ghost-only / both / neither.
+
+**Ben's verification (two rounds, both PASS):** (1) initial — registration correct (bottom/top on the
+floor/ceiling lines, sides on the reference-edge extent), no regression; (2) after decoupling — toggle
+independent, registration + no-regression unchanged. Committed only after each PASS.
+
+**Key outcome — v1 worked as a DIAGNOSTIC:** registered PASS, and the single-edge face showed **only the
+aligned face** (the recessed face behind it was absent). That correctly surfaced the **next piece**.
+
+**NEXT PIECE (Ben-specified from judging v1) — MULTI-FACE derivation:** an elevation shows the aligned
+reference-edge face AND recessed faces (walls at different plane-offsets facing the same direction — aligned
++ receded, both visible in the drawn elevation, both carrying geometry for F280). Derive EVERY wall face
+facing this elevation's direction, each extruded to its OWN floor/ceiling Z, drawn as SEPARATE, VISUALLY
+DISTINCT faces at true depths (aligned vs. recessed by color/weight). This IS `faceKey` correctly understood:
+**"orientation-bin + plane-offset cluster" = group edges by facing direction, keep distinct depths as
+SEPARATE faces — NOT merge-coplanar** (earlier docs implied merge; corrected this session). Ben's words:
+"separate but both shown for geometry input and confirmation." After multi-face: confirm-view posture (B).
+
+**Register close-out:** #29 → Piece A DONE, multi-face recorded as next, faceKey merge-implication corrected
+in CLAUDE.md + ADDITIONAL_FUNCTIONALITY.md + BUILD_ROADMAP.md + FUNCTIONALITY_SUMMARY.md.
+
+---
+
 ## SESSION 72 — #126 isometric depth view + getWorldOriginM robustness + Clear Front (2026-07-01)
 
 **Branch:** main | **Code commit:** `499b1ae` | **Docs commit:** (this close-out).

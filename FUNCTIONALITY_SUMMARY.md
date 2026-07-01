@@ -421,8 +421,21 @@ This question is closed.
   label appears only on walls **strictly parallel** to the reference face (both endpoints equidistant to
   ~1 mm); perpendicular/angled walls stay hoverable in the ghost but show no label (a non-parallel
   midpoint distance is a meaningless artifact). Scope: view-mode only; single-source-page (#88). This
-  is the first slice of the #29 derived-elevation model (remaining: simple-massing derived block,
-  confirm-view, isometric depth view #126). Supersedes/closes #53 as a sub-output.
+  is the first slice of the #29 derived-elevation model. Supersedes/closes #53 as a sub-output.
+
+- **#29 Piece A — derived envelope face overlay (Session 73; commit fd1106d):**
+  On an aligned Elevation page, the plan-derived **envelope face** is drawn as a **read-only** bright-green
+  rectangle laid over the drawn elevation, so you can judge whether the plan-derived envelope matches the
+  drawing. **Plan is source-of-truth — there is no manual adjustment;** if the face is wrong, the fix is
+  upstream in the plan, the reference edge, or the floor heights. The face's left/right sides sit at the
+  reference edge's horizontal extent and its bottom/top sit exactly on the drawn base-floor line and topmost
+  ceiling line (it reuses the same height mapping that draws the floor/ceiling reference lines, so it lands
+  registered). It has its **own "Show envelope face" toggle**, independent of "Show floor plan" — you can
+  show the derived face, the raw floor-plan ghost, both, or neither. v1 derives only the **single aligned
+  edge**; if the drawn wall face is wider (several co-facing plan walls at different depths) the green
+  rectangle is intentionally narrower — that is the signal for the next piece (**multi-face derivation**:
+  derive every wall face facing this elevation, aligned + recessed, as separate faces at their true depths),
+  not a bug. Isometric depth view #126 is DONE (it shows this same setback/protrusion as visible depth).
 
 ---
 

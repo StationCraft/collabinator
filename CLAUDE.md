@@ -917,8 +917,41 @@ A React + Vite app with:
   toggle reuses per-page `showGhostByPageId`; ghost + readout gated on `showGhost`. **Strictly-parallel
   label gate** (`PARALLEL_EPS_M = 0.001` m): both edge endpoints equidistant from the reference plane, else
   no label (perpendicular/angled walls stay hoverable but a non-parallel midpoint distance is a meaningless
-  artifact). Scope: **view-mode only, single-source-page (#88)**. Remaining #29 pieces (simple-massing
-  derived block, confirm-view) not built. Supersedes/closes #53 as a sub-output.
+  artifact). Scope: **view-mode only, single-source-page (#88)**. Supersedes/closes #53 as a sub-output.
+- **#29 Piece A (derived envelope face) — DONE (Session 73; commit fd1106d):** plan-derived envelope
+  face drawn as a **read-only** overlay on aligned elevation pages, so Ben can judge derived-vs-drawn
+  correctness (Ben's model: **plan is source-of-truth, no manual adjustment** — if the face is wrong the
+  fix is upstream in plan/reference-edge/heights, never a manual override).
+  * **Single-reference-edge v1** (NO faceKey clustering). **Registered canvas-native** projection (no world
+    round-trip): horizontal extent = the reference edge's canvas endpoints `A.x`/`B.x` from
+    `resolveElevEdge(currentPageId)` (the same edge the setback/protrusion readout uses); vertical extent =
+    lowest `floorZ` → topmost `ceilingZ` via `zFeetToElevY` reusing the **EXACT** `anchorY`
+    (`elevBaseYRef ?? edge-midpoint`) + `fhZStack` + `pxPerMeter` that `drawElevRefLines` already uses — so
+    the face bottom coincides with the drawn base-floor line and the top with the topmost ceiling line
+    (same inputs → same pixels ⇒ lands registered). Quad `(A.x,bottomY)-(B.x,bottomY)-(B.x,topY)-(A.x,topY)`.
+  * **Bright-green `#22c55e`** 2.5px stroke + light `rgba(34,197,94,0.08)` fill (distinct from amber ghost /
+    purple reference-edge / cyan openings). Degenerate edge (`|A.x−B.x| < 1`, no horizontal canvas
+    separation) is skipped. Drawn in `redrawFrontFaceLayer` (view-mode base pass). Derives fresh each
+    render, **stores nothing, no hit-test, no confirm, no adjust.**
+  * **Own per-page toggle** `showEnvelopeFaceByPageId` (default-on `?? true`, reset on PDF upload,
+    snapshot/restore round-tripped) — **independent of the floor-plan ghost** (`showGhost`): the ghost (raw
+    source plan) and the derived envelope face are different artifacts. New view-mode "Show envelope face"
+    toolbar button beside "Show floor plan"; same elevation-page gate. The face-draw guard is
+    `storedElevEdge && !elevEdgeMode && !elevAlignMode && showEnvelopeFace`; ghost + readout stay on
+    `showGhost`. Result: Ben can show face-only, ghost-only, both, or neither.
+  * **Ben-verified:** registered (bottom/top on the floor/ceiling lines, sides on the reference-edge
+    horizontal extent), toggles independent, no regression. The v1 judgment worked as intended as a
+    **diagnostic**: single-edge showed only the aligned face (recessed faces absent), which correctly
+    surfaced the multi-face requirement (next piece).
+- **#29 NEXT piece — MULTI-FACE derivation (not built):** an elevation shows the aligned reference-edge
+  face AND **recessed faces** — walls at different plane-offsets facing the same direction (the aligned
+  face plus the receded face behind it, both visible in the drawn elevation, both carrying geometry for
+  F280). v1 derives only the single aligned edge. Next = derive **EVERY** wall face facing this elevation's
+  direction, each extruded to its **own** floor/ceiling Z, drawn as **SEPARATE, VISUALLY DISTINCT** faces at
+  their true depths (aligned vs. recessed distinguished by color/weight on the flat overlay). This IS the
+  `faceKey` grouping correctly understood: **"orientation-bin + plane-offset cluster" = group edges by
+  facing direction, keep distinct depths as separate faces — NOT merge-coplanar** (earlier docs implied
+  merge; that is corrected). Ben's words: "separate but both shown for geometry input and confirmation."
 - **#126 (isometric depth view) — DONE (Session 72; commit 499b1ae):** an ortho-iso mode on `ThreeDView`
   that SHOWS the #29 setback/protrusion as visible depth (protrusion forward of the reference-face plane,
   setback behind — Ben-confirmed the picture agrees with the hover-label). Recon confirmed it is distinct

@@ -500,8 +500,18 @@ reconciliation is this pass. Settled near-term order after (b) lands and docs re
      ortho-iso mode on `ThreeDView` that SHOWS the setback/protrusion as visible depth (Ben-confirmed the
      picture agrees with the hover-label); 8-stop anchored ring (reference-edge → Front → free-orbit); recon
      confirmed distinct from the #23/#17 fence. Also #127 (getWorldOriginM robustness) + Clear Front button.
-     Remaining #29 pieces: simple-massing derived block, confirm-view. (The #125 opening-on-carve item is an
-     OPEN render-gap bug, NOT a #29 dependency and NOT instrumentation — do not couple it to #29.)
+     **#29 PIECE A — DONE (Session 73; commit fd1106d):** plan-derived envelope face as a read-only
+     bright-green (`#22c55e`) quad overlaid on the aligned elevation — single-reference-edge v1, registered
+     canvas-native (horizontal from `resolveElevEdge` A.x/B.x, vertical from `zFeetToElevY` reused from
+     `drawElevRefLines`), own per-page "Show envelope face" toggle (`showEnvelopeFaceByPageId`) independent
+     of the ghost. Plan-is-source-of-truth / no manual adjustment (Ben's model). Ben-verified registered;
+     the v1 diagnostic surfaced the multi-face need (single-edge showed only the aligned face).
+     **NEXT #29 piece: MULTI-FACE derivation** — derive every wall face facing this elevation's direction
+     (aligned + recessed at different plane-offsets), each extruded to its own floor/ceiling Z, drawn as
+     SEPARATE visually-distinct faces at true depths. This IS `faceKey` = "orientation-bin + plane-offset
+     cluster" correctly understood: group by facing direction, keep distinct depths SEPARATE — NOT
+     merge-coplanar. Then: confirm-view posture (B). (The #125 opening-on-carve item is an OPEN render-gap
+     bug, NOT a #29 dependency and NOT instrumentation — do not couple it to #29.)
   3. **Thermal arc:** #106 (assembly-inheritance default), #107 (flat-roof UI gap), #108 (window/door
      `uw` post-placement edit) — geometry-review gate SATISFIED (geometry-stable review passed after the
      #117/#124 frame work).
