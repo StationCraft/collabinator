@@ -11,7 +11,7 @@ import {
   REFERENCE_KIND_DEFAULT, kindToLabel,
 } from './geometry.js'
 import { drawLockedShapes, drawGradeLineShapes, drawRunPaths, drawShapePoly, drawOpeningPoly, drawOpeningShapes, drawEquipmentItemShapes, drawAlignGuide, drawSegmentHighlight, drawGhostShapes, drawAlignHandles, drawRegionOutlines, HANDLE_PX } from './canvasRenderer.js'
-import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, getCSSTransform } from './coords.js'
+import { pxToDisplayDist, pxToMeters, metersToPx, metersToInches, feetToMeters, getCSSTransform } from './coords.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -4653,8 +4653,8 @@ function App() {
           verts.push({ x: w.x, y: w.y })
         }
         if (ok && verts.length >= 3) {
-          const ringFloorZ    = (row.floorZ ?? 0) * 0.3048
-          const ringCeilingZ  = row.ceilingZ != null ? row.ceilingZ * 0.3048 : null
+          const ringFloorZ    = feetToMeters(row.floorZ ?? 0)
+          const ringCeilingZ  = row.ceilingZ != null ? feetToMeters(row.ceilingZ) : null
           floorRings.push({ level: row.level, shapeId: shape.id, floorZ: ringFloorZ, ceilingZ: ringCeilingZ, verts })
 
           // Wall panel solids: library-tier surfaces with resolved totalThicknessM gain 3D depth.
@@ -4698,7 +4698,7 @@ function App() {
     // Roof ring: first confirmed roof page with a locked wall polygon
     let roofRing = null
     const topRow = zStack.length > 0 ? zStack[zStack.length - 1] : null
-    const roofZFallback = topRow?.ceilingZ != null ? topRow.ceilingZ * 0.3048 : null
+    const roofZFallback = topRow?.ceilingZ != null ? feetToMeters(topRow.ceilingZ) : null
     for (const rp of pages.filter(p => p.category === 'roof-plan')) {
       if (!pageTransformsRef.current[rp.pageId]?.confirmed) continue
       if (!getEffectiveScale(rp.pageId)) continue
@@ -4741,7 +4741,7 @@ function App() {
 
     const soffitLines = []
     const soffitThr = projectConfigRef.current.soffitCombineThresholdM ?? 0.05
-    const eaveZm = topRow?.ceilingZ != null ? topRow.ceilingZ * 0.3048 : null
+    const eaveZm = topRow?.ceilingZ != null ? feetToMeters(topRow.ceilingZ) : null
     const highestLevel = presentLevels.length > 0 ? presentLevels[presentLevels.length - 1] : null
     const wallPageForSoffit = highestLevel ? floorPageMap[highestLevel] : null
 
@@ -4816,7 +4816,7 @@ function App() {
         const edy = edgeData.B.y - edgeData.A.y
         const edgeLenPx = Math.hypot(edx, edy)
         const projPx = edgeLenPx > 0 ? ((centX - midPxX) * edx + (centY - midPxY) * edy) / edgeLenPx : 0
-        const hOffsetM = projPx / elevScale.pxPerMeter
+        const hOffsetM = pxToMeters(projPx, { [ep.pageId]: elevScale }, ep.pageId)
         const worldZm = elevYToWorldZ(centY, ep.pageId)
         if (worldZm == null) continue
 
@@ -4850,7 +4850,7 @@ function App() {
       let runZ = null
       if (page.category === 'floor-plan' && page.subLabel) {
         const row = zStack.find(r => r.level === page.subLabel)
-        if (row?.floorZ != null) runZ = row.floorZ * 0.3048
+        if (row?.floorZ != null) runZ = feetToMeters(row.floorZ)
       } else if (page.category === 'roof-plan') {
         runZ = roofZFallback
       }
@@ -4885,7 +4885,7 @@ function App() {
       let runZ = null
       if (page.category === 'floor-plan' && page.subLabel) {
         const row = zStack.find(r => r.level === page.subLabel)
-        if (row?.floorZ != null) runZ = row.floorZ * 0.3048
+        if (row?.floorZ != null) runZ = feetToMeters(row.floorZ)
       } else if (page.category === 'roof-plan') {
         runZ = roofZFallback
       }
@@ -4916,7 +4916,7 @@ function App() {
       let equipZ = null
       if (page.category === 'floor-plan' && page.subLabel) {
         const row = zStack.find(r => r.level === page.subLabel)
-        if (row?.floorZ != null) equipZ = row.floorZ * 0.3048
+        if (row?.floorZ != null) equipZ = feetToMeters(row.floorZ)
       } else if (page.category === 'roof-plan') {
         equipZ = roofZFallback
       }
@@ -5472,9 +5472,9 @@ function App() {
         const scale = getEffectiveScale(floorPage.pageId)
         if (!scale) continue
 
-        const floorZm   = (row.floorZ   ?? 0) * 0.3048
-        const ceilingZm = row.ceilingZ  != null ? row.ceilingZ * 0.3048 : null
-        const heightM   = row.floorToCeiling != null ? row.floorToCeiling * 0.3048 : null
+        const floorZm   = feetToMeters(row.floorZ ?? 0)
+        const ceilingZm = row.ceilingZ  != null ? feetToMeters(row.ceilingZ) : null
+        const heightM   = row.floorToCeiling != null ? feetToMeters(row.floorToCeiling) : null
 
         // STEP B: reconcile vs floor below (closest-approach rule)
         // Pre-project all floor-below polygon vertices to world meters once per level pair.
@@ -5585,7 +5585,7 @@ function App() {
       // One element per confirmed roof-plan page; footprint area from world-meter shoelace.
       // Sloped/pitched roof Z-derivation deferred (#18).
       const topRow = zStack.length > 0 ? zStack[zStack.length - 1] : null
-      const roofCeilingZm = topRow?.ceilingZ != null ? topRow.ceilingZ * 0.3048 : null
+      const roofCeilingZm = topRow?.ceilingZ != null ? feetToMeters(topRow.ceilingZ) : null
       for (const rp of pages.filter(p => p.category === 'roof-plan')) {
         if (!pageTransformsRef.current[rp.pageId]?.confirmed) continue
         const flatShapes = completedShapesRef.current.filter(
@@ -5640,7 +5640,7 @@ function App() {
 
         // Z of roof eave = ceiling of highest floor (top of stack)
         const topRow = zStack[zStack.length - 1]
-        const eaveZm = topRow?.ceilingZ != null ? topRow.ceilingZ * 0.3048 : null
+        const eaveZm = topRow?.ceilingZ != null ? feetToMeters(topRow.ceilingZ) : null
 
         // Per side: positive projection = roof extends beyond wall
         const sides = [
