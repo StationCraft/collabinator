@@ -4523,14 +4523,14 @@ function App() {
   // Page-arrow navigation — operates on LOGICAL pages (by pageId), so each carved region
   // is a distinct stop just like a full sheet. Re-entry → cycle uncategorized; post-Done
   // (some categorized) → cycle categorized; initial categorization (nothing categorized yet)
-  // → step through every logical page. Source sheets (which carry regions) are always
-  // excluded — you navigate to the regions, not the carve surface. Ordered by sheet number,
-  // then by carve order (region index) within a sheet.
+  // → step through every logical page. Source sheets are now arrow-reachable (#118); the
+  // toolbar-suppression gate (currentPageIsSourceSheet) independently keeps Draw/Edit/Scale
+  // suppressed on arrival. Ordered by sheet number, then by carve order (region index) within a sheet.
   const orderLogical = (arr) =>
     [...arr].sort((a, b) => (a.pageNum - b.pageNum) || (regionIndexOf(a.pageId) - regionIndexOf(b.pageId)))
-  const categorizedLogical   = orderLogical(pages.filter(p => p.category && !sheetsWithRegions.has(p.pageId)))
-  const uncategorizedLogical = orderLogical(pages.filter(p => !p.category && !sheetsWithRegions.has(p.pageId)))
-  const allLogical           = orderLogical(pages.filter(p => !sheetsWithRegions.has(p.pageId)))
+  const categorizedLogical   = orderLogical(pages.filter(p => p.category))
+  const uncategorizedLogical = orderLogical(pages.filter(p => !p.category))
+  const allLogical           = orderLogical(pages)
   const navPages =
     categorizeMode && catReentry ? uncategorizedLogical
     : !categorizeMode && categorizedLogical.length > 0 ? categorizedLogical
