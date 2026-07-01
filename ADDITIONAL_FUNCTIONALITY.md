@@ -2440,3 +2440,46 @@ should converge onto the same intrinsic-frame model, so the eventual fix and the
 the same territory.
 
 **Status:** DEFERRED, do NOT fix this pass. Focused frame-pass item; converge with #117.
+
+**Update (Session 70 — RESOLVED, commit 19ffd8b):** the crop branch now pins its backdrop raster to the
+SOURCE sheet's intrinsic footprint — `cropRasterScale = (pageTransformsRef[getPageId(pageNum)]?.authorScaled ?? 1200) / viewport.width`
+— instead of the window-derived `min(innerWidth−48,1200)/viewport.width`. The crop offset (`-crop.x*mult`)
+and backing store (`crop.w*mult`) were already in that intrinsic frame, so this was the sole remaining
+window term; `measureRef` stays `crop.w×crop.h`. This is the #117 pattern applied to the crop branch —
+the full-sheet↔crop convergence is now complete. Render-footprint only; #22 held (no writes to
+getEffectiveScale / pageScalesRef / pageCropsRef / vertices). Verified: __verifyFixture 44/44 +
+__verifyCrop 17/17 on fresh restores + Ben two-width eyeball (wide + ~1000px: Enhance-on-region holds,
+full-sheet regression guard passes, carve still calibrated).
+
+---
+
+### 125. Openings do not show on a carved region
+
+**Category:** Region-pages (#5) / openings / overlay-render. **Logged:** Session 70 (2026-06-30, observed during #124 verification).
+
+**Symptom:** Openings (window/door overlay geometry) do not display when working on a carved region.
+
+**NOT #124 — different layer (important framing):** #124 fixed the backdrop RASTER SCALE (the PDF image
+under the region). Openings are OVERLAY geometry drawn on `measureRef`, a separate layer entirely. #124's
+four verification checks (Enhance-on-region frame at two widths, full-sheet regression guard, carve-still-
+calibrated) all passed on their own terms; opening visibility was never one of them and is not affected by
+the raster-scale pin. Do NOT attribute this to #124 or re-open #124.
+
+**Candidate causes (NOT yet localized — do not assume which):**
+- **#115 (carved-region opening-entry/category gap)** — nominally fixed Session 67 (forced-categorize-on-carve);
+  confirm it did not regress and that a categorized-Elevation region truly reaches the opening render/entry path.
+- **#114-family repaint behavior** — a passive-redraw effect not firing for the region's overlay pass
+  (the #114 fix added `currentPageId` to three effects; check whether the opening-render path is covered).
+- **A new opening-on-region gap** distinct from both — e.g. opening shapes filtered out by pageId, or a
+  region-specific draw-path guard.
+
+**Do NOT fix blind, do NOT assume which bug it is.** NEEDS a focused localization pass first (read-only
+recon: is the opening shape stored on the region pageId? does the opening draw path run for the region?
+is it an entry gap or a render gap?) before any fix is scoped.
+
+**Gate (checkable, 2026-06-30):** no missing dependency — buildable once localized; requires a focused
+read-only recon pass to confirm root cause (entry gap vs. render/repaint gap vs. pageId filter) before a
+fix is scoped. **Tag:** gate-lifted-ready (localization-first).
+
+**Status:** LOGGED — observation only (Session 70). Not investigated, not fixed. Own recon session
+(Opus/high) before any fix.
