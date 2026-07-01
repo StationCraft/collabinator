@@ -49,7 +49,8 @@ file concurrently and eliminates merge conflicts between the two repos.
 **Next (Track A):**
 - Geometry back-to-basics review — DONE (geometry-stable review passed, Session 70).
 - ~~#106 assembly-inheritance fix~~ — DONE (Session 75; Slice 8; commit `f2d5a57`).
-- Remaining: #107 flat-roof explicit per-surface U-input UI (default case handled by #106); #108 window/door uw post-placement edit; `ti-heating` CONFIG_FIELD (cheap adjacent win); below-grade + slab geometry; ground-coupled loss (separate engine); solar gain.
+- ~~#108 window/door uw+shgc post-placement edit~~ + ~~`ti-heating` CONFIG_FIELD~~ — DONE (Session 76; commit `44615f2`). Last hardcoded F280 input (Ti) retired; thermal arc functionally closed for the base case.
+- Remaining: #107 flat-roof explicit per-surface U-input UI (default case handled by #106); below-grade + slab geometry; ground-coupled loss (separate engine); solar gain.
 - Ground-coupled F280 note: `BasementHLR.xls` / `SlabOnGradeHLR.xls` are standalone supplemental calculators (separate from above-grade). Base-level interim = U·A·ΔT vs a ground temperature once below-grade geometry is modeled; full workbook method is the compliance pass.
 
 ---

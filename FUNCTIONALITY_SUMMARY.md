@@ -490,7 +490,12 @@ a fill-in dialog. This is the dumb-placement layer; the component model (#44) is
    project-wide; never re-prompted until next PDF upload.
 7. **Opening dialog:** Kind (window / door radio), Type dropdown (Tilt-turn / Casement / Fixed /
    Slider / Hinged door), Width ft+in, Height ft+in (seeded from pixel distance), Label (free
-   text). Confirm locks the opening; Cancel discards and immediately repaints (no lingering rect).
+   text), **U-value (`uw`, W/m²K — both kinds)**, and **SHGC (window-only; doors hide it and force
+   `shgc:0`)** (added Session 76, #108). Both performance fields optional; blank → null. Confirm locks
+   the opening; Cancel discards and immediately repaints (no lingering rect).
+8. **Post-placement re-edit (#108, Session 76):** in Edit Shapes (default sub-mode), **double-click** a
+   placed opening to reopen the same dialog pre-populated from the record; Confirm updates it in place
+   (same id, no duplicate). Only openings are re-editable this way (`isOpening` guard).
 
 **Data stored per opening:**
 ```
@@ -555,7 +560,7 @@ The Project Setup panel (§9) drives a derived worklist of mechanical/electrical
 
 **Climate station register (`src/data/f280-weather.json`):**
 - 679 entries, national (all 13 provinces/territories). Extracted once from `F280_Weather.xls` (encrypted) via Excel COM; static bundle.
-- Two new CONFIG_FIELDS in 'Climate' category: `location-station` (679-option select, value = `"station|||region"` composite for province disambiguation) and `toh-override` (`kind:'number'`, allows negatives, step=0.5). `kind:'number'` is a new panel render branch distinct from `kind:'count'`.
+- Three CONFIG_FIELDS in 'Climate' category: `location-station` (679-option select, value = `"station|||region"` composite for province disambiguation), `toh-override` (`kind:'number'`, allows negatives, step=0.5), and `ti-heating` (`kind:'number'`, indoor heating design temp; added Session 76). `kind:'number'` is a panel render branch distinct from `kind:'count'`; it now reads an optional `field.placeholder`.
 - `window.__verifyToh()`: 6 DEV-block assertions (count, exact lookup, province disambiguation, resolver paths). All PASS.
 - `deriveWorklist()` collects all spawn requests into `maxCountByType` (dedup: max count per type, not additive), then builds `{ toPlace, obligations }`. A shared appliance implied by two fields appears once. Never stored.
 
@@ -632,12 +637,12 @@ line as the final exterior face.
 
 **`deriveF280Heating(enumeration, resolvedConfig)`** — pure, derive-on-demand, never stored. Called at render time from the F280 Results panel. Two arguments: the return value of `deriveEnumeration()` and `resolveEffectiveConfig(projectSetupRef.current.values)`.
 
-**`F280_TI_HEATING = 22`** — module-level const (°C); hardcoded indoor heating design temperature. A comment marks the future `ti-heating` CONFIG_FIELDS entry — a SEPARATE open item (the `ti-heating` note in ADDITIONAL_FUNCTIONALITY.md), NOT #106 (which is done and did not add it).
+**`F280_TI_HEATING = 22`** — module-level const (°C); now the **fallback only** for indoor heating design temperature. As of Session 76 the `tiC` seam reads the `ti-heating` Climate CONFIG_FIELD (`resolvedConfig['ti-heating']`, NaN-guarded) and falls back to this const when unset. Ti is now project-configurable — the last hardcoded F280 input has been retired (`ti-heating` DONE, Session 76; commit 44615f2).
 
 **No-climate guard:** if `resolvedConfig.toh` is null → returns `{ status:'no-climate', total:null }`. No ΔT computation against null.
 
 **Computation (when `status:'ok'`):**
-- `deltaT = F280_TI_HEATING − toh`
+- `deltaT = tiC − toh`, where `tiC = resolvedConfig['ti-heating'] ?? F280_TI_HEATING` (NaN-guarded; fallback 22)
 - Four surface kinds in `bySurfaceKind`:
   - `'wall-surface'`: area = `netAreaM2`, U = `effectiveUValue`
   - `'flat-roof-surface'`: area = `insideFaceAreaM2`, U = `effectiveUValue`

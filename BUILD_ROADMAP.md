@@ -445,7 +445,11 @@ is arranged so most beats are things Ben can see.
         Verified: __verifyFixture 44/44; wall unresolvedCount 8→0 on configured wall.
     [ ] #107 — Flat-roof UI gap: DEFAULT case now handled by #106 (flat-roof reads assembly-roof). Remaining:
         explicit per-surface U-input block on flat-roof-surface Envelope rows for multi-assembly roofs.
-    [ ] #108 — Window/door uw post-placement edit: add edit dialog to change uw/shgc after placement.
+    [x] #108 — Window/door uw+shgc post-placement edit — DONE (Session 76; commit 44615f2). Opening dialog
+        gained uw (both kinds) + shgc (window-only; door forced 0); double-click re-edit updates in place
+        (isOpening-guarded, no duplicate); record shape identical to placeOpeningFromEntry. 44/44 golden PASS.
+    [x] ti-heating CONFIG_FIELD — DONE (Session 76; commit 44615f2). deriveF280Heating tiC seam reads
+        resolvedConfig['ti-heating'] with F280_TI_HEATING=22 fallback. Last hardcoded F280 input retired.
     [ ] Below-grade + slab geometry: geometry modeled before loss engine built.
     [ ] Ground-coupled base-level loss: SEPARATE engine (BasementHLR.xls / SlabOnGradeHLR.xls method;
         soil conductivity, depth below grade, exposed perimeter, design month → single Watts result).
@@ -521,10 +525,11 @@ reconciliation is this pass. Settled near-term order after (b) lands and docs re
      face) + angled-reference projection branch (fixture is axis-aligned). Hue-subtlety cosmetic logged as
      #129 (defer until protruding fixture available). Remaining: confirm-view posture (B) — open architecture
      question (may dissolve under plan-is-source-of-truth model; no build until resolved in planning chat).
-  3. **Thermal arc:** #106 (assembly-inheritance default) — **DONE (Session 75; commit f2d5a57)**; #107
-     (flat-roof explicit per-surface U-input; default case handled by #106), #108 (window/door `uw`
-     post-placement edit) — geometry-review gate SATISFIED (geometry-stable review passed after the
-     #117/#124 frame work).
+  3. **Thermal arc:** #106 (assembly-inheritance default) — **DONE (Session 75; commit f2d5a57)**; #108
+     (window/door `uw`/`shgc` post-placement edit) + `ti-heating` CONFIG_FIELD — **DONE (Session 76; commit
+     44615f2)**. Arc is FUNCTIONALLY CLOSED for the base case (last hardcoded F280 input, Ti, retired). Only
+     #107 (flat-roof explicit per-surface U-input; default case handled by #106) remains as arc polish. Next
+     real thermal work: below-grade + slab geometry.
 A parallel-track approach for #106–108 was considered and REJECTED — all three live inside App.jsx (shared
 ground); branch-management overhead is not worth it for a ~5–6 session arc. Run them sequentially on main.
 

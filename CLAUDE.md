@@ -779,8 +779,10 @@ A React + Vite app with:
     disambiguation, station→toh, override wins, null fallback); all 6 PASS. Tree-shakes from prod.
 
 - **F280 above-grade conductive endpoint (Session 56; DONE):**
-  * **`F280_TI_HEATING = 22`** (module-level const, °C; hardcoded — future `ti-heating` CONFIG_FIELD is a
-    SEPARATE open item, see the `ti-heating` note in ADDITIONAL_FUNCTIONALITY.md; NOT #106, which is done).
+  * **`F280_TI_HEATING = 22`** (module-level const, °C) — now the **fallback only**. As of Session 76 the
+    `tiC` seam in `deriveF280Heating` reads the `ti-heating` Climate CONFIG_FIELD (`resolvedConfig['ti-heating']`,
+    NaN-guarded), falling back to this const when unset. Ti is now project-configurable — the **last hardcoded
+    F280 input has been retired** (see the `ti-heating DONE` note below).
   * **`deriveF280Heating(enumeration, resolvedConfig)`** — pure, derive-on-demand. No-climate guard
     (returns `{status:'no-climate'}` if `toh===null`). Four surface kinds in `bySurfaceKind` map
     (`'wall-surface'` / `'flat-roof-surface'` / `'window'` / `'door'`). Surfaces missing U-value:
@@ -800,9 +802,41 @@ A React + Vite app with:
     read by `getSurfaceAssembly`. #106 wires them in as the project-level DEFAULT on the miss path; per-surface
     Envelope U inputs still override. See the `#106 assembly-inheritance default` entry below.
   * **Near-term thermal arc (geometry review gate satisfied):** ~~#106 assembly-inheritance fix~~ **DONE
-    (Session 75)** → #107 flat-roof per-surface U-input UI (default case already handled by #106) → #108
-    window/door uw post-placement edit → below-grade + slab geometry → ground-coupled loss (separate engine
-    from above-grade, using supplemental `BasementHLR.xls` / `SlabOnGradeHLR.xls` calculators) → solar gain.
+    (Session 75)** → ~~#108 window/door uw post-placement edit~~ **DONE (Session 76)** + ~~`ti-heating`
+    CONFIG_FIELD~~ **DONE (Session 76)** → #107 flat-roof explicit per-surface U-input UI (default case
+    already handled by #106; explicit override input for multi-assembly roofs remains) → below-grade + slab
+    geometry → ground-coupled loss (separate engine from above-grade, using supplemental `BasementHLR.xls` /
+    `SlabOnGradeHLR.xls` calculators) → solar gain.
+  * **Thermal-arc status (Session 76):** the #106/#107/#108 arc is **functionally closed** for the base case —
+    #106 (assembly default) DONE, #108 (opening uw/shgc edit) DONE, `ti-heating` DONE (last hardcoded F280
+    input retired). Only #107's explicit per-surface flat-roof override UI remains as arc polish. Next real
+    work is below-grade/slab geometry.
+
+- **#108 window/door uw+shgc post-placement edit + `ti-heating` CONFIG_FIELD (Session 76; commit `44615f2`; DONE):**
+  Two-part slice. No geometry change.
+  * **Opening Details dialog gained performance fields:** U-value (`uw`, W/m²K) input shown for BOTH kinds;
+    SHGC input shown ONLY for windows (`openingDraftKind === 'window'`). Doors hide SHGC and force `shgc: 0`
+    (opaque-door rule #104). Both optional; blank → `null` (stays unresolved in F280, never coerced to 0).
+    New draft state `openingDraftUw` / `openingDraftShgc` / `openingEditId`.
+  * **`confirmOpening` write:** performance fields written UNCONDITIONALLY (outside the `if(scale)`
+    width/height gate); resulting record byte-identical in shape to `placeOpeningFromEntry` (verified:
+    key set `dimBasis,heightM,id,label,openingType,pageId,shapeKind,shgc,status,uw,vertices,widthM`).
+  * **Double-click re-edit:** double-click a placed opening in Edit Shapes (default sub-mode only,
+    `editSubModeRef.current === null`) → `handleMeasureDoubleClick` hit-tests via `hitTestShapeBody`,
+    guards `isOpening`, seeds ALL draft state from the record (`openOpeningEditDialog`), reopens the same
+    dialog. On Confirm, the `editId` branch UPDATES the record in place (`isOpening(s) && s.id === editId`
+    map) — no duplicate. The `isOpening` guard defends against DEV fixture-restore id collisions (#121).
+  * **`ti-heating` CONFIG_FIELD:** `kind:'number'` descriptor in the 'Climate' category (mirrors
+    `toh-override`; adds optional `field.placeholder` to the shared number render branch). `deriveF280Heating`'s
+    `tiC` seam reads `resolvedConfig['ti-heating']` (NaN-guarded) with `F280_TI_HEATING = 22` as fallback.
+    Retires the last hardcoded F280 input.
+  * **Verified (Claude preview, fixture-elevation):** `__verifyFixture` 44/44; new window stores uw+shgc,
+    door hides SHGC + stores `shgc:0`; `__dumpF280` window `unresolvedCount` drops on a manual uw (matches
+    bridge behavior); double-click re-edit reopens pre-populated + updates in place, count 6→6 (no duplicate);
+    Ti=21 → ΔT 45°C, cleared → ΔT 46°C (fallback 22). Zero console errors.
+  * **#121 live evidence (from this testing):** `__restoreFixture` does NOT restore `shapeIdCounterRef`, so
+    placed shapes collide with fixture ids (`sh-0` seen 3× — two windows + a wall). Production ids are unique
+    per session, so #108 is unaffected in production; DEV-fixture-restore-only. Do NOT re-scope #121 here.
 
 - **#106 assembly-inheritance default (Session 75; commit `f2d5a57`; DONE):** Project Setup assembly
   selections feed `getSurfaceAssembly` as a project-level default. Mechanism-only slice (placeholder U-values).
@@ -930,9 +964,10 @@ A React + Vite app with:
   don't render on a carved region) logged OPEN, gate-still-real. See BUILD_ROADMAP.md §⏸ and the
   ADDITIONAL_FUNCTIONALITY.md sweep block.
 - **Settled near-term sequence (Session 70):** Beat 0 cheap wins (#53, #118, #112) → #29 derived
-  elevations → thermal arc (~~#106~~ **DONE Session 75** / #107 flat-roof explicit-UI follow-on / #108
-  window-door uw edit, geometry-review gate satisfied). #125 is an OPEN render-gap bug, NOT a #29 dependency.
-  Adjacent cheap wins now: #107 explicit per-surface flat-roof U-input, `ti-heating` CONFIG_FIELD.
+  elevations → thermal arc (~~#106~~ **DONE Session 75** / ~~#108 window-door uw edit~~ **DONE Session 76** /
+  ~~`ti-heating`~~ **DONE Session 76** / #107 flat-roof explicit-UI follow-on remains). Thermal arc is
+  functionally closed for the base case; only #107's explicit per-surface flat-roof override UI remains.
+  Next real thermal work: below-grade + slab geometry. #125 is an OPEN render-gap bug, NOT a #29 dependency.
 - **#29 (derived elevations) — FIRST PIECE DONE (Session 71; commit ed43c6d):** aligned-edge
   setback/protrusion hover-label. On an elevation page with an aligned edge (`elevationEdgeRef`), the
   source floor plan renders as a toggleable amber ghost via the EXISTING ghost mechanism

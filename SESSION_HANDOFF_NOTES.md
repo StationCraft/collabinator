@@ -23,6 +23,58 @@ section, do not bury conventions inside a dated session entry.*
 
 ---
 
+## SESSION 76 — #108 opening uw/shgc post-placement edit + ti-heating DONE (2026-07-01)
+
+**Branch:** main | **Code commit:** `44615f2` | **Docs commit:** (this close-out).
+
+**What this session built (two parts, one code commit):**
+
+**Part 1 — #108 window/door `uw`/`shgc` post-placement edit.**
+- Opening Details dialog gained a **U-value** input (both kinds) and an **SHGC** input shown **only for
+  windows** (`openingDraftKind === 'window'`); doors hide SHGC and force `shgc:0` (opaque-door rule #104).
+  Both optional; blank → `null`. New draft state `openingDraftUw` / `openingDraftShgc` / `openingEditId`.
+- `confirmOpening` writes the performance fields **unconditionally** (outside the `if(scale)` width/height
+  gate) so a manual record is byte-identical in shape to `placeOpeningFromEntry` (verified key set match).
+- **Double-click re-edit:** `handleMeasureDoubleClick` (Edit Shapes, default sub-mode only) hit-tests via
+  `hitTestShapeBody`, guards `isOpening`, seeds all draft state from the record (`openOpeningEditDialog`),
+  reopens the dialog; Confirm's `editId` branch updates the record **in place** (`isOpening(s) && s.id ===
+  editId`) — no duplicate.
+- Deliberately did NOT touch #119 (dialog split) — only per-kind field visibility, as scoped.
+
+**Part 2 — `ti-heating` CONFIG_FIELD.**
+- `kind:'number'` descriptor in 'Climate' (mirrors `toh-override`); added optional `field.placeholder` to the
+  shared number render branch. `deriveF280Heating` `tiC` seam reads `resolvedConfig['ti-heating']`
+  (NaN-guarded) with `F280_TI_HEATING = 22` as fallback. **Last hardcoded F280 input retired** — Ti is now
+  project-configurable.
+
+**Verification (Claude preview, fixture-elevation — Ben did not need to eyeball; all runtime-checked):**
+- `__verifyFixture()` **44/44 PASS** (dialog/handler work; no golden regression).
+- New window stores uw=1.6/shgc=0.42; door placement hides SHGC and stores `shgc:0` with uw=1.9.
+- `__dumpF280()` window bucket `[1 unresolved U]` — the manual-uw window resolved exactly like a bridge value.
+- Double-click re-edit reopened dialog **pre-populated**; changed uw → **count 6→6 (no duplicate)**.
+- Ti=21 → ΔT 45°C; cleared → ΔT 46°C (309.1 W = 302.4 × 46/45, confirming fallback 22). Zero console errors.
+
+**Live evidence for #121 (do NOT re-scope — noted only):** `__restoreFixture` does not restore
+`shapeIdCounterRef`, so placed shapes collide with fixture ids — observed `sh-0` appearing 3× (two windows +
+a wall). #108's `isOpening` guard stops a colliding non-opening from mutating, but two same-id *openings*
+still co-update on the fixture. **Production ids are unique per session (counter cleared on PDF upload), so
+#108 is unaffected in production** — this is a DEV-fixture-restore-only defect. #121's register note
+strengthened with this evidence.
+
+**Thermal arc status:** #106 (Session 75) + #108 + `ti-heating` (this session) close the arc for the base
+case. Only #107 (explicit per-surface flat-roof U-input for multi-assembly roofs) remains as arc polish.
+Next real thermal work: below-grade + slab geometry → ground-coupled loss (separate engine) → solar gain.
+
+**Process note:** the DEV two-click opening placement is stale-closure-sensitive when driven from the
+console (React state between synthetic clicks needs a render tick) — fire the two clicks in separate eval
+turns. Restore leaves `dimensionBasisRef` null, so first placement after restore hits the dim-basis gate.
+
+**What's next:** #107 explicit-UI follow-on (cheap), then below-grade + slab geometry. Confirm-view posture
+(B) for #29 remains an open planning question. #121 self-heal (shapeIdCounterRef on restore) is a good
+DEV-hygiene cheap win when convenient.
+
+---
+
 ## SESSION 75 — #106 assembly-inheritance default DONE (2026-07-01)
 
 **Branch:** main | **Code commit:** `f2d5a57` | **Docs commit:** (this close-out).
