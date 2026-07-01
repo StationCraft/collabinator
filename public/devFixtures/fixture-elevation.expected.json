@@ -36,5 +36,21 @@
   "flatRoofSurface": {
     "id": "flat-roof-page-7",
     "grossAreaM2": 22.9471
+  },
+  "groundCoupledCheck": {
+    "_note": "Synthetic case — the default fixture has a slab-surface (Crawlspace) but NO below-grade-wall (above-grade reference edge, no grade line), so __verifyFixture injects a synthetic slab + below-grade enumeration to exercise deriveGroundCoupledLoss end-to-end. Station Vernon|||BC -> dgtemp=10. Ti default 22 -> deltaT_ground=12. Normal soil (0.85) -> k=1.0; High soil (1.275) -> k=1.5.",
+    "station": "Vernon|||BC",
+    "groundTempC": 10,
+    "tiC": 22,
+    "deltaTground": 12,
+    "slabAreaM2": 20,
+    "slabUValue": 0.05,
+    "belowGradeAreaM2": 10,
+    "belowGradeUValue": 0.2,
+    "slabLossNormalW": 12.0,
+    "belowGradeLossNormalW": 24.0,
+    "totalNormalW": 36.0,
+    "soilFactorHigh": 1.5,
+    "totalHighW": 54.0
   }
 }

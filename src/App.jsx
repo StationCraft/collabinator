@@ -75,6 +75,26 @@ const PARALLEL_EPS_M = 0.001
 const FACING_DOT_MIN = 0.996
 const categoryLabel = (key) => CATEGORY_OPTIONS.find(o => o.key === key)?.label ?? key
 
+// ── Soil-conductivity classes (BASESIMP input) ──────────────────────────────
+// Real BASESIMP soil-conductivity classes. The interim ground-coupled model
+// (deriveGroundCoupledLoss) uses the value as a LINEAR multiplier k = value / 0.85,
+// so the Normal case is ×1.0 (honest passthrough) and wetter soils raise loss
+// linearly. A future full BASESIMP port consumes it more richly (thermal-mass /
+// corner-correction terms) — the input contract is deliberately BASESIMP-shaped now.
+// value strings match <select> option values (Number()-parsed at read time).
+const SOIL_CONDUCTIVITY_OPTIONS = [
+  { value: '0.85',  label: 'Normal (dry sand, loam, clay)', k: 0.85 },
+  { value: '1.275', label: 'High (moist soil)',              k: 1.275 },
+  { value: '1.9',   label: 'Very wet / permafrost',          k: 1.9 },
+]
+const SOIL_CONDUCTIVITY_DEFAULT = 0.85
+// Label for a resolved numeric soil-conductivity (nearest option); '—' if none.
+const soilClassLabel = (kNum) => {
+  if (kNum == null || isNaN(Number(kNum))) return '—'
+  const opt = SOIL_CONDUCTIVITY_OPTIONS.find(o => o.k === Number(kNum))
+  return opt ? opt.label : `${kNum} W/m·K`
+}
+
 // ── §9 Project-configuration layer — descriptor schema ──────────────────────
 // CONFIG_FIELDS is the single source of truth for the project-setup panel.
 // Each descriptor is data-only; adding a new field = adding a descriptor here.
@@ -130,6 +150,18 @@ const CONFIG_FIELDS = [
     label: 'Indoor heating design temp (°C)',
     kind: 'number',
     placeholder: '— default 22 —',
+    multi: false,
+    spawns: null,
+  },
+  // ── Site ─────────────────────────────────────────────────────────────────
+  {
+    // BASESIMP soil-conductivity class. Real BASESIMP input; the interim ground-
+    // coupled model uses it as a linear factor (see deriveGroundCoupledLoss).
+    // Unset resolves to Normal (0.85) → ×1.0 in deriveGroundCoupledLoss.
+    id: 'soil-conductivity',
+    category: 'Site',
+    label: 'Soil conductivity class',
+    options: SOIL_CONDUCTIVITY_OPTIONS.map(o => ({ value: o.value, label: o.label })),
     multi: false,
     spawns: null,
   },
@@ -400,6 +432,22 @@ const CONFIG_CROSS_FIELD_RULES = [
       return { toh: null }
     },
   },
+  {
+    // Resolve 'groundTempC' (deep-ground design temp, °C) from the selected station's
+    // dgtemp — SAME "station|||region" composite parse as resolve-toh. No override field
+    // this pass. 'groundTempC' is derived — never stored as raw intent; null when no station.
+    id: 'resolve-ground-temp',
+    when: () => true,
+    apply: (raw) => {
+      const stationVal = raw['location-station']
+      if (stationVal) {
+        const [stationName, region] = stationVal.split('|||')
+        const entry = F280_WEATHER.find(e => e.station === stationName && e.region === region)
+        if (entry && entry.dgtemp != null) return { groundTempC: entry.dgtemp }
+      }
+      return { groundTempC: null }
+    },
+  },
 ]
 
 function resolveEffectiveConfig(rawValues) {
@@ -474,6 +522,19 @@ function deriveF280Heating(enumeration, resolvedConfig) {
 
   const conductiveAboveGradeW = Object.values(bySurfaceKind).reduce((s, b) => s + b.lossW, 0)
 
+  // Ground-coupled loss is a SEPARATE engine (interim U·A·ΔT_ground) — computed here only
+  // so its rows join the F280 OUTPUT. When it resolves (station selected → groundTempC),
+  // 'below-grade-wall' and 'slab-on-grade' become additive result rows and LEAVE notModeled[].
+  // When there is no ground temp (no station), they stay listed as not-modeled — no ΔT vs null.
+  // 'floor-over-unheated' and 'solar-gain' stay not-modeled regardless.
+  const ground = deriveGroundCoupledLoss(enumeration, resolvedConfig)
+  let notModeled = ['below-grade-wall', 'slab-on-grade', 'floor-over-unheated', 'solar-gain']
+  let total = conductiveAboveGradeW
+  if (ground.status === 'ok') {
+    notModeled = notModeled.filter(k => k !== 'below-grade-wall' && k !== 'slab-on-grade')
+    total = conductiveAboveGradeW + ground.total_W
+  }
+
   return {
     status: 'ok',
     tiC,
@@ -481,8 +542,86 @@ function deriveF280Heating(enumeration, resolvedConfig) {
     deltaT,
     bySurfaceKind,
     conductiveAboveGradeW,
-    total: conductiveAboveGradeW,  // == conductiveAboveGradeW this build; extended by future rows
-    notModeled: ['below-grade-wall', 'slab-on-grade', 'floor-over-unheated', 'solar-gain'],
+    groundCoupled: ground.status === 'ok' ? ground : null,  // null on no-ground; panel/dump guard on it
+    total,  // above-grade conductive + ground-coupled (when resolved); extended by future rows
+    notModeled,
+  }
+}
+
+// deriveGroundCoupledLoss — pure, derive-on-demand, stores nothing. Mirrors deriveF280Heating.
+//
+// INTERIM MODEL — U·A·ΔT against deep-ground temp with linear soil factor. NOT BASESIMP.
+// The input contract (soil conductivity, depth-below-grade, exposed perimeter, area) is
+// deliberately BASESIMP-shaped so a future full BASESIMP port is a drop-in replacement of the
+// MATH only — the consumed fields do not change. Depth-below-grade (belowGradeHeightM) and
+// exposed perimeter (soilContactPerimeterM) are ALREADY on the enumeration elements; they are
+// part of the contract here even though the interim U·A·ΔT math does not yet weight by them
+// (a BASESIMP port will). Grade-Z / area / perimeter provenance is documented in
+// deriveEnumeration STEP A.6 (slab-surface) and STEP A.7 (below-grade-wall).
+function deriveGroundCoupledLoss(enumeration, resolvedConfig) {
+  const groundTempC = resolvedConfig.groundTempC ?? null
+  if (groundTempC === null) return { status: 'no-ground', total: null }  // no ΔT against null
+
+  // Ti seam — reuse the EXACT NaN-guarded read deriveF280Heating uses.
+  const tiRaw = resolvedConfig['ti-heating']
+  const tiC = (tiRaw != null && !isNaN(Number(tiRaw))) ? Number(tiRaw) : F280_TI_HEATING
+  const deltaTground = tiC - groundTempC
+
+  // Soil-conductivity linear factor. Unset → Normal (0.85) → k = 1.0 honest passthrough.
+  const soilRaw = resolvedConfig['soil-conductivity']
+  const soilConductivity = (soilRaw != null && !isNaN(Number(soilRaw))) ? Number(soilRaw) : SOIL_CONDUCTIVITY_DEFAULT
+  const k = soilConductivity / SOIL_CONDUCTIVITY_DEFAULT
+
+  const bySurfaceKind = {
+    'slab-on-grade':    { areaM2: 0, uaSum: 0, lossW: 0, count: 0, unresolvedCount: 0 },
+    'below-grade-wall': { areaM2: 0, uaSum: 0, lossW: 0, count: 0, unresolvedCount: 0 },
+  }
+
+  for (const el of enumeration) {
+    let bucket = null, area = null, u = null
+    if (el.kind === 'slab-surface') {
+      bucket = bySurfaceKind['slab-on-grade']
+      area = el.grossAreaM2
+      u = el.effectiveUValue
+    } else if (el.kind === 'below-grade-wall') {
+      bucket = bySurfaceKind['below-grade-wall']
+      area = el.belowGradeWallAreaM2
+      u = el.effectiveUValue
+    } else {
+      continue
+    }
+
+    if (area == null) continue
+    bucket.count++
+    bucket.areaM2 += area
+
+    if (u == null) {
+      bucket.unresolvedCount++
+      // Surface contributes area but NOT loss — partial coverage surfaced via unresolvedCount.
+      continue
+    }
+    bucket.uaSum += u * area
+    bucket.lossW += k * u * area * deltaTground
+  }
+
+  for (const b of Object.values(bySurfaceKind)) {
+    b.uAvg = b.areaM2 > 0 ? b.uaSum / b.areaM2 : null
+  }
+
+  const total_W = Object.values(bySurfaceKind).reduce((s, b) => s + b.lossW, 0)
+  const unresolvedCount = Object.values(bySurfaceKind).reduce((s, b) => s + b.unresolvedCount, 0)
+
+  return {
+    status: 'ok',
+    groundTempC,
+    tiC,
+    deltaTground,
+    soilConductivity,
+    soilFactor: k,
+    bySurfaceKind,
+    total_W,
+    total_kW: total_W / 1000,
+    unresolvedCount,
   }
 }
 
@@ -6788,6 +6927,54 @@ function App() {
             : fail('(r.d.derived) getRsiW(null)', null, rsiWNull)
         }
 
+        // ── Ground-coupled checks (gc.a)–(gc.m): synthetic slab + below-grade case ──
+        // The default fixture has a slab-surface (Crawlspace) but NO below-grade-wall
+        // (above-grade reference edge, no grade line), so the engine is exercised with a
+        // synthetic enumeration. resolveEffectiveConfig is called on synthetic values
+        // objects (NOT projectSetupRef) so no save/restore is needed. Golden drives inputs.
+        if (golden.groundCoupledCheck) {
+          const g = golden.groundCoupledCheck
+          const synthEnum = [
+            { kind: 'slab-surface',     id: 'floor-synth',      grossAreaM2: g.slabAreaM2, soilContactPerimeterM: 18, floorZm: 0, effectiveUValue: g.slabUValue },
+            { kind: 'below-grade-wall', id: 'foundation-synth', belowGradeWallAreaM2: g.belowGradeAreaM2, belowGradeHeightM: 1.0, runLengthM: 10, effectiveUValue: g.belowGradeUValue },
+          ]
+
+          // resolve-ground-temp: station → groundTempC
+          const rNormal = resolveEffectiveConfig({ 'location-station': g.station })
+          check('(gc.a) groundTempC lookup exact', g.groundTempC, rNormal.groundTempC)
+
+          const gcN = deriveGroundCoupledLoss(synthEnum, rNormal)
+          checkEq('(gc.b) status ok (station set)', 'ok', gcN.status)
+          check('(gc.c) deltaTground', g.deltaTground, gcN.deltaTground)
+          check('(gc.d) soilFactor normal = 1.0', 1.0, gcN.soilFactor)
+          check('(gc.e) slab-on-grade loss (k=1.0)',    g.slabLossNormalW,      gcN.bySurfaceKind['slab-on-grade'].lossW)
+          check('(gc.f) below-grade-wall loss (k=1.0)', g.belowGradeLossNormalW, gcN.bySurfaceKind['below-grade-wall'].lossW)
+          check('(gc.g) total_W (k=1.0)', g.totalNormalW, gcN.total_W)
+
+          // soilFactor ≠ 1.0 flip: High soil → k=1.5 → losses ×1.5
+          const gcH = deriveGroundCoupledLoss(synthEnum, resolveEffectiveConfig({ 'location-station': g.station, 'soil-conductivity': '1.275' }))
+          check('(gc.h) soilFactor high = 1.5', g.soilFactorHigh, gcH.soilFactor)
+          check('(gc.i) total_W (k=1.5) flip',  g.totalHighW,      gcH.total_W)
+
+          // no station → no-ground guard
+          const gcNone = deriveGroundCoupledLoss(synthEnum, resolveEffectiveConfig({}))
+          checkEq('(gc.j) no station → no-ground', 'no-ground', gcNone.status)
+
+          // notModeled integration through deriveF280Heating
+          const f280ok = deriveF280Heating(synthEnum, resolveEffectiveConfig({ 'location-station': g.station }))
+          const okLosesBoth = !f280ok.notModeled.includes('below-grade-wall') && !f280ok.notModeled.includes('slab-on-grade')
+          okLosesBoth ? pass('(gc.k) notModeled loses both when ground ok')
+                      : fail('(gc.k) notModeled loses both when ground ok', 'both removed', f280ok.notModeled.join(','))
+          const okKeepsOthers = f280ok.notModeled.includes('floor-over-unheated') && f280ok.notModeled.includes('solar-gain')
+          okKeepsOthers ? pass('(gc.l) floor-over-unheated + solar-gain stay listed')
+                        : fail('(gc.l) other notModeled entries stay', 'present', f280ok.notModeled.join(','))
+
+          const f280noGround = deriveF280Heating(synthEnum, resolveEffectiveConfig({ 'toh-override': -20 }))
+          const noGroundKeepsBoth = f280noGround.notModeled.includes('below-grade-wall') && f280noGround.notModeled.includes('slab-on-grade')
+          noGroundKeepsBoth ? pass('(gc.m) notModeled keeps both when no-ground (toh-override, no station)')
+                            : fail('(gc.m) notModeled keeps both when no-ground', 'both present', f280noGround.notModeled.join(','))
+        }
+
         // Clean up test shapes so fixture state is not polluted for further use
         completedShapesRef.current = completedShapesRef.current.slice(0, beforeCount)
         pendingOpeningsRef.current = pendingOpeningsRef.current.filter(
@@ -6996,7 +7183,29 @@ function App() {
         console.log(`[f280]   ${kind}: ${b.count} surfaces, area=${b.areaM2.toFixed(2)} m², U_avg=${b.uAvg != null ? b.uAvg.toFixed(3) : '—'} W/m²K, loss=${b.lossW.toFixed(1)} W${unres}`)
       }
       console.log(`[f280] Above-grade conductive total: ${result.conductiveAboveGradeW.toFixed(1)} W (${(result.conductiveAboveGradeW / 1000).toFixed(2)} kW)`)
+      const gc = result.groundCoupled
+      if (gc) {
+        console.log(`[f280] Ground-coupled: groundTemp=${gc.groundTempC}°C, ΔT_ground=${gc.deltaTground}°C, soil ×${gc.soilFactor.toFixed(2)}`)
+        for (const [kind, b] of Object.entries(gc.bySurfaceKind)) {
+          if (b.count === 0) { console.log(`[f280]   ${kind}: (none)`); continue }
+          const unres = b.unresolvedCount > 0 ? ` [${b.unresolvedCount} unresolved U]` : ''
+          console.log(`[f280]   ${kind}: ${b.count} surfaces, area=${b.areaM2.toFixed(2)} m², U_avg=${b.uAvg != null ? b.uAvg.toFixed(3) : '—'} W/m²K, loss=${b.lossW.toFixed(1)} W${unres}`)
+        }
+        console.log(`[f280] Ground-coupled subtotal: ${gc.total_W.toFixed(1)} W (${gc.total_kW.toFixed(2)} kW)`)
+      } else {
+        console.log('[f280] Ground-coupled: no-ground (no station selected → no deep-ground temp)')
+      }
+      console.log(`[f280] Total (above-grade + ground): ${result.total.toFixed(1)} W (${(result.total / 1000).toFixed(2)} kW)`)
       console.log(`[f280] Not modeled: ${result.notModeled.join(', ')}`)
+    }
+
+    // __setConfig(id, value): DEV injection path for Project Setup values (parallels
+    // __ingestAssembly / __setCrop). Writes through setConfigValue so ticks fire and the
+    // panel re-renders. Lets browser verification set station / soil class / assembly
+    // deterministically without navigating a 679-option dropdown. Tree-shakes from prod.
+    window.__setConfig = (id, value) => {
+      setConfigValue(id, value)
+      console.log(`[setConfig] ${id} = ${JSON.stringify(value)}  → resolved:`, resolveEffectiveConfig(projectSetupRef.current.values))
     }
   }
 
@@ -8881,6 +9090,74 @@ function App() {
                           </span>
                         </div>
                       </div>
+
+                      {/* ── Ground-coupled (interim U·A·ΔT_ground; NOT BASESIMP) ── */}
+                      {result.groundCoupled ? (() => {
+                        const gc = result.groundCoupled
+                        const GROUND_LABELS = { 'slab-on-grade': 'Slab on grade', 'below-grade-wall': 'Below-grade walls' }
+                        return (<>
+                          <div className="fh-zone">
+                            <div className="fh-zone-label">Ground-Coupled Conditions</div>
+                            <div className="fh-row">
+                              <span className="fh-label">Ground temp (deep)</span>
+                              <span className="fh-val">{gc.groundTempC} °C</span>
+                            </div>
+                            <div className="fh-row">
+                              <span className="fh-label">ΔT_ground</span>
+                              <span className="fh-val">{gc.deltaTground} °C</span>
+                            </div>
+                            <div className="fh-row">
+                              <span className="fh-label">Soil class</span>
+                              <span className="fh-val" style={{ fontSize:'0.72rem' }}>{soilClassLabel(gc.soilConductivity)} (×{gc.soilFactor.toFixed(2)})</span>
+                            </div>
+                          </div>
+
+                          <div className="fh-zone">
+                            <div className="fh-zone-label">Ground-Coupled Surfaces</div>
+                            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.78rem' }}>
+                              <thead>
+                                <tr style={{ opacity: 0.6 }}>
+                                  <th style={{ textAlign:'left', paddingBottom:4 }}>Kind</th>
+                                  <th style={{ textAlign:'right', paddingBottom:4 }}>Area</th>
+                                  <th style={{ textAlign:'right', paddingBottom:4 }}>Ū (W/m²K)</th>
+                                  <th style={{ textAlign:'right', paddingBottom:4 }}>Loss</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {Object.entries(gc.bySurfaceKind).map(([kind, b]) => (
+                                  <tr key={kind} style={{ borderTop:'1px solid rgba(255,255,255,0.08)' }}>
+                                    <td style={{ paddingTop:4, paddingBottom:4 }}>
+                                      {GROUND_LABELS[kind] ?? kind}
+                                      {b.unresolvedCount > 0 && (
+                                        <span style={{ color:'#f59e0b', marginLeft:4, fontSize:'0.72rem' }}>
+                                          {b.unresolvedCount} no U
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtM2(b.areaM2) : '—'}</td>
+                                    <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtU(b.uAvg) : '—'}</td>
+                                    <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtW(b.lossW) : '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="fh-zone">
+                            <div className="fh-row" style={{ fontWeight: 600 }}>
+                              <span className="fh-label">Ground-coupled subtotal</span>
+                              <span className="fh-val" style={{ color:'#60a5fa' }}>
+                                {gc.total_kW.toFixed(2)} kW
+                              </span>
+                            </div>
+                          </div>
+                        </>)
+                      })() : (
+                        <div className="fh-zone">
+                          <div className="fh-zone-label">Ground-Coupled</div>
+                          <div className="enum-empty">Select a climate station in Project Setup → Climate to compute ground-coupled loss (needs deep-ground temp).</div>
+                        </div>
+                      )}
 
                       <div className="fh-zone">
                         <div className="fh-zone-label" style={{ opacity: 0.5 }}>Not yet modeled</div>
