@@ -1,8 +1,10 @@
 node_modules
 dist
 
-# Client PDF — never commit real documents
-public/devFixtures/test-fixture.pdf
+# Dev fixture artifacts — ignore everything in devFixtures except the harness fixtures
+public/devFixtures/*
+!public/devFixtures/fixture-elevation.json
+!public/devFixtures/fixture-elevation.expected.json
 
 # Un-ignore Claude Code local settings (permission modes only — no secrets)
 # Negates the global git ignore rule (**/.claude/settings.local.json)
