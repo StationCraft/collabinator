@@ -895,11 +895,18 @@ A React + Vite app with:
       un-aligned page-3 carve stores identity crop + direct 114.83 scale.
 
 **Not yet built (next increments):**
-- **Next: ⏸ PLATEAU WAYPOINTS — now triggered** (#5 fully done). Fire in sequence BEFORE #29:
-  (a) SIMPLIFICATION PASS — coordinate-layer extraction from App.jsx (plan with Opus first);
-  (b) ROADMAP RECONCILIATION — gate-rephrasing + deferred-register sweep. See BUILD_ROADMAP.md §⏸.
-- **After plateau: #29 (derived elevations)** — derives elevation view from floor-plan edge +
-  accumulateZ, shown for confirm rather than freehand-traced; gated on #5 being done.
+- **⏸ PLATEAU WAYPOINTS: (a) DONE, (b) DONE.** (a) SIMPLIFICATION PASS — coordinate-layer extraction
+  to `src/coords.js` (Session 69; Stages 0–6). (b) ROADMAP RECONCILIATION + gate-rephrasing sweep
+  (Session 70) — every deferred register entry retagged with a checkable gate; #110/#115 corrected to
+  DONE/RESOLVED; #124 (Enhance-on-carved-region frame break) RESOLVED (commit 19ffd8b); #125 (openings
+  don't render on a carved region) logged OPEN, gate-still-real. See BUILD_ROADMAP.md §⏸ and the
+  ADDITIONAL_FUNCTIONALITY.md sweep block.
+- **Settled near-term sequence (Session 70):** Beat 0 cheap wins (#53, #118, #112) → #29 derived
+  elevations → thermal arc (#106/#107/#108, geometry-review gate satisfied). #125 is an OPEN render-gap
+  bug, NOT a #29 dependency.
+- **#29 (derived elevations)** — derives elevation view from floor-plan edge + accumulateZ, shown for
+  confirm rather than freehand-traced; gate lifted (region-pages #5 done + `pageVertexToWorld` projection
+  exists).
 - **Page-region #5 Fork D — DONE (commit 579bbf1, Session 60):** `recatPageNum` → `recatPageId`
   (state); all confirm/skip handlers rekeyed from `p.pageNum === currentPage` to `p.pageId === currentPageId`.
   `advanceToNextUncategorized` left on pageNum (PDF nav). Multi-crop payoff landed with crop-carving UI.
@@ -1321,13 +1328,16 @@ All of the above are cleared on PDF upload.
   PRE-EXISTING bugs were exposed (not caused): #109 (mis-registration on source-sheet return —
   was masked by the blank overlay) and #115 (carved elevation region has no Place-opening). See
   ADDITIONAL_FUNCTIONALITY.md.
-- **#109 overlay mis-registration on return — now has a reliable repro (Session 66, DEFERRED):**
-  after #114 the source overlay repaints on return, exposing pre-existing mis-registration
-  (overlay offset from backdrop; clean redraw with current transform corrects it). DISTINCT from
-  #114 (paints-but-mis-registered vs. not-painted-at-all). Recon-and-fix pending; batch with #24.
-- **#115 carved elevation region has no Place-opening (Session 66, DEFERRED):** a freshly carved
-  region starts `category: null`, so `isElevationPage` is false and the Place-opening gate hides.
-  Opening-entry/category-inheritance gap, not a repaint gap. Needs recon before fix.
+- **#109 overlay mis-registration on return — RESOLVED BY #117 (Session 68; commit 57fb605).** The
+  "paints-but-mis-registered" symptom was the same overlay/backdrop frame split diagnosed as #117 (the
+  full-sheet render frame was window-derived). The C-REDERIVE frame pin makes `measureRef`
+  window-independent, so overlay and backdrop share one frame and can no longer diverge. Un-batched from
+  #24, whose remaining scope (window-level drag-release event gap) is unrelated and still OPEN.
+- **#115 carved elevation region has no Place-opening — RESOLVED (Session 67; commit 2521bbd).** The
+  forced-categorize-on-carve modal requires every new region to be classified before it enters navigation;
+  an Elevation-categorized region now surfaces Place-opening via the `isElevationPage` gate. Resolves the
+  ENTRY gap only. **Openings placed on a carved region still do not RENDER** — a distinct OPEN bug tracked
+  at ADDITIONAL_FUNCTIONALITY.md #125 (gate-still-real; needs a localization recon).
 
 ### Design gaps (deferred to Phase 2):
 - **Inherited geometry displays on all pages:** Locked polygons from page N show on

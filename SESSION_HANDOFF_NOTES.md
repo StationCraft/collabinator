@@ -10,6 +10,47 @@ current CLAUDE.md to confirm nothing fell through.
 
 ---
 
+## SESSION 70 — Waypoint (b) roadmap reconciliation (docs-only) (2026-07-01)
+
+**Branch:** main | **Scope:** DOCS ONLY — no `src/` edits, no harness runs, no behavior change.
+
+**What this session did:** executed plateau waypoint (b) — the one-time roadmap reconciliation +
+gate-rephrasing pass — following waypoint (a) (coordinate-seam extraction, Session 69, DONE).
+
+**Baseline discrepancy found and handled (recorded so it isn't re-litigated):** the run prompt
+assumed the register ended at #119 and instructed appending #124/#125. Recon showed **#124 and #125
+already exist** on main (added by commits `874d9bc` and `0127ccb`, after the prompt author's baseline),
+and #125 was **mischaracterized** in the prompt (it thought #125 = "opening-on-carve localization log"
+consumed by #29; the real #125 = "openings don't render on a carved region," an OPEN bug, not
+instrumentation, not a #29 dependency). Git baseline (the four named commits) matched exactly. Ben
+approved the adaptation: skip the duplicate append; retag the existing #124/#125; write the settled
+sequence without the false #125↔#29 coupling; mark #115 RESOLVED for its entry-gap symptom with a
+cross-ref to #125's still-open render question.
+
+**Edits made:**
+- **ADDITIONAL_FUNCTIONALITY.md:** added a consolidated **Gate-rephrasing sweep (Session 70)** block at
+  the top of the Register — every deferred entry tagged (gate-lifted-ready / gate-partially-lifted /
+  gate-still-real / architectural-record / CLOSED / fenced) with a checkable condition, plus the B5 /
+  element-Z HARD GUARD (line wireframe only; `makeVertex` returns `{x,y}`; R3-gated items stay
+  gate-still-real). Corrected #110 → DONE (drawRegionOutlines, 2521bbd) and #115 → RESOLVED (entry-gap;
+  forced-categorize-on-carve, 2521bbd) with a #125 cross-ref. Retagged #106/#107/#108 to
+  gate-lifted-ready (geometry-stable review passed). Retagged #125 explicitly OPEN / gate-still-real.
+- **BUILD_ROADMAP.md:** refreshed the PLATEAU STATUS line ((a) DONE, (b) executing) and added the
+  **SETTLED SEQUENCE (Session 70)** block: Beat 0 (#53/#118/#112) → #29 → thermal arc (#106/#107/#108);
+  #106–108 parallel-track rejected (all in App.jsx, run sequentially).
+- **CLAUDE.md:** refreshed the plateau/next-steps block (both waypoints done; settled sequence; #124/#125
+  noted); corrected the stale #109 (RESOLVED BY #117) and #115 (RESOLVED entry-gap; #125 render-gap OPEN)
+  known-issue entries.
+- **FUNCTIONALITY_SUMMARY.md and PARALLEL_TRACKS_LEDGER.md:** reviewed — neither carries a stale
+  #110/#115/#117/#109 or B5/element-Z claim, so both left unchanged.
+
+**Fence-confirm (unchanged, not pulled forward):** #24, #28, #64–68, #79, #103, #113 (+ #102 gated on
+the #28 fence). B5 scope-clarification block (BUILD_ROADMAP.md ~182–188) confirmed intact and not weakened.
+
+**Open item after this session:** next build work is Beat 0 (#53/#118/#112), then #29.
+
+---
+
 ## SESSION 69 — Coordinate-seam extraction, waypoint (a) DONE (2026-06-30)
 
 **Branch:** main | **Commits:** 8381ef3 (Stage 0) → 7b2479d (Stage 6) — 11 commits total.

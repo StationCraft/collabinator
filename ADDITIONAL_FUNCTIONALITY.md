@@ -19,6 +19,130 @@ not just this one.
 
 ---
 
+## Gate-rephrasing sweep (Session 70 — waypoint (b))
+
+*One-time reconciliation pass. Every deferred entry's gate is restated below as a CHECKABLE
+CONDITION — a thing a future session can test yes/no without institutional memory. This is a flat
+status list, deliberately NOT a dependency graph or tracking system (that would rot). When an
+entry's own body and this list disagree, the entry body is authoritative for detail; this list is
+authoritative for the current tag. Re-run the sweep only at a major-feature boundary.*
+
+**Legend:** **gate-lifted-ready** = the checkable condition is now TRUE, buildable · **gate-partially-lifted**
+= some sub-conditions met · **gate-still-real** = condition not met (the missing thing is named) ·
+**architectural-record** = governing constraint, no build gate · **CLOSED** = done/resolved/superseded ·
+**fenced** = deliberately held, do NOT pull forward.
+
+**⚠️ HARD GUARD — B5 / element-Z (do not weaken):** B5 (3D envelope wireframe) is DONE = **LINE
+wireframe only**. Per-element `z` is **NOT done** — `makeVertex` returns `{x,y}` (z absent). The
+single checkable condition for every R3-gated entry below is: **"`completedShapesRef` vertices carry
+a non-null `z` via a named seam — NOT met today (`makeVertex` returns `{x,y}`)."** Any entry gated on
+R3/#66 stays **gate-still-real** against that exact condition. Do not claim element-Z or envelope
+SURFACES (B6/#54 fill) as done.
+
+**CLOSED (done / resolved / superseded — no live gate):** #3, #5, #10(c), #15 (built; only
+reassignment-UI open), #30, #31, #52, #55, #61 (role-label done; person-name open), #69, #78 (resolved
+through #79 scopes), #85, #89, #93, #94, #99, #109, #110, #111, #114, #115 (entry-gap; render question →
+#125), #117, #124.
+
+**Architectural records / active invariants (no build gate):** #17 (universal reference-layer — data
+shape adopted, behaviors gated on 3D-coord conversion), #19 (coplanar-distinctness), #21 (planes/edges
+as rule boundaries), #22 (recalibration-independence — active, honored), #41 (grade read-time principle;
+its quantification READ-half is gate-still-real against the R3 condition).
+
+**FENCED — confirmed held, NOT pulled forward (waypoint-(b) STEP 5):**
+- **#24** — global drag-release robustness. Checkable: window-level `mouseup`/`pointercancel` teardown across all drag paths — buildable (no dep), but held for its own drag-robustness pass. NOT addressed by the #117 frame pin. OPEN.
+- **#28** — PDF visual analysis / analysis-first front end. Checkable: post-3D-model deep-review waypoint reached AND automated verification exists — NOT met. Hard-gated; do NOT build any piece.
+- **#64** — run envelope-crossing detection. Checkable: world-space geometry-intersection engine + complete browser-verified run model — NOT met.
+- **#65** — multi-hop obligation cascade. Checkable: cascade engine beyond the two-sided pair model — NOT met.
+- **#66** — run per-vertex Z / slope. Checkable: per-vertex `z` via `makeVertex` (R3) — NOT met.
+- **#67** — run conflict / clearance. Checkable: world-space 3D proximity engine — NOT met (Phase 2).
+- **#68** — run role-wiring. Checkable: roles layer extended to map `RUN_PAIR_MAP.category` → `OUTPUT_ROLES` — NOT met (Beat 3 added the `trade` scalar only).
+- **#79** — envelope penetration subsystem. Checkable: #74 (data-driven rule layer) AND #75 (spreadsheet authoring) ready — NOT met. Architecture settled; do NOT build.
+- **#103** — window-builder retrofit selector. Checkable: retrofit / no-rated-data scope confirmed by Ben — NOT met (endpoint accepts manual U+SHGC without it).
+- **#113** — full-page carve over the negative align overhang. Checkable: `measureRef` offset mechanics + `canvas-stack` overflow settled as their own shared-layout change — NOT met (measurement core changes 1+3 DONE).
+- (**#102** — window-schedule reader asset — is gate-still-real, gated on the #28 fence; listed under gate-still-real.)
+
+**gate-lifted-ready (buildable now — the payoff of this sweep):**
+- **#2** — post-merge collinear-vertex prune in `mergePolygons`; no dep (cosmetic).
+- **#10(a)(b)** — full-width / full-height canvas; pure CSS/layout, no dep (c done Session 51).
+- **#11** — sidebar auto-hide; UI behavior only, no dep (batch #10).
+- **#12** — page rotation; `angle` slot reserved in `pageTransformsRef`; interaction + a real skewed test PDF needed — buildable when a skewed sheet appears.
+- **#15 (reassignment UI)** — change `primaryReferenceIdRef` after initial set; no dep (tree works with first-calibrated root).
+- **#20** — metric dimension-entry rework; storage already unit-normalized, cross-cutting input-convention session, no dep.
+- **#25 / #37** — edge-select button labels + "select the edge this elevation faces" copy; UI strings, no dep (batch).
+- **#26** — categorization exit-nav bug; nav logic only, no dep.
+- **#27 / #51** — elevation ref-line snap-suggest / auto-seat on confirmed reference edge; all inputs derive from stored geometry (relates #123).
+- **#29** — derived elevations. Checkable: region-pages exist (#5 DONE) AND read-time world-meter projection exists (`pageVertexToWorld`, B1/B2) → **MET**. Queued behind #5; next after Beat-0. (No #125 dependency.)
+- **#32** — categorize-as-you-go shortcut; draw-mode toolbar button, no dep.
+- **#33** — button colour/priority audit; write a color-state spec then apply, no code dep.
+- **#35** — align-handle cursor mirroring (`nesw-resize` on NE/SW); one-liner.
+- **#36** — sidebar auto-collapse on canvas mousedown; no dep (batch #11).
+- **#39 / #40** — ref-line label stacking + unconfirmed-height indicator; floor-to-floor auto-grey; single-pass display changes, no dep.
+- **#42 / #43** — trackpad zoom-speed clamp; grade-line draw-UI copy; input/UI polish, no dep.
+- **#47** — snap-selector metric label fallback; cosmetic (control disabled anyway), batch #20.
+- **#53** — B4 cantilever/setback hover-label. Checkable: reconcile tags computed in `deriveEnumeration` STEP A (present) + hover-label render into `redrawFrontFaceLayer` → **MET**. Beat-0 cheap win.
+- **#54** — B6 envelope surfaces; B5 line-wireframe substrate exists → MET; off critical path (presentation).
+- **#56** — 3D axis-nub visibility; cosmetic AxesHelper resize/recolor, no dep.
+- **#57** — Project Setup full-page form; `CONFIG_FIELDS` rendering supports it, surface/layout only.
+- **#60 / #76** — dual-fuel space-heating; furnace-is-air-handler; data-only ITEM_TYPES + spawns additions, no engine change.
+- **#61 (person-name)** — show assigned person from `roleAssignments` on obligation rows; needs only a display-order decision.
+- **#71** — one `RUN_PAIR_MAP` row → `duct`; profile already forward-proofed, no engine change.
+- **#72** — multiple DEV fixtures; data layer ready (JSON snapshots + `documents[]`), picker UI only.
+- **#74** — data-driven dependency-rule layer; seam built (Session 37), buildable when rule count justifies or #63 lands (no blocker to start).
+- **#77** — worklist classification / routing; Beat 3 trade→role prerequisite met → MET (next coordination layer).
+- **#90** — replicate previous floor's shape as a data-copy (pixels shared via borrow); design questions to settle, no coordinate dep.
+- **#91** — roof multi-shape; per-shape metadata already on the shape object; runtime triage (a) + post-close picker target-by-index + per-shape role scope.
+- **#95** — angled-elevation-edge opening fixture; formula handles diagonals by construction — build a diagonal-edge fixture + verify (low-priority test coverage).
+- **#105** — climate-resiliency mode; F280 conductive endpoint + Toh override exist (Session 54/56) → MET; additive view.
+- **#106 / #107 / #108** — assembly-inheritance default / flat-roof U-input UI / window-door `uw` post-placement edit. Geometry-stable review passed (Session 70); no geometry dep — buildable now (near-term thermal arc).
+- **#112** — `carveMode` not reset by nav; one-liner `setCarveMode(false)` in `goToPageId` (or accept sticky). Beat-0 cheap win.
+- **#118** — remove `!sheetsWithRegions` filter from the three `navPages` lists; `currentPageIsSourceSheet` gate is independent. Beat-0 cheap win.
+- **#119** — split `OPENING_TYPES` → `WINDOW_TYPES`/`DOOR_TYPES` + dialog branch; low impact (opening-entry polish).
+- **#121** — self-heal `shapeIdCounterRef` (+ps/ss) to max+1 on `__restoreFixture` (mirrors `regionCounterRef`); investigate then build.
+- **#122** — seed `fhFtVals`/`fhInVals` from `floorHeightsRef` on load/restore; pre-existing, no coord dep (FH-panel polish).
+- **#123** — floor ref-line stickiness after height entry; focused interactive recon of anchor vs `elevBaseYRef` on `floorHeightsTick`, then fix (recon-first, no coord dep).
+
+**gate-partially-lifted:**
+- **#13 / #34** — ghost vertices as snap targets. Checkable: `getVisibleVertices` includes ghost-source shapes — today filters current-page only → NOT met. Small addition, no coordinate dep; the snap-target half is ready once that gap closes.
+- **#46** — window-schedule import. Stage Two (place-from-structured-list) DONE; Stage One (recognition) gated on #28 fence. Placement-first-slice buildable against a structured input now.
+- **#58** — config field-interdependency layer. Cross-field seam built (Session 37); case-(a) option-gating gated on #75 spreadsheet schema → not fully met.
+- **#92** — elevation ref-edge rotation + multi-elevation/page. (a) rotation = visual-only transform, no dep (ready); (b) two-elevations-per-page — region-pages (#5) now exist as one route, or a multi-entry `elevationEdgeRef` — design decision pending.
+- **#116** — locked-region PDF raster skin. Frame-stability half now MET (#117/#124 done, #109 resolved); the `deriveWireframe`-plane stable-identity-for-keying half is NOT confirmed → partial.
+
+**gate-still-real (named missing prerequisite):**
+- **#1** — parallel/off-axis snap + dwell. Missing: a defined snap-priority precedence + dwell-duration spec (design spec, not a code dep).
+- **#4** — interstitial space. Missing: per-element Z (#7, R3 condition) + interstitial architecture spec (Phase 2).
+- **#6** — CAD-export datum. Missing: a real-world coordinate frame + a stored named-datum-point model (geometry is canvas px + read-time meters).
+- **#7** — intra-floor Z / split-level. Missing: the R3 condition (per-element `z`). Z-DATUM MODEL is settled; the build needs the `z` field.
+- **#8** — discipline-layer visibility model. Missing: the Phase-2 layer architecture (multi-floor ghost is the only instance today).
+- **#9** — scale-match from printed notation. Missing: PDF text extraction / OCR (deliberately absent in Phase 1).
+- **#14** — scale inheritance within a drawing group. Missing: a drawing-group concept + a scale-source-page designation in the data model.
+- **#16** — multi-select reference ghosts. Missing: projection math (collapse-onto-plane) from #17 (3D-coord model).
+- **#18 (steps 2–6)** — roof slope / Z-derivation / ceiling-soffit / vault coupling. Missing: slope model + the R3 condition. (Step 1 typed trace CLOSED.)
+- **#23 / #38** — isometric multi-reference alignment / edge-select preview. Missing: per-reference Z (R3/#7) + #17 projection.
+- **#44** — window/door component model. Missing: a component/definition data model (placement Pieces 1+2 stable; definition layer not built).
+- **#45** — window-as-assembly. Missing: #44 component model + a scoped export layer.
+- **#48** — align/scale drag visual inversion. Missing: a planning pass confirming the inverted delta→transform mapping is #22-safe (plan before build).
+- **#49 / #50 / #73** — project-owned PDF persistence / multi-PDF per project / platform infra. Missing: the Phase-2 persistence + identity subsystem (Vision §3). `documents[]` structure is ready.
+- **#59 / #63 / #75** — utilities/energy-source fields / spreadsheet-derived source / config-schema authoring. Missing: Ben's spreadsheet baked enough to mine (not signaled).
+- **#62** — floor-plan-derived bath-fan count. Missing: semantic floor-plan room detection (manual entry is fallback).
+- **#70** — display-scale for small solids. Missing: a decision on where the multiplier lives + persistence (planning, not code).
+- **#80 / #81 / #82** — supplier catalogue / trade→party→person model / thermal-bridge quantification. Missing: #79 built (fenced) + each one's own subsystem.
+- **#83** — spreadsheet output / form-autofill. Missing: a populated data model (Phase 2+); derived projection.
+- **#84** — adaptive task-layer sidebar. Missing: a "current task layer" concept + tool-likelihood ranking on the #69 shell.
+- **#86** — cross-session UI-preference persistence. Missing: a persistence-subsystem decision (pairs with project save/load); session-only today.
+- **#87** — whole-envelope closure invariant. Missing: roof-plane + floor-over-unheated + party-wall + rim area surface kinds (only the per-wall partition exists).
+- **#88** — multi-story elevation opening association. Missing: per-opening Z-based floor-level lookup OR a multi-level elevation geometry model (single reference edge per elevation today).
+- **#96** — wall corner reconciliation. Missing: a judgment that the inside-face overcount is material once F280 output is visible (accepted for the first pass).
+- **#97 / #98 / #101** — operation-type registry / glass Ug-g note / operationType↔OPENING_TYPES reconciliation. Missing: the #46 wire-in scoped (or the first consumer that must ACT on opening type).
+- **#100** — auto-match openings by location text. Missing: a Ben go-signal (the user-assigns model is always correct; match is fragile polish).
+- **#102** — window-schedule reader asset. Missing: #28 unblocked (deep-review waypoint). Known asset for #46 Stage One.
+- **#104** — glazing-in-door sub-item. Missing: #44/#45 (parent/child + subdivision) + its own design pass (opaque-door model complete for F280 now).
+- **#120** — elevation-opening depth recede in 3D. Missing: elevation↔floor-plan wall association (auto-corner) mapping each opening to its host wall depth.
+- **#125** — openings don't render on a carved region. Checkable: openings placed on a carved elevation region paint in the region overlay — NOT met; needs a focused read-only recon (entry-gap vs render/repaint vs pageId filter) before any fix. Beat-0/#29-adjacent candidate; NOT a #29 dependency and NOT instrumentation.
+
+---
+
 ## Register
 
 ### 1. Parallel/off-axis line snap + in-trace vertex snap + dwell-override
@@ -1847,9 +1971,10 @@ A **dual-entry UI trap** was confirmed in Session 56 recon: `CONFIG_FIELDS` fiel
 
 **Note on `ti-heating`:** `F280_TI_HEATING = 22` is hardcoded (App.jsx module-level). The natural slot is a CONFIG_FIELDS `kind:'number'` entry `ti-heating` in the 'Climate' category. The comment in the code already marks this slot. Adding it is a one-descriptor + one cross-field-rule change.
 
-**Why deferred:** No new geometry required. Scoped and buildable. Deferred to wait until after geometry back-to-basics review.
+**Why deferred:** No new geometry required. Scoped and buildable.
 
-**Status:** Logged, deferred. First item in the near-term thermal arc after geometry review.
+**Status:** **gate-lifted-ready — geometry-stable review passed (Session 70).** First item in the
+near-term thermal arc; no geometry dependency remains.
 
 ---
 
@@ -1865,7 +1990,8 @@ The `flat-roof-surface` elements appear in the Envelope panel (one row per confi
 
 **Note:** This gap is also resolved incidentally by #106 (project-level default reads `assembly-roof` CONFIG_FIELD). The per-surface override UI is still worth building for multi-assembly roofs.
 
-**Status:** Logged, deferred. Incidentally addressed by #106 default-inherit; explicit per-surface UI is a follow-on.
+**Status:** **gate-lifted-ready — geometry-stable review passed (Session 70).** Incidentally addressed
+by #106 default-inherit; explicit per-surface UI is a follow-on. No geometry dependency.
 
 ---
 
@@ -1883,7 +2009,8 @@ There is no post-placement path to add or edit `uw`/`shgc` on an existing openin
 - Add performance fields (U-value W/m²K, SHGC 0–1, optional) to the opening dialog for both first placement and re-edit. Blank = null (unresolved in F280). Pre-populate from stored values on re-edit.
 - Or: add an "Edit performance" button to the opening row in the Envelope panel (minimal uw + shgc dialog only).
 
-**Status:** Logged, deferred. No geometry dependency; pure UI/data wiring work.
+**Status:** **gate-lifted-ready — geometry-stable review passed (Session 70).** No geometry dependency;
+pure UI/data wiring work (near-term thermal arc).
 
 ---
 
@@ -1957,13 +2084,11 @@ Read-only overlay; the rectangles are not interactive (navigation stays via side
   `pageCropsRef` filtered by `pageIdMapRef.current[pageNum] === currentPageId`.
 - Gate: only when `currentPageIsSourceSheet`. No geometry, no hit-testing.
 
-**Status:** **GATED-READY (gate-expiry sweep, Session 63).** Checkable gate: "at least one
-region-page exists (`pages.some(p => p.crop != null)`) AND a source-sheet view exists
-(`currentPageIsSourceSheet` reachable)." Both are now true — region-pages and the
-carve-surface-only source-sheet view both landed with #5 (commit 8d6e57d). The feature is
-buildable today. NOT auto-built here: it is a new user-facing rendering addition (a UX call
-on whether/how to show the carve map), so it is held for Ben rather than landed unsupervised.
-Read-only overlay; must not touch stored geometry or the crop offset (#22).
+**Status:** **DONE (Session 67; commit 2521bbd).** `drawRegionOutlines` in canvasRenderer.js
+strokes labeled green rectangles for confirmed regions on the source-sheet backdrop, mapped through
+the source align transform. Read-only overlay; stored geometry and the crop offset are untouched
+(#22). (This entry's prior GATED-READY status, Session 63, was stale — the feature shipped with the
+Session-67 region-pages UX arc.)
 
 ---
 
@@ -2166,8 +2291,14 @@ placed on the full source sheet, which is carve-surface-only once regions exist.
 **Refined-trigger note:** independent of #114's trigger; this is an opening-entry/category-inheritance gap,
 not a repaint gap.
 
-**Status:** Logged, gated. Needs recon to confirm root cause (category inheritance vs. gate logic) before a
-fix is scoped. Do NOT fix blind.
+**Status:** RESOLVED (Session 67; commit 2521bbd). Forced-categorize-on-carve modal requires every new
+region to be explicitly classified before it enters navigation; an Elevation-categorized region now
+surfaces Place-opening via the existing `isElevationPage` gate. Cancel discards the carve and reverses
+companion state. Root cause was **(a)** the region starting uncategorized — confirmed, not (b) category
+non-inheritance or (c) gate logic. **This resolves the Place-opening ENTRY gap only.** A distinct,
+still-open question — openings placed on a carved region do not RENDER — is tracked separately at **#125**,
+which names #115 as a candidate to re-confirm during its localization recon. Do NOT read this RESOLVED as
+closing #125.
 
 ### 116. Locked-region PDF capture as visual surface skin
 
@@ -2477,9 +2608,11 @@ the raster-scale pin. Do NOT attribute this to #124 or re-open #124.
 recon: is the opening shape stored on the region pageId? does the opening draw path run for the region?
 is it an entry gap or a render gap?) before any fix is scoped.
 
-**Gate (checkable, 2026-06-30):** no missing dependency — buildable once localized; requires a focused
-read-only recon pass to confirm root cause (entry gap vs. render/repaint gap vs. pageId filter) before a
-fix is scoped. **Tag:** gate-lifted-ready (localization-first).
+**Gate (checkable, Session 70 sweep):** **gate-still-real.** Condition: *openings placed on a carved
+elevation region paint in the region overlay* — **NOT met.** A focused read-only recon pass must first
+localize the root cause (entry-gap vs. render/repaint gap vs. pageId filter) before a fix is scoped. It is
+a Beat-0 / #29-adjacent candidate, but it is **NOT a #29 dependency** and it is **NOT instrumentation** —
+it is an open bug observation.
 
-**Status:** LOGGED — observation only (Session 70). Not investigated, not fixed. Own recon session
-(Opus/high) before any fix.
+**Status:** **OPEN** — observation only (Session 70). Not investigated, not fixed. Needs its own read-only
+recon session (Opus/high) before any fix. Do NOT close on the strength of #115's entry-gap resolution.

@@ -484,8 +484,22 @@ is correctly fenced and should NOT be pulled forward.
 region-pages verified — and BEFORE #29 (derived elevations) begins. Two scheduled waypoints,
 in sequence.
 
-**STATUS: Trigger condition met.** #5 is fully done (Forks A–D + crop-carving UI, 44/44 verified).
-Run (a) then (b) before starting #29. Start (a) with an Opus planning discussion.
+**STATUS: Trigger condition met; (a) DONE, (b) is this pass.** #5 is fully done (Forks A–D +
+crop-carving UI, 44/44 verified). Waypoint (a) coordinate-seam extraction is DONE and pushed. Waypoint
+(b) roadmap reconciliation is executing now (Session 70).
+
+**SETTLED SEQUENCE (Session 70):**
+Waypoint (a) coordinate-seam extraction is DONE and pushed (`src/coords.js`, Stages 0–6). Waypoint (b)
+reconciliation is this pass. Settled near-term order after (b) lands and docs re-upload:
+  1. **Beat 0 cheap wins:** #53 (cantilever/setback hover-label), #118 (source-sheet arrow-nav exclusion
+     removal), #112 (carveMode nav-reset).
+  2. **#29 derived elevations.** (The #125 opening-on-carve item is an OPEN render-gap bug, NOT a #29
+     dependency and NOT instrumentation — do not couple it to #29.)
+  3. **Thermal arc:** #106 (assembly-inheritance default), #107 (flat-roof UI gap), #108 (window/door
+     `uw` post-placement edit) — geometry-review gate SATISFIED (geometry-stable review passed after the
+     #117/#124 frame work).
+A parallel-track approach for #106–108 was considered and REJECTED — all three live inside App.jsx (shared
+ground); branch-management overhead is not worth it for a ~5–6 session arc. Run them sequentially on main.
 
 **[x] (a) SIMPLIFICATION PASS — coordinate-layer extraction — DONE (Session 69; commits 8381ef3–7b2479d)**
 
