@@ -2342,3 +2342,60 @@ snapshot, so the next `nextShapeId()` can hand back an id the restore already us
 `regionCounterRef` self-heal already done on restore (Session 62). Investigate before implementing.
 
 **Status:** DEFERRED, low priority. id-assignment investigation; only bites restore-then-place.
+
+### 122. Floor-heights panel entry fields not seeded from stored heights on load
+
+**Category:** Floor-heights panel / UI state. **Logged:** Session 69 (2026-06-30). **Pre-existing
+(NOT caused by the coord-seam refactor — see localization note).**
+
+**Description:** On load/restore, the Floor Heights panel's ceiling-height and floor-to-floor entry
+`<input>` fields show blank/0, even though the stored heights DO exist and correctly feed the derived
+readouts below (e.g. "Ceiling: 3.00 ft", "Floor-to-floor: 4.10 ft"). The derivation works; only the
+echo-back into the entry fields is missing.
+
+**Root cause:** The ceiling ft/in inputs are bound to the `fhFtVals`/`fhInVals` draft-string maps
+(`value={fhFtVals[row.level] ?? ''}`, App.jsx ~7408/7427). Those maps are written in exactly three
+places — the full-reset (`setFhFtVals({})`, ~963), the input `onChange` (~7412), and the
+floor-to-floor back-solve (~7541/7568). They are **never seeded from `floorHeightsRef` on load or
+in `__restoreFixture`.** So a freshly loaded/restored project shows populated derived values (read
+straight from `floorHeightsRef`) but empty entry fields (the draft maps start `{}`).
+
+**Localization (Session 69, coord-seam Stage-3/4 localization pass):** empirically reproduced
+IDENTICALLY on `edb908f` (pre-Stage-3) and `dc70b72` (HEAD) — all 6 entry inputs blank, same derived
+values populated, on both commits. The Stage-3/4 diff does not touch the `fhFtVals`/`fhInVals` seeding
+path, and the one FH-panel function it did touch (`inchesToFhUnit`, floor-system display) is a
+bit-identical routing. Pre-existing.
+
+**Likely fix direction (not implemented):** on load/restore, seed `fhFtVals`/`fhInVals` from
+`floorHeightsRef.current[level].floorToCeiling` (split into ft + in via the display convention) for
+each present level, so the entry fields echo the stored value. Watch the last-edited-wins
+`ceilingSource` interaction and the `'solved'` sticky-draft path.
+
+**Status:** DEFERRED, pre-existing. Floor-heights panel polish; pick up outside the coord-seam pass.
+
+### 123. Floor reference line not sticky to the set elevation edge after a manual height entry
+
+**Category:** Elevation reference lines / floor-heights. **Logged:** Session 69 (2026-06-30).
+**Pre-existing (NOT caused by the coord-seam refactor — see localization note).**
+
+**Description (Ben's observation):** After setting an elevation edge and then making a manual height
+entry, a floor reference line does not stay pinned to the elevation edge it was set against — it
+drifts off the edge rather than staying sticky.
+
+**Localization (Session 69, coord-seam Stage-3/4 localization pass):** the complete Stage-3/4 diff is
+eight byte-identical conversion routings; the ref-line **anchor** (`anchorY =
+elevBaseYRef.current[pageId] ?? edge-midpoint`), the `elevBaseYRef` base-line drag handling, the
+`floorHeightsTick` repaint dependencies, and `elevationEdgeRef` resolution are all UNTOUCHED (the
+`anchorY = elevBaseYRef …` line appears only as unchanged diff context). Stage 3 swapped only the
+inner Z↔Y formula through `coords.zFeetToElevY`/`elevYToZFeet`, which is arithmetically identical
+(confirmed by Stage 3's byte-identical `__dumpWorld`/`__dumpEnumeration`). The ref lines therefore
+render at byte-identical Y positions before and after the refactor. Verdict by exhaustive-diff
+analysis (not a full interactive repro — the symptom needs the manual set-edge → enter-height →
+observe sequence): the stickiness behavior is unchanged by Stage 3/4, so it is pre-existing.
+
+**Suspected area (for the eventual fix pass):** anchor recomputation vs. `elevBaseYRef` persistence
+when a height entry fires `floorHeightsTick` — likely the base line falls back to the edge-midpoint
+(or a stale anchor) instead of the user-placed/edge-pinned anchor after the repaint. Needs a focused
+interactive recon before any fix.
+
+**Status:** DEFERRED, pre-existing. Elevation ref-line polish; pick up outside the coord-seam pass.
