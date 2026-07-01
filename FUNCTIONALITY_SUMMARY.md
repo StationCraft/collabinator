@@ -658,12 +658,13 @@ line as the final exterior face.
   tiC: 22, tohC: number, deltaT: number,
   bySurfaceKind: { [kind]: { areaM2, uaSum, lossW, count, unresolvedCount, uAvg } },
   conductiveAboveGradeW: number,
-  total: number,   // = conductiveAboveGradeW (alias for extensibility)
-  notModeled: ['below-grade-wall', 'slab-on-grade', 'floor-over-unheated', 'solar-gain'],
+  groundCoupled: object | null,   // deriveGroundCoupledLoss result when it resolves; null on no-ground (§11c)
+  total: number,   // = conductiveAboveGradeW + groundCoupled.total_W (when ground resolves)
+  notModeled: [...],   // 'below-grade-wall'/'slab-on-grade' SHED when ground resolves; 'floor-over-unheated'+'solar-gain' remain
 }
 ```
 
-**Extensible spine:** Adding a below-grade, slab, or solar result = adding a bucket in `bySurfaceKind` and a loop body; no refactor. `notModeled[]` marks the current gap explicitly.
+**Extensible spine:** Adding a loss endpoint = a bucket + loop body (in-engine) or a separate derive-fn wired into the output (like §11c ground-coupled); no refactor. `notModeled[]` marks the current gap explicitly and shrinks as endpoints land.
 
 **F280 Results panel:** sidebar tab inside consolidated side-panel. Renders: design conditions (Ti / Toh / ΔT), per-kind table (Kind | Area m² | Ū W/m²K | Loss W), amber inline warning for kinds with unresolved U, above-grade conductive subtotal in kW (blue), greyed "Not yet modeled" list. No-climate guard shows explanatory text instead of numbers. Panel re-derives on `enumerationTick` and `projectSetupTick` changes.
 
@@ -672,6 +673,32 @@ line as the final exterior face.
 **`window.__dumpF280()`** — DEV console function; prints ΔT, per-kind summary (area/U_avg/loss/unresolved-count), subtotal in W and kW, `notModeled[]`. Tree-shakes from production.
 
 **Unresolved-U coverage:** walls with no `surfaceAssemblyRef` entry formerly showed `[unresolved U]`. **#106 (DONE Session 75; commit `f2d5a57`)** wires Project Setup assemblies to the `getSurfaceAssembly` miss path as a project-level default (`ASSEMBLY_TYPE_DEFAULTS` lookup, placeholder 1/R U-values), so a surface with no per-surface entry now inherits `source:'project-default'` when the matching Project Setup assembly is set. Precedence: explicit manual/library ref > project-default > unset. Verified: setting `assembly-wall` drops the wall `unresolvedCount` 8→0 on the elevation fixture; `__verifyFixture` 44/44 (unset-assembly fixture unchanged).
+
+## 11c. Interim ground-coupled loss engine (Session 78; commit `b92c86a`)
+
+**`deriveGroundCoupledLoss(enumeration, resolvedConfig)`** — a SEPARATE, STANDALONE module-level pure function (NOT a bucket inside `deriveF280Heating`). Consumes the Session-77 `slab-surface` + `below-grade-wall` enumeration kinds; the FIRST thermal endpoint that removes entries from `notModeled[]`.
+
+**Model B (interim) — NOT BASESIMP:** `loss_W = k × effectiveUValue × area × ΔT_ground`, where `ΔT_ground = tiC − groundTempC` and `k = soil-conductivity / 0.85` (Normal 0.85 → ×1.0 honest passthrough; wetter soils raise loss linearly). The input contract (soil conductivity, depth-below-grade `belowGradeHeightM`, exposed perimeter `soilContactPerimeterM`, area) is deliberately BASESIMP-shaped so a future full BASESIMP port swaps the MATH only — the consumed fields do not change. `belowGradeHeightM`/`soilContactPerimeterM` are already on the elements (part of the contract, not yet weighted by the interim math).
+
+**Inputs:**
+- **`soil-conductivity` CONFIG_FIELD** (new **Site** category) — 3 BASESIMP classes: `'0.85'` Normal (dry sand/loam/clay), `'1.275'` High (moist soil), `'1.9'` Very wet/permafrost. Unset resolves to `SOIL_CONDUCTIVITY_DEFAULT = 0.85` (×1.0). `SOIL_CONDUCTIVITY_OPTIONS` + `soilClassLabel` module constants.
+- **`resolve-ground-temp` rule** (in `CONFIG_CROSS_FIELD_RULES`) — station `dgtemp` lookup via the SAME `station|||region` composite parse as `resolve-toh`; `groundTempC` DERIVED (never stored), null when no station. No override field this pass. Uses the `f280-weather.json` `dgtemp` field (present since Session 54).
+
+**No-ground guard:** if `resolvedConfig.groundTempC` is null → returns `{ status:'no-ground', total:null }`. No ΔT against null. Reachable within a valid climate when `toh-override` is set but no station is selected.
+
+**Return shape (when `status:'ok'`):** `{ status:'ok', groundTempC, tiC, deltaTground, soilConductivity, soilFactor:k, bySurfaceKind: { 'slab-on-grade': {...}, 'below-grade-wall': {...} }, total_W, total_kW, unresolvedCount }`. Per-kind bucket mirrors `deriveF280Heating` (`areaM2`, `uaSum`, `lossW`, `count`, `unresolvedCount`, `uAvg`); slab area = `grossAreaM2`, below-grade area = `belowGradeWallAreaM2`; missing U → `unresolvedCount++`, no silent zero.
+
+**Wiring into `deriveF280Heating` OUTPUT (not its math):** `deriveF280Heating` calls this and, when it resolves, attaches `groundCoupled` and filters `'below-grade-wall'`/`'slab-on-grade'` OUT of `notModeled[]`, and sets `total = conductiveAboveGradeW + ground.total_W`. On `no-ground`, `groundCoupled:null` and `notModeled[]` is unchanged. `'floor-over-unheated'`/`'solar-gain'` always remain.
+
+**F280 Results panel:** adds a ground-coupled conditions zone (ground temp / ΔT_ground / soil class ×factor), a per-kind surfaces table (Kind | Area | Ū | Loss), and a "Ground-coupled subtotal (kW)" line. No-ground guard shows explanatory text (same pattern as the no-climate guard). In the default fixture the below-grade-wall row reads `(none)` (honest — no grade line); slab shows real Watts.
+
+**DEV:** `__dumpF280` extended with ground rows + grand total. New **`window.__setConfig(id, value)`** hook writes through `setConfigValue` (parallels `__ingestAssembly`/`__setCrop`) for deterministic browser verification; tree-shakes from prod.
+
+**Golden harness:** `__verifyFixture` **57/57 PASS** (was 44; +13 checks `gc.a`–`gc.m`). Sidecar `groundCoupledCheck` is a SYNTHETIC slab+below-grade case (the default fixture has a slab-surface but no below-grade-wall). Station Vernon → `dgtemp` 10, `deltaTground` 12; slab 12W + below-grade 24W = 36W at k=1.0; High soil → k=1.5 → 54W. Checks: groundTempC lookup, deltaTground, per-kind loss at soilFactor 1.0, soilFactor≠1.0 flip, no-ground status, and `notModeled[]` add-when-ok / keep-when-no-ground.
+
+**Verified (Claude preview):** `__dumpF280` with station Vernon + `assembly-floor` eng-i-joist → slab-on-grade 19.74 m² × 0.045 × 12 = **10.8 W**, below-grade `(none)`, `notModeled` = `floor-over-unheated, solar-gain`. No-ground path → `no-ground`, total = above-grade only, all four `notModeled` retained. Zero console errors.
+
+**NEXT:** full BASESIMP port (drop-in math swap at this seam); slab/below-grade U still ride the #106 project-default placeholders (values pass pending); `soil-conductivity` has no override field yet.
 
 ---
 
@@ -760,7 +787,7 @@ Currently **44/44 PASS**.
 - **Grade-Z model v1 = mean world-Z of the grade line's vertices** (per-segment sloped-grade deferred, pairs with #88). **Inherits the #88 single-reference-edge limitation.**
 - **Honest-absence:** emits nothing (not a zero) when the elevation lacks scale/edge, `fhZStack` is empty, no grade line exists, or the reference level/segment can't resolve.
 - **Wall polygon is NEVER carved** (#41 invariant held — pure read-time comparison of stored shapes).
-- **`notModeled[]` and `deriveF280Heating` are UNCHANGED** — modeling the geometry removed nothing from `notModeled[]`. The ground-coupled loss engine (BasementHLR / SlabOnGrade) that CONSUMES these quantities is the next real thermal work, downstream (§5 worry #6).
+- **At Session 77 `notModeled[]` and `deriveF280Heating` were UNCHANGED** (geometry-only). **Session 78 then CONSUMED these quantities:** the interim ground-coupled loss engine (§11c) now sheds `'below-grade-wall'`/`'slab-on-grade'` from `notModeled[]` when a station resolves `groundTempC`.
 - **DEV-fixture note (not a bug):** `fixture-elevation`'s reference edge targets Main Floor (above grade) and has no grade line, so `below-grade-wall` correctly emits nothing there. Exercising it live needs a fixture whose reference edge points at a below-grade level plus a locked `grade-line` on an aligned+scaled elevation with `fhZStack` populated — same class of fixture-setup note as the #121 evidence.
 
 **#28 gate:** the harness existing removed one stated blocker of #28, but #28 (plan reader) remains

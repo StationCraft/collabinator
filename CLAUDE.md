@@ -786,9 +786,11 @@ A React + Vite app with:
   * **`deriveF280Heating(enumeration, resolvedConfig)`** — pure, derive-on-demand. No-climate guard
     (returns `{status:'no-climate'}` if `toh===null`). Four surface kinds in `bySurfaceKind` map
     (`'wall-surface'` / `'flat-roof-surface'` / `'window'` / `'door'`). Surfaces missing U-value:
-    `unresolvedCount++`, area counted, no silent zero. `notModeled[]` list makes partial coverage
-    explicit: `['below-grade-wall','slab-on-grade','floor-over-unheated','solar-gain']`. Extensible
-    spine — adding below-grade/slab/solar = one new bucket + one loop body, no refactor.
+    `unresolvedCount++`, area counted, no silent zero. `notModeled[]` STARTS as
+    `['below-grade-wall','slab-on-grade','floor-over-unheated','solar-gain']` and now SHEDS
+    `'below-grade-wall'`/`'slab-on-grade'` when the ground-coupled engine resolves (Session 78 — see
+    that entry); `'floor-over-unheated'`/`'solar-gain'` remain. Extensible spine — adding a new loss
+    endpoint = one bucket/engine + one loop body, no refactor.
   * **F280 Results sidebar tab** — in consolidated side-panel; design conditions + per-kind table +
     amber unresolved-U warnings + kW subtotal + greyed not-modeled list. No-climate guard in JSX.
   * **`window.__dumpF280()`** — DEV console hook; tree-shakes from production.
@@ -810,9 +812,52 @@ A React + Vite app with:
   * **Thermal-arc status:** the #106/#107/#108 arc + `ti-heating` is **FULLY CLOSED for the base case** in
     both code and docs — #106 (assembly default) DONE, #107 (flat-roof per-surface U-input) DONE, #108
     (opening uw/shgc edit) DONE, `ti-heating` DONE (last hardcoded F280 input retired). Below-grade + slab
-    GEOMETRY is now DONE too (Session 77). **NOW/NEXT is the ground-coupled loss engine** (BasementHLR /
-    SlabOnGrade) that CONSUMES the below-grade-wall + slab-surface quantities — a separate engine from
-    above-grade conductive, and the first thermal work that will remove entries from `notModeled[]`.
+    GEOMETRY DONE (Session 77). The **interim ground-coupled loss engine is now DONE too (Session 78, commit
+    `b92c86a`)** — `below-grade-wall` + `slab-on-grade` are the **first two kinds to LEAVE `notModeled[]`**.
+    **NOW/NEXT:** the interim Model-B math is a placeholder for a future full BASESIMP port (drop-in math
+    swap at the same seam); the remaining `notModeled[]` are `floor-over-unheated` + `solar-gain`.
+
+- **Interim ground-coupled loss engine (Session 78; commit `b92c86a`; DONE):** A SEPARATE, STANDALONE
+  pure function — NOT a bucket inside `deriveF280Heating`. Consumes the Session-77 `slab-surface` +
+  `below-grade-wall` enumeration kinds; the FIRST thermal work to remove entries from `notModeled[]`.
+  * **Model B (interim):** `loss_W = k × effectiveUValue × area × ΔT_ground`, `ΔT_ground = tiC − groundTempC`,
+    `k = soil-conductivity / 0.85` (Normal 0.85 → ×1.0 honest passthrough; wetter soils raise loss linearly).
+    **NOT BASESIMP** — the input contract (soil conductivity, depth-below-grade `belowGradeHeightM`, exposed
+    perimeter `soilContactPerimeterM`, area) is deliberately BASESIMP-shaped so a future full port swaps the
+    MATH only. `belowGradeHeightM`/`soilContactPerimeterM` are already on the elements; referenced in the
+    contract comment even though the interim math does not yet weight by them.
+  * **`soil-conductivity` CONFIG_FIELD** — new **'Site'** category; 3 BASESIMP classes (`'0.85'` Normal /
+    `'1.275'` High / `'1.9'` Very-wet, string values). Unset resolves to `SOIL_CONDUCTIVITY_DEFAULT = 0.85`
+    (×1.0). `SOIL_CONDUCTIVITY_OPTIONS` + `soilClassLabel` module constants (App.jsx ~line 78).
+  * **`resolve-ground-temp` rule** (in `CONFIG_CROSS_FIELD_RULES`) — station `dgtemp` lookup via the SAME
+    `"station|||region"` composite parse as `resolve-toh`; `groundTempC` DERIVED (never stored), null when no
+    station. No override field this pass. `f280-weather.json` `dgtemp` already present (Session 54) — untouched.
+  * **`deriveGroundCoupledLoss(enumeration, resolvedConfig)`** (module-level, pure, right after
+    `deriveF280Heating`) — no-ground guard (`groundTempC === null` → `{status:'no-ground', total:null}`);
+    reuses the EXACT `ti-heating` NaN-guarded seam; two rows in `bySurfaceKind`: `'slab-on-grade'` (from
+    `grossAreaM2`) / `'below-grade-wall'` (from `belowGradeWallAreaM2`); unresolved-U handled like
+    `deriveF280Heating` (`unresolvedCount`, no silent zero). Returns `{status, groundTempC, tiC, deltaTground,
+    soilConductivity, soilFactor, bySurfaceKind, total_W, total_kW, unresolvedCount}`.
+  * **Wired into `deriveF280Heating` OUTPUT (not its math)** — calls `deriveGroundCoupledLoss`; `status:'ok'`
+    → adds `groundCoupled` + filters `'below-grade-wall'`/`'slab-on-grade'` out of `notModeled[]` + `result.total`
+    becomes above-grade + ground; `no-ground` → `groundCoupled:null`, `notModeled[]` unchanged.
+    `'floor-over-unheated'`/`'solar-gain'` untouched regardless.
+  * **F280 Results panel** — ground-coupled conditions zone (ground temp / ΔT_ground / soil class), a
+    per-kind surfaces table (Kind | Area | Ū | Loss), and a "Ground-coupled subtotal (kW)" line. No-ground
+    guard shows explanatory text (same pattern as the no-climate guard). Below-grade-wall row reads `(none)`
+    in the default fixture (honest — no grade line), slab shows real Watts.
+  * **DEV:** `__dumpF280` extended with ground rows + grand total; new **`window.__setConfig(id, value)`**
+    hook (parallels `__ingestAssembly`/`__setCrop`) writes through `setConfigValue` for deterministic browser
+    verification without navigating the 679-option station dropdown. Tree-shakes from prod.
+  * **Golden harness:** `__verifyFixture` **57/57 PASS** (was 44; +13 checks `(gc.a)–(gc.m)`). Sidecar gains
+    `groundCoupledCheck` — a SYNTHETIC slab+below-grade case (the default fixture has a slab-surface but no
+    below-grade-wall). Station Vernon → `dgtemp` 10, `deltaTground` 12; slab 12W + below-grade 24W = 36W at
+    k=1.0; High soil → k=1.5 flip → 54W. Checks groundTempC lookup, deltaTground, per-kind loss at
+    soilFactor 1.0, soilFactor≠1.0 flip, no-ground status, and `notModeled[]` add-when-ok / keep-when-no-ground.
+  * **Verified (Claude preview, fixture-elevation):** `__dumpF280` with station Vernon + `assembly-floor`
+    eng-i-joist → slab-on-grade 19.74 m² × 0.045 × 12 = **10.8 W**, below-grade `(none)`, `notModeled` =
+    `floor-over-unheated, solar-gain`. No-ground path (station cleared, `toh-override` kept) → `no-ground`,
+    total = above-grade only, all four `notModeled` retained, panel shows explanatory text. Zero console errors.
 
 - **Below-grade + slab geometry takeoff (Session 77; commit `afd0c58`; DONE):** Two new read-time
   enumeration surface kinds. Geometry-only — NO heat-loss math; `deriveF280Heating`/`notModeled[]`
@@ -1001,9 +1046,11 @@ A React + Vite app with:
   elevations → thermal arc (~~#106~~ **DONE Session 75** / ~~#108 window-door uw edit~~ **DONE Session 76** /
   ~~`ti-heating`~~ **DONE Session 76** / ~~#107 flat-roof explicit-UI~~ **DONE, commit `c8857b6`**). Thermal
   arc base case is FULLY CLOSED in code and docs.
-  ~~Next real thermal work: below-grade + slab geometry~~ **DONE (Session 77, commit `afd0c58`)** — now
-  NOW/NEXT is the ground-coupled loss engine (BasementHLR / SlabOnGrade) that CONSUMES the new
-  `below-grade-wall` + `slab-surface` quantities. #125 is an OPEN render-gap bug, NOT a #29 dependency.
+  ~~Next real thermal work: below-grade + slab geometry~~ **DONE (Session 77, commit `afd0c58`)** →
+  ~~interim ground-coupled loss engine (Model B U·A·ΔT_ground) consuming the new `below-grade-wall` +
+  `slab-surface` quantities~~ **DONE (Session 78, commit `b92c86a`)** — `below-grade-wall`/`slab-on-grade`
+  are the first kinds to leave `notModeled[]`. NOW/NEXT: full BASESIMP port (drop-in math swap) + `solar-gain`.
+  #125 is an OPEN render-gap bug, NOT a #29 dependency.
 - **#29 (derived elevations) — FIRST PIECE DONE (Session 71; commit ed43c6d):** aligned-edge
   setback/protrusion hover-label. On an elevation page with an aligned edge (`elevationEdgeRef`), the
   source floor plan renders as a toggleable amber ghost via the EXISTING ghost mechanism

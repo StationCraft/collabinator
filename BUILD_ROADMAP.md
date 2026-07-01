@@ -429,8 +429,9 @@ is arranged so most beats are things Ben can see.
 [x] F280 ENDPOINT — first heat-loss calculation  [DONE — Session 56]
     deriveF280Heating(enumeration, resolvedConfig): pure derive-on-demand, not stored.
     F280_TI_HEATING = 22°C; ΔT = Ti − Toh; four surface kinds (wall / flat-roof / window / door).
-    notModeled[] list makes partial coverage explicit. Extensible spine (below-grade, slab, solar
-    gain are additive rows). No-climate guard returns { status:'no-climate' }. F280 Results tab
+    notModeled[] list makes partial coverage explicit. Extensible spine — below-grade + slab now landed
+    as the ground-coupled engine (Session 78; they left notModeled[]); solar gain still pending.
+    No-climate guard returns { status:'no-climate' }. F280 Results tab
     in consolidated side-panel. __dumpF280() DEV hook.
     NOT golden-gated (deliberate — "nearly compliant, sooner" target; 9/10 walls show unresolved U
     on Bates fixture because surfaceAssemblyRef had only 1 entry when snapshot was saved — not a bug).
@@ -466,12 +467,24 @@ is arranged so most beats are things Ben can see.
         notModeled[] / deriveF280Heating UNCHANGED — geometry did not remove anything from notModeled[]
         (§5 worry #6). 44/44 golden PASS. Fixture reference edge targets Main Floor (above grade) + has no
         grade line, so below-grade-wall correctly emits nothing there (fixture-setup note, not a bug).
-    [ ] Ground-coupled base-level loss — NOW/NEXT thermal work: SEPARATE engine (BasementHLR.xls /
-        SlabOnGradeHLR.xls method; soil conductivity, depth below grade, exposed perimeter, design month →
-        single Watts result) that CONSUMES the below-grade-wall + slab-surface quantities. This is the
-        first thermal work that will remove entries from notModeled[].
-        Base-level interim = U·A·ΔT vs a ground temperature (geometry now present).
-    [ ] Solar gain: additive result row in deriveF280Heating.
+    [x] Ground-coupled base-level loss (INTERIM Model B) — DONE (Session 78; commit b92c86a).
+        SEPARATE standalone pure fn deriveGroundCoupledLoss(enumeration, resolvedConfig) — NOT a bucket
+        inside deriveF280Heating. Model B: loss_W = k × U × area × ΔT_ground, ΔT_ground = tiC − groundTempC,
+        k = soil-conductivity / 0.85 (Normal ×1.0). NOT BASESIMP — input contract (soil conductivity,
+        depth-below-grade, exposed perimeter, area) deliberately BASESIMP-shaped so a full port swaps the
+        math only. CONSUMES the Session-77 slab-surface + below-grade-wall quantities.
+        - soil-conductivity CONFIG_FIELD (new Site category; 0.85/1.275/1.9 classes; unset → 0.85).
+        - resolve-ground-temp rule: station dgtemp lookup (same station|||region parse as resolve-toh);
+          groundTempC derived, null when no station. No-ground guard (groundTempC null → status:'no-ground').
+        - Wired into deriveF280Heating OUTPUT: status:'ok' → adds groundCoupled + SHEDS 'below-grade-wall'
+          & 'slab-on-grade' from notModeled[] (FIRST kinds to leave the list); no-ground → notModeled[]
+          unchanged. 'floor-over-unheated'/'solar-gain' always remain.
+        - F280 panel: ground-coupled conditions + per-kind table + subtotal kW; no-ground explanatory guard.
+        - DEV: __dumpF280 ground rows; new __setConfig hook. Harness 57/57 PASS (was 44; +13 gc.a–gc.m via
+          synthetic slab+below-grade case in sidecar groundCoupledCheck). Verified: slab 19.74m²×0.045×12=10.8W;
+          no-ground path keeps all four notModeled; zero console errors.
+        NEXT: full BASESIMP port (drop-in math swap at this seam); slab/below-grade U still #106 placeholders.
+    [ ] Solar gain: additive result row (last remaining notModeled entry alongside floor-over-unheated).
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
@@ -546,7 +559,9 @@ reconciliation is this pass. Settled near-term order after (b) lands and docs re
      (flat-roof per-surface U-input) — **DONE (shipped Session 76; commit c8857b6)**; #108
      (window/door `uw`/`shgc` post-placement edit) + `ti-heating` CONFIG_FIELD — **DONE (Session 76; commit
      44615f2)**. Arc is FULLY CLOSED for the base case in both code and docs (last hardcoded F280 input, Ti,
-     retired). Next real thermal work: below-grade + slab geometry.
+     retired). Below-grade + slab geometry DONE (Session 77); interim ground-coupled loss engine DONE
+     (Session 78, commit b92c86a) — below-grade-wall/slab-on-grade left notModeled[]. Next: full BASESIMP
+     port (math swap) + solar gain.
 A parallel-track approach for #106–108 was considered and REJECTED — all three live inside App.jsx (shared
 ground); branch-management overhead is not worth it for a ~5–6 session arc. Run them sequentially on main.
 

@@ -23,6 +23,63 @@ section, do not bury conventions inside a dated session entry.*
 
 ---
 
+## SESSION 78 — Interim ground-coupled loss engine (2026-07-01)
+
+**Branch:** main | **Code commit:** `b92c86a` | **Docs commit:** (this close-out).
+
+**What this session built:** the interim GROUND-COUPLED LOSS ENGINE — a SEPARATE, STANDALONE pure
+function `deriveGroundCoupledLoss(enumeration, resolvedConfig)`, NOT a bucket inside `deriveF280Heating`.
+It CONSUMES the Session-77 `slab-surface` + `below-grade-wall` enumeration kinds and is the first thermal
+work to REMOVE entries from `notModeled[]`. This is a CALCULATION build, not geometry.
+
+- **Model B (interim):** `loss_W = k × effectiveUValue × area × ΔT_ground`, where `ΔT_ground = tiC −
+  groundTempC` and `k = soil-conductivity / 0.85` (Normal 0.85 → ×1.0 honest passthrough; wetter soils
+  raise loss linearly). NOT BASESIMP — the input contract (soil conductivity, depth-below-grade, exposed
+  perimeter, area) is deliberately BASESIMP-shaped so a future full port swaps the MATH only. `belowGradeHeightM`
+  + `soilContactPerimeterM` are already on the enumeration elements (referenced in the contract comment,
+  not yet weighted by the interim math).
+- **New CONFIG_FIELD `soil-conductivity`** (new **'Site'** category) — 3 BASESIMP classes (0.85 Normal /
+  1.275 High / 1.9 Very-wet). Unset resolves to 0.85 in the engine (×1.0). `SOIL_CONDUCTIVITY_OPTIONS` +
+  `soilClassLabel` module constants (App.jsx ~line 78).
+- **New resolver rule `resolve-ground-temp`** — station `dgtemp` lookup via the SAME `"station|||region"`
+  composite parse as `resolve-toh`; `groundTempC` derived, null when no station. No override field this pass.
+- **`deriveGroundCoupledLoss`** (App.jsx, right after `deriveF280Heating`) — no-ground guard
+  (`groundTempC === null` → `{status:'no-ground', total:null}`); reuses the EXACT `ti-heating` NaN-guarded
+  seam; two rows `slab-on-grade` (from `grossAreaM2`) / `below-grade-wall` (from `belowGradeWallAreaM2`);
+  unresolved-U handled like `deriveF280Heating` (`unresolvedCount`, no silent zero). Returns
+  `{status, groundTempC, tiC, deltaTground, soilConductivity, soilFactor, bySurfaceKind, total_W, total_kW, unresolvedCount}`.
+- **Wired into `deriveF280Heating` OUTPUT (not its math)** — `status:'ok'` adds `groundCoupled` and
+  REMOVES `'below-grade-wall'`/`'slab-on-grade'` from `notModeled[]`; `no-ground` leaves them listed.
+  `'floor-over-unheated'`/`'solar-gain'` stay regardless. `result.total` now = above-grade + ground.
+- **F280 Results panel** — ground-coupled conditions zone (ground temp / ΔT_ground / soil class), a
+  per-kind surfaces table, and a "Ground-coupled subtotal (kW)" line. No-ground guard shows explanatory
+  text (same pattern as no-climate guard).
+- **DEV:** `__dumpF280` extended with ground rows + grand total; new `__setConfig(id, value)` hook
+  (parallels `__ingestAssembly`/`__setCrop`) to drive browser verification without navigating the
+  679-option station dropdown.
+
+**Golden harness:** +13 checks `(gc.a)–(gc.m)` via a SYNTHETIC slab+below-grade case (the default fixture
+has a slab-surface but no below-grade-wall — above-grade reference edge, no grade line). Sidecar gains
+`groundCoupledCheck` (station Vernon → dgtemp 10, ΔT_ground 12, slab loss 12W, below-grade 24W, total 36W
+at k=1.0; k=1.5 flip → 54W). Checks: groundTempC lookup exact, deltaTground, per-kind loss at soilFactor 1.0,
+soilFactor≠1.0 flip, no-ground status, and `notModeled[]` add-when-ok / keep-when-no-ground integration.
+
+**Verification (Claude preview, fixture-elevation):**
+- `__verifyFixture()` **57/57 PASS** (was 44; +13 ground-coupled). Zero console errors.
+- `__dumpF280()` with station Vernon + `assembly-floor` eng-i-joist: slab-on-grade row = 19.74 m² ×
+  0.045 × 12 = **10.8 W**; below-grade-wall `(none)` (honest — no grade line in fixture); `notModeled`
+  shrank to `floor-over-unheated, solar-gain`.
+- No-ground path (station cleared, `toh-override` kept so F280 stays `ok`): `deriveGroundCoupledLoss`
+  returns `no-ground`; F280 total = above-grade only; all four `notModeled` entries retained; panel shows
+  the explanatory-text guard.
+
+**NOW/NEXT:** the two interim ground rows are placeholders for a future full BASESIMP port (drop-in math
+swap at the same seam). Remaining `notModeled[]`: `floor-over-unheated`, `solar-gain`. Slab/below-grade U
+values still ride the #106 project-default placeholders (values pass pending). `soil-conductivity` has no
+override field yet (parallels the pre-`toh-override` state — add if needed).
+
+---
+
 ## SESSION 77 — Below-grade + slab geometry takeoff (2026-07-01)
 
 **Branch:** main | **Code commit:** `afd0c58` | **Docs commit:** (this close-out).
