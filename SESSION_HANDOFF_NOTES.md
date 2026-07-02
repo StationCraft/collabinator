@@ -1011,6 +1011,17 @@ exactly ONCE per fresh `__restoreFixture`. Running it repeatedly in one JS sessi
 yields a false "6/32 FAILED". Confirmed unrelated to this session's changes by reproducing 6/32 with the
 changes git-stashed, then 44/44 on a fresh server + single restore + single verify.
 
+**Guardrail A-B method (Session 82) — how to PROVE a render/enumeration change did NOT move the F280 number:**
+git-stash the working changes, let Vite HMR revert, and capture `__dumpF280` at a FIXED config; then
+`git stash pop`, HMR re-applies, capture again at the *identical* config + session state. Byte-identical
+totals = calc-neutral. **Gotcha that will mislead you:** `assemblyLibraryRef` is SESSION-LEVEL — it is NOT
+written by `__restoreFixture` and it is CLEARED on page reload. So the fixture's library-tier wall
+(`wall-sh-1-seg0`) is **library-UNRESOLVED right after a reload** (U=null, no loss) but **resolves after any
+run that ingests it** (e.g. `__verifyFixture`), which changes the wall loss (Session 82 saw 222.8 W → 441.4 W
+purely from this). The A-B is only valid if BOTH captures are at the SAME library-ingest state — cleanest is
+"immediately after reload, before any verify/ingest" for both old and new code. This state-difference is a
+MEASUREMENT artifact, not a calc change; do not mistake it for a regression.
+
 ---
 
 ## SESSION 63 — Plateau deep-review (overnight, unsupervised) — review + reconciliation (2026-06-29)

@@ -83,6 +83,15 @@ its quantification READ-half is gate-still-real against the R3 condition).
 - **#42 / #43** — trackpad zoom-speed clamp; grade-line draw-UI copy; input/UI polish, no dep.
 - **#47** — snap-selector metric label fallback; cosmetic (control disabled anyway), batch #20.
 - **#54** — B6 envelope surfaces; B5 line-wireframe substrate exists → MET; off critical path (presentation).
+- **Interior-face wireframe — DONE (Session 82; commit `1d9618c`).** The recon flagged this as mis-filed
+  (mentally lumped with R3-gated z-work); it is NEAR-SIDE and now BUILT. Interior thermal-boundary face of
+  exterior + foundation walls rendered as magenta `#ec4899` 3D wireframe (inner offset ring from
+  `{x,y}` + assembly `thicknessM` + scalar floor/ceiling Z). **NO R3 / NO per-vertex z / NO `makeVertex`
+  change.** DISPLAY-ONLY `interiorFaceAreaM2` (separate from calc's `netAreaM2`); **F280 heating total
+  proven byte-unchanged** (222.8 W above-grade / 401.6 W total, old/new A-B at identical state);
+  `__verifyFixture` 67/67 (new check `(t)`). Placeholder thickness (exterior wall 6"=0.1524 m, foundation
+  16"=0.4064 m) in `ASSEMBLY_TYPE_DEFAULTS`, override-able by real assemblies. Flipping the conductive
+  calc to interior-face area is a deliberate FUTURE step. See CLAUDE.md Session-82 entry + Design notes.
 - **#56** — 3D axis-nub visibility; cosmetic AxesHelper resize/recolor, no dep.
 - **#57** — Project Setup full-page form; `CONFIG_FIELDS` rendering supports it, surface/layout only.
 - **#60 / #76** — dual-fuel space-heating; furnace-is-air-handler; data-only ITEM_TYPES + spawns additions, no engine change.
@@ -3142,12 +3151,17 @@ Three questions the **clause text does not resolve**. They must be answered by B
 reading the supplemental-calculator input labels (`BasementHLR.xls` / `SlabOnGradeHLR.xls`), NOT
 guessed. Logged as OPEN.
 
-1. **BASESIMP plan dimensions — interior vs exterior?** Cl. 5.2.2.1(a) / 5.2.2.2(a) say only
-   "length, width, height, and depth below grade" — the digest's "interior dimensions" gloss is **not**
-   in the clause. Collabinator currently passes the **exterior footprint bounding box**
-   (`slab.footprintLengthM/WidthM`, from world vertices). If the workbook expects interior dimensions
-   this over-sizes the box. **Resolve by reading the workbook input-cell labels + a known-result
-   comparison.** (Boundary — partly geometry-measurement.)
+1. **BASESIMP plan dimensions — interior vs exterior? — RESOLVED (Session 82): EXTERIOR.** Cl. 5.2.2.1(a)
+   / 5.2.2.2(a) say only "length, width, height, and depth below grade"; the digest's "interior dimensions"
+   gloss is not in the clause. **Read the decrypted workbook (`BasementHLR.xlsx`):** the input cells are
+   named `Length_E` / `Width_E` (`Foundation_Input!$D$12`/`$D$13` = the "Floor Length/Width (m)" inputs) —
+   the `_E` suffix = **Exterior** — and the sheet then DERIVES `Foundation_Calc!I117` "Estimated inside
+   dimensions" = `Length_E − 2·Thickness` (thickness cell `H118`). So the correlation is fed **exterior**
+   plan dimensions. Collabinator passes `slab.footprintLengthM/WidthM` = the traced (structural-outside)
+   footprint bbox = EXTERIOR → **correct as wired, no change.** This is the intended MIXED convention: the
+   above-grade thermal boundary is inside-face (walls inset inward — interior-face wireframe, Session 82),
+   while the foundation box is outside-face by BASESIMP's own correlation. Recorded in CLAUDE.md Design
+   notes. **Q1 CLOSED.**
 
 2. **"Number of corners" (Cl. 5.2.2.1(h) / 5.2.2.2(f)).** BASESIMP takes an explicit corner count; the
    ported engine assumes a **rectangular 4-corner box** (`2(L−W)+4·Fcs·W`) driven by the config's
@@ -3162,8 +3176,9 @@ guessed. Logged as OPEN.
    purpose (per-room delivery sizing, Cl. 5.3.2) needs rooms. Structural-scope question — addressed by
    the room-by-room division overlay (#146).
 
-**Status:** OPEN — needs Ben. Q1 + Q2 are seeded into sequence step 2 (workbook-label reading +
-known-result comparison against Ben's H2K-backed plans). Q3 is answered architecturally by #146.
+**Status:** Q1 CLOSED (Session 82 — EXTERIOR, workbook-confirmed). Q2 + Q3 OPEN — Q2 seeded into
+sequence step 2 (workbook corner-count-consumption reading + known-result comparison against Ben's
+H2K-backed plans); Q3 answered architecturally by #146.
 
 ---
 

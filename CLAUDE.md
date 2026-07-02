@@ -888,6 +888,53 @@ A React + Vite app with:
     includes unconditioned space (parked #162), constant-footprint-across-levels. Parked: dual-path (#159),
     pressurized-vs-depressurized ACH50 (#161).
 
+- **Interior-face wireframe (visual geometry verification; Session 82; commit `1d9618c`; DONE):**
+  RENDER + display-only-derivation. The interior thermal-boundary face of exterior + foundation walls
+  drawn as 3D wireframe so several plans can be visually geometry-checked. NEAR-SIDE of R3 — derives from
+  `{x,y}` + assembly `thicknessM` + scalar floor/ceiling Z; **NO `makeVertex` change, NO per-vertex z.**
+  * **GUARDRAIL — F280 heating total UNCHANGED (this session does NOT move the compliance number).**
+    Proven by an old/new A-B at identical session state + config: above-grade **222.8 W** / total **401.6 W**
+    byte-identical before and after. The conductive calc still reads `netAreaM2` (walls) / `insideFaceAreaM2`
+    (flat-roof) exactly as before; the derived interior area is a **NEW, separate, display-only field
+    (`interiorFaceAreaM2`)** never routed into any heat-loss engine. Harness check `(c) netTotalM2` (the
+    calc-consumed wall area) stays green; new check **`(t)`** asserts `interiorFaceAreaM2` derives + is
+    DISTINCT from the calc area + is null without thickness. **`__verifyFixture` now 67/67** (was 66).
+    Flipping the calc to interior-face area is a deliberate FUTURE step after visual verification.
+  * **Placeholder thickness (architecture, not magic numbers):** `ASSEMBLY_TYPE_DEFAULTS` gains a
+    PLACEHOLDER `thicknessM` on the two INTERIOR-PLANE assembly types only —
+    `PLACEHOLDER_WALL_THICKNESS_M = inchesToMeters(6) = 0.1524 m` (exterior wall options `2x6-r22`/
+    `2x6-r22-ext2`) and `PLACEHOLDER_FOUNDATION_THICKNESS_M = inchesToMeters(16) = 0.4064 m` (foundation
+    options `8in-concrete-frost`/`icf`). Via the coords.js `inchesToMeters` seam (no inline `0.0254`).
+    Roof/floor entries stay `thicknessM: null` (already AT the thermal boundary — they expand outward, do
+    NOT inset). `effectiveUValue` is UNCHANGED from #106 (per-option nominal 1/R retained — the task's
+    "R20" placeholder-U was deliberately NOT applied, to avoid regressing #106 and to keep the calc
+    byte-safe). A real assembly (library/manual, or future authoring) supplies its own `thicknessM` per
+    surface and OVERRIDES the placeholder — placeholder is the fallback, not a hardcode. True-unset walls
+    (no option selected, no per-surface entry) keep `thicknessM: null` → no interior face (honest gap).
+  * **`interiorFaceAreaM2` (DISPLAY-ONLY):** on `wall-surface` + `below-grade-wall` enumeration elements.
+    `= (thicknessM != null && width != null && height != null) ? max(0, width − 2·thicknessM) × height :
+    null`. **Straight inset — developer dropped the PH corner-overcount convention** (no per-segment
+    overlap, no F280-vs-PH toggle). Uses GROSS width (not net) so it is a pure geometric inset; it is
+    DISTINCT from the calc's `netAreaM2` (which subtracts openings — so for a wall with openings the
+    display interior area can even exceed net; the harness (t) separation check compares against gross for
+    "smaller" and against net only for "distinct"). Surfaced in `__dumpEnumeration` labeled
+    "interiorFaceArea(DISPLAY-ONLY, not in calc)". NOT in the F280 panel/calc.
+  * **Render (`deriveWireframe` + `ThreeDView`):** the wall-panel derivation is **un-gated** — was
+    `sa.source !== 'library'`-only, now fires for ANY resolved `thicknessM` (manual, library, OR the new
+    project-default placeholder). `growDir` now defaults wall/foundation/unset → **inward** (+1) (fixes the
+    manual-tier direction, which was null-typed → outward). Interior face drawn as **magenta `#ec4899`
+    `LineSegments`** (inner floor loop + inner ceiling loop + inner verticals per segment, from the
+    wall-panel inner corners `iax/iay/ibx/iby` via the orientation-independent `pointInPolygon` inward
+    test). ALWAYS visible like the exterior wireframe; the filled wall-panel solid stays behind its own
+    `showSolids` toggle (purely additive). New "■ interior face" legend entry. Browser-verified (Claude
+    preview, fixture, station Vernon + `assembly-wall=2x6-r22`): magenta interior ring inset inward from
+    the exterior envelope; floors/ceilings show NO inset (scope); library-unresolved `seg0` (no thickness)
+    shows NO interior face (honest gap); crawlspace wall interior 6.6890 m² vs gross 6.9677 m² (−0.2787,
+    slightly smaller ✓). Zero console errors.
+  * **SCOPE (developer-specified):** ONLY exterior walls + foundation walls derive an interior plane
+    (inset inward by thickness). **Floors and ceilings do NOT inset — their traced surface already IS the
+    thermal boundary and expands outward.** See the Design-notes interior-face entry below.
+
 - **BASESIMP ground-coupled wire-in — Stage 1 (Session 79; commit `4f6be45`; DONE):** REPLACES the interim
   Model-B engine below. `deriveGroundCoupledLoss` is now the ADAPTER around the full, float-exact BASESIMP
   engine (`src/basesimp/engine.js`, acceptance 3/3). Tables bundled as JSON imports
@@ -1793,6 +1840,26 @@ After A.0.1–A.0.3 cleanup, Phase 1.5 builds the foundational architecture for 
 **Then: Build 3D Wireframe (Phase 2 threshold)**
 
 ## Design notes (Phase 1.5+)
+
+- **Interior thermal-boundary face — which surfaces inset (architectural — Session 82):** ONLY
+  **exterior walls and foundation walls** derive an interior plane: the traced polygon is the structural
+  OUTSIDE face, and the interior face is that face **inset inward** by the assembly thickness, extruded
+  over the existing scalar floor/ceiling Z. **Floors and ceilings do NOT inset** — their traced surface
+  already IS the thermal boundary and grows OUTWARD (their `thicknessM` stays null; no interior face is
+  generated). So the interior-face derivation applies to VERTICAL wall surfaces (`assemblyType 'wall'`)
+  and the foundation-wall type only. The interior area (`interiorFaceAreaM2`) is **DISPLAY-ONLY** — the
+  F280 conductive calc still consumes exterior/net area; flipping the calc to interior-face area is a
+  deliberate FUTURE step after Ben visually verifies the geometry.
+- **Foundation box is EXTERIOR-face; walls are INSIDE-face (resolves audit #140 Q1 — Session 82):** the
+  BASESIMP foundation-box dimensions are specified **EXTERIOR** (confirmed from the decrypted workbook:
+  `BasementHLR.xlsx` input cells `Length_E`/`Width_E` = the "Floor Length/Width (m)" inputs — the `_E`
+  suffix = Exterior; the sheet then DERIVES `Foundation_Calc!I117` "Estimated inside dimensions" =
+  `Length_E − 2·Thickness`). Collabinator feeds the box `slab.footprintLengthM/WidthM` = the traced
+  (structural-outside) footprint, so the ground engine already receives EXTERIOR dims — **correct as
+  wired.** This is the intended MIXED convention: the above-grade thermal boundary is **inside-face** (walls
+  inset inward, per the entry above — for a future interior-area calc pass), while the **foundation box is
+  outside-face** by BASESIMP's own correlation. Mixing the two is deliberate, not a bug. Resolves
+  ADDITIONAL_FUNCTIONALITY.md #140 Q1; Q2 (corner count) and Q3 (room model) remain open.
 
 - **Room-by-room is a DIVISION OVERLAY, not a replacement (architectural — Session 80):** the
   room-by-room model (F280's native granularity, Cl. 5.2.6→5.2.7) is a **LAYER OF DIVISIONS applied

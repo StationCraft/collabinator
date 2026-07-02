@@ -618,6 +618,17 @@ folded into the F280 heating total, with the panel reframed to partial subtotals
 - **Still on the audit-fix track:** ventilation modelling, #136 duct/pipe, #133 basement double-count,
   #137/#138, #140 open questions → then Session-2 geometry E2E validation.
 
+**SESSION 82 (commit `1d9618c`) — interior-face wireframe (RENDER + display-only; geometry-verification track).**
+NOT an audit-fix; a visual-verification build. Interior thermal-boundary face of exterior + foundation walls
+rendered as magenta 3D wireframe (inner offset ring from `{x,y}` + assembly `thicknessM` + scalar Z; NO R3 /
+NO per-vertex z). **F280 heating total PROVEN byte-unchanged** (old/new A-B at identical state: 222.8 W
+above-grade / 401.6 W total) — the derived `interiorFaceAreaM2` is a NEW display-only field, never in the calc.
+`__verifyFixture` **67/67** (new check `(t)`). Placeholder thickness (wall 6", foundation 16") in
+`ASSEMBLY_TYPE_DEFAULTS`, override-able by real assemblies. **Also resolved audit #140 Q1** (workbook-read):
+BASESIMP foundation dims are EXTERIOR (`Length_E`/`Width_E`) → Collabinator's exterior-footprint feed is
+correct; the mixed convention (walls inside-face for a future interior-area calc, foundation box outside-face)
+is intended. Flipping the conductive calc to interior-face area is a deliberate FUTURE step.
+
 ---
 
 ## ⏸ PLATEAU WAYPOINTS — post-#5 / pre-#29  ← TRIGGERED 2026-06-29 (commit 8d6e57d)

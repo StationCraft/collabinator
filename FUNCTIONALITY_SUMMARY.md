@@ -631,6 +631,16 @@ will later shift the true outside plane outward from what's traced here. This is
 it's worth keeping in mind so the data model doesn't accidentally treat the traced
 line as the final exterior face.
 
+**Interior thermal-boundary face (Session 82 — decision, BUILT):** the counterpart to the above —
+the traced line is the structural OUTSIDE; the INTERIOR face of exterior + foundation walls is that
+line **inset inward by the assembly thickness**, rendered as a magenta 3D wireframe for visual
+geometry verification. **Only exterior walls + foundation walls inset** (vertical surfaces); floors
+and ceilings do NOT inset (their traced surface already IS the thermal boundary and grows outward).
+The interior area (`interiorFaceAreaM2`) is **DISPLAY-ONLY** — the F280 conductive calc still consumes
+exterior/net area; flipping the calc to interior-face area is a deliberate FUTURE step. Derives from
+`{x,y}` + `thicknessM` + scalar Z (no per-vertex z / no R3). See CLAUDE.md Session-82 entry + Design
+notes (incl. the mixed convention: walls inside-face, BASESIMP foundation box outside-face, #140 Q1).
+
 ---
 
 ## 11b. F280 above-grade conductive heat-loss endpoint (Session 56)
