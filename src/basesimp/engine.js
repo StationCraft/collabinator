@@ -6,7 +6,8 @@
 // they differ only in (a) how the effective RSI is derived, (b) the interpolation
 // WRSI constant, and (c) the final load-assembly line.
 //
-// This module is thin logic over four extracted data tables (see ./data/*.json).
+// This module is thin logic over five extracted data tables (see ./data/*.json),
+// including the climate-station weather table (weather.json).
 // A coefficient revision is a DATA edit, not a code edit. The functions are pure:
 // they take the data tables as arguments, so the module is runtime-agnostic
 // (Node via fs, browser via a bundler JSON import — caller supplies `tables`).
@@ -45,6 +46,40 @@ function cornerRow(tables, iuse) {
   const row = tables.cornerCf[String(Math.round(iuse))];
   if (!row) throw new Error(`BASESIMP: CornerCF row ${iuse} not found`);
   return row;
+}
+
+// Resolve the design climate. The DEFAULT path is a station lookup against the
+// bundled weather table (./data/weather.json, keyed "City|||Region"): it supplies
+// the 12 monthly mean temps (Jan..Dec), the heating degree-days (DegDay → HDD), the
+// deep-ground temperature (DGTEMP → soilMeanT), and the design heating dry-bulb
+// (DHDBT → designHeatingDBT). Any of those four may be OVERRIDDEN by passing the
+// explicit field on `input` (monthlyTemps / HDD / soilMeanT / designHeatingDBT), so a
+// caller can either name a station, name a station and tweak a field, or bypass the
+// table entirely by passing all four explicitly. `designHeatingMonth` is always the
+// caller's design-month selection, never a climate-table field.
+function resolveClimate(input, tables) {
+  let base = {};
+  if (input.station != null) {
+    const rec = tables.weather && tables.weather[input.station];
+    if (!rec) throw new Error(`BASESIMP: unknown weather station "${input.station}"`);
+    base = {
+      monthlyTemps: rec.monthlyTemps,
+      HDD: rec.degDay,
+      soilMeanT: rec.dgtemp,
+      designHeatingDBT: rec.dhdbt,
+    };
+  }
+  const monthlyTemps = input.monthlyTemps != null ? input.monthlyTemps : base.monthlyTemps;
+  const HDD = input.HDD != null ? input.HDD : base.HDD;
+  const soilMeanT = input.soilMeanT != null ? input.soilMeanT : base.soilMeanT;
+  const designHeatingDBT =
+    input.designHeatingDBT != null ? input.designHeatingDBT : base.designHeatingDBT;
+  if (monthlyTemps == null || HDD == null || soilMeanT == null || designHeatingDBT == null) {
+    throw new Error(
+      'BASESIMP: incomplete climate — pass a valid `station` or all explicit climate fields'
+    );
+  }
+  return { monthlyTemps, HDD, soilMeanT, designHeatingDBT };
 }
 
 // --- shared shape-factor math (BS1) ----------------------------------------
@@ -225,8 +260,10 @@ function effectiveRsiBasement(inflag, insE, insI, addedRsi) {
 /**
  * Compute ground-coupled foundation heat loss (Watts) for the design heating month.
  *
- * @param {object} input  see GROUND_COUPLED_CONTRACT.md (BASESIMP-shaped fields)
- * @param {object} tables { coefficients, cornerCf } — the extracted data tables
+ * @param {object} input  see GROUND_COUPLED_CONTRACT.md (BASESIMP-shaped fields).
+ *   Climate is resolved by resolveClimate: pass `station` ("City|||Region") for the
+ *   default table lookup, and/or explicit climate fields to override.
+ * @param {object} tables { coefficients, cornerCf, weather } — the extracted data tables
  * @returns {object} { load_W, sag, sbgAvg, sbgVar, phase, fhlmon, exposedFraction,
  *                      inflag, rsiEffective, radiantSlabTempC }
  */
@@ -278,7 +315,8 @@ export function computeGroundCoupledLoss(input, tables) {
   const Phase_f = interp(s1.phase, s2.phase);
 
   // --- climate ------------------------------------------------------------
-  const { B_s, P_s } = soilSine(input.monthlyTemps, input.HDD);
+  const climate = resolveClimate(input, tables);
+  const { B_s, P_s } = soilSine(climate.monthlyTemps, climate.HDD);
   const FHL = fhlmon(SbgVar_f, Phase_f, B_s, P_s, input.designHeatingMonth);
 
   // --- exposed fraction ---------------------------------------------------
@@ -286,8 +324,8 @@ export function computeGroundCoupledLoss(input, tables) {
   const ep = input.exposedPerimeter > 0 ? input.exposedPerimeter : perim;
   const exposedFraction = Math.min(1, Math.max(ep / perim, 0));
 
-  const Tsoil = input.soilMeanT;
-  const DBT = input.designHeatingDBT;
+  const Tsoil = climate.soilMeanT;
+  const DBT = climate.designHeatingDBT;
 
   // --- load assembly (the one line that differs between foundation types) --
   let load_W;

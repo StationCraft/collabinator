@@ -26,8 +26,8 @@ in `App.jsx`) is a deliberate, separate, future step.
 
 ## Data is external
 
-The engine is thin logic over four extracted data tables under `./data/`. **A coefficient
-revision is a data edit, not a code edit** — re-export the workbook and diff the JSON.
+The engine is thin logic over five extracted data tables under `./data/`. **A coefficient
+or climate revision is a data edit, not a code edit** — re-export the workbook and diff the JSON.
 
 | File | Source sheet | Contents |
 |---|---|---|
@@ -35,6 +35,7 @@ revision is a data edit, not a code edit** — re-export the workbook and diff t
 | `corner_cf.json` | `CornerCF` r2-17 | 16 corner-factor rows (keyed 1…16), 19 factors each. |
 | `config_decode.json` | `Foundation_Frm_Sel` J3:AF13 | Configuration-index → ordered candidate package names, plus the construction-type / wall-insulation / slab-location option maps. (Decode layer; not consumed by the current compute path, which selects a config by name directly.) |
 | `form_data.json` | `Foundation_Form_Data` r2-96 | Package-name → package-number map. |
+| `weather.json` | `Foundation_Weather` r3-682 | **679 climate stations**, keyed by a `"City\|\|\|Region"` composite (Region is part of the key because city names repeat across provinces; no composite collides). Each record carries `region`, `degDay` (→ HDD), `dhdbt` (→ design heating dry-bulb), `dgtemp` (→ deep-ground / soil-mean temp), and `monthlyTemps` (12 monthly mean dry-bulb temps, ordered Jan…Dec). Extracted from the basement workbook only: the slab workbook's `Slab_Weather` sheet (header row 2) was verified byte-for-byte identical station-for-station, so slab reuses this same table. The 50 all-zero padding rows at the tail of the lookup range are excluded. |
 
 The uninsulated reference variant ("set 2", `CORC` col F) is resolved by taking the selected
 config's `iUnInsul` package number and finding the config whose `num` matches.
@@ -60,12 +61,16 @@ metres, temperatures in °C, RSI in m²·K/W, soil conductivity in W/m·K.
 | `radiantFraction` | Radiant-slab heated fraction 0…1 (basement only). `> 0` engages the wall/floor `alpha2`/`alpha3` split; `0` collapses `alpha2 → SbgAvg`, `alpha3 → 0`. |
 | `fluidTemp` | Radiant-slab fluid temperature (basement only). Slab temp = `22 + radiantFraction·(fluidTemp − 22)`. |
 | `insExterior`, `insInterior`, `addedRsi` | Optional user insulation RSI inputs (default 0). Feed the Inflag→RSI map (basement) or the slab RSI directly. |
-| `monthlyTemps[12]` | Climate station's 12 monthly mean dry-bulb temps (Jan…Dec). |
-| `HDD` | Heating degree-days (drives the soil-temperature sine correlation). |
-| `designHeatingMonth` | 1…12; selects which month's `FHLmon` variable-loss coefficient. |
-| `designHeatingDBT` | Design heating dry-bulb temperature. |
-| `soilMeanT` | Deep-ground / soil-mean temperature. |
+| `station` | Climate-station key `"City\|\|\|Region"` into `weather.json` (e.g. `"Winnipeg\|\|\|MB"`). **The default climate source.** The engine pulls the 12 monthly mean temps, degree-days (→ HDD), deep-ground temp (→ soilMeanT), and design heating dry-bulb (→ designHeatingDBT) from the table. |
+| `designHeatingMonth` | 1…12; selects which month's `FHLmon` variable-loss coefficient. Always the caller's design-month selection — never a climate-table field. |
+| `monthlyTemps[12]`, `HDD`, `designHeatingDBT`, `soilMeanT` | **Optional explicit-climate override.** Any of these passed on `input` overrides the corresponding station-table value. Passing all four (with no `station`) bypasses the table entirely. Passing none requires a valid `station`. |
 | `overlapEntered` (basement), `overlp` (slab) | Optional insulation-overlap distance; defaults 0 (auto-derived from config for the basement overlap-configs). |
+
+**Climate resolution.** `resolveClimate(input, tables)` is the single seam: the default path is
+a `station` lookup against `weather.json`; explicit climate fields on `input` override individual
+values; and passing all four explicit fields lets a caller skip the table. `designHeatingMonth`
+never comes from the table. (The workbooks' design **cooling** month reads the same station record;
+the cooling load line is not yet emitted by this module.)
 
 Room temperature `Troom = 22 °C` is fixed (workbook `Foundation_Calc!F72` / slab `Basement_temp`).
 
@@ -111,5 +116,7 @@ Slab:      ( Sag·(Troom − DBT)
 > 2505.0206 W. Both are asserted as separate regression cases so the divergence is captured
 > rather than papered over.
 
-Climate for the acceptance test is the workbooks' bundled Winnipeg January values, hard-coded
-in the test. Extracting the full `Foundation_Weather` station table is a later session.
+Climate for the acceptance test is now sourced **from `weather.json`** via the engine's station
+lookup: each case names the `"Winnipeg\|\|\|MB"` station and design heating month January. A
+lightweight guard asserts the extracted Winnipeg record reads DegDay 5670 / DHDBT −33 / DGTEMP 6,
+so the extraction itself is regression-checked alongside the three load targets.

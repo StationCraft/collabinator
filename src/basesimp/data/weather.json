@@ -1,0 +1,13582 @@
+{
+ "Athabasca|||AB": {
+  "region": "AB",
+  "degDay": 6000,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -15,
+   -11,
+   -4,
+   4,
+   11,
+   14,
+   16,
+   15,
+   10,
+   4,
+   -6,
+   -13
+  ]
+ },
+ "Banff|||AB": {
+  "region": "AB",
+  "degDay": 5500,
+  "dhdbt": -31,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -3,
+   3,
+   7,
+   11,
+   15,
+   14,
+   9,
+   3,
+   -4,
+   -9
+  ]
+ },
+ "Barrhead|||AB": {
+  "region": "AB",
+  "degDay": 5740,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -11,
+   -11,
+   -6,
+   1,
+   11,
+   13,
+   17,
+   13,
+   12,
+   5,
+   -3,
+   -10
+  ]
+ },
+ "Beaverlodge|||AB": {
+  "region": "AB",
+  "degDay": 5700,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -4,
+   4,
+   10,
+   13,
+   15,
+   14,
+   10,
+   4,
+   -6,
+   -11
+  ]
+ },
+ "Brooks|||AB": {
+  "region": "AB",
+  "degDay": 4880,
+  "dhdbt": -32,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -11,
+   -7,
+   -2,
+   6,
+   11,
+   16,
+   19,
+   18,
+   13,
+   6,
+   -2,
+   -7
+  ]
+ },
+ "Calgary|||AB": {
+  "region": "AB",
+  "degDay": 5000,
+  "dhdbt": -30,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -7,
+   -5,
+   -2,
+   5,
+   10,
+   14,
+   16,
+   16,
+   11,
+   5,
+   -3,
+   -6
+  ]
+ },
+ "Campsie|||AB": {
+  "region": "AB",
+  "degDay": 5750,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -14,
+   -11,
+   -4,
+   4,
+   10,
+   14,
+   16,
+   15,
+   10,
+   4,
+   -6,
+   -12
+  ]
+ },
+ "Camrose|||AB": {
+  "region": "AB",
+  "degDay": 5500,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -14,
+   -10,
+   -6,
+   4,
+   10,
+   14,
+   17,
+   15,
+   10,
+   3,
+   -5,
+   -10
+  ]
+ },
+ "Canmore|||AB": {
+  "region": "AB",
+  "degDay": 5400,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -10,
+   -7,
+   -3,
+   3,
+   7,
+   11,
+   15,
+   14,
+   9,
+   3,
+   -4,
+   -9
+  ]
+ },
+ "Cardston|||AB": {
+  "region": "AB",
+  "degDay": 4700,
+  "dhdbt": -29,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -5,
+   -3,
+   -1,
+   5,
+   10,
+   14,
+   18,
+   17,
+   12,
+   6,
+   0,
+   -3
+  ]
+ },
+ "Claresholm|||AB": {
+  "region": "AB",
+  "degDay": 4680,
+  "dhdbt": -30,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -8,
+   -4,
+   -2,
+   5,
+   10,
+   14,
+   18,
+   17,
+   12,
+   6,
+   -1,
+   -5
+  ]
+ },
+ "Cold Lake|||AB": {
+  "region": "AB",
+  "degDay": 5860,
+  "dhdbt": -35,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -5,
+   4,
+   10,
+   15,
+   17,
+   16,
+   10,
+   3,
+   -7,
+   -13
+  ]
+ },
+ "Coleman|||AB": {
+  "region": "AB",
+  "degDay": 5210,
+  "dhdbt": -31,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -8,
+   -5,
+   -1,
+   3,
+   8,
+   12,
+   14,
+   14,
+   10,
+   5,
+   -3,
+   -7
+  ]
+ },
+ "Coronation|||AB": {
+  "region": "AB",
+  "degDay": 5640,
+  "dhdbt": -32,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -14,
+   -12,
+   -5,
+   4,
+   10,
+   14,
+   17,
+   16,
+   10,
+   4,
+   -7,
+   -12
+  ]
+ },
+ "Cowley|||AB": {
+  "region": "AB",
+  "degDay": 4810,
+  "dhdbt": -29,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -10,
+   -6,
+   -2,
+   3,
+   9,
+   13,
+   16,
+   16,
+   10,
+   5,
+   -2,
+   -6
+  ]
+ },
+ "Drumheller|||AB": {
+  "region": "AB",
+  "degDay": 5050,
+  "dhdbt": -32,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -13,
+   -8,
+   -3,
+   6,
+   11,
+   16,
+   19,
+   18,
+   13,
+   5,
+   -3,
+   -9
+  ]
+ },
+ "Edmonton|||AB": {
+  "region": "AB",
+  "degDay": 5120,
+  "dhdbt": -30,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -11,
+   -8,
+   -3,
+   5,
+   11,
+   15,
+   18,
+   17,
+   11,
+   5,
+   -4,
+   -9
+  ]
+ },
+ "Edson|||AB": {
+  "region": "AB",
+  "degDay": 5750,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -11,
+   -8,
+   -4,
+   3,
+   8,
+   13,
+   15,
+   14,
+   9,
+   3,
+   -6,
+   -10
+  ]
+ },
+ "Embarras Portage|||AB": {
+  "region": "AB",
+  "degDay": 7100,
+  "dhdbt": -41,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -22,
+   -17,
+   -9,
+   1,
+   9,
+   14,
+   17,
+   15,
+   9,
+   1,
+   -10,
+   -19
+  ]
+ },
+ "Fairview|||AB": {
+  "region": "AB",
+  "degDay": 5840,
+  "dhdbt": -37,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -14,
+   -11,
+   -5,
+   4,
+   11,
+   14,
+   16,
+   15,
+   10,
+   4,
+   -7,
+   -12
+  ]
+ },
+ "Fort MacLeod|||AB": {
+  "region": "AB",
+  "degDay": 4600,
+  "dhdbt": -30,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -4,
+   0,
+   6,
+   11,
+   15,
+   18,
+   17,
+   12,
+   7,
+   -1,
+   -6
+  ]
+ },
+ "Fort McMurray|||AB": {
+  "region": "AB",
+  "degDay": 6250,
+  "dhdbt": -38,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -18,
+   -13,
+   -6,
+   3,
+   10,
+   15,
+   17,
+   15,
+   10,
+   2,
+   -9,
+   -15
+  ]
+ },
+ "Fort Saskatchewan|||AB": {
+  "region": "AB",
+  "degDay": 5420,
+  "dhdbt": -32,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -4,
+   5,
+   11,
+   15,
+   17,
+   16,
+   11,
+   5,
+   -6,
+   -12
+  ]
+ },
+ "Fort Vermilion|||AB": {
+  "region": "AB",
+  "degDay": 6700,
+  "dhdbt": -41,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -22,
+   -17,
+   -10,
+   2,
+   11,
+   15,
+   17,
+   15,
+   9,
+   2,
+   -10,
+   -20
+  ]
+ },
+ "Grande Prairie|||AB": {
+  "region": "AB",
+  "degDay": 5790,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -14,
+   -11,
+   -5,
+   4,
+   10,
+   14,
+   16,
+   15,
+   10,
+   4,
+   -7,
+   -11
+  ]
+ },
+ "Habay|||AB": {
+  "region": "AB",
+  "degDay": 6750,
+  "dhdbt": -41,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -26,
+   -20,
+   -14,
+   2,
+   11,
+   14,
+   15,
+   14,
+   7,
+   2,
+   -13,
+   -18
+  ]
+ },
+ "Hardisty|||AB": {
+  "region": "AB",
+  "degDay": 5640,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -17,
+   -12,
+   -7,
+   3,
+   11,
+   15,
+   16,
+   17,
+   9,
+   5,
+   -6,
+   -13
+  ]
+ },
+ "High River|||AB": {
+  "region": "AB",
+  "degDay": 4900,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -8,
+   -6,
+   -2,
+   4,
+   9,
+   13,
+   15,
+   15,
+   10,
+   5,
+   -2,
+   -7
+  ]
+ },
+ "Hinton|||AB": {
+  "region": "AB",
+  "degDay": 5500,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -12,
+   -8,
+   -4,
+   3,
+   8,
+   11,
+   14,
+   13,
+   9,
+   4,
+   -6,
+   -8
+  ]
+ },
+ "Jasper|||AB": {
+  "region": "AB",
+  "degDay": 5300,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -8,
+   -5,
+   -1,
+   4,
+   9,
+   13,
+   15,
+   14,
+   10,
+   4,
+   -4,
+   -9
+  ]
+ },
+ "Keg River|||AB": {
+  "region": "AB",
+  "degDay": 6520,
+  "dhdbt": -40,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -19,
+   -14,
+   -7,
+   3,
+   9,
+   14,
+   15,
+   14,
+   9,
+   1,
+   -12,
+   -16
+  ]
+ },
+ "Lac la Biche|||AB": {
+  "region": "AB",
+  "degDay": 6100,
+  "dhdbt": -35,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -16,
+   -11,
+   -6,
+   3,
+   10,
+   14,
+   17,
+   16,
+   11,
+   4,
+   -6,
+   -13
+  ]
+ },
+ "Lacombe|||AB": {
+  "region": "AB",
+  "degDay": 5500,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -13,
+   -9,
+   -5,
+   4,
+   9,
+   13,
+   16,
+   15,
+   10,
+   4,
+   -5,
+   -9
+  ]
+ },
+ "Lethbridge|||AB": {
+  "region": "AB",
+  "degDay": 4500,
+  "dhdbt": -30,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -6,
+   -4,
+   0,
+   6,
+   11,
+   15,
+   18,
+   18,
+   13,
+   7,
+   -1,
+   -5
+  ]
+ },
+ "Manning|||AB": {
+  "region": "AB",
+  "degDay": 6300,
+  "dhdbt": -39,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -18,
+   -13,
+   -7,
+   3,
+   10,
+   14,
+   16,
+   15,
+   10,
+   2,
+   -9,
+   -14
+  ]
+ },
+ "Medicine Hat|||AB": {
+  "region": "AB",
+  "degDay": 4540,
+  "dhdbt": -31,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -5,
+   0,
+   7,
+   12,
+   17,
+   20,
+   19,
+   13,
+   7,
+   -2,
+   -7
+  ]
+ },
+ "Peace River|||AB": {
+  "region": "AB",
+  "degDay": 6050,
+  "dhdbt": -37,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -15,
+   -12,
+   -6,
+   4,
+   10,
+   14,
+   16,
+   15,
+   10,
+   3,
+   -8,
+   -12
+  ]
+ },
+ "Pincher Creek|||AB": {
+  "region": "AB",
+  "degDay": 4740,
+  "dhdbt": -29,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -6,
+   -3,
+   -2,
+   4,
+   9,
+   13,
+   17,
+   17,
+   12,
+   6,
+   -1,
+   -4
+  ]
+ },
+ "Ranfurly|||AB": {
+  "region": "AB",
+  "degDay": 5700,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -14,
+   -12,
+   -6,
+   4,
+   11,
+   15,
+   17,
+   16,
+   10,
+   5,
+   -6,
+   -13
+  ]
+ },
+ "Red Deer|||AB": {
+  "region": "AB",
+  "degDay": 5550,
+  "dhdbt": -32,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -4,
+   4,
+   10,
+   14,
+   16,
+   15,
+   10,
+   4,
+   -5,
+   -10
+  ]
+ },
+ "Rocky Mountain House|||AB": {
+  "region": "AB",
+  "degDay": 5640,
+  "dhdbt": -32,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -5,
+   3,
+   8,
+   12,
+   15,
+   14,
+   9,
+   3,
+   -6,
+   -10
+  ]
+ },
+ "Slave Lake|||AB": {
+  "region": "AB",
+  "degDay": 5850,
+  "dhdbt": -35,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -5,
+   3,
+   9,
+   14,
+   16,
+   15,
+   10,
+   3,
+   -6,
+   -12
+  ]
+ },
+ "Stettler|||AB": {
+  "region": "AB",
+  "degDay": 5300,
+  "dhdbt": -32,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -13,
+   -9,
+   -3,
+   5,
+   10,
+   14,
+   16,
+   16,
+   11,
+   5,
+   -5,
+   -11
+  ]
+ },
+ "Stony Plain|||AB": {
+  "region": "AB",
+  "degDay": 5300,
+  "dhdbt": -32,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -12,
+   -8,
+   -3,
+   5,
+   11,
+   15,
+   16,
+   16,
+   11,
+   5,
+   -4,
+   -10
+  ]
+ },
+ "Suffield|||AB": {
+  "region": "AB",
+  "degDay": 4770,
+  "dhdbt": -31,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -7,
+   -1,
+   6,
+   12,
+   16,
+   19,
+   19,
+   13,
+   7,
+   -3,
+   -9
+  ]
+ },
+ "Taber|||AB": {
+  "region": "AB",
+  "degDay": 4580,
+  "dhdbt": -31,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -4,
+   -1,
+   6,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   -1,
+   -6
+  ]
+ },
+ "Turner Valley|||AB": {
+  "region": "AB",
+  "degDay": 5220,
+  "dhdbt": -31,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -10,
+   -7,
+   -3,
+   2,
+   7,
+   11,
+   13,
+   13,
+   9,
+   4,
+   -3,
+   -9
+  ]
+ },
+ "Valleyview|||AB": {
+  "region": "AB",
+  "degDay": 5600,
+  "dhdbt": -37,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -13,
+   -9,
+   -2,
+   5,
+   10,
+   14,
+   16,
+   15,
+   10,
+   5,
+   -4,
+   -11
+  ]
+ },
+ "Vegreville|||AB": {
+  "region": "AB",
+  "degDay": 5780,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -15,
+   -11,
+   -6,
+   4,
+   10,
+   14,
+   17,
+   15,
+   10,
+   3,
+   -6,
+   -11
+  ]
+ },
+ "Vermilion|||AB": {
+  "region": "AB",
+  "degDay": 5740,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -18,
+   -14,
+   -7,
+   4,
+   11,
+   15,
+   16,
+   15,
+   10,
+   4,
+   -5,
+   -14
+  ]
+ },
+ "Wagner|||AB": {
+  "region": "AB",
+  "degDay": 5850,
+  "dhdbt": -35,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -5,
+   3,
+   9,
+   14,
+   16,
+   15,
+   10,
+   3,
+   -6,
+   -12
+  ]
+ },
+ "Wainwright|||AB": {
+  "region": "AB",
+  "degDay": 5700,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -14,
+   -9,
+   -6,
+   5,
+   10,
+   15,
+   18,
+   17,
+   11,
+   4,
+   -4,
+   -11
+  ]
+ },
+ "Wetaskiwin|||AB": {
+  "region": "AB",
+  "degDay": 5500,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -15,
+   -11,
+   -6,
+   3,
+   11,
+   15,
+   16,
+   16,
+   9,
+   5,
+   -6,
+   -12
+  ]
+ },
+ "Whitecourt|||AB": {
+  "region": "AB",
+  "degDay": 5650,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -12,
+   -8,
+   -3,
+   4,
+   10,
+   14,
+   16,
+   14,
+   9,
+   4,
+   -7,
+   -11
+  ]
+ },
+ "Wimborne|||AB": {
+  "region": "AB",
+  "degDay": 5310,
+  "dhdbt": -31,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -13,
+   -9,
+   -6,
+   2,
+   10,
+   14,
+   16,
+   15,
+   10,
+   4,
+   -5,
+   -9
+  ]
+ },
+ "100 Mile House|||BC": {
+  "region": "BC",
+  "degDay": 5030,
+  "dhdbt": -30,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -4,
+   0,
+   5,
+   9,
+   13,
+   15,
+   15,
+   10,
+   5,
+   -2,
+   -8
+  ]
+ },
+ "Abbotsford|||BC": {
+  "region": "BC",
+  "degDay": 2860,
+  "dhdbt": -8,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   4,
+   5,
+   7,
+   10,
+   13,
+   16,
+   18,
+   18,
+   15,
+   11,
+   6,
+   3
+  ]
+ },
+ "Agassiz|||BC": {
+  "region": "BC",
+  "degDay": 2750,
+  "dhdbt": -9,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   3,
+   5,
+   7,
+   11,
+   14,
+   16,
+   19,
+   19,
+   16,
+   11,
+   6,
+   4
+  ]
+ },
+ "Alberni|||BC": {
+  "region": "BC",
+  "degDay": 3100,
+  "dhdbt": -5,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   2,
+   3,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   10,
+   5,
+   2
+  ]
+ },
+ "Ashcroft|||BC": {
+  "region": "BC",
+  "degDay": 3700,
+  "dhdbt": -24,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -2,
+   4,
+   10,
+   14,
+   18,
+   21,
+   20,
+   16,
+   9,
+   0,
+   -3
+  ]
+ },
+ "Bamfield|||BC": {
+  "region": "BC",
+  "degDay": 3080,
+  "dhdbt": -2,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   5,
+   6,
+   6,
+   8,
+   11,
+   13,
+   14,
+   15,
+   14,
+   10,
+   7,
+   5
+  ]
+ },
+ "Beatton River|||BC": {
+  "region": "BC",
+  "degDay": 6300,
+  "dhdbt": -37,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -15,
+   -10,
+   -8,
+   1,
+   7,
+   12,
+   14,
+   12,
+   7,
+   1,
+   -8,
+   -12
+  ]
+ },
+ "Bella Bella|||BC": {
+  "region": "BC",
+  "degDay": 3180,
+  "dhdbt": -5,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   3,
+   4,
+   4,
+   6,
+   10,
+   12,
+   14,
+   15,
+   13,
+   9,
+   5,
+   1
+  ]
+ },
+ "Bella Coola|||BC": {
+  "region": "BC",
+  "degDay": 3560,
+  "dhdbt": -14,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -1,
+   1,
+   5,
+   8,
+   12,
+   14,
+   17,
+   17,
+   13,
+   8,
+   3,
+   -1
+  ]
+ },
+ "Burnaby (Simon Fraser Univ.)|||BC": {
+  "region": "BC",
+  "degDay": 3100,
+  "dhdbt": -7,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   3,
+   4,
+   6,
+   9,
+   12,
+   14,
+   17,
+   17,
+   15,
+   10,
+   5,
+   3
+  ]
+ },
+ "Burns Lake|||BC": {
+  "region": "BC",
+  "degDay": 5450,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -11,
+   -7,
+   -3,
+   3,
+   8,
+   12,
+   13,
+   12,
+   8,
+   3,
+   -4,
+   -9
+  ]
+ },
+ "Cache Creek|||BC": {
+  "region": "BC",
+  "degDay": 3700,
+  "dhdbt": -24,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -1,
+   4,
+   9,
+   13,
+   17,
+   20,
+   19,
+   15,
+   8,
+   0,
+   -4
+  ]
+ },
+ "Campbell River|||BC": {
+  "region": "BC",
+  "degDay": 3000,
+  "dhdbt": -5,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   4,
+   5,
+   6,
+   9,
+   12,
+   15,
+   17,
+   17,
+   14,
+   10,
+   6,
+   4
+  ]
+ },
+ "Carmi|||BC": {
+  "region": "BC",
+  "degDay": 4750,
+  "dhdbt": -24,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -3,
+   1,
+   6,
+   10,
+   13,
+   16,
+   15,
+   11,
+   5,
+   -2,
+   -7
+  ]
+ },
+ "Castlegar|||BC": {
+  "region": "BC",
+  "degDay": 3580,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -3,
+   0,
+   4,
+   9,
+   13,
+   17,
+   20,
+   20,
+   14,
+   8,
+   2,
+   -2
+  ]
+ },
+ "Chetwynd|||BC": {
+  "region": "BC",
+  "degDay": 5500,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -11,
+   -8,
+   -2,
+   5,
+   10,
+   13,
+   15,
+   15,
+   10,
+   4,
+   -6,
+   -9
+  ]
+ },
+ "Chilliwack|||BC": {
+  "region": "BC",
+  "degDay": 2780,
+  "dhdbt": -9,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   5,
+   7,
+   10,
+   13,
+   16,
+   18,
+   18,
+   16,
+   11,
+   6,
+   3
+  ]
+ },
+ "Cloverdale|||BC": {
+  "region": "BC",
+  "degDay": 2700,
+  "dhdbt": -8,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   4,
+   5,
+   8,
+   11,
+   14,
+   16,
+   18,
+   19,
+   16,
+   11,
+   6,
+   3
+  ]
+ },
+ "Comox|||BC": {
+  "region": "BC",
+  "degDay": 3100,
+  "dhdbt": -7,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   4,
+   4,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   14,
+   10,
+   6,
+   4
+  ]
+ },
+ "Courtenay|||BC": {
+  "region": "BC",
+  "degDay": 3100,
+  "dhdbt": -7,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   4,
+   4,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   14,
+   10,
+   6,
+   4
+  ]
+ },
+ "Cranbrook|||BC": {
+  "region": "BC",
+  "degDay": 4400,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -3,
+   2,
+   7,
+   11,
+   15,
+   19,
+   18,
+   13,
+   6,
+   -1,
+   -7
+  ]
+ },
+ "Crescent Valley|||BC": {
+  "region": "BC",
+  "degDay": 3650,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -1,
+   4,
+   8,
+   13,
+   16,
+   19,
+   19,
+   14,
+   8,
+   1,
+   -3
+  ]
+ },
+ "Crofton|||BC": {
+  "region": "BC",
+  "degDay": 2880,
+  "dhdbt": -4,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   4,
+   5,
+   8,
+   12,
+   14,
+   18,
+   18,
+   15,
+   10,
+   6,
+   4
+  ]
+ },
+ "Dawson Creek|||BC": {
+  "region": "BC",
+  "degDay": 5900,
+  "dhdbt": -38,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -15,
+   -11,
+   -5,
+   4,
+   9,
+   13,
+   15,
+   14,
+   10,
+   4,
+   -7,
+   -12
+  ]
+ },
+ "Dease Lake|||BC": {
+  "region": "BC",
+  "degDay": 6730,
+  "dhdbt": -37,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -14,
+   -12,
+   -5,
+   1,
+   7,
+   11,
+   13,
+   11,
+   7,
+   0,
+   -10,
+   -14
+  ]
+ },
+ "Dog Creek|||BC": {
+  "region": "BC",
+  "degDay": 4800,
+  "dhdbt": -28,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -9,
+   -4,
+   0,
+   7,
+   10,
+   14,
+   17,
+   16,
+   14,
+   6,
+   -3,
+   -5
+  ]
+ },
+ "Duncan|||BC": {
+  "region": "BC",
+  "degDay": 2980,
+  "dhdbt": -6,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   3,
+   4,
+   6,
+   8,
+   12,
+   15,
+   17,
+   17,
+   14,
+   9,
+   5,
+   3
+  ]
+ },
+ "Elko|||BC": {
+  "region": "BC",
+  "degDay": 4600,
+  "dhdbt": -28,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -3,
+   1,
+   6,
+   11,
+   15,
+   18,
+   18,
+   13,
+   6,
+   -1,
+   -6
+  ]
+ },
+ "Fernie|||BC": {
+  "region": "BC",
+  "degDay": 4750,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -4,
+   0,
+   5,
+   10,
+   13,
+   16,
+   16,
+   11,
+   5,
+   -1,
+   -6
+  ]
+ },
+ "Fort Nelson|||BC": {
+  "region": "BC",
+  "degDay": 6710,
+  "dhdbt": -39,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -21,
+   -15,
+   -8,
+   3,
+   10,
+   15,
+   17,
+   15,
+   9,
+   0,
+   -13,
+   -18
+  ]
+ },
+ "Fort St. John|||BC": {
+  "region": "BC",
+  "degDay": 5750,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -13,
+   -9,
+   -5,
+   4,
+   10,
+   14,
+   16,
+   15,
+   10,
+   3,
+   -7,
+   -10
+  ]
+ },
+ "Glacier|||BC": {
+  "region": "BC",
+  "degDay": 5800,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -7,
+   -2,
+   2,
+   6,
+   10,
+   13,
+   13,
+   8,
+   2,
+   -5,
+   -9
+  ]
+ },
+ "Gold River|||BC": {
+  "region": "BC",
+  "degDay": 3230,
+  "dhdbt": -8,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   1,
+   3,
+   5,
+   8,
+   12,
+   15,
+   18,
+   18,
+   15,
+   9,
+   4,
+   2
+  ]
+ },
+ "Golden|||BC": {
+  "region": "BC",
+  "degDay": 4750,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -5,
+   0,
+   6,
+   11,
+   15,
+   17,
+   17,
+   11,
+   5,
+   -2,
+   -8
+  ]
+ },
+ "Grand Forks|||BC": {
+  "region": "BC",
+  "degDay": 3820,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -1,
+   4,
+   9,
+   13,
+   16,
+   20,
+   19,
+   14,
+   7,
+   1,
+   -4
+  ]
+ },
+ "Greenwood|||BC": {
+  "region": "BC",
+  "degDay": 4100,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -8,
+   -3,
+   1,
+   6,
+   10,
+   14,
+   18,
+   17,
+   11,
+   6,
+   0,
+   -5
+  ]
+ },
+ "Haney|||BC": {
+  "region": "BC",
+  "degDay": 2840,
+  "dhdbt": -9,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   4,
+   7,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   10,
+   5,
+   3
+  ]
+ },
+ "Hope|||BC": {
+  "region": "BC",
+  "degDay": 3000,
+  "dhdbt": -13,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   4,
+   7,
+   10,
+   13,
+   16,
+   19,
+   19,
+   16,
+   10,
+   5,
+   2
+  ]
+ },
+ "Jordan River|||BC": {
+  "region": "BC",
+  "degDay": 2900,
+  "dhdbt": -1,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   6,
+   7,
+   8,
+   10,
+   12,
+   13,
+   15,
+   15,
+   14,
+   11,
+   8,
+   6
+  ]
+ },
+ "Kamloops|||BC": {
+  "region": "BC",
+  "degDay": 3450,
+  "dhdbt": -23,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -3,
+   0,
+   5,
+   10,
+   15,
+   18,
+   21,
+   21,
+   15,
+   8,
+   2,
+   -2
+  ]
+ },
+ "Kaslo|||BC": {
+  "region": "BC",
+  "degDay": 3830,
+  "dhdbt": -17,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -3,
+   -1,
+   3,
+   7,
+   12,
+   15,
+   18,
+   18,
+   13,
+   7,
+   2,
+   -2
+  ]
+ },
+ "Kelowna|||BC": {
+  "region": "BC",
+  "degDay": 3400,
+  "dhdbt": -17,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -3,
+   -1,
+   4,
+   8,
+   13,
+   17,
+   19,
+   19,
+   14,
+   7,
+   1,
+   -3
+  ]
+ },
+ "Kimberley|||BC": {
+  "region": "BC",
+  "degDay": 4650,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -4,
+   1,
+   6,
+   11,
+   14,
+   18,
+   17,
+   13,
+   6,
+   -2,
+   -7
+  ]
+ },
+ "Kitimat Plant|||BC": {
+  "region": "BC",
+  "degDay": 3750,
+  "dhdbt": -16,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -2,
+   0,
+   4,
+   7,
+   11,
+   14,
+   17,
+   17,
+   13,
+   8,
+   2,
+   -1
+  ]
+ },
+ "Kitimat Townsite|||BC": {
+  "region": "BC",
+  "degDay": 3900,
+  "dhdbt": -16,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -3,
+   -1,
+   3,
+   6,
+   10,
+   14,
+   16,
+   16,
+   12,
+   7,
+   2,
+   -1
+  ]
+ },
+ "Ladner|||BC": {
+  "region": "BC",
+  "degDay": 2600,
+  "dhdbt": -6,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   4,
+   5,
+   7,
+   10,
+   13,
+   16,
+   18,
+   18,
+   15,
+   10,
+   6,
+   4
+  ]
+ },
+ "Ladysmith|||BC": {
+  "region": "BC",
+  "degDay": 3000,
+  "dhdbt": -7,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   3,
+   4,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   10,
+   5,
+   3
+  ]
+ },
+ "Langford|||BC": {
+  "region": "BC",
+  "degDay": 2750,
+  "dhdbt": -4,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   6,
+   6,
+   8,
+   10,
+   12,
+   15,
+   16,
+   16,
+   15,
+   11,
+   8,
+   6
+  ]
+ },
+ "Langley|||BC": {
+  "region": "BC",
+  "degDay": 2700,
+  "dhdbt": -8,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   4,
+   5,
+   8,
+   11,
+   14,
+   16,
+   18,
+   19,
+   16,
+   11,
+   6,
+   3
+  ]
+ },
+ "Lillooet|||BC": {
+  "region": "BC",
+  "degDay": 3400,
+  "dhdbt": -21,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -2,
+   1,
+   5,
+   10,
+   15,
+   19,
+   23,
+   22,
+   17,
+   10,
+   3,
+   -1
+  ]
+ },
+ "Lytton|||BC": {
+  "region": "BC",
+  "degDay": 3300,
+  "dhdbt": -17,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -1,
+   2,
+   6,
+   10,
+   15,
+   18,
+   22,
+   22,
+   17,
+   10,
+   3,
+   -2
+  ]
+ },
+ "Mackenzie|||BC": {
+  "region": "BC",
+  "degDay": 5550,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -11,
+   -7,
+   -4,
+   3,
+   9,
+   14,
+   15,
+   14,
+   10,
+   3,
+   -4,
+   -8
+  ]
+ },
+ "Masset|||BC": {
+  "region": "BC",
+  "degDay": 3700,
+  "dhdbt": -5,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   1,
+   3,
+   4,
+   6,
+   8,
+   10,
+   13,
+   13,
+   12,
+   9,
+   5,
+   3
+  ]
+ },
+ "McBride|||BC": {
+  "region": "BC",
+  "degDay": 4980,
+  "dhdbt": -29,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -4,
+   0,
+   5,
+   9,
+   13,
+   15,
+   15,
+   10,
+   5,
+   -2,
+   -6
+  ]
+ },
+ "McLeod Lake|||BC": {
+  "region": "BC",
+  "degDay": 5450,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -11,
+   -7,
+   -4,
+   3,
+   9,
+   14,
+   15,
+   14,
+   10,
+   3,
+   -4,
+   -8
+  ]
+ },
+ "Merritt|||BC": {
+  "region": "BC",
+  "degDay": 3900,
+  "dhdbt": -24,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -4,
+   -1,
+   4,
+   8,
+   12,
+   15,
+   18,
+   18,
+   14,
+   8,
+   1,
+   -4
+  ]
+ },
+ "Mission City|||BC": {
+  "region": "BC",
+  "degDay": 2850,
+  "dhdbt": -9,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   5,
+   7,
+   10,
+   13,
+   15,
+   18,
+   18,
+   16,
+   11,
+   6,
+   3
+  ]
+ },
+ "Montrose|||BC": {
+  "region": "BC",
+  "degDay": 3600,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -1,
+   3,
+   8,
+   13,
+   17,
+   20,
+   20,
+   14,
+   7,
+   2,
+   -3
+  ]
+ },
+ "Nakusp|||BC": {
+  "region": "BC",
+  "degDay": 3560,
+  "dhdbt": -20,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -2,
+   0,
+   3,
+   8,
+   12,
+   16,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -1
+  ]
+ },
+ "Nanaimo|||BC": {
+  "region": "BC",
+  "degDay": 3000,
+  "dhdbt": -6,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   4,
+   5,
+   8,
+   12,
+   14,
+   18,
+   18,
+   15,
+   10,
+   6,
+   4
+  ]
+ },
+ "Nelson|||BC": {
+  "region": "BC",
+  "degDay": 3500,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -1,
+   1,
+   4,
+   8,
+   12,
+   16,
+   20,
+   20,
+   15,
+   8,
+   3,
+   -1
+  ]
+ },
+ "New Westminster|||BC": {
+  "region": "BC",
+  "degDay": 2800,
+  "dhdbt": -8,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   5,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   11,
+   6,
+   4
+  ]
+ },
+ "North Vancouver|||BC": {
+  "region": "BC",
+  "degDay": 2910,
+  "dhdbt": -7,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   4,
+   5,
+   7,
+   10,
+   13,
+   15,
+   18,
+   18,
+   15,
+   10,
+   6,
+   3
+  ]
+ },
+ "Ocean Falls|||BC": {
+  "region": "BC",
+  "degDay": 3400,
+  "dhdbt": -10,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   1,
+   2,
+   4,
+   6,
+   10,
+   13,
+   15,
+   16,
+   14,
+   9,
+   4,
+   2
+  ]
+ },
+ "Osoyoos|||BC": {
+  "region": "BC",
+  "degDay": 3100,
+  "dhdbt": -14,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   -1,
+   2,
+   6,
+   11,
+   15,
+   19,
+   23,
+   22,
+   17,
+   10,
+   3,
+   -1
+  ]
+ },
+ "Parksville|||BC": {
+  "region": "BC",
+  "degDay": 3200,
+  "dhdbt": -6,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   4,
+   5,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   14,
+   10,
+   6,
+   3
+  ]
+ },
+ "Penticton|||BC": {
+  "region": "BC",
+  "degDay": 3350,
+  "dhdbt": -15,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -1,
+   1,
+   5,
+   9,
+   14,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -1
+  ]
+ },
+ "Port Alberni|||BC": {
+  "region": "BC",
+  "degDay": 3100,
+  "dhdbt": -5,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   2,
+   3,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   10,
+   5,
+   2
+  ]
+ },
+ "Port Alice|||BC": {
+  "region": "BC",
+  "degDay": 3010,
+  "dhdbt": -3,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   4,
+   5,
+   6,
+   8,
+   11,
+   13,
+   16,
+   16,
+   14,
+   10,
+   6,
+   4
+  ]
+ },
+ "Port Hardy|||BC": {
+  "region": "BC",
+  "degDay": 3440,
+  "dhdbt": -5,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   4,
+   4,
+   6,
+   7,
+   10,
+   12,
+   14,
+   14,
+   12,
+   9,
+   6,
+   4
+  ]
+ },
+ "Port McNeill|||BC": {
+  "region": "BC",
+  "degDay": 3410,
+  "dhdbt": -5,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   4,
+   4,
+   5,
+   8,
+   10,
+   12,
+   14,
+   14,
+   13,
+   10,
+   6,
+   4
+  ]
+ },
+ "Port Renfrew|||BC": {
+  "region": "BC",
+  "degDay": 2900,
+  "dhdbt": -3,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   3,
+   5,
+   6,
+   8,
+   11,
+   13,
+   15,
+   15,
+   13,
+   10,
+   6,
+   4
+  ]
+ },
+ "Powell River|||BC": {
+  "region": "BC",
+  "degDay": 3100,
+  "dhdbt": -7,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   4,
+   5,
+   7,
+   9,
+   13,
+   16,
+   18,
+   18,
+   16,
+   11,
+   7,
+   4
+  ]
+ },
+ "Prince George|||BC": {
+  "region": "BC",
+  "degDay": 4720,
+  "dhdbt": -32,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -8,
+   -5,
+   0,
+   5,
+   10,
+   14,
+   16,
+   15,
+   10,
+   4,
+   -3,
+   -7
+  ]
+ },
+ "Prince Rupert|||BC": {
+  "region": "BC",
+  "degDay": 3900,
+  "dhdbt": -13,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   2,
+   3,
+   4,
+   6,
+   9,
+   12,
+   13,
+   14,
+   12,
+   8,
+   4,
+   3
+  ]
+ },
+ "Princeton|||BC": {
+  "region": "BC",
+  "degDay": 4250,
+  "dhdbt": -24,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -3,
+   2,
+   7,
+   11,
+   15,
+   19,
+   18,
+   14,
+   6,
+   -1,
+   -5
+  ]
+ },
+ "Qualicum Beach|||BC": {
+  "region": "BC",
+  "degDay": 3200,
+  "dhdbt": -7,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   3,
+   4,
+   6,
+   8,
+   12,
+   15,
+   17,
+   17,
+   13,
+   9,
+   5,
+   3
+  ]
+ },
+ "Queen Charlotte City|||BC": {
+  "region": "BC",
+  "degDay": 3520,
+  "dhdbt": -6,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   4,
+   4,
+   5,
+   7,
+   9,
+   12,
+   14,
+   15,
+   13,
+   9,
+   6,
+   4
+  ]
+ },
+ "Quesnel|||BC": {
+  "region": "BC",
+  "degDay": 4650,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -7,
+   -4,
+   1,
+   6,
+   11,
+   15,
+   17,
+   16,
+   11,
+   6,
+   -2,
+   -6
+  ]
+ },
+ "Revelstoke|||BC": {
+  "region": "BC",
+  "degDay": 4000,
+  "dhdbt": -20,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -4,
+   -2,
+   2,
+   8,
+   13,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -3
+  ]
+ },
+ "Richmond|||BC": {
+  "region": "BC",
+  "degDay": 2800,
+  "dhdbt": -7,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   4,
+   5,
+   7,
+   10,
+   13,
+   16,
+   18,
+   18,
+   15,
+   10,
+   6,
+   4
+  ]
+ },
+ "Salmon Arm|||BC": {
+  "region": "BC",
+  "degDay": 3650,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -2,
+   0,
+   4,
+   9,
+   13,
+   17,
+   21,
+   20,
+   14,
+   8,
+   2,
+   -2
+  ]
+ },
+ "Sandspit|||BC": {
+  "region": "BC",
+  "degDay": 3450,
+  "dhdbt": -4,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   4,
+   4,
+   5,
+   7,
+   9,
+   12,
+   14,
+   15,
+   13,
+   9,
+   6,
+   4
+  ]
+ },
+ "Sechelt|||BC": {
+  "region": "BC",
+  "degDay": 2680,
+  "dhdbt": -6,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   4,
+   5,
+   6,
+   9,
+   12,
+   14,
+   17,
+   17,
+   14,
+   10,
+   6,
+   5
+  ]
+ },
+ "Sidney|||BC": {
+  "region": "BC",
+  "degDay": 2850,
+  "dhdbt": -4,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   5,
+   5,
+   7,
+   9,
+   12,
+   15,
+   17,
+   17,
+   14,
+   10,
+   6,
+   4
+  ]
+ },
+ "Smith River|||BC": {
+  "region": "BC",
+  "degDay": 7100,
+  "dhdbt": -45,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -25,
+   -16,
+   -10,
+   0,
+   7,
+   13,
+   14,
+   13,
+   7,
+   -1,
+   -13,
+   -21
+  ]
+ },
+ "Smithers|||BC": {
+  "region": "BC",
+  "degDay": 5040,
+  "dhdbt": -29,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -8,
+   -4,
+   0,
+   5,
+   9,
+   13,
+   15,
+   14,
+   10,
+   4,
+   -2,
+   -7
+  ]
+ },
+ "Sooke|||BC": {
+  "region": "BC",
+  "degDay": 2900,
+  "dhdbt": -1,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   5,
+   5,
+   7,
+   8,
+   10,
+   12,
+   14,
+   14,
+   13,
+   9,
+   6,
+   4
+  ]
+ },
+ "Squamish|||BC": {
+  "region": "BC",
+  "degDay": 2950,
+  "dhdbt": -9,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   4,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   9,
+   4,
+   2
+  ]
+ },
+ "Stewart|||BC": {
+  "region": "BC",
+  "degDay": 4350,
+  "dhdbt": -17,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -4,
+   -1,
+   2,
+   6,
+   10,
+   14,
+   15,
+   14,
+   11,
+   6,
+   1,
+   -3
+  ]
+ },
+ "Surrey (88 Ave & 156 St.)|||BC": {
+  "region": "BC",
+  "degDay": 2750,
+  "dhdbt": -8,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   4,
+   5,
+   8,
+   11,
+   14,
+   16,
+   18,
+   19,
+   16,
+   11,
+   6,
+   3
+  ]
+ },
+ "Tahsis|||BC": {
+  "region": "BC",
+  "degDay": 3150,
+  "dhdbt": -4,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   2,
+   4,
+   6,
+   8,
+   12,
+   15,
+   18,
+   19,
+   15,
+   10,
+   5,
+   2
+  ]
+ },
+ "Taylor|||BC": {
+  "region": "BC",
+  "degDay": 5720,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -13,
+   -9,
+   -5,
+   4,
+   10,
+   14,
+   16,
+   15,
+   10,
+   3,
+   -7,
+   -10
+  ]
+ },
+ "Terrace|||BC": {
+  "region": "BC",
+  "degDay": 4150,
+  "dhdbt": -19,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -3,
+   -1,
+   2,
+   6,
+   10,
+   14,
+   16,
+   16,
+   12,
+   6,
+   1,
+   -2
+  ]
+ },
+ "Tofino|||BC": {
+  "region": "BC",
+  "degDay": 3150,
+  "dhdbt": -2,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   5,
+   5,
+   6,
+   8,
+   10,
+   12,
+   14,
+   15,
+   13,
+   10,
+   7,
+   5
+  ]
+ },
+ "Trail|||BC": {
+  "region": "BC",
+  "degDay": 3600,
+  "dhdbt": -14,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -3,
+   0,
+   4,
+   9,
+   13,
+   17,
+   20,
+   20,
+   15,
+   8,
+   2,
+   -2
+  ]
+ },
+ "Ucluelet|||BC": {
+  "region": "BC",
+  "degDay": 3120,
+  "dhdbt": -2,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   6,
+   6,
+   7,
+   9,
+   11,
+   13,
+   14,
+   15,
+   14,
+   11,
+   8,
+   6
+  ]
+ },
+ "Vancouver (city hall)|||BC": {
+  "region": "BC",
+  "degDay": 2825,
+  "dhdbt": -7,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   3,
+   5,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   10,
+   6,
+   4
+  ]
+ },
+ "Vancouver (Granville & 41 Ave)|||BC": {
+  "region": "BC",
+  "degDay": 2925,
+  "dhdbt": -6,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   3,
+   5,
+   6,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   10,
+   6,
+   4
+  ]
+ },
+ "Vernon|||BC": {
+  "region": "BC",
+  "degDay": 3600,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -3,
+   0,
+   4,
+   9,
+   13,
+   17,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -2
+  ]
+ },
+ "Victoria|||BC": {
+  "region": "BC",
+  "degDay": 2650,
+  "dhdbt": -4,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   6,
+   6,
+   8,
+   10,
+   12,
+   15,
+   16,
+   16,
+   15,
+   11,
+   8,
+   6
+  ]
+ },
+ "Victoria Gonzales Height|||BC": {
+  "region": "BC",
+  "degDay": 2700,
+  "dhdbt": -4,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   6,
+   6,
+   8,
+   10,
+   12,
+   15,
+   16,
+   16,
+   15,
+   11,
+   8,
+   6
+  ]
+ },
+ "Victoria Mt Tolmie|||BC": {
+  "region": "BC",
+  "degDay": 2700,
+  "dhdbt": -6,
+  "dgtemp": 13,
+  "monthlyTemps": [
+   6,
+   6,
+   8,
+   10,
+   13,
+   16,
+   19,
+   18,
+   16,
+   11,
+   7,
+   5
+  ]
+ },
+ "West Vancouver|||BC": {
+  "region": "BC",
+  "degDay": 2950,
+  "dhdbt": -7,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   4,
+   5,
+   7,
+   9,
+   12,
+   15,
+   18,
+   18,
+   15,
+   10,
+   6,
+   4
+  ]
+ },
+ "Whistler|||BC": {
+  "region": "BC",
+  "degDay": 4180,
+  "dhdbt": -17,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -3,
+   -1,
+   2,
+   6,
+   10,
+   13,
+   16,
+   16,
+   12,
+   7,
+   1,
+   -3
+  ]
+ },
+ "White Rock|||BC": {
+  "region": "BC",
+  "degDay": 2620,
+  "dhdbt": -5,
+  "dgtemp": 12,
+  "monthlyTemps": [
+   5,
+   6,
+   8,
+   10,
+   13,
+   16,
+   18,
+   18,
+   15,
+   11,
+   7,
+   5
+  ]
+ },
+ "Williams Lake|||BC": {
+  "region": "BC",
+  "degDay": 4400,
+  "dhdbt": -30,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -7,
+   -4,
+   0,
+   5,
+   10,
+   13,
+   16,
+   15,
+   11,
+   5,
+   -3,
+   -7
+  ]
+ },
+ "Youbou|||BC": {
+  "region": "BC",
+  "degDay": 3050,
+  "dhdbt": -5,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   3,
+   4,
+   6,
+   8,
+   12,
+   15,
+   17,
+   18,
+   15,
+   10,
+   5,
+   3
+  ]
+ },
+ "Beausejour|||MB": {
+  "region": "MB",
+  "degDay": 5680,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -18,
+   -14,
+   -6,
+   4,
+   12,
+   17,
+   19,
+   18,
+   12,
+   5,
+   -5,
+   -15
+  ]
+ },
+ "Boissevain|||MB": {
+  "region": "MB",
+  "degDay": 5500,
+  "dhdbt": -32,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -5,
+   4,
+   12,
+   17,
+   19,
+   18,
+   13,
+   6,
+   -4,
+   -13
+  ]
+ },
+ "Brandon|||MB": {
+  "region": "MB",
+  "degDay": 5760,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -6,
+   4,
+   11,
+   16,
+   18,
+   18,
+   12,
+   4,
+   -6,
+   -14
+  ]
+ },
+ "Churchill|||MB": {
+  "region": "MB",
+  "degDay": 8950,
+  "dhdbt": -38,
+  "dgtemp": -1,
+  "monthlyTemps": [
+   -27,
+   -25,
+   -19,
+   -10,
+   -1,
+   7,
+   12,
+   12,
+   6,
+   -1,
+   -13,
+   -22
+  ]
+ },
+ "Dauphin|||MB": {
+  "region": "MB",
+  "degDay": 5900,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -6,
+   4,
+   11,
+   16,
+   19,
+   18,
+   12,
+   5,
+   -6,
+   -13
+  ]
+ },
+ "Flin Flon|||MB": {
+  "region": "MB",
+  "degDay": 6440,
+  "dhdbt": -38,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -20,
+   -15,
+   -8,
+   2,
+   10,
+   16,
+   19,
+   17,
+   10,
+   3,
+   -8,
+   -18
+  ]
+ },
+ "Gimli|||MB": {
+  "region": "MB",
+  "degDay": 5800,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -7,
+   3,
+   10,
+   16,
+   19,
+   18,
+   12,
+   5,
+   -5,
+   -14
+  ]
+ },
+ "Island Lake|||MB": {
+  "region": "MB",
+  "degDay": 6900,
+  "dhdbt": -36,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -22,
+   -19,
+   -11,
+   -1,
+   8,
+   14,
+   18,
+   17,
+   10,
+   2,
+   -8,
+   -17
+  ]
+ },
+ "Lac du Bonnet|||MB": {
+  "region": "MB",
+  "degDay": 5730,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -6,
+   3,
+   10,
+   16,
+   19,
+   18,
+   13,
+   5,
+   -4,
+   -11
+  ]
+ },
+ "Lynn Lake|||MB": {
+  "region": "MB",
+  "degDay": 7770,
+  "dhdbt": -40,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -24,
+   -20,
+   -13,
+   -3,
+   6,
+   13,
+   16,
+   15,
+   8,
+   -1,
+   -13,
+   -21
+  ]
+ },
+ "Morden|||MB": {
+  "region": "MB",
+  "degDay": 5400,
+  "dhdbt": -31,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -5,
+   5,
+   13,
+   18,
+   20,
+   19,
+   13,
+   6,
+   -4,
+   -12
+  ]
+ },
+ "Neepawa|||MB": {
+  "region": "MB",
+  "degDay": 5760,
+  "dhdbt": -32,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -6,
+   3,
+   12,
+   17,
+   19,
+   18,
+   12,
+   5,
+   -5,
+   -14
+  ]
+ },
+ "Pine Falls|||MB": {
+  "region": "MB",
+  "degDay": 5900,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -7,
+   4,
+   12,
+   16,
+   19,
+   18,
+   12,
+   5,
+   -5,
+   -16
+  ]
+ },
+ "Portage la Prairie|||MB": {
+  "region": "MB",
+  "degDay": 5600,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -12,
+   -5,
+   5,
+   12,
+   17,
+   20,
+   19,
+   12,
+   5,
+   -6,
+   -13
+  ]
+ },
+ "Rivers|||MB": {
+  "region": "MB",
+  "degDay": 5840,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -14,
+   -14,
+   -5,
+   5,
+   13,
+   17,
+   19,
+   17,
+   12,
+   4,
+   -6,
+   -14
+  ]
+ },
+ "Sandilands|||MB": {
+  "region": "MB",
+  "degDay": 5650,
+  "dhdbt": -32,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -12,
+   -5,
+   4,
+   12,
+   17,
+   19,
+   18,
+   12,
+   5,
+   -6,
+   -13
+  ]
+ },
+ "Selkirk|||MB": {
+  "region": "MB",
+  "degDay": 5700,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -6,
+   4,
+   12,
+   17,
+   20,
+   19,
+   13,
+   6,
+   -5,
+   -14
+  ]
+ },
+ "Split Lake|||MB": {
+  "region": "MB",
+  "degDay": 7900,
+  "dhdbt": -38,
+  "dgtemp": 1,
+  "monthlyTemps": [
+   -24,
+   -21,
+   -13,
+   -3,
+   6,
+   13,
+   16,
+   15,
+   8,
+   0,
+   -13,
+   -22
+  ]
+ },
+ "Steinbach|||MB": {
+  "region": "MB",
+  "degDay": 5700,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -6,
+   4,
+   12,
+   17,
+   19,
+   18,
+   12,
+   5,
+   -5,
+   -14
+  ]
+ },
+ "Swan River|||MB": {
+  "region": "MB",
+  "degDay": 6100,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -8,
+   3,
+   10,
+   15,
+   18,
+   17,
+   12,
+   4,
+   -6,
+   -13
+  ]
+ },
+ "The Pas|||MB": {
+  "region": "MB",
+  "degDay": 6480,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -19,
+   -16,
+   -9,
+   1,
+   9,
+   15,
+   18,
+   17,
+   11,
+   3,
+   -8,
+   -16
+  ]
+ },
+ "Thompson|||MB": {
+  "region": "MB",
+  "degDay": 7600,
+  "dhdbt": -40,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -24,
+   -20,
+   -12,
+   -2,
+   6,
+   13,
+   16,
+   15,
+   8,
+   0,
+   -12,
+   -21
+  ]
+ },
+ "Virden|||MB": {
+  "region": "MB",
+  "degDay": 5620,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -12,
+   -5,
+   4,
+   12,
+   17,
+   19,
+   18,
+   12,
+   5,
+   -5,
+   -14
+  ]
+ },
+ "Winnipeg|||MB": {
+  "region": "MB",
+  "degDay": 5670,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -13,
+   -6,
+   4,
+   12,
+   17,
+   20,
+   19,
+   13,
+   5,
+   -5,
+   -13
+  ]
+ },
+ "Alma|||NB": {
+  "region": "NB",
+  "degDay": 4500,
+  "dhdbt": -21,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   4,
+   9,
+   14,
+   17,
+   17,
+   13,
+   8,
+   3,
+   -4
+  ]
+ },
+ "Bathurst|||NB": {
+  "region": "NB",
+  "degDay": 5020,
+  "dhdbt": -23,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -11,
+   -10,
+   -4,
+   2,
+   10,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -8
+  ]
+ },
+ "Campbellton|||NB": {
+  "region": "NB",
+  "degDay": 5500,
+  "dhdbt": -26,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -4,
+   2,
+   9,
+   16,
+   19,
+   17,
+   12,
+   6,
+   0,
+   -9
+  ]
+ },
+ "Edmundston|||NB": {
+  "region": "NB",
+  "degDay": 5320,
+  "dhdbt": -27,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -13,
+   -12,
+   -4,
+   2,
+   10,
+   16,
+   19,
+   17,
+   12,
+   6,
+   -1,
+   -10
+  ]
+ },
+ "Fredericton|||NB": {
+  "region": "NB",
+  "degDay": 4670,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   4,
+   11,
+   16,
+   19,
+   19,
+   14,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Gagetown|||NB": {
+  "region": "NB",
+  "degDay": 4460,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -2,
+   5,
+   11,
+   16,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Grand Falls|||NB": {
+  "region": "NB",
+  "degDay": 5300,
+  "dhdbt": -27,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -5,
+   3,
+   11,
+   15,
+   18,
+   17,
+   12,
+   6,
+   -1,
+   -10
+  ]
+ },
+ "Miramichi|||NB": {
+  "region": "NB",
+  "degDay": 4950,
+  "dhdbt": -24,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   3,
+   10,
+   15,
+   19,
+   18,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Moncton|||NB": {
+  "region": "NB",
+  "degDay": 4680,
+  "dhdbt": -23,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -8,
+   -3,
+   3,
+   10,
+   15,
+   19,
+   18,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Oromocto|||NB": {
+  "region": "NB",
+  "degDay": 4650,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -8,
+   -2,
+   5,
+   11,
+   16,
+   19,
+   19,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Sackville|||NB": {
+  "region": "NB",
+  "degDay": 4590,
+  "dhdbt": -22,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   4,
+   9,
+   14,
+   18,
+   18,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Saint Andrews|||NB": {
+  "region": "NB",
+  "degDay": 4680,
+  "dhdbt": -22,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   4,
+   10,
+   14,
+   17,
+   17,
+   13,
+   8,
+   3,
+   -4
+  ]
+ },
+ "Saint George|||NB": {
+  "region": "NB",
+  "degDay": 4680,
+  "dhdbt": -21,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   5,
+   11,
+   16,
+   18,
+   18,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Saint John|||NB": {
+  "region": "NB",
+  "degDay": 4570,
+  "dhdbt": -22,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   4,
+   10,
+   14,
+   17,
+   17,
+   13,
+   8,
+   3,
+   -4
+  ]
+ },
+ "Shippagan|||NB": {
+  "region": "NB",
+  "degDay": 4930,
+  "dhdbt": -22,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -10,
+   -10,
+   -4,
+   2,
+   9,
+   15,
+   19,
+   18,
+   14,
+   7,
+   1,
+   -5
+  ]
+ },
+ "St. Stephen|||NB": {
+  "region": "NB",
+  "degDay": 4700,
+  "dhdbt": -24,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   5,
+   11,
+   16,
+   18,
+   18,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Woodstock|||NB": {
+  "region": "NB",
+  "degDay": 4910,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -3,
+   4,
+   11,
+   16,
+   19,
+   18,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Argentia|||NL": {
+  "region": "NL",
+  "degDay": 4600,
+  "dhdbt": -12,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -3,
+   -3,
+   -1,
+   3,
+   6,
+   10,
+   14,
+   16,
+   13,
+   9,
+   5,
+   1
+  ]
+ },
+ "Bonavista|||NL": {
+  "region": "NL",
+  "degDay": 5000,
+  "dhdbt": -14,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -5,
+   -5,
+   -3,
+   1,
+   6,
+   10,
+   15,
+   16,
+   12,
+   8,
+   3,
+   -1
+  ]
+ },
+ "Buchans|||NL": {
+  "region": "NL",
+  "degDay": 5250,
+  "dhdbt": -24,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -8,
+   -9,
+   -5,
+   1,
+   7,
+   12,
+   16,
+   16,
+   11,
+   5,
+   0,
+   -5
+  ]
+ },
+ "Cape Harrison|||NL": {
+  "region": "NL",
+  "degDay": 6900,
+  "dhdbt": -29,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -16,
+   -15,
+   -10,
+   -3,
+   3,
+   7,
+   12,
+   12,
+   9,
+   3,
+   -3,
+   -10
+  ]
+ },
+ "Cape Race|||NL": {
+  "region": "NL",
+  "degDay": 4900,
+  "dhdbt": -11,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -3,
+   -4,
+   -2,
+   1,
+   4,
+   8,
+   12,
+   15,
+   12,
+   8,
+   4,
+   0
+  ]
+ },
+ "Channel-Port aux Basques|||NL": {
+  "region": "NL",
+  "degDay": 5000,
+  "dhdbt": -13,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -5,
+   -6,
+   -3,
+   1,
+   5,
+   9,
+   14,
+   15,
+   12,
+   7,
+   3,
+   -2
+  ]
+ },
+ "Corner Brook|||NL": {
+  "region": "NL",
+  "degDay": 4760,
+  "dhdbt": -16,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -4,
+   2,
+   8,
+   13,
+   17,
+   17,
+   13,
+   7,
+   2,
+   -3
+  ]
+ },
+ "Gander|||NL": {
+  "region": "NL",
+  "degDay": 5110,
+  "dhdbt": -18,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -4,
+   2,
+   7,
+   12,
+   16,
+   16,
+   12,
+   6,
+   1,
+   -4
+  ]
+ },
+ "Grand Bank|||NL": {
+  "region": "NL",
+  "degDay": 4550,
+  "dhdbt": -14,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -4,
+   -5,
+   -2,
+   2,
+   6,
+   11,
+   15,
+   16,
+   13,
+   8,
+   4,
+   0
+  ]
+ },
+ "Grand Falls|||NL": {
+  "region": "NL",
+  "degDay": 5020,
+  "dhdbt": -26,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -8,
+   -8,
+   -4,
+   2,
+   8,
+   13,
+   17,
+   17,
+   12,
+   6,
+   1,
+   -4
+  ]
+ },
+ "Happy Valley-Goose Bay|||NL": {
+  "region": "NL",
+  "degDay": 6670,
+  "dhdbt": -31,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -18,
+   -16,
+   -9,
+   -1,
+   6,
+   11,
+   15,
+   15,
+   10,
+   3,
+   -4,
+   -13
+  ]
+ },
+ "Labrador City|||NL": {
+  "region": "NL",
+  "degDay": 7710,
+  "dhdbt": -36,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -23,
+   -21,
+   -14,
+   -5,
+   4,
+   10,
+   14,
+   12,
+   7,
+   0,
+   -9,
+   -19
+  ]
+ },
+ "St. Anthony|||NL": {
+  "region": "NL",
+  "degDay": 6440,
+  "dhdbt": -25,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -11,
+   -11,
+   -7,
+   -1,
+   4,
+   8,
+   13,
+   14,
+   10,
+   4,
+   -1,
+   -7
+  ]
+ },
+ "St. John's|||NL": {
+  "region": "NL",
+  "degDay": 4800,
+  "dhdbt": -15,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -5,
+   -5,
+   -3,
+   2,
+   6,
+   11,
+   16,
+   16,
+   12,
+   7,
+   3,
+   -2
+  ]
+ },
+ "Stephenville|||NL": {
+  "region": "NL",
+  "degDay": 4850,
+  "dhdbt": -16,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -6,
+   -7,
+   -4,
+   3,
+   8,
+   12,
+   16,
+   17,
+   13,
+   8,
+   3,
+   -2
+  ]
+ },
+ "Twin Falls|||NL": {
+  "region": "NL",
+  "degDay": 7790,
+  "dhdbt": -35,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -22,
+   -21,
+   -13,
+   -4,
+   4,
+   10,
+   14,
+   13,
+   8,
+   1,
+   -8,
+   -17
+  ]
+ },
+ "Wabana|||NL": {
+  "region": "NL",
+  "degDay": 4750,
+  "dhdbt": -15,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -5,
+   -5,
+   -3,
+   2,
+   6,
+   11,
+   16,
+   16,
+   12,
+   7,
+   3,
+   -2
+  ]
+ },
+ "Wabush|||NL": {
+  "region": "NL",
+  "degDay": 7710,
+  "dhdbt": -36,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -23,
+   -21,
+   -14,
+   -5,
+   4,
+   10,
+   14,
+   12,
+   7,
+   0,
+   -9,
+   -19
+  ]
+ },
+ "Amherst|||NS": {
+  "region": "NS",
+  "degDay": 4500,
+  "dhdbt": -21,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -6,
+   -2,
+   4,
+   10,
+   15,
+   18,
+   18,
+   14,
+   8,
+   3,
+   -3
+  ]
+ },
+ "Antigonish|||NS": {
+  "region": "NS",
+  "degDay": 4510,
+  "dhdbt": -17,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -5,
+   -2,
+   4,
+   9,
+   14,
+   19,
+   18,
+   14,
+   8,
+   4,
+   -2
+  ]
+ },
+ "Bridgewater|||NS": {
+  "region": "NS",
+  "degDay": 4140,
+  "dhdbt": -15,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -5,
+   -5,
+   0,
+   5,
+   10,
+   15,
+   19,
+   19,
+   14,
+   8,
+   4,
+   -2
+  ]
+ },
+ "Canso|||NS": {
+  "region": "NS",
+  "degDay": 4400,
+  "dhdbt": -13,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -3,
+   -4,
+   -1,
+   3,
+   7,
+   12,
+   17,
+   18,
+   16,
+   10,
+   5,
+   1
+  ]
+ },
+ "Dartmouth|||NS": {
+  "region": "NS",
+  "degDay": 4100,
+  "dhdbt": -16,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -5,
+   -4,
+   -1,
+   4,
+   9,
+   14,
+   18,
+   18,
+   15,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Debert|||NS": {
+  "region": "NS",
+  "degDay": 4500,
+  "dhdbt": -21,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -2,
+   4,
+   10,
+   15,
+   19,
+   18,
+   14,
+   8,
+   3,
+   -4
+  ]
+ },
+ "Digby|||NS": {
+  "region": "NS",
+  "degDay": 4020,
+  "dhdbt": -15,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -4,
+   -4,
+   0,
+   5,
+   11,
+   15,
+   18,
+   18,
+   14,
+   9,
+   5,
+   -1
+  ]
+ },
+ "Greenwood (CFB)|||NS": {
+  "region": "NS",
+  "degDay": 4140,
+  "dhdbt": -18,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -5,
+   -5,
+   -1,
+   5,
+   11,
+   16,
+   20,
+   19,
+   15,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Halifax|||NS": {
+  "region": "NS",
+  "degDay": 4000,
+  "dhdbt": -16,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -5,
+   -4,
+   -1,
+   4,
+   9,
+   14,
+   18,
+   18,
+   15,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Kentville|||NS": {
+  "region": "NS",
+  "degDay": 4130,
+  "dhdbt": -18,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -4,
+   -3,
+   0,
+   5,
+   11,
+   17,
+   20,
+   19,
+   16,
+   9,
+   4,
+   -1
+  ]
+ },
+ "Liverpool|||NS": {
+  "region": "NS",
+  "degDay": 3990,
+  "dhdbt": -16,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -4,
+   -3,
+   0,
+   4,
+   8,
+   12,
+   15,
+   16,
+   14,
+   10,
+   5,
+   0
+  ]
+ },
+ "Lockeport|||NS": {
+  "region": "NS",
+  "degDay": 4000,
+  "dhdbt": -14,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   2,
+   2,
+   1,
+   0,
+   -1,
+   -1,
+   -2,
+   -1,
+   0,
+   1,
+   1,
+   2
+  ]
+ },
+ "Louisburg|||NS": {
+  "region": "NS",
+  "degDay": 4530,
+  "dhdbt": -15,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -5,
+   -5,
+   -2,
+   2,
+   7,
+   12,
+   16,
+   17,
+   14,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Lunenburg|||NS": {
+  "region": "NS",
+  "degDay": 4140,
+  "dhdbt": -15,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -4,
+   -3,
+   0,
+   4,
+   8,
+   12,
+   15,
+   16,
+   14,
+   10,
+   5,
+   0
+  ]
+ },
+ "New Glasgow|||NS": {
+  "region": "NS",
+  "degDay": 4320,
+  "dhdbt": -19,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   3,
+   10,
+   16,
+   19,
+   18,
+   14,
+   8,
+   3,
+   -3
+  ]
+ },
+ "North Sydney|||NS": {
+  "region": "NS",
+  "degDay": 4500,
+  "dhdbt": -16,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -5,
+   -6,
+   -3,
+   2,
+   8,
+   13,
+   18,
+   18,
+   14,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Pictou|||NS": {
+  "region": "NS",
+  "degDay": 4310,
+  "dhdbt": -19,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   3,
+   9,
+   16,
+   19,
+   19,
+   14,
+   8,
+   3,
+   -2
+  ]
+ },
+ "Port Hawkesbury|||NS": {
+  "region": "NS",
+  "degDay": 4500,
+  "dhdbt": -17,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -6,
+   -8,
+   -3,
+   3,
+   8,
+   14,
+   18,
+   18,
+   14,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Springhill|||NS": {
+  "region": "NS",
+  "degDay": 4540,
+  "dhdbt": -20,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -3,
+   3,
+   10,
+   15,
+   19,
+   18,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Stewiacke|||NS": {
+  "region": "NS",
+  "degDay": 4400,
+  "dhdbt": -20,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -5,
+   -4,
+   -1,
+   5,
+   11,
+   15,
+   19,
+   19,
+   14,
+   8,
+   3,
+   -2
+  ]
+ },
+ "Sydney|||NS": {
+  "region": "NS",
+  "degDay": 4530,
+  "dhdbt": -16,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -5,
+   -6,
+   -3,
+   2,
+   8,
+   13,
+   18,
+   18,
+   14,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Tatamagouche|||NS": {
+  "region": "NS",
+  "degDay": 4380,
+  "dhdbt": -20,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -2,
+   3,
+   10,
+   16,
+   19,
+   19,
+   14,
+   8,
+   3,
+   -3
+  ]
+ },
+ "Truro|||NS": {
+  "region": "NS",
+  "degDay": 4500,
+  "dhdbt": -20,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   4,
+   10,
+   15,
+   18,
+   18,
+   13,
+   8,
+   3,
+   -4
+  ]
+ },
+ "Wolfville|||NS": {
+  "region": "NS",
+  "degDay": 4140,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -4,
+   -3,
+   0,
+   5,
+   11,
+   17,
+   20,
+   19,
+   16,
+   9,
+   4,
+   -1
+  ]
+ },
+ "Yarmouth|||NS": {
+  "region": "NS",
+  "degDay": 3990,
+  "dhdbt": -14,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -3,
+   -3,
+   0,
+   5,
+   10,
+   14,
+   17,
+   17,
+   14,
+   10,
+   5,
+   0
+  ]
+ },
+ "Aklavik|||NT": {
+  "region": "NT",
+  "degDay": 9600,
+  "dhdbt": -42,
+  "dgtemp": -2,
+  "monthlyTemps": [
+   -27,
+   -25,
+   -21,
+   -13,
+   0,
+   11,
+   14,
+   11,
+   4,
+   -8,
+   -21,
+   -26
+  ]
+ },
+ "Echo Bay / Port Radium|||NT": {
+  "region": "NT",
+  "degDay": 9300,
+  "dhdbt": -42,
+  "dgtemp": -1,
+  "monthlyTemps": [
+   -29,
+   -28,
+   -21,
+   -11,
+   3,
+   12,
+   13,
+   10,
+   5,
+   -2,
+   -15,
+   -23
+  ]
+ },
+ "Fort Good Hope|||NT": {
+  "region": "NT",
+  "degDay": 8700,
+  "dhdbt": -43,
+  "dgtemp": 0,
+  "monthlyTemps": [
+   -27,
+   -23,
+   -20,
+   -6,
+   5,
+   15,
+   17,
+   13,
+   7,
+   -4,
+   -19,
+   -23
+  ]
+ },
+ "Fort McPherson|||NT": {
+  "region": "NT",
+  "degDay": 9150,
+  "dhdbt": -44,
+  "dgtemp": -2,
+  "monthlyTemps": [
+   -28,
+   -24,
+   -20,
+   -10,
+   2,
+   13,
+   15,
+   12,
+   4,
+   -8,
+   -21,
+   -25
+  ]
+ },
+ "Fort Providence|||NT": {
+  "region": "NT",
+  "degDay": 7620,
+  "dhdbt": -40,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -24,
+   -19,
+   -14,
+   -2,
+   6,
+   14,
+   17,
+   14,
+   9,
+   -1,
+   -12,
+   -20
+  ]
+ },
+ "Fort Resolution|||NT": {
+  "region": "NT",
+  "degDay": 7750,
+  "dhdbt": -40,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -25,
+   -21,
+   -15,
+   -3,
+   6,
+   13,
+   16,
+   14,
+   7,
+   0,
+   -10,
+   -21
+  ]
+ },
+ "Fort Simpson|||NT": {
+  "region": "NT",
+  "degDay": 7660,
+  "dhdbt": -42,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -25,
+   -20,
+   -13,
+   0,
+   8,
+   15,
+   17,
+   15,
+   8,
+   -2,
+   -16,
+   -22
+  ]
+ },
+ "Fort Smith|||NT": {
+  "region": "NT",
+  "degDay": 7300,
+  "dhdbt": -41,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -23,
+   -19,
+   -12,
+   0,
+   8,
+   14,
+   17,
+   14,
+   8,
+   0,
+   -12,
+   -19
+  ]
+ },
+ "Hay River|||NT": {
+  "region": "NT",
+  "degDay": 7550,
+  "dhdbt": -38,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -22,
+   -20,
+   -14,
+   -3,
+   5,
+   12,
+   16,
+   14,
+   9,
+   0,
+   -12,
+   -18
+  ]
+ },
+ "Inuvik|||NT": {
+  "region": "NT",
+  "degDay": 9600,
+  "dhdbt": -43,
+  "dgtemp": -2,
+  "monthlyTemps": [
+   -27,
+   -26,
+   -22,
+   -12,
+   0,
+   12,
+   14,
+   11,
+   4,
+   -8,
+   -21,
+   -24
+  ]
+ },
+ "Mould Bay|||NT": {
+  "region": "NT",
+  "degDay": 12900,
+  "dhdbt": -44,
+  "dgtemp": -9,
+  "monthlyTemps": [
+   -34,
+   -34,
+   -31,
+   -24,
+   -11,
+   0,
+   4,
+   1,
+   -6,
+   -18,
+   -28,
+   -31
+  ]
+ },
+ "Norman Wells|||NT": {
+  "region": "NT",
+  "degDay": 8510,
+  "dhdbt": -43,
+  "dgtemp": 0,
+  "monthlyTemps": [
+   -26,
+   -24,
+   -18,
+   -6,
+   6,
+   15,
+   17,
+   14,
+   7,
+   -5,
+   -19,
+   -23
+  ]
+ },
+ "Rae-Edzo|||NT": {
+  "region": "NT",
+  "degDay": 8300,
+  "dhdbt": -42,
+  "dgtemp": 0,
+  "monthlyTemps": [
+   -27,
+   -21,
+   -18,
+   -6,
+   4,
+   13,
+   16,
+   13,
+   7,
+   -3,
+   -14,
+   -22
+  ]
+ },
+ "Tungsten|||NT": {
+  "region": "NT",
+  "degDay": 7700,
+  "dhdbt": -49,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -20,
+   -18,
+   -13,
+   -4,
+   3,
+   9,
+   12,
+   9,
+   4,
+   -3,
+   -15,
+   -19
+  ]
+ },
+ "Ulukhaqtuuq / Holman|||NT": {
+  "region": "NT",
+  "degDay": 10700,
+  "dhdbt": -39,
+  "dgtemp": -5,
+  "monthlyTemps": [
+   -29,
+   -28,
+   -25,
+   -17,
+   -7,
+   5,
+   9,
+   7,
+   0,
+   -9,
+   -20,
+   -26
+  ]
+ },
+ "Wrigley|||NT": {
+  "region": "NT",
+  "degDay": 8050,
+  "dhdbt": -42,
+  "dgtemp": 0,
+  "monthlyTemps": [
+   -27,
+   -23,
+   -16,
+   -2,
+   8,
+   15,
+   17,
+   13,
+   7,
+   -4,
+   -19,
+   -25
+  ]
+ },
+ "Yellowknife|||NT": {
+  "region": "NT",
+  "degDay": 8170,
+  "dhdbt": -41,
+  "dgtemp": 1,
+  "monthlyTemps": [
+   -26,
+   -23,
+   -17,
+   -5,
+   4,
+   13,
+   17,
+   14,
+   7,
+   -2,
+   -14,
+   -22
+  ]
+ },
+ "Alert|||NU": {
+  "region": "NU",
+  "degDay": 13030,
+  "dhdbt": -43,
+  "dgtemp": -10,
+  "monthlyTemps": [
+   -32,
+   -33,
+   -33,
+   -25,
+   -12,
+   -1,
+   3,
+   1,
+   -8,
+   -19,
+   -26,
+   -30
+  ]
+ },
+ "Arctic Bay|||NU": {
+  "region": "NU",
+  "degDay": 11900,
+  "dhdbt": -42,
+  "dgtemp": -7,
+  "monthlyTemps": [
+   -31,
+   -32,
+   -29,
+   -20,
+   -8,
+   3,
+   6,
+   4,
+   -2,
+   -12,
+   -24,
+   -31
+  ]
+ },
+ "Arviat|||NU": {
+  "region": "NU",
+  "degDay": 9850,
+  "dhdbt": -40,
+  "dgtemp": -3,
+  "monthlyTemps": [
+   -30,
+   -28,
+   -23,
+   -14,
+   -4,
+   4,
+   11,
+   11,
+   4,
+   -4,
+   -16,
+   -25
+  ]
+ },
+ "Baker Lake|||NU": {
+  "region": "NU",
+  "degDay": 10700,
+  "dhdbt": -42,
+  "dgtemp": -5,
+  "monthlyTemps": [
+   -32,
+   -31,
+   -26,
+   -17,
+   -6,
+   5,
+   11,
+   10,
+   3,
+   -7,
+   -20,
+   -27
+  ]
+ },
+ "Eureka|||NU": {
+  "region": "NU",
+  "degDay": 13500,
+  "dhdbt": -47,
+  "dgtemp": -10,
+  "monthlyTemps": [
+   -37,
+   -38,
+   -37,
+   -27,
+   -10,
+   3,
+   6,
+   3,
+   -6,
+   -21,
+   -30,
+   -34
+  ]
+ },
+ "Igluligaarjuk / Chesterfield Inl|||NU": {
+  "region": "NU",
+  "degDay": 10500,
+  "dhdbt": -40,
+  "dgtemp": -4,
+  "monthlyTemps": [
+   -32,
+   -31,
+   -25,
+   -16,
+   -6,
+   4,
+   11,
+   9,
+   3,
+   -5,
+   -17,
+   -25
+  ]
+ },
+ "Iqaluit|||NU": {
+  "region": "NU",
+  "degDay": 9980,
+  "dhdbt": -40,
+  "dgtemp": -3,
+  "monthlyTemps": [
+   -27,
+   -28,
+   -24,
+   -14,
+   -4,
+   4,
+   8,
+   7,
+   3,
+   -4,
+   -12,
+   -21
+  ]
+ },
+ "Iqaluktuuttiaq / Cambridge Bay|||NU": {
+  "region": "NU",
+  "degDay": 11670,
+  "dhdbt": -41,
+  "dgtemp": -7,
+  "monthlyTemps": [
+   -33,
+   -33,
+   -29,
+   -21,
+   -9,
+   3,
+   9,
+   7,
+   0,
+   -11,
+   -23,
+   -29
+  ]
+ },
+ "Isachsen|||NU": {
+  "region": "NU",
+  "degDay": 13600,
+  "dhdbt": -46,
+  "dgtemp": -11,
+  "monthlyTemps": [
+   -35,
+   -37,
+   -35,
+   -27,
+   -13,
+   -1,
+   3,
+   0,
+   -9,
+   -20,
+   -29,
+   -34
+  ]
+ },
+ "Kangiqiniq / Rankin Inlet|||NU": {
+  "region": "NU",
+  "degDay": 10500,
+  "dhdbt": -41,
+  "dgtemp": -4,
+  "monthlyTemps": [
+   -31,
+   -30,
+   -25,
+   -16,
+   -6,
+   4,
+   10,
+   10,
+   4,
+   -5,
+   -17,
+   -26
+  ]
+ },
+ "Kanngiqtugaapik / Clyde River|||NU": {
+  "region": "NU",
+  "degDay": 11300,
+  "dhdbt": -40,
+  "dgtemp": -6,
+  "monthlyTemps": [
+   -28,
+   -30,
+   -27,
+   -19,
+   -9,
+   1,
+   4,
+   4,
+   0,
+   -8,
+   -17,
+   -25
+  ]
+ },
+ "Kugluktuk / Coppermine|||NU": {
+  "region": "NU",
+  "degDay": 10300,
+  "dhdbt": -41,
+  "dgtemp": -4,
+  "monthlyTemps": [
+   -28,
+   -28,
+   -25,
+   -17,
+   -6,
+   5,
+   11,
+   9,
+   3,
+   -7,
+   -19,
+   -25
+  ]
+ },
+ "Nottingham Island|||NU": {
+  "region": "NU",
+  "degDay": 10000,
+  "dhdbt": -37,
+  "dgtemp": -3,
+  "monthlyTemps": [
+   -25,
+   -26,
+   -22,
+   -14,
+   -6,
+   2,
+   7,
+   6,
+   2,
+   -4,
+   -12,
+   -20
+  ]
+ },
+ "Resolute|||NU": {
+  "region": "NU",
+  "degDay": 12360,
+  "dhdbt": -42,
+  "dgtemp": -8,
+  "monthlyTemps": [
+   -32,
+   -33,
+   -30,
+   -22,
+   -10,
+   0,
+   4,
+   2,
+   -4,
+   -14,
+   -23,
+   -29
+  ]
+ },
+ "Resolution Island|||NU": {
+  "region": "NU",
+  "degDay": 9000,
+  "dhdbt": -32,
+  "dgtemp": -1,
+  "monthlyTemps": [
+   -20,
+   -21,
+   -17,
+   -10,
+   -4,
+   1,
+   6,
+   5,
+   1,
+   -3,
+   -7,
+   -13
+  ]
+ },
+ "Salliq / Coral Harbour|||NU": {
+  "region": "NU",
+  "degDay": 10720,
+  "dhdbt": -41,
+  "dgtemp": -4,
+  "monthlyTemps": [
+   -30,
+   -31,
+   -25,
+   -16,
+   -7,
+   3,
+   10,
+   8,
+   2,
+   -6,
+   -17,
+   -25
+  ]
+ },
+ "Ailsa Craig|||ON": {
+  "region": "ON",
+  "degDay": 3840,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   10,
+   3,
+   -3
+  ]
+ },
+ "Ajax|||ON": {
+  "region": "ON",
+  "degDay": 3820,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   6,
+   12,
+   17,
+   20,
+   20,
+   15,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Alexandria|||ON": {
+  "region": "ON",
+  "degDay": 4600,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -11,
+   -4,
+   4,
+   12,
+   18,
+   20,
+   19,
+   15,
+   9,
+   0,
+   -8
+  ]
+ },
+ "Alliston|||ON": {
+  "region": "ON",
+  "degDay": 4200,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Almonte|||ON": {
+  "region": "ON",
+  "degDay": 4620,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -8,
+   -3,
+   4,
+   13,
+   17,
+   20,
+   18,
+   14,
+   6,
+   1,
+   -8
+  ]
+ },
+ "Armstrong|||ON": {
+  "region": "ON",
+  "degDay": 6500,
+  "dhdbt": -37,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -18,
+   -16,
+   -8,
+   0,
+   7,
+   14,
+   17,
+   15,
+   11,
+   3,
+   -6,
+   -13
+  ]
+ },
+ "Arnprior|||ON": {
+  "region": "ON",
+  "degDay": 4680,
+  "dhdbt": -27,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   19,
+   14,
+   8,
+   1,
+   -7
+  ]
+ },
+ "Atikokan|||ON": {
+  "region": "ON",
+  "degDay": 5750,
+  "dhdbt": -33,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -15,
+   -12,
+   -5,
+   3,
+   10,
+   16,
+   19,
+   17,
+   13,
+   5,
+   -3,
+   -11
+  ]
+ },
+ "Attawapiskat|||ON": {
+  "region": "ON",
+  "degDay": 7100,
+  "dhdbt": -37,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -22,
+   -19,
+   -10,
+   -3,
+   5,
+   12,
+   15,
+   14,
+   9,
+   3,
+   -5,
+   -17
+  ]
+ },
+ "Aurora|||ON": {
+  "region": "ON",
+  "degDay": 4210,
+  "dhdbt": -21,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   6,
+   13,
+   18,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Bancroft|||ON": {
+  "region": "ON",
+  "degDay": 4740,
+  "dhdbt": -28,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -3,
+   4,
+   11,
+   16,
+   18,
+   17,
+   13,
+   6,
+   0,
+   -6
+  ]
+ },
+ "Barrie|||ON": {
+  "region": "ON",
+  "degDay": 4380,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   20,
+   19,
+   15,
+   9,
+   2,
+   -4
+  ]
+ },
+ "Barriefield|||ON": {
+  "region": "ON",
+  "degDay": 3990,
+  "dhdbt": -22,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   7,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Beaverton|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -3,
+   5,
+   12,
+   18,
+   20,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Belleville|||ON": {
+  "region": "ON",
+  "degDay": 3910,
+  "dhdbt": -22,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   7,
+   14,
+   19,
+   22,
+   21,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Belmont|||ON": {
+  "region": "ON",
+  "degDay": 3840,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -7,
+   0,
+   6,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Bracebridge|||ON": {
+  "region": "ON",
+  "degDay": 4800,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -9,
+   -2,
+   4,
+   13,
+   16,
+   20,
+   18,
+   13,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Bradford|||ON": {
+  "region": "ON",
+  "degDay": 4280,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   12,
+   17,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Brampton|||ON": {
+  "region": "ON",
+  "degDay": 4100,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -6,
+   -1,
+   7,
+   14,
+   19,
+   22,
+   20,
+   15,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Brantford|||ON": {
+  "region": "ON",
+  "degDay": 3900,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Brighton|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -21,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -4,
+   0,
+   6,
+   11,
+   17,
+   20,
+   20,
+   16,
+   9,
+   4,
+   -1
+  ]
+ },
+ "Brockville|||ON": {
+  "region": "ON",
+  "degDay": 4060,
+  "dhdbt": -23,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -1,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -4
+  ]
+ },
+ "Burk's Falls|||ON": {
+  "region": "ON",
+  "degDay": 5020,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -5,
+   3,
+   11,
+   15,
+   17,
+   17,
+   12,
+   6,
+   0,
+   -8
+  ]
+ },
+ "Burlington|||ON": {
+  "region": "ON",
+  "degDay": 3740,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -3,
+   -2,
+   1,
+   7,
+   13,
+   19,
+   22,
+   21,
+   18,
+   11,
+   6,
+   0
+  ]
+ },
+ "Cambridge|||ON": {
+  "region": "ON",
+  "degDay": 4100,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   18,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -4
+  ]
+ },
+ "Campbellford|||ON": {
+  "region": "ON",
+  "degDay": 4280,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -5,
+   -6,
+   -1,
+   7,
+   14,
+   19,
+   21,
+   20,
+   15,
+   9,
+   2,
+   -5
+  ]
+ },
+ "Cannington|||ON": {
+  "region": "ON",
+  "degDay": 4310,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   5,
+   12,
+   18,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Carleton Place|||ON": {
+  "region": "ON",
+  "degDay": 4600,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   19,
+   14,
+   8,
+   1,
+   -6
+  ]
+ },
+ "Cavan|||ON": {
+  "region": "ON",
+  "degDay": 4400,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -6,
+   -2,
+   6,
+   12,
+   17,
+   19,
+   19,
+   15,
+   8,
+   2,
+   -3
+  ]
+ },
+ "Centralia|||ON": {
+  "region": "ON",
+  "degDay": 3800,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -6,
+   0,
+   6,
+   13,
+   18,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "CFB Borden|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -23,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -5,
+   -6,
+   -2,
+   6,
+   13,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Chapleau|||ON": {
+  "region": "ON",
+  "degDay": 5900,
+  "dhdbt": -35,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -13,
+   -7,
+   1,
+   9,
+   14,
+   17,
+   16,
+   11,
+   4,
+   -4,
+   -12
+  ]
+ },
+ "Chatham|||ON": {
+  "region": "ON",
+  "degDay": 3470,
+  "dhdbt": -16,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -4,
+   -2,
+   2,
+   8,
+   15,
+   20,
+   22,
+   21,
+   18,
+   11,
+   5,
+   -1
+  ]
+ },
+ "Chesley|||ON": {
+  "region": "ON",
+  "degDay": 4320,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   5,
+   11,
+   16,
+   19,
+   18,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Clinton|||ON": {
+  "region": "ON",
+  "degDay": 4150,
+  "dhdbt": -17,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -6,
+   -1,
+   6,
+   13,
+   17,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Coboconk|||ON": {
+  "region": "ON",
+  "degDay": 4500,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   5,
+   13,
+   17,
+   20,
+   19,
+   14,
+   8,
+   1,
+   -6
+  ]
+ },
+ "Cobourg|||ON": {
+  "region": "ON",
+  "degDay": 3980,
+  "dhdbt": -21,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -4,
+   0,
+   6,
+   11,
+   17,
+   20,
+   20,
+   16,
+   9,
+   4,
+   -1
+  ]
+ },
+ "Cochrane|||ON": {
+  "region": "ON",
+  "degDay": 6200,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -18,
+   -16,
+   -9,
+   1,
+   9,
+   14,
+   17,
+   15,
+   10,
+   4,
+   -4,
+   -15
+  ]
+ },
+ "Colborne|||ON": {
+  "region": "ON",
+  "degDay": 3980,
+  "dhdbt": -21,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -4,
+   0,
+   6,
+   11,
+   17,
+   20,
+   20,
+   16,
+   9,
+   4,
+   -1
+  ]
+ },
+ "Collingwood|||ON": {
+  "region": "ON",
+  "degDay": 4180,
+  "dhdbt": -21,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -5,
+   -5,
+   -1,
+   6,
+   11,
+   18,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Cornwall|||ON": {
+  "region": "ON",
+  "degDay": 4250,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -1,
+   6,
+   14,
+   19,
+   22,
+   20,
+   16,
+   9,
+   3,
+   -5
+  ]
+ },
+ "Corunna|||ON": {
+  "region": "ON",
+  "degDay": 3600,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   8,
+   14,
+   19,
+   22,
+   21,
+   17,
+   11,
+   4,
+   -2
+  ]
+ },
+ "Deep River|||ON": {
+  "region": "ON",
+  "degDay": 4900,
+  "dhdbt": -29,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -3,
+   5,
+   13,
+   17,
+   20,
+   19,
+   14,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Deseronto|||ON": {
+  "region": "ON",
+  "degDay": 4070,
+  "dhdbt": -22,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -8,
+   -6,
+   -1,
+   6,
+   13,
+   18,
+   20,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Dorchester|||ON": {
+  "region": "ON",
+  "degDay": 3900,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -5,
+   0,
+   7,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Dorion|||ON": {
+  "region": "ON",
+  "degDay": 5950,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -18,
+   -14,
+   -7,
+   1,
+   9,
+   13,
+   16,
+   15,
+   10,
+   5,
+   -3,
+   -13
+  ]
+ },
+ "Dresden|||ON": {
+  "region": "ON",
+  "degDay": 3750,
+  "dhdbt": -16,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -6,
+   -5,
+   1,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Dryden|||ON": {
+  "region": "ON",
+  "degDay": 5850,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -23,
+   -19,
+   -12,
+   -3,
+   5,
+   10,
+   13,
+   12,
+   6,
+   1,
+   -9,
+   -19
+  ]
+ },
+ "Dundalk|||ON": {
+  "region": "ON",
+  "degDay": 4700,
+  "dhdbt": -22,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -8,
+   -4,
+   4,
+   11,
+   15,
+   18,
+   17,
+   13,
+   7,
+   1,
+   -5
+  ]
+ },
+ "Dunnville|||ON": {
+  "region": "ON",
+  "degDay": 3660,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Durham|||ON": {
+  "region": "ON",
+  "degDay": 4340,
+  "dhdbt": -20,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   19,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Dutton|||ON": {
+  "region": "ON",
+  "degDay": 3700,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -4,
+   1,
+   7,
+   13,
+   19,
+   21,
+   20,
+   16,
+   11,
+   4,
+   -2
+  ]
+ },
+ "Earlton|||ON": {
+  "region": "ON",
+  "degDay": 5730,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -7,
+   3,
+   10,
+   15,
+   18,
+   16,
+   12,
+   5,
+   -3,
+   -13
+  ]
+ },
+ "Edison|||ON": {
+  "region": "ON",
+  "degDay": 5740,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -20,
+   -16,
+   -8,
+   1,
+   10,
+   15,
+   18,
+   16,
+   10,
+   4,
+   -5,
+   -16
+  ]
+ },
+ "Elliot Lake|||ON": {
+  "region": "ON",
+  "degDay": 4950,
+  "dhdbt": -26,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -11,
+   -10,
+   -4,
+   4,
+   11,
+   17,
+   19,
+   18,
+   13,
+   6,
+   -1,
+   -7
+  ]
+ },
+ "Elmvale|||ON": {
+  "region": "ON",
+  "degDay": 4200,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Embro|||ON": {
+  "region": "ON",
+  "degDay": 3950,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   20,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Englehart|||ON": {
+  "region": "ON",
+  "degDay": 5800,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -7,
+   3,
+   10,
+   15,
+   18,
+   16,
+   12,
+   5,
+   -3,
+   -13
+  ]
+ },
+ "Espanola|||ON": {
+  "region": "ON",
+  "degDay": 4920,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -5,
+   4,
+   11,
+   16,
+   19,
+   17,
+   12,
+   6,
+   0,
+   -9
+  ]
+ },
+ "Etobicoke|||ON": {
+  "region": "ON",
+  "degDay": 3800,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   7,
+   13,
+   19,
+   22,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Exeter|||ON": {
+  "region": "ON",
+  "degDay": 3900,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -6,
+   0,
+   6,
+   13,
+   18,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Fenelon Falls|||ON": {
+  "region": "ON",
+  "degDay": 4440,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -2,
+   5,
+   12,
+   18,
+   20,
+   18,
+   14,
+   9,
+   2,
+   -4
+  ]
+ },
+ "Fergus|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -20,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Forest|||ON": {
+  "region": "ON",
+  "degDay": 3740,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -4,
+   1,
+   7,
+   13,
+   19,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Fort Erie|||ON": {
+  "region": "ON",
+  "degDay": 3650,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   6,
+   12,
+   18,
+   21,
+   20,
+   16,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Fort Erie (Ridgeway)|||ON": {
+  "region": "ON",
+  "degDay": 3600,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   6,
+   12,
+   18,
+   21,
+   20,
+   16,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Fort Frances|||ON": {
+  "region": "ON",
+  "degDay": 5440,
+  "dhdbt": -33,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -4,
+   4,
+   12,
+   17,
+   20,
+   18,
+   12,
+   6,
+   -3,
+   -12
+  ]
+ },
+ "Gananoque|||ON": {
+  "region": "ON",
+  "degDay": 4010,
+  "dhdbt": -22,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   7,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Geraldton|||ON": {
+  "region": "ON",
+  "degDay": 6450,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -9,
+   1,
+   9,
+   14,
+   17,
+   16,
+   10,
+   3,
+   -6,
+   -14
+  ]
+ },
+ "Glencoe|||ON": {
+  "region": "ON",
+  "degDay": 3680,
+  "dhdbt": -16,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -6,
+   -4,
+   1,
+   7,
+   13,
+   19,
+   21,
+   20,
+   16,
+   11,
+   4,
+   -2
+  ]
+ },
+ "Goderich|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -16,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -4,
+   -4,
+   0,
+   6,
+   12,
+   17,
+   20,
+   19,
+   16,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Gore Bay|||ON": {
+  "region": "ON",
+  "degDay": 4700,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -8,
+   -4,
+   4,
+   11,
+   16,
+   19,
+   19,
+   15,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Graham|||ON": {
+  "region": "ON",
+  "degDay": 5940,
+  "dhdbt": -35,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -8,
+   1,
+   10,
+   15,
+   18,
+   16,
+   10,
+   4,
+   -5,
+   -15
+  ]
+ },
+ "Gravenhurst (Muskoka Airport)|||ON": {
+  "region": "ON",
+  "degDay": 4760,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   4,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Grimsby|||ON": {
+  "region": "ON",
+  "degDay": 3520,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   22,
+   21,
+   17,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Guelph|||ON": {
+  "region": "ON",
+  "degDay": 4270,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -1,
+   6,
+   12,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Guthrie|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   20,
+   19,
+   15,
+   9,
+   2,
+   -4
+  ]
+ },
+ "Haileybury|||ON": {
+  "region": "ON",
+  "degDay": 5600,
+  "dhdbt": -32,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -15,
+   -12,
+   -6,
+   2,
+   11,
+   17,
+   20,
+   18,
+   13,
+   7,
+   -1,
+   -10
+  ]
+ },
+ "Haldimand (Caledonia)|||ON": {
+  "region": "ON",
+  "degDay": 3750,
+  "dhdbt": -18,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   7,
+   13,
+   19,
+   21,
+   20,
+   16,
+   10,
+   3,
+   -2
+  ]
+ },
+ "Haldimand (Hagersville)|||ON": {
+  "region": "ON",
+  "degDay": 3760,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Haliburton|||ON": {
+  "region": "ON",
+  "degDay": 4840,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -4,
+   4,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Halton Hills (Georgetown)|||ON": {
+  "region": "ON",
+  "degDay": 4200,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   12,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -3
+  ]
+ },
+ "Hamilton|||ON": {
+  "region": "ON",
+  "degDay": 3460,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   7,
+   13,
+   19,
+   22,
+   21,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Hanover|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   19,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Hastings|||ON": {
+  "region": "ON",
+  "degDay": 4280,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -1,
+   6,
+   12,
+   18,
+   20,
+   20,
+   14,
+   9,
+   2,
+   -4
+  ]
+ },
+ "Hawkesbury|||ON": {
+  "region": "ON",
+  "degDay": 4610,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   20,
+   19,
+   14,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Hearst|||ON": {
+  "region": "ON",
+  "degDay": 6450,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -9,
+   0,
+   8,
+   15,
+   17,
+   16,
+   12,
+   4,
+   -5,
+   -12
+  ]
+ },
+ "Honey Harbour|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   5,
+   12,
+   18,
+   21,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Hornepayne|||ON": {
+  "region": "ON",
+  "degDay": 6340,
+  "dhdbt": -37,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -20,
+   -16,
+   -9,
+   0,
+   9,
+   13,
+   16,
+   14,
+   9,
+   4,
+   -4,
+   -15
+  ]
+ },
+ "Huntsville|||ON": {
+  "region": "ON",
+  "degDay": 4850,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   5,
+   12,
+   17,
+   19,
+   18,
+   14,
+   8,
+   1,
+   -6
+  ]
+ },
+ "Ingersoll|||ON": {
+  "region": "ON",
+  "degDay": 3920,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Iroquois Falls|||ON": {
+  "region": "ON",
+  "degDay": 6100,
+  "dhdbt": -33,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -18,
+   -16,
+   -9,
+   1,
+   9,
+   15,
+   17,
+   16,
+   10,
+   4,
+   -4,
+   -14
+  ]
+ },
+ "Jellicoe|||ON": {
+  "region": "ON",
+  "degDay": 6400,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -9,
+   1,
+   9,
+   14,
+   17,
+   16,
+   10,
+   3,
+   -6,
+   -14
+  ]
+ },
+ "Kapuskasing|||ON": {
+  "region": "ON",
+  "degDay": 6250,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -18,
+   -15,
+   -8,
+   1,
+   9,
+   15,
+   17,
+   16,
+   11,
+   4,
+   -4,
+   -13
+  ]
+ },
+ "Kemptville|||ON": {
+  "region": "ON",
+  "degDay": 4540,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   6,
+   13,
+   18,
+   20,
+   19,
+   14,
+   8,
+   1,
+   -7
+  ]
+ },
+ "Kenora|||ON": {
+  "region": "ON",
+  "degDay": 5630,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -5,
+   4,
+   11,
+   17,
+   20,
+   19,
+   13,
+   5,
+   -5,
+   -13
+  ]
+ },
+ "Killaloe|||ON": {
+  "region": "ON",
+  "degDay": 4960,
+  "dhdbt": -28,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   -5,
+   12,
+   17,
+   19,
+   18,
+   13,
+   8,
+   1,
+   -8
+  ]
+ },
+ "Kincardine|||ON": {
+  "region": "ON",
+  "degDay": 3890,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   5,
+   12,
+   18,
+   19,
+   19,
+   15,
+   10,
+   3,
+   -2
+  ]
+ },
+ "Kingston|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -22,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   7,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Kinmount|||ON": {
+  "region": "ON",
+  "degDay": 4600,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   5,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Kirkland Lake|||ON": {
+  "region": "ON",
+  "degDay": 6000,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -15,
+   -8,
+   1,
+   10,
+   15,
+   18,
+   16,
+   11,
+   5,
+   -4,
+   -13
+  ]
+ },
+ "Kitchener|||ON": {
+  "region": "ON",
+  "degDay": 4200,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Kitchenuhmaykoosib|||ON": {
+  "region": "ON",
+  "degDay": 7450,
+  "dhdbt": -38,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -22,
+   -20,
+   -12,
+   -3,
+   6,
+   13,
+   16,
+   15,
+   9,
+   2,
+   -8,
+   -17
+  ]
+ },
+ "Lakefield|||ON": {
+  "region": "ON",
+  "degDay": 4330,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -1,
+   6,
+   13,
+   18,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Lansdowne House|||ON": {
+  "region": "ON",
+  "degDay": 7150,
+  "dhdbt": -38,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -21,
+   -18,
+   -11,
+   -1,
+   7,
+   14,
+   17,
+   16,
+   10,
+   3,
+   -7,
+   -16
+  ]
+ },
+ "Leamington|||ON": {
+  "region": "ON",
+  "degDay": 3400,
+  "dhdbt": -15,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   22,
+   21,
+   17,
+   11,
+   5,
+   -1
+  ]
+ },
+ "Lindsay|||ON": {
+  "region": "ON",
+  "degDay": 4320,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -2,
+   6,
+   13,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Lion's Head|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -19,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -6,
+   -6,
+   -2,
+   5,
+   11,
+   16,
+   19,
+   18,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Listowel|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -7,
+   -1,
+   5,
+   12,
+   17,
+   19,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "London|||ON": {
+  "region": "ON",
+  "degDay": 3900,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -5,
+   0,
+   7,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Lucan|||ON": {
+  "region": "ON",
+  "degDay": 3900,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   10,
+   3,
+   -3
+  ]
+ },
+ "Maitland|||ON": {
+  "region": "ON",
+  "degDay": 4080,
+  "dhdbt": -23,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -1,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -4
+  ]
+ },
+ "Markdale|||ON": {
+  "region": "ON",
+  "degDay": 4500,
+  "dhdbt": -20,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -3,
+   4,
+   11,
+   17,
+   18,
+   18,
+   13,
+   8,
+   1,
+   -5
+  ]
+ },
+ "Markham|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -21,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   -1,
+   6,
+   13,
+   19,
+   21,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Martin|||ON": {
+  "region": "ON",
+  "degDay": 5900,
+  "dhdbt": -35,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -8,
+   1,
+   10,
+   15,
+   18,
+   16,
+   10,
+   4,
+   -5,
+   -15
+  ]
+ },
+ "Matheson|||ON": {
+  "region": "ON",
+  "degDay": 6080,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -15,
+   -8,
+   1,
+   10,
+   15,
+   18,
+   16,
+   11,
+   5,
+   -4,
+   -13
+  ]
+ },
+ "Mattawa|||ON": {
+  "region": "ON",
+  "degDay": 5050,
+  "dhdbt": -29,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -12,
+   -5,
+   2,
+   11,
+   16,
+   19,
+   18,
+   13,
+   8,
+   0,
+   -8
+  ]
+ },
+ "Midland|||ON": {
+  "region": "ON",
+  "degDay": 4200,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -4
+  ]
+ },
+ "Milton|||ON": {
+  "region": "ON",
+  "degDay": 3920,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   12,
+   17,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Milverton|||ON": {
+  "region": "ON",
+  "degDay": 4200,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -7,
+   -1,
+   5,
+   12,
+   17,
+   19,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Minden|||ON": {
+  "region": "ON",
+  "degDay": 4640,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   5,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Mississauga|||ON": {
+  "region": "ON",
+  "degDay": 3880,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   6,
+   12,
+   17,
+   21,
+   20,
+   16,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Mississauga (LBP Int'l Airport)|||ON": {
+  "region": "ON",
+  "degDay": 3890,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   7,
+   13,
+   19,
+   22,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Mississauga (Port Credit)|||ON": {
+  "region": "ON",
+  "degDay": 3780,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   6,
+   12,
+   17,
+   21,
+   20,
+   16,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Mitchell|||ON": {
+  "region": "ON",
+  "degDay": 4100,
+  "dhdbt": -18,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -1,
+   6,
+   13,
+   17,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Moosonee|||ON": {
+  "region": "ON",
+  "degDay": 6800,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -20,
+   -17,
+   -11,
+   -2,
+   7,
+   13,
+   16,
+   16,
+   11,
+   5,
+   -4,
+   -13
+  ]
+ },
+ "Morrisburg|||ON": {
+  "region": "ON",
+  "degDay": 4370,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -2,
+   6,
+   13,
+   18,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Mount Forest|||ON": {
+  "region": "ON",
+  "degDay": 4700,
+  "dhdbt": -21,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   5,
+   11,
+   17,
+   19,
+   18,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Nakina|||ON": {
+  "region": "ON",
+  "degDay": 6500,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -9,
+   1,
+   9,
+   14,
+   17,
+   16,
+   10,
+   3,
+   -6,
+   -14
+  ]
+ },
+ "Nanticoke (Jarvis)|||ON": {
+  "region": "ON",
+  "degDay": 3700,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Nanticoke (Port Dover)|||ON": {
+  "region": "ON",
+  "degDay": 3600,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Napanee|||ON": {
+  "region": "ON",
+  "degDay": 4140,
+  "dhdbt": -22,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -6,
+   -1,
+   6,
+   13,
+   18,
+   20,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "New Liskeard|||ON": {
+  "region": "ON",
+  "degDay": 5570,
+  "dhdbt": -32,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -16,
+   -15,
+   -7,
+   1,
+   10,
+   16,
+   19,
+   16,
+   11,
+   6,
+   -2,
+   -12
+  ]
+ },
+ "Newcastle|||ON": {
+  "region": "ON",
+  "degDay": 3990,
+  "dhdbt": -20,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   12,
+   17,
+   20,
+   19,
+   15,
+   8,
+   3,
+   -3
+  ]
+ },
+ "Newcastle (Bowmanville)|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   12,
+   17,
+   20,
+   19,
+   15,
+   8,
+   3,
+   -3
+  ]
+ },
+ "Newmarket|||ON": {
+  "region": "ON",
+  "degDay": 4260,
+  "dhdbt": -22,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   12,
+   17,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Niagara Falls|||ON": {
+  "region": "ON",
+  "degDay": 3600,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   22,
+   21,
+   17,
+   11,
+   5,
+   -1
+  ]
+ },
+ "North Bay|||ON": {
+  "region": "ON",
+  "degDay": 5150,
+  "dhdbt": -28,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -5,
+   4,
+   11,
+   16,
+   19,
+   18,
+   13,
+   6,
+   -1,
+   -8
+  ]
+ },
+ "North York|||ON": {
+  "region": "ON",
+  "degDay": 3760,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Norwood|||ON": {
+  "region": "ON",
+  "degDay": 4320,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -9,
+   -2,
+   5,
+   13,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Oakville|||ON": {
+  "region": "ON",
+  "degDay": 3760,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   6,
+   12,
+   18,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Orangeville|||ON": {
+  "region": "ON",
+  "degDay": 4450,
+  "dhdbt": -21,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   19,
+   18,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Orillia|||ON": {
+  "region": "ON",
+  "degDay": 4260,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -8,
+   -2,
+   6,
+   13,
+   17,
+   21,
+   19,
+   15,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Oshawa|||ON": {
+  "region": "ON",
+  "degDay": 3860,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   1,
+   7,
+   14,
+   18,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Ottawa (Barrhaven)|||ON": {
+  "region": "ON",
+  "degDay": 4500,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   19,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Ottawa (city hall)|||ON": {
+  "region": "ON",
+  "degDay": 4440,
+  "dhdbt": -25,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -2,
+   6,
+   14,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -7
+  ]
+ },
+ "Ottawa (Kanata)|||ON": {
+  "region": "ON",
+  "degDay": 4520,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -10,
+   -3,
+   6,
+   13,
+   18,
+   21,
+   19,
+   15,
+   11,
+   1,
+   -7
+  ]
+ },
+ "Ottawa (M-C Int'l Airport)|||ON": {
+  "region": "ON",
+  "degDay": 4500,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   19,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Ottawa (Orleans)|||ON": {
+  "region": "ON",
+  "degDay": 4500,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -10,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   19,
+   14,
+   8,
+   1,
+   -7
+  ]
+ },
+ "Owen Sound|||ON": {
+  "region": "ON",
+  "degDay": 4030,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -6,
+   -1,
+   5,
+   11,
+   16,
+   20,
+   19,
+   15,
+   10,
+   3,
+   -2
+  ]
+ },
+ "Pagwa River|||ON": {
+  "region": "ON",
+  "degDay": 6500,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -9,
+   0,
+   8,
+   15,
+   17,
+   16,
+   12,
+   4,
+   -5,
+   -12
+  ]
+ },
+ "Paris|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Parkhill|||ON": {
+  "region": "ON",
+  "degDay": 3800,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   7,
+   13,
+   19,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Parry Sound|||ON": {
+  "region": "ON",
+  "degDay": 4640,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -2,
+   6,
+   12,
+   16,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Pelham (Fonthill)|||ON": {
+  "region": "ON",
+  "degDay": 3690,
+  "dhdbt": -15,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   21,
+   21,
+   17,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Pembroke|||ON": {
+  "region": "ON",
+  "degDay": 4980,
+  "dhdbt": -28,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   5,
+   12,
+   17,
+   19,
+   18,
+   14,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Penetanguishene|||ON": {
+  "region": "ON",
+  "degDay": 4200,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -4
+  ]
+ },
+ "Perth|||ON": {
+  "region": "ON",
+  "degDay": 4540,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   14,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Petawawa|||ON": {
+  "region": "ON",
+  "degDay": 4980,
+  "dhdbt": -29,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   5,
+   12,
+   17,
+   19,
+   18,
+   14,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Peterborough|||ON": {
+  "region": "ON",
+  "degDay": 4400,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -6,
+   -2,
+   6,
+   12,
+   17,
+   19,
+   19,
+   15,
+   8,
+   2,
+   -3
+  ]
+ },
+ "Petrolia|||ON": {
+  "region": "ON",
+  "degDay": 3640,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   21,
+   21,
+   17,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Pickering (Dunbarton)|||ON": {
+  "region": "ON",
+  "degDay": 3800,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   6,
+   12,
+   17,
+   20,
+   20,
+   15,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Picton|||ON": {
+  "region": "ON",
+  "degDay": 3980,
+  "dhdbt": -21,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   17,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -3
+  ]
+ },
+ "Plattsville|||ON": {
+  "region": "ON",
+  "degDay": 4150,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   18,
+   20,
+   19,
+   15,
+   9,
+   2,
+   -4
+  ]
+ },
+ "Point Alexander|||ON": {
+  "region": "ON",
+  "degDay": 4960,
+  "dhdbt": -29,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   4,
+   13,
+   18,
+   20,
+   18,
+   14,
+   8,
+   0,
+   -6
+  ]
+ },
+ "Port Burwell|||ON": {
+  "region": "ON",
+  "degDay": 3800,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   12,
+   17,
+   20,
+   19,
+   16,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Port Colborne|||ON": {
+  "region": "ON",
+  "degDay": 3600,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -3,
+   -3,
+   0,
+   5,
+   11,
+   18,
+   21,
+   21,
+   17,
+   11,
+   5,
+   0
+  ]
+ },
+ "Port Elgin|||ON": {
+  "region": "ON",
+  "degDay": 4100,
+  "dhdbt": -17,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -7,
+   -1,
+   5,
+   11,
+   16,
+   19,
+   19,
+   15,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Port Hope|||ON": {
+  "region": "ON",
+  "degDay": 3970,
+  "dhdbt": -21,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   12,
+   16,
+   20,
+   20,
+   16,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Port Perry|||ON": {
+  "region": "ON",
+  "degDay": 4260,
+  "dhdbt": -22,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   7,
+   12,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Port Stanley|||ON": {
+  "region": "ON",
+  "degDay": 3850,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   12,
+   17,
+   20,
+   19,
+   16,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Prescott|||ON": {
+  "region": "ON",
+  "degDay": 4120,
+  "dhdbt": -23,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -8,
+   -6,
+   -1,
+   6,
+   13,
+   19,
+   21,
+   20,
+   16,
+   10,
+   3,
+   -3
+  ]
+ },
+ "Princeton|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   20,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Raith|||ON": {
+  "region": "ON",
+  "degDay": 5900,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -9,
+   1,
+   9,
+   13,
+   16,
+   14,
+   9,
+   4,
+   -5,
+   -15
+  ]
+ },
+ "Rayside-Balfour (Chelmsford)|||ON": {
+  "region": "ON",
+  "degDay": 5200,
+  "dhdbt": -28,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -4,
+   4,
+   12,
+   17,
+   20,
+   19,
+   13,
+   8,
+   0,
+   -9
+  ]
+ },
+ "Red Lake|||ON": {
+  "region": "ON",
+  "degDay": 6220,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -8,
+   3,
+   11,
+   15,
+   19,
+   17,
+   10,
+   4,
+   -7,
+   -17
+  ]
+ },
+ "Renfrew|||ON": {
+  "region": "ON",
+  "degDay": 4900,
+  "dhdbt": -27,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   5,
+   12,
+   17,
+   20,
+   19,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Richmond Hill|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -21,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   7,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Rockland|||ON": {
+  "region": "ON",
+  "degDay": 4600,
+  "dhdbt": -26,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -13,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   19,
+   14,
+   8,
+   1,
+   -8
+  ]
+ },
+ "Sarnia|||ON": {
+  "region": "ON",
+  "degDay": 3750,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   6,
+   13,
+   18,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Sault Ste. Marie|||ON": {
+  "region": "ON",
+  "degDay": 4960,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -4,
+   4,
+   10,
+   15,
+   18,
+   18,
+   14,
+   7,
+   1,
+   -5
+  ]
+ },
+ "Scarborough|||ON": {
+  "region": "ON",
+  "degDay": 3800,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   7,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Schreiber|||ON": {
+  "region": "ON",
+  "degDay": 5960,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -15,
+   -13,
+   -7,
+   1,
+   8,
+   12,
+   15,
+   15,
+   10,
+   5,
+   -3,
+   -11
+  ]
+ },
+ "Seaforth|||ON": {
+  "region": "ON",
+  "degDay": 4100,
+  "dhdbt": -17,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -6,
+   -1,
+   6,
+   13,
+   17,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Shelburne|||ON": {
+  "region": "ON",
+  "degDay": 4700,
+  "dhdbt": -22,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -8,
+   -3,
+   5,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -5
+  ]
+ },
+ "Simcoe|||ON": {
+  "region": "ON",
+  "degDay": 3700,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -3
+  ]
+ },
+ "Sioux Lookout|||ON": {
+  "region": "ON",
+  "degDay": 5950,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -7,
+   3,
+   10,
+   16,
+   19,
+   18,
+   12,
+   4,
+   -5,
+   -14
+  ]
+ },
+ "Smiths Falls|||ON": {
+  "region": "ON",
+  "degDay": 4540,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   14,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Smithville|||ON": {
+  "region": "ON",
+  "degDay": 3650,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   22,
+   21,
+   17,
+   10,
+   5,
+   -1
+  ]
+ },
+ "Smooth Rock Falls|||ON": {
+  "region": "ON",
+  "degDay": 6250,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -18,
+   -15,
+   -8,
+   1,
+   9,
+   15,
+   17,
+   16,
+   11,
+   4,
+   -4,
+   -13
+  ]
+ },
+ "South River|||ON": {
+  "region": "ON",
+  "degDay": 5090,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -4,
+   4,
+   11,
+   15,
+   19,
+   17,
+   12,
+   6,
+   -1,
+   -8
+  ]
+ },
+ "Southampton|||ON": {
+  "region": "ON",
+  "degDay": 4100,
+  "dhdbt": -17,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -7,
+   -1,
+   5,
+   11,
+   16,
+   19,
+   19,
+   15,
+   9,
+   4,
+   -3
+  ]
+ },
+ "St. Catharines|||ON": {
+  "region": "ON",
+  "degDay": 3540,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   22,
+   21,
+   17,
+   10,
+   5,
+   -1
+  ]
+ },
+ "St. Mary's|||ON": {
+  "region": "ON",
+  "degDay": 4000,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   17,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "St. Thomas|||ON": {
+  "region": "ON",
+  "degDay": 3780,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Stirling|||ON": {
+  "region": "ON",
+  "degDay": 4220,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -2,
+   7,
+   13,
+   17,
+   21,
+   19,
+   15,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Stratford|||ON": {
+  "region": "ON",
+  "degDay": 4050,
+  "dhdbt": -18,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   17,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Strathroy|||ON": {
+  "region": "ON",
+  "degDay": 3780,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   1,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -3
+  ]
+ },
+ "Sturgeon Falls|||ON": {
+  "region": "ON",
+  "degDay": 5200,
+  "dhdbt": -28,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -16,
+   -10,
+   -5,
+   4,
+   10,
+   15,
+   19,
+   18,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Sudbury|||ON": {
+  "region": "ON",
+  "degDay": 5180,
+  "dhdbt": -28,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -5,
+   4,
+   11,
+   16,
+   19,
+   18,
+   13,
+   6,
+   -1,
+   -8
+  ]
+ },
+ "Sundridge|||ON": {
+  "region": "ON",
+  "degDay": 5080,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -4,
+   4,
+   11,
+   15,
+   19,
+   17,
+   12,
+   6,
+   -1,
+   -8
+  ]
+ },
+ "Tavistock|||ON": {
+  "region": "ON",
+  "degDay": 4100,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   17,
+   20,
+   19,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Temagami|||ON": {
+  "region": "ON",
+  "degDay": 5420,
+  "dhdbt": -30,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -16,
+   -15,
+   -7,
+   1,
+   10,
+   16,
+   19,
+   16,
+   11,
+   6,
+   -2,
+   -12
+  ]
+ },
+ "Thamesford|||ON": {
+  "region": "ON",
+  "degDay": 3950,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -5,
+   0,
+   7,
+   13,
+   18,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Thedford|||ON": {
+  "region": "ON",
+  "degDay": 3710,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -4,
+   1,
+   7,
+   13,
+   19,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Thunder Bay|||ON": {
+  "region": "ON",
+  "degDay": 5650,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -14,
+   -11,
+   -5,
+   3,
+   9,
+   15,
+   18,
+   17,
+   12,
+   5,
+   -3,
+   -10
+  ]
+ },
+ "Tillsonburg|||ON": {
+  "region": "ON",
+  "degDay": 3840,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -1,
+   2,
+   8,
+   15,
+   19,
+   21,
+   20,
+   17,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Timmins|||ON": {
+  "region": "ON",
+  "degDay": 5940,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -8,
+   2,
+   10,
+   15,
+   17,
+   16,
+   11,
+   4,
+   -4,
+   -12
+  ]
+ },
+ "Timmins (Porcupine)|||ON": {
+  "region": "ON",
+  "degDay": 6000,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -8,
+   2,
+   10,
+   15,
+   17,
+   16,
+   11,
+   4,
+   -4,
+   -12
+  ]
+ },
+ "Toronto (city hall)|||ON": {
+  "region": "ON",
+  "degDay": 3520,
+  "dhdbt": -18,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -4,
+   -2,
+   1,
+   6,
+   12,
+   18,
+   21,
+   21,
+   18,
+   10,
+   5,
+   0
+  ]
+ },
+ "Trenton|||ON": {
+  "region": "ON",
+  "degDay": 4110,
+  "dhdbt": -22,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Trout Creek|||ON": {
+  "region": "ON",
+  "degDay": 5100,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -5,
+   4,
+   11,
+   16,
+   19,
+   18,
+   13,
+   6,
+   -1,
+   -8
+  ]
+ },
+ "Uxbridge|||ON": {
+  "region": "ON",
+  "degDay": 4240,
+  "dhdbt": -22,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -9,
+   -3,
+   4,
+   12,
+   17,
+   19,
+   18,
+   14,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Vaughan (Woodbridge)|||ON": {
+  "region": "ON",
+  "degDay": 4100,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Vittoria|||ON": {
+  "region": "ON",
+  "degDay": 3680,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Walkerton|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -18,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   19,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Wallaceburg|||ON": {
+  "region": "ON",
+  "degDay": 3600,
+  "dhdbt": -16,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   8,
+   14,
+   20,
+   22,
+   21,
+   17,
+   11,
+   4,
+   -2
+  ]
+ },
+ "Waterloo|||ON": {
+  "region": "ON",
+  "degDay": 4200,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -6,
+   -1,
+   6,
+   13,
+   17,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -4
+  ]
+ },
+ "Watford|||ON": {
+  "region": "ON",
+  "degDay": 3740,
+  "dhdbt": -17,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   1,
+   7,
+   14,
+   19,
+   21,
+   20,
+   16,
+   10,
+   4,
+   -3
+  ]
+ },
+ "Wawa|||ON": {
+  "region": "ON",
+  "degDay": 5840,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -6,
+   2,
+   8,
+   13,
+   15,
+   16,
+   12,
+   5,
+   -2,
+   -8
+  ]
+ },
+ "Welland|||ON": {
+  "region": "ON",
+  "degDay": 3670,
+  "dhdbt": -15,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   7,
+   13,
+   19,
+   21,
+   21,
+   16,
+   10,
+   4,
+   -1
+  ]
+ },
+ "West Lorne|||ON": {
+  "region": "ON",
+  "degDay": 3700,
+  "dhdbt": -16,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -6,
+   -4,
+   1,
+   7,
+   13,
+   19,
+   21,
+   20,
+   16,
+   11,
+   4,
+   -2
+  ]
+ },
+ "Whitby|||ON": {
+  "region": "ON",
+  "degDay": 3820,
+  "dhdbt": -20,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   0,
+   6,
+   12,
+   17,
+   20,
+   20,
+   15,
+   9,
+   4,
+   -2
+  ]
+ },
+ "Whitby (Brooklin)|||ON": {
+  "region": "ON",
+  "degDay": 4010,
+  "dhdbt": -20,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -5,
+   1,
+   7,
+   14,
+   18,
+   21,
+   20,
+   16,
+   9,
+   4,
+   -3
+  ]
+ },
+ "White River|||ON": {
+  "region": "ON",
+  "degDay": 6150,
+  "dhdbt": -39,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -19,
+   -17,
+   -10,
+   -1,
+   8,
+   14,
+   15,
+   15,
+   9,
+   4,
+   -4,
+   -14
+  ]
+ },
+ "Wiarton|||ON": {
+  "region": "ON",
+  "degDay": 4300,
+  "dhdbt": -19,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -6,
+   -6,
+   -2,
+   5,
+   11,
+   16,
+   19,
+   18,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Windsor|||ON": {
+  "region": "ON",
+  "degDay": 3400,
+  "dhdbt": -16,
+  "dgtemp": 11,
+  "monthlyTemps": [
+   -4,
+   -2,
+   2,
+   9,
+   15,
+   20,
+   23,
+   22,
+   18,
+   11,
+   5,
+   -1
+  ]
+ },
+ "Wingham|||ON": {
+  "region": "ON",
+  "degDay": 4220,
+  "dhdbt": -18,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -2,
+   6,
+   12,
+   17,
+   19,
+   19,
+   15,
+   8,
+   3,
+   -3
+  ]
+ },
+ "Woodstock|||ON": {
+  "region": "ON",
+  "degDay": 3910,
+  "dhdbt": -19,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -6,
+   -5,
+   0,
+   6,
+   13,
+   18,
+   20,
+   20,
+   15,
+   9,
+   3,
+   -3
+  ]
+ },
+ "Wyoming|||ON": {
+  "region": "ON",
+  "degDay": 3700,
+  "dhdbt": -16,
+  "dgtemp": 10,
+  "monthlyTemps": [
+   -5,
+   -4,
+   1,
+   7,
+   14,
+   19,
+   21,
+   21,
+   17,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Charlottetown|||PE": {
+  "region": "PE",
+  "degDay": 4460,
+  "dhdbt": -20,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -3,
+   3,
+   9,
+   15,
+   19,
+   18,
+   14,
+   8,
+   3,
+   -3
+  ]
+ },
+ "Souris|||PE": {
+  "region": "PE",
+  "degDay": 4550,
+  "dhdbt": -19,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -5,
+   -6,
+   -3,
+   2,
+   7,
+   13,
+   18,
+   18,
+   15,
+   10,
+   4,
+   -1
+  ]
+ },
+ "Summerside|||PE": {
+  "region": "PE",
+  "degDay": 4600,
+  "dhdbt": -20,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -8,
+   -7,
+   -3,
+   3,
+   10,
+   15,
+   19,
+   19,
+   15,
+   9,
+   3,
+   -4
+  ]
+ },
+ "Tignish|||PE": {
+  "region": "PE",
+  "degDay": 4770,
+  "dhdbt": -20,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -7,
+   -7,
+   -3,
+   2,
+   8,
+   15,
+   19,
+   19,
+   15,
+   10,
+   4,
+   -2
+  ]
+ },
+ "Acton-Vale|||QC": {
+  "region": "QC",
+  "degDay": 4620,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   20,
+   19,
+   14,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Alma|||QC": {
+  "region": "QC",
+  "degDay": 5800,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -14,
+   -7,
+   1,
+   10,
+   16,
+   18,
+   17,
+   13,
+   6,
+   -1,
+   -10
+  ]
+ },
+ "Amos|||QC": {
+  "region": "QC",
+  "degDay": 6160,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -15,
+   -8,
+   1,
+   9,
+   15,
+   17,
+   16,
+   10,
+   4,
+   -4,
+   -13
+  ]
+ },
+ "Ancienne-Lorette|||QC": {
+  "region": "QC",
+  "degDay": 5130,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   4,
+   12,
+   17,
+   20,
+   18,
+   14,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Asbestos|||QC": {
+  "region": "QC",
+  "degDay": 4800,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   12,
+   17,
+   20,
+   18,
+   13,
+   7,
+   1,
+   -8
+  ]
+ },
+ "Aylmer|||QC": {
+  "region": "QC",
+  "degDay": 4520,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -2,
+   6,
+   14,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -7
+  ]
+ },
+ "Baie-Comeau|||QC": {
+  "region": "QC",
+  "degDay": 6020,
+  "dhdbt": -27,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -5,
+   2,
+   8,
+   14,
+   17,
+   16,
+   12,
+   5,
+   -1,
+   -8
+  ]
+ },
+ "Baie-Saint-Paul|||QC": {
+  "region": "QC",
+  "degDay": 5280,
+  "dhdbt": -27,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -4,
+   3,
+   10,
+   16,
+   18,
+   17,
+   12,
+   6,
+   -1,
+   -9
+  ]
+ },
+ "Beaconsfield|||QC": {
+  "region": "QC",
+  "degDay": 4440,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   19,
+   21,
+   20,
+   16,
+   9,
+   2,
+   -5
+  ]
+ },
+ "Beauport|||QC": {
+  "region": "QC",
+  "degDay": 5100,
+  "dhdbt": -26,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   4,
+   11,
+   17,
+   20,
+   18,
+   13,
+   6,
+   0,
+   -9
+  ]
+ },
+ "Bedford|||QC": {
+  "region": "QC",
+  "degDay": 4420,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -8,
+   -1,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Beloeil|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   6,
+   13,
+   18,
+   20,
+   19,
+   14,
+   8,
+   1,
+   -6
+  ]
+ },
+ "Brome|||QC": {
+  "region": "QC",
+  "degDay": 4730,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   5,
+   12,
+   17,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Brossard|||QC": {
+  "region": "QC",
+  "degDay": 4420,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Buckingham|||QC": {
+  "region": "QC",
+  "degDay": 4880,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -4,
+   4,
+   12,
+   17,
+   20,
+   19,
+   13,
+   7,
+   1,
+   -8
+  ]
+ },
+ "Campbell's Bay|||QC": {
+  "region": "QC",
+  "degDay": 4900,
+  "dhdbt": -28,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -3,
+   5,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   0,
+   -7
+  ]
+ },
+ "Chambly|||QC": {
+  "region": "QC",
+  "degDay": 4450,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Coaticook|||QC": {
+  "region": "QC",
+  "degDay": 4750,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -3,
+   5,
+   12,
+   17,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Contrecoeur|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   1,
+   -6
+  ]
+ },
+ "Cowansville|||QC": {
+  "region": "QC",
+  "degDay": 4540,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   5,
+   12,
+   17,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Deux-Montagnes|||QC": {
+  "region": "QC",
+  "degDay": 4440,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -7
+  ]
+ },
+ "Dolbeau|||QC": {
+  "region": "QC",
+  "degDay": 6250,
+  "dhdbt": -32,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -18,
+   -17,
+   -7,
+   2,
+   10,
+   15,
+   18,
+   16,
+   11,
+   4,
+   -3,
+   -14
+  ]
+ },
+ "Dorval|||QC": {
+  "region": "QC",
+  "degDay": 4400,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   14,
+   19,
+   21,
+   20,
+   16,
+   9,
+   2,
+   -5
+  ]
+ },
+ "Drummondville|||QC": {
+  "region": "QC",
+  "degDay": 4700,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   19,
+   14,
+   8,
+   1,
+   -7
+  ]
+ },
+ "Farnham|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -2,
+   6,
+   13,
+   18,
+   20,
+   19,
+   14,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Fort-Coulonge|||QC": {
+  "region": "QC",
+  "degDay": 4950,
+  "dhdbt": -28,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -3,
+   5,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   0,
+   -7
+  ]
+ },
+ "Gagnon|||QC": {
+  "region": "QC",
+  "degDay": 7600,
+  "dhdbt": -34,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -21,
+   -18,
+   -12,
+   -4,
+   4,
+   11,
+   14,
+   12,
+   7,
+   0,
+   -7,
+   -18
+  ]
+ },
+ "Gaspé|||QC": {
+  "region": "QC",
+  "degDay": 5500,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -5,
+   2,
+   8,
+   13,
+   17,
+   16,
+   12,
+   6,
+   0,
+   -7
+  ]
+ },
+ "Gatineau|||QC": {
+  "region": "QC",
+  "degDay": 4600,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -10,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   19,
+   14,
+   8,
+   1,
+   -7
+  ]
+ },
+ "Gracefield|||QC": {
+  "region": "QC",
+  "degDay": 5080,
+  "dhdbt": -28,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -4,
+   5,
+   12,
+   17,
+   19,
+   18,
+   13,
+   7,
+   0,
+   -9
+  ]
+ },
+ "Granby|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   5,
+   13,
+   18,
+   20,
+   19,
+   14,
+   8,
+   1,
+   -6
+  ]
+ },
+ "Harrington-Harbour|||QC": {
+  "region": "QC",
+  "degDay": 6150,
+  "dhdbt": -27,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -13,
+   -12,
+   -7,
+   -1,
+   4,
+   10,
+   13,
+   14,
+   10,
+   5,
+   -1,
+   -7
+  ]
+ },
+ "Havre-St-Pierre|||QC": {
+  "region": "QC",
+  "degDay": 6100,
+  "dhdbt": -27,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -14,
+   -13,
+   -7,
+   0,
+   6,
+   12,
+   15,
+   14,
+   11,
+   5,
+   -2,
+   -9
+  ]
+ },
+ "Hemmingford|||QC": {
+  "region": "QC",
+  "degDay": 4380,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   19,
+   14,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Hull|||QC": {
+  "region": "QC",
+  "degDay": 4550,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -2,
+   6,
+   14,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -7
+  ]
+ },
+ "Iberville|||QC": {
+  "region": "QC",
+  "degDay": 4450,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Inukjuak|||QC": {
+  "region": "QC",
+  "degDay": 9150,
+  "dhdbt": -36,
+  "dgtemp": -1,
+  "monthlyTemps": [
+   -25,
+   -26,
+   -20,
+   -10,
+   -2,
+   5,
+   10,
+   10,
+   6,
+   1,
+   -7,
+   -16
+  ]
+ },
+ "Joliette|||QC": {
+  "region": "QC",
+  "degDay": 4720,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   19,
+   14,
+   7,
+   1,
+   -8
+  ]
+ },
+ "Kuujjuaq|||QC": {
+  "region": "QC",
+  "degDay": 8550,
+  "dhdbt": -37,
+  "dgtemp": 0,
+  "monthlyTemps": [
+   -25,
+   -24,
+   -18,
+   -8,
+   1,
+   8,
+   12,
+   11,
+   6,
+   0,
+   -8,
+   -18
+  ]
+ },
+ "Kuujjuarapik|||QC": {
+  "region": "QC",
+  "degDay": 7990,
+  "dhdbt": -36,
+  "dgtemp": 1,
+  "monthlyTemps": [
+   -23,
+   -23,
+   -17,
+   -7,
+   2,
+   7,
+   11,
+   12,
+   8,
+   3,
+   -5,
+   -15
+  ]
+ },
+ "La Pocatière|||QC": {
+  "region": "QC",
+  "degDay": 5160,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -4,
+   3,
+   10,
+   16,
+   19,
+   18,
+   14,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Lachute|||QC": {
+  "region": "QC",
+  "degDay": 4640,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   20,
+   19,
+   14,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Lac-Mégantic|||QC": {
+  "region": "QC",
+  "degDay": 5180,
+  "dhdbt": -27,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -11,
+   -10,
+   -4,
+   3,
+   10,
+   15,
+   18,
+   17,
+   12,
+   6,
+   -1,
+   -8
+  ]
+ },
+ "La-Malbaie|||QC": {
+  "region": "QC",
+  "degDay": 5400,
+  "dhdbt": -26,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -5,
+   3,
+   10,
+   15,
+   18,
+   17,
+   11,
+   6,
+   -1,
+   -9
+  ]
+ },
+ "La-Tuque|||QC": {
+  "region": "QC",
+  "degDay": 5500,
+  "dhdbt": -30,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -14,
+   -12,
+   -5,
+   3,
+   11,
+   17,
+   19,
+   17,
+   13,
+   6,
+   -1,
+   -9
+  ]
+ },
+ "Laval|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -12,
+   -8,
+   -3,
+   6,
+   14,
+   18,
+   22,
+   19,
+   14,
+   8,
+   2,
+   -7
+  ]
+ },
+ "Lennoxville|||QC": {
+  "region": "QC",
+  "degDay": 4700,
+  "dhdbt": -28,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -7,
+   -2,
+   5,
+   12,
+   17,
+   19,
+   19,
+   15,
+   7,
+   2,
+   -5
+  ]
+ },
+ "Léry|||QC": {
+  "region": "QC",
+  "degDay": 4420,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   14,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Lévis|||QC": {
+  "region": "QC",
+  "degDay": 5050,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -3,
+   4,
+   12,
+   17,
+   20,
+   19,
+   15,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Loretteville|||QC": {
+  "region": "QC",
+  "degDay": 5200,
+  "dhdbt": -26,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -14,
+   -10,
+   -3,
+   3,
+   12,
+   17,
+   20,
+   19,
+   13,
+   7,
+   -1,
+   -9
+  ]
+ },
+ "Louiseville|||QC": {
+  "region": "QC",
+  "degDay": 4900,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -4,
+   4,
+   12,
+   17,
+   20,
+   19,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Magog|||QC": {
+  "region": "QC",
+  "degDay": 4730,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   5,
+   12,
+   17,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Malartic|||QC": {
+  "region": "QC",
+  "degDay": 6200,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -15,
+   -8,
+   1,
+   9,
+   15,
+   17,
+   16,
+   10,
+   4,
+   -4,
+   -13
+  ]
+ },
+ "Maniwaki|||QC": {
+  "region": "QC",
+  "degDay": 5280,
+  "dhdbt": -30,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -3,
+   4,
+   12,
+   17,
+   19,
+   18,
+   14,
+   7,
+   0,
+   -7
+  ]
+ },
+ "Masson|||QC": {
+  "region": "QC",
+  "degDay": 4610,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -4,
+   5,
+   13,
+   18,
+   20,
+   19,
+   14,
+   8,
+   1,
+   -8
+  ]
+ },
+ "Matane|||QC": {
+  "region": "QC",
+  "degDay": 5510,
+  "dhdbt": -24,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -6,
+   1,
+   8,
+   14,
+   17,
+   16,
+   11,
+   6,
+   -1,
+   -7
+  ]
+ },
+ "Mont-Joli|||QC": {
+  "region": "QC",
+  "degDay": 5370,
+  "dhdbt": -24,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -5,
+   2,
+   9,
+   15,
+   18,
+   17,
+   12,
+   6,
+   0,
+   -7
+  ]
+ },
+ "Mont-Laurier|||QC": {
+  "region": "QC",
+  "degDay": 5320,
+  "dhdbt": -29,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -14,
+   -12,
+   -5,
+   3,
+   11,
+   16,
+   18,
+   17,
+   12,
+   6,
+   -1,
+   -10
+  ]
+ },
+ "Montmagny|||QC": {
+  "region": "QC",
+  "degDay": 5090,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   3,
+   11,
+   16,
+   19,
+   18,
+   13,
+   6,
+   0,
+   -8
+  ]
+ },
+ "Montréal (city hall)|||QC": {
+  "region": "QC",
+  "degDay": 4200,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -8,
+   -6,
+   -1,
+   7,
+   14,
+   19,
+   22,
+   21,
+   17,
+   10,
+   3,
+   -4
+  ]
+ },
+ "Montréal-Est|||QC": {
+  "region": "QC",
+  "degDay": 4470,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -9,
+   -7,
+   -2,
+   6,
+   14,
+   19,
+   21,
+   21,
+   16,
+   9,
+   2,
+   -4
+  ]
+ },
+ "Montréal-Nord|||QC": {
+  "region": "QC",
+  "degDay": 4470,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   13,
+   17,
+   20,
+   19,
+   14,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Nicolet (Gentilly)|||QC": {
+  "region": "QC",
+  "degDay": 4900,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Nitchequon|||QC": {
+  "region": "QC",
+  "degDay": 8100,
+  "dhdbt": -39,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -24,
+   -22,
+   -15,
+   -6,
+   2,
+   10,
+   14,
+   12,
+   6,
+   0,
+   -8,
+   -20
+  ]
+ },
+ "Noranda|||QC": {
+  "region": "QC",
+  "degDay": 6050,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -13,
+   -6,
+   2,
+   10,
+   16,
+   18,
+   17,
+   13,
+   5,
+   -3,
+   -10
+  ]
+ },
+ "Outremont|||QC": {
+  "region": "QC",
+  "degDay": 4300,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -7,
+   -2,
+   6,
+   14,
+   19,
+   22,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Percé|||QC": {
+  "region": "QC",
+  "degDay": 5400,
+  "dhdbt": -21,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -9,
+   -9,
+   -4,
+   1,
+   6,
+   12,
+   16,
+   16,
+   12,
+   6,
+   1,
+   -5
+  ]
+ },
+ "Pierrefonds|||QC": {
+  "region": "QC",
+  "degDay": 4430,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -7
+  ]
+ },
+ "Pincourt|||QC": {
+  "region": "QC",
+  "degDay": 4480,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   19,
+   21,
+   20,
+   16,
+   9,
+   2,
+   -5
+  ]
+ },
+ "Plessisville|||QC": {
+  "region": "QC",
+  "degDay": 5100,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -4,
+   4,
+   11,
+   17,
+   19,
+   18,
+   13,
+   6,
+   0,
+   -8
+  ]
+ },
+ "Port-Cartier|||QC": {
+  "region": "QC",
+  "degDay": 6060,
+  "dhdbt": -28,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -14,
+   -7,
+   0,
+   6,
+   12,
+   15,
+   15,
+   10,
+   4,
+   -3,
+   -10
+  ]
+ },
+ "Puvinrituq|||QC": {
+  "region": "QC",
+  "degDay": 9200,
+  "dhdbt": -36,
+  "dgtemp": -1,
+  "monthlyTemps": [
+   -25,
+   -26,
+   -20,
+   -10,
+   -2,
+   5,
+   10,
+   10,
+   6,
+   1,
+   -7,
+   -16
+  ]
+ },
+ "Québec|||QC": {
+  "region": "QC",
+  "degDay": 5080,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -3,
+   4,
+   12,
+   17,
+   20,
+   19,
+   15,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Richmond|||QC": {
+  "region": "QC",
+  "degDay": 4700,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   12,
+   17,
+   20,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Rimouski|||QC": {
+  "region": "QC",
+  "degDay": 5300,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   3,
+   10,
+   15,
+   18,
+   17,
+   12,
+   6,
+   0,
+   -8
+  ]
+ },
+ "Rivière-du-Loup|||QC": {
+  "region": "QC",
+  "degDay": 5380,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -5,
+   2,
+   9,
+   15,
+   17,
+   17,
+   12,
+   6,
+   0,
+   -7
+  ]
+ },
+ "Roberval|||QC": {
+  "region": "QC",
+  "degDay": 5750,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -14,
+   -7,
+   2,
+   10,
+   16,
+   18,
+   17,
+   12,
+   6,
+   -2,
+   -11
+  ]
+ },
+ "Rock-Island|||QC": {
+  "region": "QC",
+  "degDay": 4850,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   5,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Rosemère|||QC": {
+  "region": "QC",
+  "degDay": 4550,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -7
+  ]
+ },
+ "Rouyn|||QC": {
+  "region": "QC",
+  "degDay": 6050,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -13,
+   -6,
+   2,
+   10,
+   16,
+   18,
+   17,
+   13,
+   5,
+   -3,
+   -10
+  ]
+ },
+ "Saguenay|||QC": {
+  "region": "QC",
+  "degDay": 5700,
+  "dhdbt": -30,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -14,
+   -5,
+   3,
+   11,
+   17,
+   19,
+   18,
+   12,
+   6,
+   -1,
+   -12
+  ]
+ },
+ "Saguenay (Bagotville)|||QC": {
+  "region": "QC",
+  "degDay": 5700,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -13,
+   -6,
+   2,
+   10,
+   16,
+   18,
+   17,
+   12,
+   5,
+   -2,
+   -10
+  ]
+ },
+ "Saguenay (Jonquière)|||QC": {
+  "region": "QC",
+  "degDay": 5650,
+  "dhdbt": -30,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -13,
+   -6,
+   2,
+   10,
+   16,
+   18,
+   17,
+   13,
+   6,
+   -1,
+   -9
+  ]
+ },
+ "Saguenay (Kénogami)|||QC": {
+  "region": "QC",
+  "degDay": 5650,
+  "dhdbt": -30,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -13,
+   -6,
+   2,
+   10,
+   16,
+   18,
+   17,
+   13,
+   6,
+   -1,
+   -9
+  ]
+ },
+ "Saint-Eustache|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -7
+  ]
+ },
+ "Saint-Jean-sur-Richelieu|||QC": {
+  "region": "QC",
+  "degDay": 4450,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Salaberry-de-Valleyfield|||QC": {
+  "region": "QC",
+  "degDay": 4400,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   14,
+   19,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "Schefferville|||QC": {
+  "region": "QC",
+  "degDay": 8550,
+  "dhdbt": -37,
+  "dgtemp": 1,
+  "monthlyTemps": [
+   -24,
+   -23,
+   -16,
+   -7,
+   2,
+   9,
+   13,
+   12,
+   7,
+   -1,
+   -9,
+   -18
+  ]
+ },
+ "Senneterre|||QC": {
+  "region": "QC",
+  "degDay": 6180,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -19,
+   -16,
+   -9,
+   1,
+   9,
+   14,
+   17,
+   15,
+   10,
+   4,
+   -4,
+   -14
+  ]
+ },
+ "Sept-Îles|||QC": {
+  "region": "QC",
+  "degDay": 6200,
+  "dhdbt": -29,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -14,
+   -7,
+   0,
+   6,
+   12,
+   15,
+   15,
+   10,
+   4,
+   -3,
+   -10
+  ]
+ },
+ "Shawinigan|||QC": {
+  "region": "QC",
+  "degDay": 5050,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -4,
+   4,
+   12,
+   17,
+   20,
+   18,
+   13,
+   7,
+   0,
+   -9
+  ]
+ },
+ "Shawville|||QC": {
+  "region": "QC",
+  "degDay": 4880,
+  "dhdbt": -27,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   5,
+   12,
+   17,
+   20,
+   18,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Sherbrooke|||QC": {
+  "region": "QC",
+  "degDay": 4700,
+  "dhdbt": -28,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -4,
+   4,
+   11,
+   16,
+   18,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Sillery|||QC": {
+  "region": "QC",
+  "degDay": 5070,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -3,
+   4,
+   12,
+   17,
+   20,
+   19,
+   15,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Sorel|||QC": {
+  "region": "QC",
+  "degDay": 4550,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   20,
+   14,
+   8,
+   1,
+   -7
+  ]
+ },
+ "Ste-Agathe-des-Monts|||QC": {
+  "region": "QC",
+  "degDay": 5390,
+  "dhdbt": -28,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -5,
+   3,
+   11,
+   15,
+   18,
+   16,
+   12,
+   6,
+   -1,
+   -10
+  ]
+ },
+ "Ste-Anne-de-Bellevue|||QC": {
+  "region": "QC",
+  "degDay": 4460,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   19,
+   21,
+   20,
+   16,
+   9,
+   2,
+   -5
+  ]
+ },
+ "Ste-Foy|||QC": {
+  "region": "QC",
+  "degDay": 5100,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -3,
+   4,
+   12,
+   17,
+   20,
+   19,
+   15,
+   7,
+   1,
+   -6
+  ]
+ },
+ "St-Félicien|||QC": {
+  "region": "QC",
+  "degDay": 5850,
+  "dhdbt": -32,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -15,
+   -7,
+   2,
+   10,
+   16,
+   18,
+   17,
+   12,
+   6,
+   -3,
+   -12
+  ]
+ },
+ "St-Georges-de-Cacouna|||QC": {
+  "region": "QC",
+  "degDay": 5400,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -5,
+   2,
+   9,
+   15,
+   17,
+   17,
+   12,
+   6,
+   0,
+   -7
+  ]
+ },
+ "St-Hubert|||QC": {
+  "region": "QC",
+  "degDay": 4490,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "St-Hubert-de-Rivière-du-Loup|||QC": {
+  "region": "QC",
+  "degDay": 5520,
+  "dhdbt": -26,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -13,
+   -6,
+   1,
+   9,
+   15,
+   17,
+   16,
+   11,
+   5,
+   -2,
+   -11
+  ]
+ },
+ "St-Hyacinthe|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -3,
+   6,
+   13,
+   19,
+   21,
+   20,
+   15,
+   8,
+   1,
+   -7
+  ]
+ },
+ "St-Jérôme|||QC": {
+  "region": "QC",
+  "degDay": 4820,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -4,
+   5,
+   12,
+   17,
+   20,
+   18,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "St-Jovite|||QC": {
+  "region": "QC",
+  "degDay": 5250,
+  "dhdbt": -29,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -4,
+   3,
+   11,
+   16,
+   18,
+   17,
+   13,
+   6,
+   0,
+   -8
+  ]
+ },
+ "St-Lambert|||QC": {
+  "region": "QC",
+  "degDay": 4400,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   2,
+   -6
+  ]
+ },
+ "St-Laurent|||QC": {
+  "region": "QC",
+  "degDay": 4270,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   14,
+   19,
+   21,
+   20,
+   16,
+   9,
+   2,
+   -5
+  ]
+ },
+ "St-Lazare-Hudson|||QC": {
+  "region": "QC",
+  "degDay": 4520,
+  "dhdbt": -24,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -3,
+   5,
+   12,
+   17,
+   20,
+   18,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "St-Nicolas|||QC": {
+  "region": "QC",
+  "degDay": 4990,
+  "dhdbt": -25,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -3,
+   4,
+   12,
+   17,
+   20,
+   19,
+   15,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Sutton|||QC": {
+  "region": "QC",
+  "degDay": 4600,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -9,
+   -8,
+   -2,
+   6,
+   12,
+   17,
+   20,
+   18,
+   14,
+   8,
+   1,
+   -6
+  ]
+ },
+ "Tadoussac|||QC": {
+  "region": "QC",
+  "degDay": 5450,
+  "dhdbt": -26,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -13,
+   -11,
+   -5,
+   2,
+   9,
+   14,
+   17,
+   16,
+   11,
+   5,
+   -1,
+   -9
+  ]
+ },
+ "Témiscaming|||QC": {
+  "region": "QC",
+  "degDay": 5020,
+  "dhdbt": -30,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -8,
+   -3,
+   4,
+   11,
+   17,
+   19,
+   19,
+   15,
+   7,
+   1,
+   -6
+  ]
+ },
+ "Terrebonne|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   20,
+   14,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Thetford Mines|||QC": {
+  "region": "QC",
+  "degDay": 5120,
+  "dhdbt": -26,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -11,
+   -5,
+   3,
+   11,
+   16,
+   18,
+   17,
+   12,
+   6,
+   -1,
+   -8
+  ]
+ },
+ "Thurso|||QC": {
+  "region": "QC",
+  "degDay": 4820,
+  "dhdbt": -26,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -13,
+   -9,
+   -3,
+   5,
+   13,
+   18,
+   21,
+   19,
+   14,
+   8,
+   1,
+   -8
+  ]
+ },
+ "Trois-Rivières|||QC": {
+  "region": "QC",
+  "degDay": 4900,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -3,
+   4,
+   12,
+   18,
+   21,
+   20,
+   15,
+   9,
+   2,
+   -5
+  ]
+ },
+ "Val-d'Or|||QC": {
+  "region": "QC",
+  "degDay": 6180,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -8,
+   1,
+   10,
+   15,
+   18,
+   16,
+   11,
+   5,
+   -3,
+   -12
+  ]
+ },
+ "Varennes|||QC": {
+  "region": "QC",
+  "degDay": 4500,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   13,
+   19,
+   20,
+   19,
+   15,
+   8,
+   2,
+   -5
+  ]
+ },
+ "Verchères|||QC": {
+  "region": "QC",
+  "degDay": 4450,
+  "dhdbt": -24,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -9,
+   -3,
+   6,
+   13,
+   18,
+   21,
+   20,
+   15,
+   8,
+   1,
+   -6
+  ]
+ },
+ "Verdun|||QC": {
+  "region": "QC",
+  "degDay": 4200,
+  "dhdbt": -23,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -10,
+   -8,
+   -2,
+   6,
+   14,
+   19,
+   21,
+   20,
+   16,
+   9,
+   2,
+   -5
+  ]
+ },
+ "Victoriaville|||QC": {
+  "region": "QC",
+  "degDay": 4900,
+  "dhdbt": -26,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -3,
+   5,
+   13,
+   17,
+   20,
+   19,
+   13,
+   7,
+   1,
+   -8
+  ]
+ },
+ "Ville-Marie|||QC": {
+  "region": "QC",
+  "degDay": 5550,
+  "dhdbt": -31,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -15,
+   -12,
+   -6,
+   2,
+   11,
+   17,
+   20,
+   18,
+   13,
+   7,
+   -1,
+   -10
+  ]
+ },
+ "Wakefield|||QC": {
+  "region": "QC",
+  "degDay": 4820,
+  "dhdbt": -27,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -12,
+   -10,
+   -3,
+   5,
+   13,
+   17,
+   20,
+   18,
+   13,
+   7,
+   0,
+   -8
+  ]
+ },
+ "Waterloo|||QC": {
+  "region": "QC",
+  "degDay": 4650,
+  "dhdbt": -25,
+  "dgtemp": 9,
+  "monthlyTemps": [
+   -11,
+   -10,
+   -3,
+   5,
+   12,
+   16,
+   19,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Windsor|||QC": {
+  "region": "QC",
+  "degDay": 4700,
+  "dhdbt": -25,
+  "dgtemp": 8,
+  "monthlyTemps": [
+   -11,
+   -9,
+   -4,
+   4,
+   11,
+   16,
+   18,
+   18,
+   13,
+   7,
+   1,
+   -7
+  ]
+ },
+ "Assiniboia|||SK": {
+  "region": "SK",
+  "degDay": 5180,
+  "dhdbt": -32,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -4,
+   5,
+   11,
+   16,
+   19,
+   19,
+   13,
+   5,
+   -3,
+   -9
+  ]
+ },
+ "Battrum|||SK": {
+  "region": "SK",
+  "degDay": 5080,
+  "dhdbt": -32,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -13,
+   -10,
+   -3,
+   5,
+   12,
+   16,
+   19,
+   18,
+   12,
+   6,
+   -4,
+   -10
+  ]
+ },
+ "Biggar|||SK": {
+  "region": "SK",
+  "degDay": 5720,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -13,
+   -5,
+   4,
+   11,
+   16,
+   18,
+   17,
+   11,
+   5,
+   -6,
+   -14
+  ]
+ },
+ "Broadview|||SK": {
+  "region": "SK",
+  "degDay": 5760,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -12,
+   -6,
+   4,
+   11,
+   16,
+   18,
+   17,
+   11,
+   4,
+   -6,
+   -12
+  ]
+ },
+ "Dafoe|||SK": {
+  "region": "SK",
+  "degDay": 5860,
+  "dhdbt": -35,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -6,
+   3,
+   11,
+   16,
+   18,
+   17,
+   11,
+   4,
+   -6,
+   -14
+  ]
+ },
+ "Dundurn|||SK": {
+  "region": "SK",
+  "degDay": 5600,
+  "dhdbt": -35,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -5,
+   -5,
+   11,
+   16,
+   18,
+   17,
+   11,
+   4,
+   -6,
+   -14
+  ]
+ },
+ "Estevan|||SK": {
+  "region": "SK",
+  "degDay": 5340,
+  "dhdbt": -32,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -14,
+   -10,
+   -4,
+   5,
+   12,
+   17,
+   19,
+   19,
+   12,
+   5,
+   -5,
+   -11
+  ]
+ },
+ "Hudson Bay|||SK": {
+  "region": "SK",
+  "degDay": 6280,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -18,
+   -14,
+   -7,
+   2,
+   9,
+   14,
+   18,
+   16,
+   11,
+   3,
+   -7,
+   -15
+  ]
+ },
+ "Humboldt|||SK": {
+  "region": "SK",
+  "degDay": 6000,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -7,
+   3,
+   11,
+   15,
+   17,
+   16,
+   11,
+   4,
+   -7,
+   -15
+  ]
+ },
+ "Island Falls|||SK": {
+  "region": "SK",
+  "degDay": 7100,
+  "dhdbt": -39,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -23,
+   -19,
+   -11,
+   0,
+   8,
+   14,
+   17,
+   16,
+   9,
+   2,
+   -9,
+   -20
+  ]
+ },
+ "Kamsack|||SK": {
+  "region": "SK",
+  "degDay": 6040,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -19,
+   -15,
+   -8,
+   3,
+   11,
+   16,
+   18,
+   17,
+   11,
+   4,
+   -7,
+   -16
+  ]
+ },
+ "Kindersley|||SK": {
+  "region": "SK",
+  "degDay": 5550,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -14,
+   -11,
+   -4,
+   5,
+   11,
+   15,
+   18,
+   17,
+   12,
+   4,
+   -6,
+   -11
+  ]
+ },
+ "Lloydminster|||SK": {
+  "region": "SK",
+  "degDay": 5880,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -14,
+   -11,
+   -6,
+   4,
+   10,
+   15,
+   17,
+   16,
+   10,
+   3,
+   -7,
+   -12
+  ]
+ },
+ "Maple Creek|||SK": {
+  "region": "SK",
+  "degDay": 4780,
+  "dhdbt": -31,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -9,
+   -6,
+   -2,
+   6,
+   10,
+   15,
+   19,
+   18,
+   13,
+   6,
+   -2,
+   -6
+  ]
+ },
+ "Meadow Lake|||SK": {
+  "region": "SK",
+  "degDay": 6280,
+  "dhdbt": -38,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -7,
+   4,
+   10,
+   15,
+   17,
+   16,
+   10,
+   3,
+   -8,
+   -15
+  ]
+ },
+ "Melfort|||SK": {
+  "region": "SK",
+  "degDay": 6050,
+  "dhdbt": -36,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -8,
+   3,
+   10,
+   15,
+   18,
+   17,
+   11,
+   3,
+   -6,
+   -13
+  ]
+ },
+ "Melville|||SK": {
+  "region": "SK",
+  "degDay": 5880,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -20,
+   -15,
+   -8,
+   3,
+   11,
+   16,
+   18,
+   16,
+   11,
+   5,
+   -6,
+   -15
+  ]
+ },
+ "Moose Jaw|||SK": {
+  "region": "SK",
+  "degDay": 5270,
+  "dhdbt": -32,
+  "dgtemp": 7,
+  "monthlyTemps": [
+   -12,
+   -9,
+   -4,
+   6,
+   11,
+   15,
+   19,
+   18,
+   13,
+   5,
+   -3,
+   -8
+  ]
+ },
+ "Nipawin|||SK": {
+  "region": "SK",
+  "degDay": 6300,
+  "dhdbt": -37,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -18,
+   -15,
+   -7,
+   3,
+   11,
+   16,
+   18,
+   16,
+   10,
+   3,
+   -9,
+   -17
+  ]
+ },
+ "North Battleford|||SK": {
+  "region": "SK",
+  "degDay": 5900,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -6,
+   4,
+   11,
+   15,
+   18,
+   17,
+   11,
+   4,
+   -7,
+   -14
+  ]
+ },
+ "Prince Albert|||SK": {
+  "region": "SK",
+  "degDay": 6100,
+  "dhdbt": -37,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -17,
+   -14,
+   -7,
+   3,
+   10,
+   15,
+   18,
+   17,
+   11,
+   3,
+   -7,
+   -15
+  ]
+ },
+ "Qu'Appelle|||SK": {
+  "region": "SK",
+  "degDay": 5620,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -12,
+   -5,
+   4,
+   11,
+   16,
+   18,
+   18,
+   12,
+   5,
+   -6,
+   -13
+  ]
+ },
+ "Regina|||SK": {
+  "region": "SK",
+  "degDay": 5600,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -12,
+   -5,
+   5,
+   11,
+   16,
+   19,
+   18,
+   12,
+   4,
+   -5,
+   -12
+  ]
+ },
+ "Rosetown|||SK": {
+  "region": "SK",
+  "degDay": 5620,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -6,
+   4,
+   10,
+   15,
+   18,
+   17,
+   12,
+   4,
+   -5,
+   -11
+  ]
+ },
+ "Saskatoon|||SK": {
+  "region": "SK",
+  "degDay": 5700,
+  "dhdbt": -35,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -16,
+   -12,
+   -6,
+   5,
+   11,
+   16,
+   18,
+   17,
+   11,
+   4,
+   -6,
+   -13
+  ]
+ },
+ "Scott|||SK": {
+  "region": "SK",
+  "degDay": 5960,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -15,
+   -11,
+   -7,
+   4,
+   10,
+   14,
+   18,
+   17,
+   11,
+   3,
+   -5,
+   -11
+  ]
+ },
+ "Strasbourg|||SK": {
+  "region": "SK",
+  "degDay": 5600,
+  "dhdbt": -34,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -17,
+   -12,
+   -5,
+   4,
+   12,
+   17,
+   19,
+   18,
+   11,
+   5,
+   -5,
+   -13
+  ]
+ },
+ "Swift Current|||SK": {
+  "region": "SK",
+  "degDay": 5150,
+  "dhdbt": -31,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -11,
+   -8,
+   -3,
+   5,
+   11,
+   15,
+   18,
+   18,
+   12,
+   5,
+   -3,
+   -8
+  ]
+ },
+ "Uranium City|||SK": {
+  "region": "SK",
+  "degDay": 7500,
+  "dhdbt": -42,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -24,
+   -19,
+   -13,
+   -3,
+   5,
+   13,
+   16,
+   14,
+   8,
+   0,
+   -11,
+   -18
+  ]
+ },
+ "Weyburn|||SK": {
+  "region": "SK",
+  "degDay": 5400,
+  "dhdbt": -33,
+  "dgtemp": 6,
+  "monthlyTemps": [
+   -15,
+   -11,
+   -6,
+   5,
+   11,
+   16,
+   19,
+   19,
+   13,
+   5,
+   -4,
+   -11
+  ]
+ },
+ "Yorkton|||SK": {
+  "region": "SK",
+  "degDay": 6000,
+  "dhdbt": -34,
+  "dgtemp": 5,
+  "monthlyTemps": [
+   -17,
+   -13,
+   -7,
+   3,
+   10,
+   15,
+   18,
+   17,
+   11,
+   4,
+   -7,
+   -14
+  ]
+ },
+ "Aishihik|||YT": {
+  "region": "YT",
+  "degDay": 7500,
+  "dhdbt": -44,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -23,
+   -18,
+   -10,
+   0,
+   8,
+   13,
+   15,
+   13,
+   7,
+   -2,
+   -15,
+   -21
+  ]
+ },
+ "Dawson|||YT": {
+  "region": "YT",
+  "degDay": 8120,
+  "dhdbt": -50,
+  "dgtemp": 1,
+  "monthlyTemps": [
+   -27,
+   -22,
+   -12,
+   0,
+   8,
+   14,
+   16,
+   13,
+   6,
+   -5,
+   -18,
+   -25
+  ]
+ },
+ "Destruction Bay|||YT": {
+  "region": "YT",
+  "degDay": 7800,
+  "dhdbt": -43,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -19,
+   -16,
+   -12,
+   -3,
+   5,
+   11,
+   13,
+   10,
+   5,
+   -3,
+   -15,
+   -17
+  ]
+ },
+ "Faro|||YT": {
+  "region": "YT",
+  "degDay": 7300,
+  "dhdbt": -46,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -23,
+   -15,
+   -9,
+   1,
+   7,
+   14,
+   15,
+   12,
+   7,
+   -2,
+   -15,
+   -18
+  ]
+ },
+ "Haines Junction|||YT": {
+  "region": "YT",
+  "degDay": 7100,
+  "dhdbt": -45,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -20,
+   -12,
+   -7,
+   1,
+   7,
+   12,
+   13,
+   12,
+   7,
+   0,
+   -13,
+   -16
+  ]
+ },
+ "Snag|||YT": {
+  "region": "YT",
+  "degDay": 8300,
+  "dhdbt": -51,
+  "dgtemp": 2,
+  "monthlyTemps": [
+   -27,
+   -21,
+   -13,
+   -2,
+   6,
+   12,
+   14,
+   11,
+   5,
+   -7,
+   -20,
+   -25
+  ]
+ },
+ "Teslin|||YT": {
+  "region": "YT",
+  "degDay": 6770,
+  "dhdbt": -42,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -19,
+   -13,
+   -8,
+   0,
+   6,
+   12,
+   14,
+   12,
+   7,
+   1,
+   -10,
+   -14
+  ]
+ },
+ "Watson Lake|||YT": {
+  "region": "YT",
+  "degDay": 7470,
+  "dhdbt": -46,
+  "dgtemp": 4,
+  "monthlyTemps": [
+   -23,
+   -18,
+   -10,
+   0,
+   8,
+   13,
+   15,
+   13,
+   7,
+   -1,
+   -15,
+   -20
+  ]
+ },
+ "Whitehorse|||YT": {
+  "region": "YT",
+  "degDay": 6580,
+  "dhdbt": -41,
+  "dgtemp": 3,
+  "monthlyTemps": [
+   -17,
+   -12,
+   -7,
+   1,
+   7,
+   12,
+   14,
+   12,
+   7,
+   0,
+   -10,
+   -12
+  ]
+ }
+}

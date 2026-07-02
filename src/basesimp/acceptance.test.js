@@ -3,8 +3,9 @@
 // Self-contained Node runner (no test framework). Run:  node src/basesimp/acceptance.test.js
 // Exits 0 if every case is within TOL of its expected value, 1 otherwise.
 //
-// Climate is the workbooks' bundled Winnipeg January values, hard-coded here
-// (Foundation_Weather extraction is a later session — see the contract doc).
+// Climate is now sourced FROM weather.json via the engine's station lookup: each case
+// names the Winnipeg, MB station key and the design heating month (January). The engine
+// pulls DHDBT / DGTEMP / DegDay / 12 monthly temps from the table.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -13,19 +14,35 @@ import { computeGroundCoupledLoss } from './engine.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const load = (name) => JSON.parse(readFileSync(join(HERE, 'data', name), 'utf8'));
-const tables = { coefficients: load('coefficients.json'), cornerCf: load('corner_cf.json') };
+const tables = {
+  coefficients: load('coefficients.json'),
+  cornerCf: load('corner_cf.json'),
+  weather: load('weather.json'),
+};
 
 const TOL = 0.01; // Watts
 
-// Winnipeg 12 monthly mean dry-bulb temps (Jan..Dec), from the bundled weather.
-const WINNIPEG_TEMPS = [-16, -13, -6, 4, 12, 17, 20, 19, 13, 5, -5, -13];
+// Guard the extraction itself: the Winnipeg record read from weather.json must carry
+// the design values the previously-hard-coded acceptance climate used.
+const WPG = tables.weather['Winnipeg|||MB'];
+{
+  const bad = [];
+  if (!WPG) bad.push('Winnipeg|||MB missing from weather.json');
+  else {
+    if (WPG.degDay !== 5670) bad.push(`degDay ${WPG.degDay} !== 5670`);
+    if (WPG.dhdbt !== -33) bad.push(`dhdbt ${WPG.dhdbt} !== -33`);
+    if (WPG.dgtemp !== 6) bad.push(`dgtemp ${WPG.dgtemp} !== 6`);
+  }
+  if (bad.length) {
+    console.log('✗ weather.json Winnipeg extraction guard FAILED: ' + bad.join('; '));
+    process.exit(1);
+  }
+  console.log('✓ weather.json Winnipeg guard: DegDay 5670, DHDBT -33, DGTEMP 6\n');
+}
 
-// Shared Winnipeg January design climate.
+// Shared Winnipeg January design climate — resolved by the engine from weather.json.
 const WINNIPEG_JAN = {
-  monthlyTemps: WINNIPEG_TEMPS,
-  HDD: 5670,
-  soilMeanT: 6, // deep-ground / soil-mean temperature (°C)
-  designHeatingDBT: -33,
+  station: 'Winnipeg|||MB',
   designHeatingMonth: 1,
 };
 
