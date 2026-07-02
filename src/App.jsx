@@ -2,6 +2,10 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import ThreeDView from './ThreeDView.jsx'
 import * as pdfjsLib from 'pdfjs-dist'
 import F280_WEATHER from './data/f280-weather.json'
+import { computeGroundCoupledLoss } from './basesimp/engine.js'
+import BASESIMP_COEFFICIENTS from './basesimp/data/coefficients.json'
+import BASESIMP_CORNER_CF from './basesimp/data/corner_cf.json'
+import BASESIMP_WEATHER from './basesimp/data/weather.json'
 import './App.css'
 import {
   makeVertex, distToSegment, segmentGeom, signedPerpDist, projT, applyAxisSnap, pointInPolygon,
@@ -95,6 +99,52 @@ const soilClassLabel = (kNum) => {
   return opt ? opt.label : `${kNum} W/m·K`
 }
 
+// ── BASESIMP ground-coupled engine wiring (Session 79, Stage 1) ─────────────
+// The full BASESIMP engine (src/basesimp/engine.js) is float-exact against the
+// CSA-F280 workbooks (acceptance 3/3). It takes ONE WHOLE-FOUNDATION BOX per call
+// and computes all four walls + floor internally. The three data tables are bundled
+// as JSON imports (a coefficient/climate revision is a DATA edit — re-export + diff).
+const BASESIMP_TABLES = {
+  coefficients: BASESIMP_COEFFICIENTS,
+  cornerCf: BASESIMP_CORNER_CF,
+  weather: BASESIMP_WEATHER,
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║ STAGE-1 STUB — the foundation config PACKAGE is HARDCODED regardless of the  ║
+// ║ actual foundation assembly the user selected. Ground-coupled Watts are      ║
+// ║ ENGINE-EXACT but ASSEMBLY-GENERIC until Stage 2 (the package-decode surface  ║
+// ║ — see ADDITIONAL_FUNCTIONALITY.md "BASESIMP package-decode surface").        ║
+// ║                                                                             ║
+// ║ Stage 2 builds the 145-package selection (construction type + wall-ins      ║
+// ║ location + slab-ins location + extent → config_decode → package NUMBER) and ║
+// ║ the insExterior / insInterior / addedRsi RSI split. The suffix number alone  ║
+// ║ swings the result ~26% (e.g. BCIN_1 2505 W vs BCIN_3 3157 W on identical     ║
+// ║ geometry), so this stub is PROVISIONAL, not a final value.                   ║
+// ║                                                                             ║
+// ║ Stage-1 packages (validated workbook worked examples, so the engine result  ║
+// ║ is a real number, not a guess):                                             ║
+// ║   basement → BCIN_3  (concrete, interior-insulated basement)                 ║
+// ║   slab     → SCB_33  (concrete slab, below-slab insulation)                  ║
+// ║ Stage-1 RSI split: insExterior=0, insInterior=0, addedRsi=0 (i.e. no user-   ║
+// ║ added insulation beyond what the package name itself encodes — matches the   ║
+// ║ engine's own acceptance cases, which pass these all-zero).                   ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+const GROUND_COUPLED_PKG_BASEMENT = 'BCIN_3'
+const GROUND_COUPLED_PKG_SLAB = 'SCB_33'
+// A foundation counts as basement-ish (v1 heuristic — Stage 2 may make it an
+// explicit toggle) when a below-grade wall extends deeper than this below grade.
+const GROUND_COUPLED_BASEMENT_DEPTH_THRESHOLD_M = 0.6
+// Slab-on-grade thin-edge depth (matches the SCB_33 acceptance slab case, depth 0.05).
+const GROUND_COUPLED_SLAB_DEPTH_M = 0.05
+const GROUND_COUPLED_WATER_TABLE_DEFAULT_M = 8   // deep / no-influence default
+const GROUND_COUPLED_DESIGN_MONTH_DEFAULT = 1    // January
+// 12-month select options for the design-heating-month CONFIG_FIELD.
+const MONTH_OPTIONS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+].map((label, i) => ({ value: String(i + 1), label }))
+
 // ── §9 Project-configuration layer — descriptor schema ──────────────────────
 // CONFIG_FIELDS is the single source of truth for the project-setup panel.
 // Each descriptor is data-only; adding a new field = adding a descriptor here.
@@ -162,6 +212,28 @@ const CONFIG_FIELDS = [
     category: 'Site',
     label: 'Soil conductivity class',
     options: SOIL_CONDUCTIVITY_OPTIONS.map(o => ({ value: o.value, label: o.label })),
+    multi: false,
+    spawns: null,
+  },
+  {
+    // BASESIMP water-table depth (m). Default 8 = deep / no-influence (all three
+    // engine acceptance cases use 8). A genuine high-water-table site understates
+    // loss at the default — logged §5 approximation.
+    id: 'water-table-depth',
+    category: 'Site',
+    label: 'Water table depth (m)',
+    kind: 'number',
+    placeholder: '— default 8 m —',
+    multi: false,
+    spawns: null,
+  },
+  {
+    // BASESIMP design heating month (1–12); selects which month's FHLmon
+    // variable-loss coefficient the engine evaluates. Default January.
+    id: 'design-heating-month',
+    category: 'Site',
+    label: 'Design heating month',
+    options: MONTH_OPTIONS,
     multi: false,
     spawns: null,
   },
@@ -522,10 +594,11 @@ function deriveF280Heating(enumeration, resolvedConfig) {
 
   const conductiveAboveGradeW = Object.values(bySurfaceKind).reduce((s, b) => s + b.lossW, 0)
 
-  // Ground-coupled loss is a SEPARATE engine (interim U·A·ΔT_ground) — computed here only
-  // so its rows join the F280 OUTPUT. When it resolves (station selected → groundTempC),
-  // 'below-grade-wall' and 'slab-on-grade' become additive result rows and LEAVE notModeled[].
-  // When there is no ground temp (no station), they stay listed as not-modeled — no ΔT vs null.
+  // Ground-coupled loss is a SEPARATE engine (Session 79: the full BASESIMP whole-box
+  // engine, Stage-1 wire) — computed here only so its result joins the F280 OUTPUT. When
+  // it resolves (station selected + a slab-surface footprint), 'below-grade-wall' and
+  // 'slab-on-grade' are subsumed into the single whole-foundation figure and LEAVE
+  // notModeled[]. When there is no station/footprint, they stay listed as not-modeled.
   // 'floor-over-unheated' and 'solar-gain' stay not-modeled regardless.
   const ground = deriveGroundCoupledLoss(enumeration, resolvedConfig)
   let notModeled = ['below-grade-wall', 'slab-on-grade', 'floor-over-unheated', 'solar-gain']
@@ -550,78 +623,129 @@ function deriveF280Heating(enumeration, resolvedConfig) {
 
 // deriveGroundCoupledLoss — pure, derive-on-demand, stores nothing. Mirrors deriveF280Heating.
 //
-// INTERIM MODEL — U·A·ΔT against deep-ground temp with linear soil factor. NOT BASESIMP.
-// The input contract (soil conductivity, depth-below-grade, exposed perimeter, area) is
-// deliberately BASESIMP-shaped so a future full BASESIMP port is a drop-in replacement of the
-// MATH only — the consumed fields do not change. Depth-below-grade (belowGradeHeightM) and
-// exposed perimeter (soilContactPerimeterM) are ALREADY on the enumeration elements; they are
-// part of the contract here even though the interim U·A·ΔT math does not yet weight by them
-// (a BASESIMP port will). Grade-Z / area / perimeter provenance is documented in
-// deriveEnumeration STEP A.6 (slab-surface) and STEP A.7 (below-grade-wall).
+// STAGE 1 (Session 79) — the FULL BASESIMP engine, wired against live geometry.
+// This REPLACES the Session-78 interim Model-B U·A·ΔT_ground placeholder. The
+// per-surface summation is GONE: F280's shape-factor correlations are defined
+// PER-FOUNDATION (whole box), not per-wall, so this assembles ONE whole-foundation
+// box from the enumeration and makes ONE computeGroundCoupledLoss call.
+//
+// FOUNDATION MODEL (locked): one foundation = the WHOLE lowest-floor footprint (the
+// single slab-surface enumeration element). Multi-foundation-type buildings (slab wing
+// + basement wing) collapse to one box — a §5 approximation, acceptable because the
+// geometry model cannot express separate foundation types today (#88).
+//
+// The engine computes all four walls + floor internally from the box; it does NOT want
+// per-wall areas. Climate is reused: the `station` key ("City|||Region") is IDENTICAL to
+// location-station's value, passed straight through — the engine's own resolveClimate
+// reproduces the toh/dgtemp Collabinator already resolves (no second climate path).
+//
+// STAGE-1 STUB: the config package is HARDCODED (GROUND_COUPLED_PKG_*), so the result is
+// ENGINE-EXACT but ASSEMBLY-GENERIC (see the loud constant block above + ADDITIONAL_
+// FUNCTIONALITY.md "BASESIMP package-decode surface" for the Stage-2 fidelity layer).
 function deriveGroundCoupledLoss(enumeration, resolvedConfig) {
-  const groundTempC = resolvedConfig.groundTempC ?? null
-  if (groundTempC === null) return { status: 'no-ground', total: null }  // no ΔT against null
+  // Honest-absence guards (mirror the interim engine's no-ground shape) ────────
+  const station = resolvedConfig['location-station']
+  if (!station) return { status: 'no-ground', total: null }  // no climate → no engine call
 
-  // Ti seam — reuse the EXACT NaN-guarded read deriveF280Heating uses.
-  const tiRaw = resolvedConfig['ti-heating']
-  const tiC = (tiRaw != null && !isNaN(Number(tiRaw))) ? Number(tiRaw) : F280_TI_HEATING
-  const deltaTground = tiC - groundTempC
+  const slab = enumeration.find(e => e.kind === 'slab-surface')
+  if (!slab) return { status: 'no-ground', total: null }      // no footprint → no foundation box
+  if (slab.footprintLengthM == null || slab.footprintWidthM == null) {
+    return { status: 'no-ground', total: null }               // pre-Stage-1 enumeration
+  }
 
-  // Soil-conductivity linear factor. Unset → Normal (0.85) → k = 1.0 honest passthrough.
+  // isBasement (v1 heuristic — Stage 2 may make it an explicit toggle): a below-grade
+  // wall extending deeper than the threshold ⇒ basement; the deepest such wall sets the
+  // foundation-floor depth. Otherwise slab-on-grade (thin edge, no wall height).
+  const bgws = enumeration.filter(e => e.kind === 'below-grade-wall' && e.belowGradeHeightM != null)
+  const deepest = bgws.length
+    ? bgws.reduce((a, b) => (b.belowGradeHeightM > a.belowGradeHeightM ? b : a))
+    : null
+  const isBasement = !!deepest && deepest.belowGradeHeightM > GROUND_COUPLED_BASEMENT_DEPTH_THRESHOLD_M
+
+  let depthM, heightM
+  if (isBasement) {
+    depthM = deepest.belowGradeHeightM
+    // Wall height = the below-grade wall's full vertical extent (floor-to-ceiling of the
+    // basement level), from its stored Z endpoints; floor at least as deep as it is buried.
+    const wallSpan = (deepest.wallTopZm != null && deepest.wallBottomZm != null)
+      ? deepest.wallTopZm - deepest.wallBottomZm
+      : depthM
+    heightM = Math.max(wallSpan, depthM)
+  } else {
+    depthM = GROUND_COUPLED_SLAB_DEPTH_M
+    heightM = 0
+  }
+
   const soilRaw = resolvedConfig['soil-conductivity']
+  // RAW W/m·K (the option values ARE the conductivity, NOT the interim k=value/0.85 factor).
   const soilConductivity = (soilRaw != null && !isNaN(Number(soilRaw))) ? Number(soilRaw) : SOIL_CONDUCTIVITY_DEFAULT
-  const k = soilConductivity / SOIL_CONDUCTIVITY_DEFAULT
+  const wtRaw = resolvedConfig['water-table-depth']
+  const waterTableDepth = (wtRaw != null && !isNaN(Number(wtRaw))) ? Number(wtRaw) : GROUND_COUPLED_WATER_TABLE_DEFAULT_M
+  const dmRaw = resolvedConfig['design-heating-month']
+  const designHeatingMonth = (dmRaw != null && !isNaN(Number(dmRaw))) ? Number(dmRaw) : GROUND_COUPLED_DESIGN_MONTH_DEFAULT
 
-  const bySurfaceKind = {
-    'slab-on-grade':    { areaM2: 0, uaSum: 0, lossW: 0, count: 0, unresolvedCount: 0 },
-    'below-grade-wall': { areaM2: 0, uaSum: 0, lossW: 0, count: 0, unresolvedCount: 0 },
+  const config = isBasement ? GROUND_COUPLED_PKG_BASEMENT : GROUND_COUPLED_PKG_SLAB
+
+  const input = {
+    isBasement,
+    config,
+    length: slab.footprintLengthM,
+    width: slab.footprintWidthM,
+    height: heightM,
+    depth: depthM,
+    // exposedPerimeter 0 ⇒ full perimeter (exposedFraction = 1). The whole-building
+    // footprint is fully soil-exposed (every edge exterior), so 0 is the exact contract
+    // expression; soilContactPerimeterM is available for a future shared-wall model.
+    exposedPerimeter: 0,
+    soilConductivity,
+    waterTableDepth,
+    station,
+    designHeatingMonth,
+    // Stage-1 defaults (see loud constant block): no user-added insulation, no radiant slab.
+    // radiantFraction / fluidTemp are basement-radiant-slab only and Stage-2-or-later config.
+    windowArea: 0,
+    doorArea: 0,
+    radiantFraction: 0,
+    fluidTemp: 0,
+    insExterior: 0,
+    insInterior: 0,
+    addedRsi: 0,
+    overlp: 0,
   }
 
-  for (const el of enumeration) {
-    let bucket = null, area = null, u = null
-    if (el.kind === 'slab-surface') {
-      bucket = bySurfaceKind['slab-on-grade']
-      area = el.grossAreaM2
-      u = el.effectiveUValue
-    } else if (el.kind === 'below-grade-wall') {
-      bucket = bySurfaceKind['below-grade-wall']
-      area = el.belowGradeWallAreaM2
-      u = el.effectiveUValue
-    } else {
-      continue
-    }
-
-    if (area == null) continue
-    bucket.count++
-    bucket.areaM2 += area
-
-    if (u == null) {
-      bucket.unresolvedCount++
-      // Surface contributes area but NOT loss — partial coverage surfaced via unresolvedCount.
-      continue
-    }
-    bucket.uaSum += u * area
-    bucket.lossW += k * u * area * deltaTground
+  let engine
+  try {
+    engine = computeGroundCoupledLoss(input, BASESIMP_TABLES)
+  } catch (err) {
+    // Defensive: an unknown station in the BASESIMP weather table would throw and crash
+    // the whole F280 panel. The two weather tables are verified key-identical (679/679),
+    // so this should never fire — but degrade to honest absence rather than a hard crash.
+    return { status: 'no-ground', total: null, reason: String(err && err.message || err) }
   }
-
-  for (const b of Object.values(bySurfaceKind)) {
-    b.uAvg = b.areaM2 > 0 ? b.uaSum / b.areaM2 : null
-  }
-
-  const total_W = Object.values(bySurfaceKind).reduce((s, b) => s + b.lossW, 0)
-  const unresolvedCount = Object.values(bySurfaceKind).reduce((s, b) => s + b.unresolvedCount, 0)
 
   return {
     status: 'ok',
-    groundTempC,
-    tiC,
-    deltaTground,
+    isBasement,
+    config,
     soilConductivity,
-    soilFactor: k,
-    bySurfaceKind,
-    total_W,
-    total_kW: total_W / 1000,
-    unresolvedCount,
+    station,
+    designHeatingMonth,
+    waterTableDepthM: waterTableDepth,
+    // Informational only: the engine resolves its own climate from `station` and uses a
+    // FIXED Troom = 22 °C (F280 standard) — the 'ti-heating' config does NOT enter the
+    // ground-coupled math (it governs above-grade loss). groundTempC is the station's
+    // deep-ground temp, surfaced for the panel's design-conditions readout.
+    groundTempC: resolvedConfig.groundTempC ?? null,
+    box: {
+      lengthM: input.length,
+      widthM: input.width,
+      heightM: input.height,
+      depthM: input.depth,
+      exposedPerimeterM: input.exposedPerimeter,
+    },
+    engine,          // full computeGroundCoupledLoss result (load_W + intermediates)
+    total_W: engine.load_W,
+    total_kW: engine.load_W / 1000,
   }
 }
 
@@ -6348,6 +6472,12 @@ function App() {
           )
           let slabAreaM2 = 0
           let perimM = 0
+          // Footprint bounding box (world metres). Feeds the BASESIMP whole-box engine's
+          // length/width (the engine sorts to max/min internally). Uses the already-
+          // converted world vertices (wv) — NO new px↔m conversion is introduced here
+          // (coordinate-seam invariant honored). bbox OVERSTATES dims for non-rectangular
+          // footprints — a logged §5 approximation, not a bug.
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
           for (const shape of slabShapes) {
             const wv = shape.vertices.map(v => pageVertexToWorld(v, lowestPage.pageId)).filter(Boolean)
             if (wv.length < 3) continue
@@ -6356,11 +6486,17 @@ function App() {
               const p = wv[i], q = wv[(i + 1) % wv.length]
               a += p.x * q.y - q.x * p.y              // shoelace
               perimM += Math.hypot(q.x - p.x, q.y - p.y)  // edge length
+              if (p.x < minX) minX = p.x
+              if (p.x > maxX) maxX = p.x
+              if (p.y < minY) minY = p.y
+              if (p.y > maxY) maxY = p.y
             }
             slabAreaM2 += Math.abs(a) / 2
           }
           if (slabAreaM2 > 0) {
             const slabFloorZm = feetToMeters(lowestRow.floorZ ?? 0)
+            const footprintLengthM = maxX - minX
+            const footprintWidthM = maxY - minY
             const surfaceId = `floor-${lowestPage.pageId}`
             const sa = getSurfaceAssembly(surfaceId)
             elements.push({
@@ -6373,6 +6509,8 @@ function App() {
               openingAreaM2: 0,
               insideFaceAreaM2: slabAreaM2,  // horizontal slab: interior face = traced footprint
               soilContactPerimeterM: perimM,
+              footprintLengthM,           // bbox extent — BASESIMP box length (engine sorts max/min)
+              footprintWidthM,            // bbox extent — BASESIMP box width
               floorZm: slabFloorZm,
               effectiveUValue: sa.effectiveUValue,
               effectiveRSI:    sa.effectiveRSI,
@@ -6927,52 +7065,76 @@ function App() {
             : fail('(r.d.derived) getRsiW(null)', null, rsiWNull)
         }
 
-        // ── Ground-coupled checks (gc.a)–(gc.m): synthetic slab + below-grade case ──
-        // The default fixture has a slab-surface (Crawlspace) but NO below-grade-wall
-        // (above-grade reference edge, no grade line), so the engine is exercised with a
-        // synthetic enumeration. resolveEffectiveConfig is called on synthetic values
-        // objects (NOT projectSetupRef) so no save/restore is needed. Golden drives inputs.
+        // ── Ground-coupled checks (gc.a)–(gc.l): BASESIMP whole-box WIRE ──────────
+        // Session 79: the per-surface Model-B math is GONE, so the old synthetic-loss
+        // asserts no longer apply. These guard the WIRE (adapter builds the right box,
+        // climate reuse works, notModeled[] shifts correctly) — the engine INTERNALS are
+        // guarded float-exact by src/basesimp/acceptance.test.js (3/3).
+        //   Slab synthEnum: footprint 12.1×6.1 + Winnipeg|||MB Jan through the adapter
+        //   reproduces the SCB_33 workbook worked example (500.6862 W) — proving the
+        //   adapter box-build + SCB_33 slab default + climate pass-through all at once.
+        //   Basement synthEnum: below-grade wall 1.75 m (> 0.6 threshold) + height 2.5 m
+        //   asserts the adapter's box EQUALS a direct engine call (BCIN_3).
+        // resolveEffectiveConfig is called on synthetic values objects (NOT projectSetupRef).
         if (golden.groundCoupledCheck) {
           const g = golden.groundCoupledCheck
-          const synthEnum = [
-            { kind: 'slab-surface',     id: 'floor-synth',      grossAreaM2: g.slabAreaM2, soilContactPerimeterM: 18, floorZm: 0, effectiveUValue: g.slabUValue },
-            { kind: 'below-grade-wall', id: 'foundation-synth', belowGradeWallAreaM2: g.belowGradeAreaM2, belowGradeHeightM: 1.0, runLengthM: 10, effectiveUValue: g.belowGradeUValue },
+
+          // resolve-ground-temp still resolves station → groundTempC (informational).
+          const rSlab = resolveEffectiveConfig({ 'location-station': g.station })
+          check('(gc.a) groundTempC lookup exact', g.groundTempC, rSlab.groundTempC)
+
+          // Slab wire: footprint only, no below-grade wall → slab-on-grade.
+          const slabEnum = [
+            { kind: 'slab-surface', id: 'floor-synth',
+              footprintLengthM: g.slabFootprintLengthM, footprintWidthM: g.slabFootprintWidthM,
+              grossAreaM2: g.slabFootprintLengthM * g.slabFootprintWidthM, soilContactPerimeterM: 36.4, floorZm: 0 },
           ]
+          const gcSlab = deriveGroundCoupledLoss(slabEnum, rSlab)
+          checkEq('(gc.b) slab status ok (station set)', 'ok', gcSlab.status)
+          checkEq('(gc.c) slab isBasement=false', false, gcSlab.isBasement)
+          checkEq('(gc.d) slab default config', g.slabDefaultConfig, gcSlab.config)
+          check('(gc.e) slab total_W = SCB_33 workbook value', g.slabExpectedW, gcSlab.total_W)
 
-          // resolve-ground-temp: station → groundTempC
-          const rNormal = resolveEffectiveConfig({ 'location-station': g.station })
-          check('(gc.a) groundTempC lookup exact', g.groundTempC, rNormal.groundTempC)
-
-          const gcN = deriveGroundCoupledLoss(synthEnum, rNormal)
-          checkEq('(gc.b) status ok (station set)', 'ok', gcN.status)
-          check('(gc.c) deltaTground', g.deltaTground, gcN.deltaTground)
-          check('(gc.d) soilFactor normal = 1.0', 1.0, gcN.soilFactor)
-          check('(gc.e) slab-on-grade loss (k=1.0)',    g.slabLossNormalW,      gcN.bySurfaceKind['slab-on-grade'].lossW)
-          check('(gc.f) below-grade-wall loss (k=1.0)', g.belowGradeLossNormalW, gcN.bySurfaceKind['below-grade-wall'].lossW)
-          check('(gc.g) total_W (k=1.0)', g.totalNormalW, gcN.total_W)
-
-          // soilFactor ≠ 1.0 flip: High soil → k=1.5 → losses ×1.5
-          const gcH = deriveGroundCoupledLoss(synthEnum, resolveEffectiveConfig({ 'location-station': g.station, 'soil-conductivity': '1.275' }))
-          check('(gc.h) soilFactor high = 1.5', g.soilFactorHigh, gcH.soilFactor)
-          check('(gc.i) total_W (k=1.5) flip',  g.totalHighW,      gcH.total_W)
+          // Basement wire: below-grade wall deeper than threshold → basement.
+          const basEnum = [
+            { kind: 'slab-surface', id: 'floor-synth',
+              footprintLengthM: g.basementFootprintLengthM, footprintWidthM: g.basementFootprintWidthM,
+              grossAreaM2: g.basementFootprintLengthM * g.basementFootprintWidthM, soilContactPerimeterM: 37.6, floorZm: 0 },
+            { kind: 'below-grade-wall', id: 'foundation-synth',
+              belowGradeHeightM: g.basementBelowGradeHeightM, wallBottomZm: 0, wallTopZm: g.basementWallHeightM, runLengthM: 10 },
+          ]
+          const gcBas = deriveGroundCoupledLoss(basEnum, rSlab)
+          checkEq('(gc.f) basement isBasement=true (heuristic > 0.6 m)', true, gcBas.isBasement)
+          checkEq('(gc.g) basement default config', g.basementDefaultConfig, gcBas.config)
+          // Adapter box must equal a direct engine call on the expected box.
+          const directBas = computeGroundCoupledLoss({
+            isBasement: true, config: g.basementDefaultConfig,
+            length: g.basementFootprintLengthM, width: g.basementFootprintWidthM,
+            height: g.basementWallHeightM, depth: g.basementBelowGradeHeightM,
+            exposedPerimeter: 0, soilConductivity: 0.85, waterTableDepth: 8,
+            station: g.station, designHeatingMonth: g.designHeatingMonth,
+            windowArea: 0, doorArea: 0, radiantFraction: 0, fluidTemp: 0,
+            insExterior: 0, insInterior: 0, addedRsi: 0, overlp: 0,
+          }, BASESIMP_TABLES).load_W
+          check('(gc.h) basement adapter box == direct engine call', directBas, gcBas.total_W)
 
           // no station → no-ground guard
-          const gcNone = deriveGroundCoupledLoss(synthEnum, resolveEffectiveConfig({}))
-          checkEq('(gc.j) no station → no-ground', 'no-ground', gcNone.status)
+          const gcNone = deriveGroundCoupledLoss(slabEnum, resolveEffectiveConfig({}))
+          checkEq('(gc.i) no station → no-ground', 'no-ground', gcNone.status)
 
           // notModeled integration through deriveF280Heating
-          const f280ok = deriveF280Heating(synthEnum, resolveEffectiveConfig({ 'location-station': g.station }))
+          const f280ok = deriveF280Heating(slabEnum, rSlab)
           const okLosesBoth = !f280ok.notModeled.includes('below-grade-wall') && !f280ok.notModeled.includes('slab-on-grade')
-          okLosesBoth ? pass('(gc.k) notModeled loses both when ground ok')
-                      : fail('(gc.k) notModeled loses both when ground ok', 'both removed', f280ok.notModeled.join(','))
+          okLosesBoth ? pass('(gc.j) notModeled loses both when ground ok')
+                      : fail('(gc.j) notModeled loses both when ground ok', 'both removed', f280ok.notModeled.join(','))
           const okKeepsOthers = f280ok.notModeled.includes('floor-over-unheated') && f280ok.notModeled.includes('solar-gain')
-          okKeepsOthers ? pass('(gc.l) floor-over-unheated + solar-gain stay listed')
-                        : fail('(gc.l) other notModeled entries stay', 'present', f280ok.notModeled.join(','))
+          okKeepsOthers ? pass('(gc.k) floor-over-unheated + solar-gain stay listed')
+                        : fail('(gc.k) other notModeled entries stay', 'present', f280ok.notModeled.join(','))
 
-          const f280noGround = deriveF280Heating(synthEnum, resolveEffectiveConfig({ 'toh-override': -20 }))
+          const f280noGround = deriveF280Heating(slabEnum, resolveEffectiveConfig({ 'toh-override': -20 }))
           const noGroundKeepsBoth = f280noGround.notModeled.includes('below-grade-wall') && f280noGround.notModeled.includes('slab-on-grade')
-          noGroundKeepsBoth ? pass('(gc.m) notModeled keeps both when no-ground (toh-override, no station)')
-                            : fail('(gc.m) notModeled keeps both when no-ground', 'both present', f280noGround.notModeled.join(','))
+          noGroundKeepsBoth ? pass('(gc.l) notModeled keeps both when no-ground (toh-override, no station)')
+                            : fail('(gc.l) notModeled keeps both when no-ground', 'both present', f280noGround.notModeled.join(','))
         }
 
         // Clean up test shapes so fixture state is not polluted for further use
@@ -7185,15 +7347,13 @@ function App() {
       console.log(`[f280] Above-grade conductive total: ${result.conductiveAboveGradeW.toFixed(1)} W (${(result.conductiveAboveGradeW / 1000).toFixed(2)} kW)`)
       const gc = result.groundCoupled
       if (gc) {
-        console.log(`[f280] Ground-coupled: groundTemp=${gc.groundTempC}°C, ΔT_ground=${gc.deltaTground}°C, soil ×${gc.soilFactor.toFixed(2)}`)
-        for (const [kind, b] of Object.entries(gc.bySurfaceKind)) {
-          if (b.count === 0) { console.log(`[f280]   ${kind}: (none)`); continue }
-          const unres = b.unresolvedCount > 0 ? ` [${b.unresolvedCount} unresolved U]` : ''
-          console.log(`[f280]   ${kind}: ${b.count} surfaces, area=${b.areaM2.toFixed(2)} m², U_avg=${b.uAvg != null ? b.uAvg.toFixed(3) : '—'} W/m²K, loss=${b.lossW.toFixed(1)} W${unres}`)
-        }
-        console.log(`[f280] Ground-coupled subtotal: ${gc.total_W.toFixed(1)} W (${gc.total_kW.toFixed(2)} kW)`)
+        const b = gc.box
+        console.log(`[f280] Ground-coupled (BASESIMP ${gc.isBasement ? 'basement' : 'slab-on-grade'}, pkg ${gc.config} [STAGE-1 STUB — assembly-generic]):`)
+        console.log(`[f280]   whole-foundation box: L×W = ${b.lengthM.toFixed(2)}×${b.widthM.toFixed(2)} m, height=${b.heightM.toFixed(2)} m, depth=${b.depthM.toFixed(2)} m, exposedPerim=${b.exposedPerimeterM === 0 ? 'full' : b.exposedPerimeterM.toFixed(2) + ' m'}`)
+        console.log(`[f280]   station=${gc.station}, month=${gc.designHeatingMonth}, soilk=${gc.soilConductivity} W/m·K, waterTable=${gc.waterTableDepthM} m, groundTemp≈${gc.groundTempC}°C`)
+        console.log(`[f280]   whole-foundation load = ${gc.total_W.toFixed(1)} W (${gc.total_kW.toFixed(2)} kW)`)
       } else {
-        console.log('[f280] Ground-coupled: no-ground (no station selected → no deep-ground temp)')
+        console.log('[f280] Ground-coupled: no-ground (no station selected, or no slab-surface footprint)')
       }
       console.log(`[f280] Total (above-grade + ground): ${result.total.toFixed(1)} W (${(result.total / 1000).toFixed(2)} kW)`)
       console.log(`[f280] Not modeled: ${result.notModeled.join(', ')}`)
@@ -9091,71 +9251,68 @@ function App() {
                         </div>
                       </div>
 
-                      {/* ── Ground-coupled (interim U·A·ΔT_ground; NOT BASESIMP) ── */}
+                      {/* ── Ground-coupled (BASESIMP whole-foundation engine; Stage-1 wire) ── */}
                       {result.groundCoupled ? (() => {
                         const gc = result.groundCoupled
-                        const GROUND_LABELS = { 'slab-on-grade': 'Slab on grade', 'below-grade-wall': 'Below-grade walls' }
+                        const b = gc.box
+                        const fmtBoxM = v => v != null ? v.toFixed(2) + ' m' : '—'
                         return (<>
                           <div className="fh-zone">
-                            <div className="fh-zone-label">Ground-Coupled Conditions</div>
+                            <div className="fh-zone-label">Ground-Coupled Foundation (BASESIMP)</div>
                             <div className="fh-row">
-                              <span className="fh-label">Ground temp (deep)</span>
-                              <span className="fh-val">{gc.groundTempC} °C</span>
+                              <span className="fh-label">Type</span>
+                              <span className="fh-val">{gc.isBasement ? 'Basement' : 'Slab on grade'}</span>
                             </div>
                             <div className="fh-row">
-                              <span className="fh-label">ΔT_ground</span>
-                              <span className="fh-val">{gc.deltaTground} °C</span>
+                              <span className="fh-label">Config package</span>
+                              <span className="fh-val" style={{ fontSize:'0.72rem' }}>{gc.config}
+                                <span style={{ color:'#f59e0b', marginLeft:4 }}>(Stage-1 stub)</span>
+                              </span>
+                            </div>
+                            <div className="fh-row">
+                              <span className="fh-label">Footprint L × W</span>
+                              <span className="fh-val">{fmtBoxM(b.lengthM)} × {fmtBoxM(b.widthM)}</span>
+                            </div>
+                            {gc.isBasement && (
+                              <div className="fh-row">
+                                <span className="fh-label">Wall height</span>
+                                <span className="fh-val">{fmtBoxM(b.heightM)}</span>
+                              </div>
+                            )}
+                            <div className="fh-row">
+                              <span className="fh-label">Depth below grade</span>
+                              <span className="fh-val">{fmtBoxM(b.depthM)}</span>
+                            </div>
+                            <div className="fh-row">
+                              <span className="fh-label">Ground temp (deep)</span>
+                              <span className="fh-val">{gc.groundTempC != null ? gc.groundTempC + ' °C' : '—'}</span>
                             </div>
                             <div className="fh-row">
                               <span className="fh-label">Soil class</span>
-                              <span className="fh-val" style={{ fontSize:'0.72rem' }}>{soilClassLabel(gc.soilConductivity)} (×{gc.soilFactor.toFixed(2)})</span>
+                              <span className="fh-val" style={{ fontSize:'0.72rem' }}>{soilClassLabel(gc.soilConductivity)}</span>
                             </div>
-                          </div>
-
-                          <div className="fh-zone">
-                            <div className="fh-zone-label">Ground-Coupled Surfaces</div>
-                            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.78rem' }}>
-                              <thead>
-                                <tr style={{ opacity: 0.6 }}>
-                                  <th style={{ textAlign:'left', paddingBottom:4 }}>Kind</th>
-                                  <th style={{ textAlign:'right', paddingBottom:4 }}>Area</th>
-                                  <th style={{ textAlign:'right', paddingBottom:4 }}>Ū (W/m²K)</th>
-                                  <th style={{ textAlign:'right', paddingBottom:4 }}>Loss</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {Object.entries(gc.bySurfaceKind).map(([kind, b]) => (
-                                  <tr key={kind} style={{ borderTop:'1px solid rgba(255,255,255,0.08)' }}>
-                                    <td style={{ paddingTop:4, paddingBottom:4 }}>
-                                      {GROUND_LABELS[kind] ?? kind}
-                                      {b.unresolvedCount > 0 && (
-                                        <span style={{ color:'#f59e0b', marginLeft:4, fontSize:'0.72rem' }}>
-                                          {b.unresolvedCount} no U
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtM2(b.areaM2) : '—'}</td>
-                                    <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtU(b.uAvg) : '—'}</td>
-                                    <td style={{ textAlign:'right' }}>{b.count > 0 ? fmtW(b.lossW) : '—'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                            <div className="fh-row">
+                              <span className="fh-label">Water table / month</span>
+                              <span className="fh-val" style={{ fontSize:'0.72rem' }}>{gc.waterTableDepthM} m · {MONTH_OPTIONS[gc.designHeatingMonth - 1]?.label ?? gc.designHeatingMonth}</span>
+                            </div>
                           </div>
 
                           <div className="fh-zone">
                             <div className="fh-row" style={{ fontWeight: 600 }}>
-                              <span className="fh-label">Ground-coupled subtotal</span>
+                              <span className="fh-label">Whole-foundation load</span>
                               <span className="fh-val" style={{ color:'#60a5fa' }}>
-                                {gc.total_kW.toFixed(2)} kW
+                                {gc.total_W.toFixed(0)} W ({gc.total_kW.toFixed(2)} kW)
                               </span>
+                            </div>
+                            <div style={{ fontSize:'0.68rem', opacity:0.45, marginTop:4 }}>
+                              Engine-exact, assembly-generic until Stage 2 (package decode).
                             </div>
                           </div>
                         </>)
                       })() : (
                         <div className="fh-zone">
-                          <div className="fh-zone-label">Ground-Coupled</div>
-                          <div className="enum-empty">Select a climate station in Project Setup → Climate to compute ground-coupled loss (needs deep-ground temp).</div>
+                          <div className="fh-zone-label">Ground-Coupled Foundation</div>
+                          <div className="enum-empty">Select a climate station in Project Setup → Climate (and trace a lowest-floor footprint) to compute the BASESIMP whole-foundation loss.</div>
                         </div>
                       )}
 
