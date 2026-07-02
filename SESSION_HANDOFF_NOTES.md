@@ -23,6 +23,82 @@ section, do not bury conventions inside a dated session entry.*
 
 ---
 
+## SESSION 80 — F280 heating-path conformance audit + scope/architecture logging (DOCS-ONLY) (2026-07-02)
+
+**Branch:** main | **Code commit:** none (no executable change — docs only) | **Docs commit:** (this close-out).
+
+**What this session did:** captured a large planning conversation into the live docs — (A) a read-only
+F280 heating-path CONFORMANCE AUDIT, and (B) six interlocking scope/architecture decisions — plus (C) the
+agreed near-term sequence. No code, no harness, no `notModeled[]` change in code.
+
+**PART A — the audit (read-only, adversarial, against the LICENSED standard):** the heating path was
+audited line-by-line against CSA F280:12 at `C:\dev\CSA_F280-12\f280.pdf`. That PDF is an image-only scan
+but OCRs cleanly (Tesseract) — clause text is legible and was the SOLE authority. The `CollabinatorF280`
+digest (`F280_COMPLIANCE_SPEC.md`) was used for clause NAVIGATION ONLY; it was caught glossing "interior
+dimensions" onto BASESIMP where the clause (5.2.2.1(a)) says only "length, width, height, depth" — so it
+is navigation-only, never authority (noted in CLAUDE.md).
+- **CRITICAL #132** — F280's mandatory AIR-CHANGE term (air leakage AIM-2 + ventilation, Cl. 5.2.3,
+  "shall be calculated," entered via 5.2.6/5.2.7) is entirely absent from `deriveF280Heating`, and
+  `notModeled[]` does not even list it. Understates the presented heating load ~20–40% (largest
+  non-conductive load in a Part-9 house). `AIM2.xls` is present in the project.
+- **CRITICAL #131 (already tracked)** — ground result is ASSEMBLY-GENERIC (hardcoded BCIN_3/SCB_33,
+  ~26% swing); the audit confirms it CRITICAL by magnitude. Cross-referenced, not re-logged.
+- **CRITICAL-LATENT #133** — basement above-grade wall DOUBLE-COUNT (STEP A full-height wall-surface +
+  BASESIMP `Sag` band, Cl. 5.2.1 vs 5.2.2.1). Overstates basements; the slab/crawlspace fixture doesn't
+  fire it.
+- **LATENT #134 (ground `Toh` ignores `toh-override`), #135 (ground `Ti` hardcoded 22).**
+- **MODERATE/MINOR** — #136 duct/pipe missing + undisclosed (Cl. 5.2.4/5.2.5); #137 default-assembly RSI
+  omits air films + framing derate (default path only); #138 frame-basis openings understate vs required
+  rough-opening; #139 `solar-gain` mislabeled in the heating `notModeled[]` (DECISION: remove it — revises
+  #130's "stays permanently," #130 cooling-side core unchanged).
+- **OPEN QUESTIONS #140 (need Ben + workbook labels, NOT guessed):** BASESIMP interior-vs-exterior plan
+  dims; "number of corners" (engine assumes rectangular 4-corner); whole-building vs room-by-room.
+- **CONFIRMED-CONFORMING (on the record):** heating ΔT = Tin−Toh; 22 °C default; A/RSI·ΔT above-grade
+  formula; net-wall = gross−openings; `dhdbt→toh` source (Winnipeg −33 = 1% Jan value); BASESIMP as the
+  Cl.-5.2.2-sanctioned below-grade method (workbook IS the method → "matches workbook" = conforms); soil
+  conductivity 0.85, January month, exposed-perimeter = 0 all conform.
+- All findings tracked as ADDITIONAL_FUNCTIONALITY.md **#132–#140**; summarized in BUILD_ROADMAP.md's
+  Session-80 audit block.
+
+**PART B — scope & architecture decisions (recorded as ADDITIONAL_FUNCTIONALITY #141–#146 + CLAUDE.md):**
+- **NORTH-STAR (CLAUDE.md):** the goal is room-by-room F280 compliance; full compliance requires HVACDC
+  CERTIFICATION of the software (code alone doesn't confer it). Near-term output must be demonstrably
+  similar to a compliant F280/H2K result AND honestly labeled pre-certification/provisional. This gate is
+  WHY the disclosure/provisional discipline matters.
+- **ROOM-AS-OVERLAY (CLAUDE.md principle + #146):** room-by-room is a LAYER OF DIVISIONS over a PERSISTENT
+  whole-building model, not a replacement. Standing invariant: sum-of-rooms must reconcile against
+  whole-building totals; divergence is a flag. Current whole-building work is the permanent
+  reconciliation-ORACLE layer.
+- **#141 airtightness input** (0.6/1.0/1.5/2.5/3.57 ACH + custom — the air-change term's input surface).
+- **#142 project-intake branching** (existing/renovation vs new construction as a FIRST-CLASS project
+  attribute; architectural consequence: assemblies must be per-element + scenario-overridable, non-
+  destructive baseline).
+- **#143 unified provisional-state panel** (sectioned: software-disclosure + user-deferred parking-lot;
+  one mechanism with a lifecycle + handoff — items graduate from gap → tray and prompt the owner;
+  requires project persistence + version/capability check on load; critical for certified software).
+- **#144 help-bar / explainer videos** (click-to-watch on inputs + provisional items).
+- **#145 upgrade packages** (toggleable generic assembly overlay for demonstration; non-destructive;
+  firmly later; depends on #142's scenario-overridable assembly layer).
+
+**PART C — agreed near-term sequence:** (1) small honesty+consistency fix session — add
+air-change/vent/duct/pipe to `notModeled[]` + remove solar (#132-disclosure, #136, #139), and fix the
+ground-engine `Toh`/`Ti` consistency bugs (#134, #135); no room-model dependency. (2) geometry E2E testing
+against Ben's H2K-backed compliant plans — characterize the basement double-count (#133), resolve the two
+open standard questions (#140 Q1/Q2) via workbook labels + known-result comparison, confirm the
+whole-building number lands demonstrably-similar to compliant F280/H2K. (3) then the architectural +
+feature arcs (room-by-room overlay #146; feature track), scoped with Session-2 validation data in hand.
+
+**Track separation (PARALLEL_TRACKS_LEDGER.md):** AUDIT-FIX TRACK (#132–#140, #131 — correctness, near-term,
+cert-gated) vs FEATURE TRACK (#141–#145 — later build); #146 room-by-room is upstream of most of both.
+
+**Mechanics:** docs-only — one docs commit, pushed. No browser/harness (nothing executable changed). No
+commit hashes invented; no code claimed changed. Files touched: ADDITIONAL_FUNCTIONALITY.md (#132–#146 +
+audit CONFIRMED-CONFORMING block), CLAUDE.md (north-star + room-as-overlay principle + digest-authority
+note), BUILD_ROADMAP.md (Session-80 audit block + thermal-arc "COMPLETE" correction), PARALLEL_TRACKS_
+LEDGER.md (two-track note), SESSION_HANDOFF_NOTES.md (this entry).
+
+---
+
 ## SESSION 79 (part 2) — BASESIMP ground-coupled wire-in (Stage 1) (2026-07-01)
 
 **Branch:** main | **Code commit:** `4f6be45` | **Docs commit:** (this close-out).

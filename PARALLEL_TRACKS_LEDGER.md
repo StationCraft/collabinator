@@ -62,6 +62,30 @@ file concurrently and eliminates merge conflicts between the two repos.
 - Remaining (NOW/NEXT): **Stage-2 package-decode surface** (ADDITIONAL_FUNC #131) — replace the hardcoded `GROUND_COUPLED_PKG_*` default + wire the `insExterior/insInterior/addedRsi` RSI split (foundation-config surface OR curated assembly→package lookup; ~26% suffix swing makes it fidelity-critical). Then solar gain (cooling endpoint #130).
 - Ground-coupled F280 note: `BasementHLR.xls` / `SlabOnGradeHLR.xls` are standalone supplemental calculators (separate from above-grade). The BASESIMP port IS the workbook method (compliance-grade), superseding the interim base-level `U·A·ΔT` placeholder once wired. It is the first engine to remove entries from `notModeled[]`.
 
+### Track A — two sub-tracks after the Session-80 F280 conformance audit
+
+The Session-80 read-only heating-path audit (against the licensed CSA F280:12) split Track A's forward
+work into two DELIBERATELY-SEPARATE sub-tracks. Keep them visibly distinct — do not interleave a
+feature build into a correctness fix or vice versa.
+
+- **AUDIT-FIX TRACK (correctness; near-term; gated by the certification goal).** Bring the presented
+  F280 heating number into conformance. Items: ADDITIONAL_FUNCTIONALITY.md **#132** (air-change missing +
+  undisclosed — CRITICAL), **#133** (basement above-grade double-count — CRITICAL-LATENT), **#134**
+  (ground `Toh` inconsistency), **#135** (ground `Ti` hardcoded), **#136** (duct/pipe missing), **#137**
+  (default-assembly air-films/framing), **#138** (frame-basis openings), **#139** (solar mislabel — remove
+  from `notModeled[]`), **#140** (open standard questions), plus **#131** (ground assembly-generic —
+  audit-confirmed CRITICAL). Near-term order: honesty+consistency fix session → geometry E2E validation
+  vs Ben's H2K plans → real basement / open-question resolution. See BUILD_ROADMAP.md Session-80 block.
+- **FEATURE TRACK (product architecture; later build).** ADDITIONAL_FUNCTIONALITY.md **#141** (airtightness
+  input), **#142** (existing/new intake branching + per-element/scenario-overridable assembly model),
+  **#143** (unified provisional-state panel — disclosure + parking-lot, lifecycle handoff, persistence +
+  version/capability flagging), **#144** (help-bar / explainer videos), **#145** (upgrade packages).
+- **UPSTREAM OF BOTH:** **#146** room-by-room as a DIVISION OVERLAY over the persistent whole-building
+  model (whole-building totals become the permanent reconciliation oracle — CLAUDE.md architectural
+  principle). Most air-change/duct room-allocation fixes and most feature work depend on it.
+- **Governing constraint:** room-by-room F280 compliance requires HVACDC CERTIFICATION of the software;
+  near-term output is provisional/pre-certification and must be honestly labeled (CLAUDE.md north-star).
+
 ---
 
 ## TRACK C — F280 SIDE-QUEST
@@ -216,4 +240,6 @@ to this ledger **before** Track A wires against the new shape.
 
 ---
 
-*Last updated: 2026-07-01 (Slice 12 — BASESIMP wired into the app, Stage 1, commit `4f6be45`; `deriveGroundCoupledLoss` is now the whole-box adapter around `computeGroundCoupledLoss`; engine-exact but assembly-generic (package hardcoded); `__verifyFixture` 56/56; fixture slab SCB_33 = 178.8 W; next is the Stage-2 package-decode surface, ADDITIONAL_FUNC #131)*
+*Last updated: 2026-07-02 (Session 80 — DOCS-ONLY. Read-only F280 heating-path conformance audit logged: Track A split into AUDIT-FIX (#132–#140, #131) and FEATURE (#141–#146) sub-tracks; #146 room-as-overlay upstream of both; certification/provisional north-star recorded in CLAUDE.md. No code changed.)*
+
+*Prior: 2026-07-01 (Slice 12 — BASESIMP wired into the app, Stage 1, commit `4f6be45`; `deriveGroundCoupledLoss` is now the whole-box adapter around `computeGroundCoupledLoss`; engine-exact but assembly-generic (package hardcoded); `__verifyFixture` 56/56; fixture slab SCB_33 = 178.8 W; next is the Stage-2 package-decode surface, ADDITIONAL_FUNC #131)*

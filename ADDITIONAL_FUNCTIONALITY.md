@@ -2861,3 +2861,446 @@ built and Ben-verified.
 **Size:** 1–2 sessions.
 
 **Status:** Deferred. Gate: a Ben decision on shape (a) vs (b). No code dependency — buildable any time; it is a fidelity upgrade over a working, engine-exact-but-generic Stage-1 result.
+
+---
+
+# ══════════════════════════════════════════════════════════════════════
+# F280 HEATING-PATH CONFORMANCE AUDIT — FIX TRACK (Session 80, 2026-07-02)
+# ══════════════════════════════════════════════════════════════════════
+
+*A read-only, line-by-line audit of the HEATING path against the licensed CSA F280:12
+standard (`C:\dev\CSA_F280-12\f280.pdf` — an image-only scan, OCR'd; clause text confirmed
+legible). The audit's SOLE authority was the actual standard OCR. The `C:\dev\CollabinatorF280`
+digest (`F280_COMPLIANCE_SPEC.md`) was used for clause NAVIGATION ONLY — it was found to
+contain at least one gloss NOT in the clause text (it claims BASESIMP uses "interior
+dimensions"; the clause 5.2.2.1(a)/5.2.2.2(a) says only "length, width, height, depth"). Digest
+= navigation aid, never authority; every requirement below was re-confirmed against the OCR.*
+
+**Track separation:** the entries in THIS block (#132–#140) are the AUDIT-FIX TRACK — correctness
+work gated by the certification goal (see CLAUDE.md north-star). They are DISTINCT from the
+FEATURE TRACK block that follows (#141–#146). See `PARALLEL_TRACKS_LEDGER.md` for the two-track note.
+
+**No code changed this session.** This is the docs record of findings; the fixes are sequenced in
+`BUILD_ROADMAP.md` (Session-80 audit block) and `SESSION_HANDOFF_NOTES.md`.
+
+---
+
+### 132. Air-change heat loss MISSING + UNDISCLOSED (F280 audit — CRITICAL)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+**Finding:** F280 makes **air-change heat loss a mandatory term of every room/building total**:
+`HLairr` = air leakage (**AIM-2**, `AIM2.xls`) **+** continuous ventilation (`HLvairb`). Both "**shall
+be calculated**" (Cl. 5.2.3, 5.2.3.1, 5.2.3.2) and enter the totals via Cl. 5.2.6 (`HLr = HLagcr +
+HLbgcr + HLairr + [HLdr/HLpr] + HLvairr`) and Cl. 5.2.7 (`HLb = Σ HLr`; "if ventilation not added
+per-room, add `HLvairb` to `HLb`").
+
+**Clause:** 5.2.3 / 5.2.3.1 / 5.2.3.2 / 5.2.6 / 5.2.7.
+
+**What Collabinator does:** `deriveF280Heating` computes ONLY conductive above-grade + BASESIMP
+ground. There is **no infiltration term and no ventilation term at all**, and `notModeled[]` does
+**not** list them — so the panel presents the number as if air-change were simply out of scope.
+
+**Origin:** CODE-GAP (unbuilt).
+
+**Conformance impact:** understates the presented heating load by roughly **~20–40%** — air leakage +
+ventilation is the single largest non-conductive load in a Part-9 house. Directional: presented load
+is far **below** the standard's `HLb`. The method is fully sanctioned and the data is on hand —
+`AIM2.xls` is present in the project (`C:\dev\CSA_F280-12\AIM2.xls`).
+
+**Severity: CRITICAL** (wrong compliance result, and silently so).
+
+**Two-part fix:** (a) DISCLOSURE — add air-change/ventilation (and duct/pipe, #136) to `notModeled[]`
+now so the output is honest; this is the cheap first step (sequence step 1). (b) MODELLING — build the
+AIM-2 leakage + ventilation term, fed by the airtightness input (#141) and intake branching (#142);
+room allocation (Level_factor, Cl. 5.2.3.3) needs the room model (#146). Do NOT change `notModeled[]`
+in code this docs-only session.
+
+---
+
+### 133. Basement above-grade wall DOUBLE-COUNT (F280 audit — CRITICAL-LATENT)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+**Finding:** Cl. 5.2.2.1 states that for below-grade rooms "**including basement walls above grade**,
+BasementHLR.xls **shall be used**." BASESIMP therefore owns the **ENTIRE** foundation wall — its
+`Sag·(Troom−DBT)·Agfr` term is exactly the above-grade band of the basement wall. That wall must
+**not** also be counted under the above-grade 5.2.1 method.
+
+**Clause:** 5.2.1 vs 5.2.2.1.
+
+**What Collabinator does:** `deriveEnumeration` STEP A emits a full floor-to-ceiling `wall-surface`
+for **every** floor level's polygon — **including the lowest/basement floor** — and that surface is
+counted in above-grade conductive. When the foundation resolves as `isBasement` (heightM > 0), the
+BASESIMP whole-box **also** models that same wall's above-grade band (`Sag` term). The above-grade
+band of basement walls is thus **counted twice**.
+
+**Origin:** UNDOCUMENTED-CHOICE (STEP A never excludes the lowest/foundation floor when a basement is
+present).
+
+**Conformance impact:** **overstates** basement-project heating load (double-counts the height−depth
+band × basement wall length × U × ΔT). **LATENT:** the current slab/crawlspace fixture resolves
+`isBasement = false` (no below-grade wall > 0.6 m), so BASESIMP models only the floor slab (height 0)
+and no double-count occurs. Fires on any real basement.
+
+**Severity: CRITICAL-LATENT** (wrong result for basement projects; not exercised by the fixture).
+Characterize on a real basement in sequence step 2. Fix likely: when a foundation is `isBasement`,
+suppress the lowest-floor foundation walls from STEP A's above-grade sum (BASESIMP owns them).
+
+---
+
+### 134. Ground-engine Toh inconsistency (F280 audit #6 — MODERATE-LATENT)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+**Finding:** a single outdoor heating design temp `Toh` (Cl. 4.1) feeds the whole calc (Cl. 5.1
+`DTDh = Tin − Toh`; BASESIMP input (m) "outdoor design dry bulb temperature, heating" is that same
+`Toh`).
+
+**Clause:** 4.1 / 5.1 / 5.2.2.1(m).
+
+**What Collabinator does:** the above-grade path uses the **resolved `toh`** (the `toh-override`
+field wins over the station lookup — `resolve-toh` rule). The ground engine independently reads the
+**station's `dhdbt`** via its own `resolveClimate` and **ignores the override**. If a station **and**
+an override are both set, the two halves of the load use **different** outdoor design temps. If the
+user sets override-only with **no** station, the ground term is **silently dropped** by the no-ground
+guard (`if (!station) return no-ground`), while the above-grade path still computes with the override.
+
+**Origin:** UNDOCUMENTED-CHOICE.
+
+**Conformance impact:** inconsistent `Toh` across components; magnitude = the override-vs-station
+delta applied to the ground fraction. Override-only ⇒ ground loss omitted entirely (understates).
+LATENT — the fixture uses a station, not an override, on the ground path.
+
+**Severity: MODERATE.** Fix (sequence step 1): thread the resolved `Toh` into the ground engine so
+both components share one outdoor design temp.
+
+---
+
+### 135. Ground-engine Ti hardcoded 22 °C (F280 audit #8 — MINOR-LATENT)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+**Finding:** BASESIMP input (l) "room temperature" = `Tin` (Cl. 5.2.2.1); should equal the project's
+`Tin`.
+
+**Clause:** 5.2.2.1(l) / 4.2.
+
+**What Collabinator does:** the ground engine (`src/basesimp/engine.js`) fixes `ROOM_TEMP_C = 22`,
+ignoring a user `ti-heating`, while the above-grade path uses the configured `Tin`
+(`resolvedConfig['ti-heating']`, fallback 22). Internal `Tin` inconsistency between components.
+
+**Origin:** UNDOCUMENTED-CHOICE (partly deliberate — 22 °C is explicitly acceptable, Cl. 4.2, so it
+conforms in isolation).
+
+**Conformance impact:** small; only bites when the user sets `Ti ≠ 22`. A real drift bug even so.
+
+**Severity: MINOR.** Fix (sequence step 1): pass the resolved `Ti` into the ground engine instead of
+the hardcoded 22.
+
+---
+
+### 136. Duct/pipe loss MISSING + UNDISCLOSED (F280 audit — MODERATE)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+**Finding:** for each room served by ducts through unconditioned space or adjacent to the slab
+perimeter, duct loss "**shall be calculated**": `HLdr = DLMh·(HLagcr+HLbgcr+HLairr)` (Cl. 5.2.4);
+hydronic pipe loss `HLpr = PLMh·(…)` (Cl. 5.2.5). Confirmed Table 1: attic / open crawlspace,
+uninsulated ⇒ **DLMh = 0.25**.
+
+**Clause:** 5.2.4 / 5.2.5.
+
+**What Collabinator does:** neither computed; neither listed in `notModeled[]`.
+
+**Origin:** CODE-GAP (unbuilt).
+
+**Conformance impact:** conditional — applies only when supply ducts/pipes run through unconditioned
+space. When applicable, up to **+25%** on the affected rooms' loss (DLMh 0.25). Understates.
+
+**Severity: MODERATE** (CRITICAL when supply ducts run in an unconditioned attic). Disclosure half
+folds into the #132 `notModeled[]` addition (sequence step 1); modelling needs the room model (#146).
+
+---
+
+### 137. Default-assembly RSI omits air films + framing derate (F280 audit — MODERATE, default path)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+**Finding:** the RSI in `A/RSI·DTDh` comes from Tables 6/7A/7B, which the standard states already
+include surface air films and air spaces ("Allowance has been made for surface air films and air
+spaces and for heat loss through framing members"); framing losses "**shall be included**" via the
+Table-7A parallel-path method.
+
+**Clause:** 5.2.1 / Table 6 preamble / Table 7A.
+
+**What Collabinator does:** `ASSEMBLY_TYPE_DEFAULTS` uses `U = 1 / nominal-R` (e.g. `1/22` for an R22
+batt) — **no air films, no framing parallel-path derate**. This is the project-default / miss-path
+value consumed by `getSurfaceAssembly` when a surface has no per-surface entry.
+
+**Origin:** DELIBERATE-DECISION (documented placeholder; #106 "values pass" pending).
+
+**Conformance impact:** on the **default/miss path only**, RSI is overstated ⇒ U too low ⇒
+**understates** conductive loss (a real R22 wall is ~effective R17–19 with films + framing). Per-surface
+manual/library U-values override this path and are unaffected.
+
+**Severity: MODERATE** (bounded to surfaces left on the project default). Closed by the #106 values
+pass (real air-film-inclusive, framing-adjusted effective U-values).
+
+---
+
+### 138. Frame-basis openings understate vs required rough-opening (F280 audit — MODERATE/MINOR)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+**Finding:** "**Rough openings for windows shall be used** in the calculations"; likewise "Rough
+openings for doors shall be used."
+
+**Clause:** Table 6 notes (window/door area basis).
+
+**What Collabinator does:** opening area = `widthM · heightM`; the project-level `dimensionBasisRef`
+can be set to **`frame`**. Frame dimensions are smaller than rough opening.
+
+**Origin:** DELIBERATE-DECISION (basis is a first-use user choice).
+
+**Conformance impact:** when `frame` is chosen, window/door area (and the wall net-deduction) are
+**smaller than rough opening** ⇒ slightly **understates** fenestration loss. `rough-opening` basis
+conforms.
+
+**Severity: MODERATE/MINOR.** Consider defaulting/forcing rough-opening for F280 output, or flagging
+`frame` as non-conforming in the provisional panel (#143).
+
+---
+
+### 139. `solar-gain` mislabeled in the heating `notModeled[]` (F280 audit — MINOR/cosmetic; REVISES #130)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+**Finding:** F280 heating (Cl. 5.2) has **no gain terms** — the heating load is loss-only, worst-case
+(no sun, no internal gains). Solar is a **cooling-only** term (Cl. 6.2.2, `SHGC·Solar`).
+
+**Clause:** 5.2 (no heating gains) / 6.2.2 (solar is cooling-side).
+
+**What Collabinator does:** lists `solar-gain` in `deriveF280Heating`'s `notModeled[]`. Because that
+list enumerates HEATING gaps the software has not yet built, listing a term the standard **never**
+credits against heating implies a heating gap that does not exist.
+
+**DECISION (Session 80):** **REMOVE `solar-gain` from the heating `notModeled[]`.** This REVISES the
+Session-79 stance recorded in #130 ("`solar-gain` stays in `deriveF280Heating`'s `notModeled[]`
+permanently"). #130's own reasoning — solar is NOT a heating term — actually **supports removal** from
+a list that means "heating gaps," rather than keeping it. #130's architectural core is UNCHANGED:
+solar belongs to a future `deriveF280Cooling` endpoint (see #130 for the cooling scope + missing
+`Solaro` table). Only the specific notModeled-membership claim flips.
+
+**Origin:** UNDOCUMENTED-CHOICE (mislabel).
+
+**Conformance impact:** cosmetic — no numeric effect on any load. Improves disclosure honesty.
+
+**Severity: MINOR.** Code change (the `notModeled[]` edit) is deferred to sequence step 1; not done in
+this docs-only session.
+
+---
+
+### 140. F280 audit — UNRESOLVED standard questions (need Ben + workbook labels; NOT to be guessed)
+
+**Logged:** Session 80 (2026-07-02), F280 heating-path conformance audit.
+
+Three questions the **clause text does not resolve**. They must be answered by Ben's domain input +
+reading the supplemental-calculator input labels (`BasementHLR.xls` / `SlabOnGradeHLR.xls`), NOT
+guessed. Logged as OPEN.
+
+1. **BASESIMP plan dimensions — interior vs exterior?** Cl. 5.2.2.1(a) / 5.2.2.2(a) say only
+   "length, width, height, and depth below grade" — the digest's "interior dimensions" gloss is **not**
+   in the clause. Collabinator currently passes the **exterior footprint bounding box**
+   (`slab.footprintLengthM/WidthM`, from world vertices). If the workbook expects interior dimensions
+   this over-sizes the box. **Resolve by reading the workbook input-cell labels + a known-result
+   comparison.** (Boundary — partly geometry-measurement.)
+
+2. **"Number of corners" (Cl. 5.2.2.1(h) / 5.2.2.2(f)).** BASESIMP takes an explicit corner count; the
+   ported engine assumes a **rectangular 4-corner box** (`2(L−W)+4·Fcs·W`) driven by the config's
+   `CCF`, and the adapter passes a bbox (always 4 corners). Non-rectangular / L-shaped footprints
+   diverge. **Needs reading how the workbook consumes the corner-count input** — couples to the
+   whole-footprint-as-one-box approximation (#88).
+
+3. **Whole-building vs room-by-room.** F280 is explicitly a **room-by-room** method (Cl. 5.2.6 →
+   5.2.7). The pure conductive-envelope total is numerically equal to summing rooms, so it is NOT a
+   conductive error today — BUT air-change room allocation (`Level_factor`, Cl. 5.2.3.3) and per-room
+   duct loss (Cl. 5.2.4) **cannot** be computed without a room model, and the standard's downstream
+   purpose (per-room delivery sizing, Cl. 5.3.2) needs rooms. Structural-scope question — addressed by
+   the room-by-room division overlay (#146).
+
+**Status:** OPEN — needs Ben. Q1 + Q2 are seeded into sequence step 2 (workbook-label reading +
+known-result comparison against Ben's H2K-backed plans). Q3 is answered architecturally by #146.
+
+---
+
+### F280 audit — CONFIRMED-CONFORMING (recorded so the clean parts are on the record)
+
+*Not fix-items. Verified against the actual standard OCR; listed so the conforming spine is documented,
+not just the gaps.*
+
+- **Heating ΔT** `deltaT = tiC − tohC` = `DTDh = Tin − Toh` (Cl. 5.1). ✓
+- **Indoor design temp default 22 °C** — explicitly "shall be acceptable … for all heated spaces"
+  (Cl. 4.2). ✓ (Note the untapped granularity: heated crawl spaces are 15 °C per Cl. 4.2 — a future
+  room-model refinement, not a current defect since the 22 °C blanket is sanctioned.)
+- **Above-grade conductive formula** `u·A·ΔT` with `u = 1/RSI` = `A/RSI·DTDh` (Cl. 5.2.1). ✓
+- **Net wall area** = gross − openings (openings handled as separate assemblies) — correct deduction. ✓
+- **Outdoor design temp source** `toh = dhdbt` from the `F280_Weather.xls`-derived table, with manual
+  override — Cl. 4.1 sanctions Table 5 / `F280_Weather.xls` in the absence of local code tables; the
+  Winnipeg `dhdbt = −33` matches the 1% January design value F280/NBC expects. ✓
+- **BASESIMP is THE F280-sanctioned below-grade method** — Cl. 5.2.2: "BasementHLR.xls **shall be
+  used**"; slab → SlabOnGradeHLR.xls (Cl. 5.2.2.2). Because the standard NAMES the workbook as the
+  method, "matches the workbook" **is** "conforms." Collabinator's `engine.js` is a faithful port,
+  3/3 to <1e-11 W. ✓
+- **Soil conductivity default 0.85 W/m·K** = the value the workbook worked-examples use (i.e. the
+  spreadsheet's suggested value, Cl. 5.2.2.1(b)). ✓
+- **Design heating month January** = the standard's stated output month. ✓
+- **Exposed perimeter = 0 ⇒ full** — correct for detached houses (the "attached houses" input is the
+  only case needing a partial value, Cl. 5.2.2.1(p)). ✓
+- **Excluding solar/internal gains from the heating load** — correct; F280 heating is loss-only
+  (only the *labeling* of solar in `notModeled` was off — #139). ✓
+
+---
+
+# ══════════════════════════════════════════════════════════════════════
+# SCOPE & ARCHITECTURE — FEATURE TRACK (Session 80, 2026-07-02)
+# ══════════════════════════════════════════════════════════════════════
+
+*Six interlocking scope/architecture decisions captured from the Session-80 planning
+conversation. This is the FEATURE TRACK — later-build product architecture, VISIBLY SEPARATE
+from the audit-fix track above (#132–#140). See `PARALLEL_TRACKS_LEDGER.md` for the two-track
+note. The governing goal (room-by-room F280 compliance + HVACDC certification) and the
+room-as-overlay principle are ALSO recorded in CLAUDE.md as enduring principles.*
+
+---
+
+### 141. Airtightness input (the air-change term's user input surface)
+
+**Logged:** Session 80 (2026-07-02), scope/architecture planning.
+
+**Description:** a user-entered airtightness value feeding the air-change heat-loss term (#132). A
+`<select>` of **0.6 / 1.0 / 1.5 / 2.5 / 3.57 ACH** + a **CUSTOM** free entry. Reached via the
+project-intake branching (#142) — for new construction the target-airtightness prompt writes this;
+for existing buildings it is entered directly or parked pending a blower-door result (#143).
+
+**Depends on:** #142 (intake branching supplies the value), and is the input side of #132 (air-change
+modelling). ACH → AIM-2 leakage rate is the downstream conversion.
+
+**Status:** Deferred (feature track). Gate: the air-change modelling work (#132) is scoped.
+
+---
+
+### 142. Project-intake branching — existing/renovation vs new construction (first-class project attribute)
+
+**Logged:** Session 80 (2026-07-02), scope/architecture planning.
+
+**Description:** an up-front project-information flow that **branches on EXISTING/RENOVATION vs NEW
+CONSTRUCTION**:
+- **New construction** → prompt for the **target airtightness score** (writes #141).
+- **Existing** → prompt **"blower-door test done?"** vs **"blower-door planned?"** (a done result is a
+  real number; a planned test parks a placeholder in the provisional panel, #143).
+
+**First-class attribute, not a UI router:** existing/new is a **persistent project attribute**, not a
+throwaway wizard branch. It may eventually drive **assembly prefills**, and "existing" implies
+**per-element variable inputs** — existing buildings get upgraded element-by-element, so a single
+whole-project assembly assumption is wrong for them.
+
+**Architectural consequence (log explicitly):** assembly assignments must be **per-element and
+overridable at a project-scenario layer** (a non-destructive baseline that scenario overrides sit on
+top of). Both existing-building element-by-element variability AND upgrade packages (#145) depend on
+this per-element/scenario-overridable assembly model. `getSurfaceAssembly` already resolves
+per-surface with a project-default fallback (#106) — this extends that into an explicit scenario
+layer.
+
+**Status:** Deferred (feature track). Upstream of #141 and #145.
+
+---
+
+### 143. Unified provisional-state panel (sectioned by origin; lifecycle + handoff; persistence-gated)
+
+**Logged:** Session 80 (2026-07-02), scope/architecture planning. **Significant feature — full entry.**
+
+**Description:** a single **"provisional state" panel/sidebar**, SECTIONED by origin:
+1. **Software-side disclosure** — today's `notModeled[]` gaps: what the software does not yet model
+   (e.g. air-change #132, duct/pipe #136 once disclosed). This is the machine-readable evolution of the
+   `notModeled[]` list.
+2. **User-deferred / not-yet-entered decisions** — a **"parking lot"** where the user can defer an
+   input they *could* supply (awaiting a blower-door result, no builder selected yet, etc.) and proceed
+   on a **labeled PLACEHOLDER** value, tracked for later.
+
+**One mechanism, with a LIFECYCLE and a cross-section HANDOFF:** when a capability **graduates** from a
+software-gap into an available function, the item **MOVES** from section (1) into section (2) and the
+**project owner is NOTIFIED/PROMPTED** to act — enter the real value or explicitly park it. The two
+sections are two states of one tracked item, not two separate lists.
+
+**Consequence (log explicitly):** this requires **project PERSISTENCE** plus a **version/capability
+check on load** — a project modelled *before* a function existed gets **flagged** when reopened *after*
+that function ships. This is **critical for certified software**: old projects must stay valid, or be
+explicitly flagged for re-evaluation, when the calculation surface changes underneath them.
+
+**Relationship:** this is the interactive evolution of the honest-partial / `notModeled[]` philosophy
+that #132's disclosure fix seeds. Explainer videos (#144) attach to its items. Ties to the
+certification north-star (CLAUDE.md) — provisional/pre-certification labeling is the discipline this
+panel operationalizes.
+
+**Status:** Deferred (feature track). Gate: project persistence exists (none in the codebase today —
+state is in-memory only).
+
+---
+
+### 144. Help-bar / explainer videos on inputs and provisional-panel items
+
+**Logged:** Session 80 (2026-07-02), scope/architecture planning.
+
+**Description:** input fields and provisional-panel (#143) items can carry small **click-to-watch
+explainer videos** that answer the immediate question ("what is this / why do I need it") and lead
+into deeper exploration of the building science / process. Establishes the planned **help/hint bar**
+(no prior entry existed for it — checked; this is its first record) as the home for contextual help,
+of which explainer videos are one form.
+
+**Status:** Deferred (feature track). Buildable incrementally alongside any field it annotates.
+
+---
+
+### 145. Upgrade packages (demonstration assembly-swap overlay — later build)
+
+**Logged:** Session 80 (2026-07-02), scope/architecture planning.
+
+**Description:** a **toggleable generic assembly package** applied across the whole model for
+demonstration. The user clicks an upgrade package and sees heat-loss/gain results under a **different
+baseline assembly setting**; toggle on/off; **non-destructive** (the baseline is preserved, the package
+is an overlay).
+
+**Depends on:** the per-element / project-scenario-overridable assembly model logged in #142 — an
+upgrade package IS a scenario overlay on the non-destructive baseline. Cannot be built before that
+layer exists.
+
+**Status:** Deferred (feature track). **Firmly a later build** — after the scenario-overridable
+assembly layer and a working heat-loss/gain result to demonstrate against.
+
+---
+
+### 146. Room-by-room as a DIVISION OVERLAY over a persistent whole-building model (architectural)
+
+**Logged:** Session 80 (2026-07-02), scope/architecture planning. **Also a CLAUDE.md architectural
+principle.**
+
+**Description:** the room-by-room model (F280's native granularity, Cl. 5.2.6→5.2.7) is a **LAYER OF
+DIVISIONS applied over a PERSISTENT whole-building model — NOT a replacement.** The whole-building
+envelope totals **always live underneath** as a running verification check; adding rooms subdivides
+that model, it does not discard it.
+
+**STANDING INVARIANT (reconciliation oracle):** **sum-of-rooms must reconcile against whole-building
+totals; any divergence is a flag.** This makes ALL current whole-building work (`deriveEnumeration`,
+`deriveF280Heating`, the envelope totals) the **permanent reconciliation-oracle layer**, not
+throwaway scaffolding to be replaced by rooms.
+
+**Why it matters / what depends on it:** room granularity is what unlocks the F280 terms that are
+whole-building-impossible — air-change room allocation (`Level_factor`, Cl. 5.2.3.3; see #132), per-room
+duct/pipe loss (Cl. 5.2.4/5.2.5; see #136), and per-room delivery sizing (Cl. 5.3.2). It answers audit
+open-question #140-Q3. It is **upstream of most of both tracks** (audit-fix and feature).
+
+**Status:** Deferred (architectural — feature track). Large arc; scoped after sequence step 2 supplies
+validation data (whole-building number confirmed demonstrably-similar to compliant F280/H2K figures).
+
+---

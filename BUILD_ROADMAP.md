@@ -510,6 +510,13 @@ is arranged so most beats are things Ben can see.
         With solar reclassified as cooling-side, the near-term HEATING thermal arc is effectively COMPLETE:
         above-grade conductive DONE (Session 56) + ground-coupled DONE (Session 78); floor-over-unheated is
         the only heating notModeled[] entry with future heating work; solar belongs to the cooling arc.
+    [!] ⚠ REVISED (Session 80 F280 conformance audit): "thermal arc COMPLETE" was CONDUCTIVE-only. The
+        read-only heating-path audit against the licensed CSA F280:12 found the presented heating load
+        OMITS F280's mandatory AIR-CHANGE term (air leakage + ventilation, Cl. 5.2.3, "shall be
+        calculated") — ~20-40% of a Part-9 house's load — plus duct/pipe loss (Cl. 5.2.4/5.2.5), and
+        notModeled[] does not even list them. The conductive spine (above-grade + BASESIMP ground) CONFORMS;
+        the TOTAL does not. See the "F280 HEATING-PATH CONFORMANCE AUDIT" section below + ADDITIONAL_
+        FUNCTIONALITY.md #132-#140. floor-over-unheated is NOT the only remaining heating gap.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
@@ -536,6 +543,61 @@ region-spines, DXF export, 6.6 floor-system structural population. The deferral 
 holding; none of these carries weight on the near beats. #66/R3 (per-vertex z-seam) is the
 deferral with the longest reach — it will likely define the boundary of "Phase 1 done" — but
 is correctly fenced and should NOT be pulled forward.
+
+---
+
+## F280 HEATING-PATH CONFORMANCE AUDIT + NEAR-TERM FIX WORK (Session 80, 2026-07-02)
+
+**What happened:** a read-only, line-by-line audit of the F280 **heating** path against the licensed
+CSA F280:12 standard (`C:\dev\CSA_F280-12\f280.pdf`, OCR'd; sole authority — the `CollabinatorF280`
+digest is navigation-only, found to contain a gloss absent from the clause text). No code changed.
+Full findings are tracked in ADDITIONAL_FUNCTIONALITY.md #132–#140; the CONFIRMED-CONFORMING spine is
+recorded there too. This is the near-term FIX-WORK summary.
+
+**Audit findings (ranked):**
+- **#132 CRITICAL** — air-change heat loss (leakage AIM-2 + ventilation) MISSING and UNDISCLOSED
+  (Cl. 5.2.3, mandatory; entered via 5.2.6/5.2.7). Understates presented load ~20–40%. `AIM2.xls` is
+  on hand. CODE-GAP.
+- **#131 CRITICAL (already tracked)** — ground result ASSEMBLY-GENERIC (hardcoded BCIN_3/SCB_33; ~26%
+  swing). The audit CONFIRMS it CRITICAL by magnitude; Stage-2 package-decode is the fix. Cross-ref
+  only, not re-logged.
+- **#133 CRITICAL-LATENT** — basement above-grade wall DOUBLE-COUNT (STEP A full-height wall-surface +
+  BASESIMP `Sag` band; Cl. 5.2.1 vs 5.2.2.1). Overstates basements; slab/crawlspace fixture doesn't
+  fire it. UNDOCUMENTED-CHOICE.
+- **#134 MODERATE-LATENT** — ground engine reads station `dhdbt` and ignores `toh-override`; both-set →
+  two outdoor temps; override-only → ground silently dropped. UNDOCUMENTED-CHOICE.
+- **#135 MINOR-LATENT** — ground engine `Troom` hardcoded 22 °C, ignores `ti-heating`.
+  UNDOCUMENTED-CHOICE (22 conforms in isolation).
+- **#136 MODERATE** — duct/pipe loss MISSING + UNDISCLOSED (Cl. 5.2.4/5.2.5, DLMh up to 0.25). CODE-GAP.
+- **#137 MODERATE (default path)** — default-assembly RSI omits air films + framing derate (Tables 6/7
+  "shall be included"); understates on the miss path only. DELIBERATE placeholder (#106 values pass).
+- **#138 MODERATE/MINOR** — frame-basis openings understate vs required rough-opening. DELIBERATE.
+- **#139 MINOR/cosmetic** — `solar-gain` mislabeled in the heating `notModeled[]`; decision: REMOVE it
+  (revises #130's "stays permanently" — #130's cooling-side core unchanged). UNDOCUMENTED-CHOICE.
+- **#140 OPEN QUESTIONS (need Ben + workbook labels, NOT guessed):** (1) BASESIMP interior-vs-exterior
+  plan dims; (2) "number of corners" (engine assumes rectangular 4-corner); (3) whole-building vs
+  room-by-room (F280 is room-by-room; air-change allocation + per-room duct loss need a room model).
+
+**AGREED NEAR-TERM SEQUENCE:**
+
+1. **Small honesty + consistency fix session** (does NOT depend on the room model). Makes the current
+   output honest and internally consistent before any validation:
+   - Add air-change / ventilation / duct / pipe to `notModeled[]` (#132 + #136 DISCLOSURE half) and
+     REMOVE `solar-gain` from it (#139).
+   - Fix the ground-engine config-consistency bugs: thread resolved `Toh` into the ground engine (#134)
+     and pass resolved `Ti` instead of hardcoded 22 (#135).
+2. **Session 2 — geometry end-to-end testing protocol** against Ben's H2K-backed compliant plans,
+   seeded by audit targets: characterize the basement double-count (#133) on a REAL basement; resolve
+   the two open standard questions (interior/exterior dims, corner count — #140 Q1/Q2) via workbook
+   input-cell labels + known-result comparison; confirm the whole-building number lands
+   DEMONSTRABLY-SIMILAR to the compliant F280/H2K figures. Validates the persistent whole-building
+   foundation layer (the reconciliation oracle, CLAUDE.md room-as-overlay principle).
+3. **Then the architectural + feature arcs** (room-by-room division overlay #146; feature track #141–#145),
+   scoped with Session-2 validation data in hand.
+
+**Track note:** the audit-fix work above is the AUDIT-FIX TRACK (correctness, near-term, gated by the
+certification goal); the intake/provisional-panel/packages/help-video work is the FEATURE TRACK (later
+build). Room-by-room architecture (#146) is upstream of most of both. See PARALLEL_TRACKS_LEDGER.md.
 
 ---
 

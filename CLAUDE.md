@@ -48,6 +48,23 @@ rooms, assemblies) with automatic snap-to-grid and axis-locking. Current focus:
 multi-floor coordination — tracing the same building envelope across multiple floor
 plans, aligning them, and preparing for elevation-based 3D assembly.
 
+**North-star goal — room-by-room F280 compliance + certification (governing constraint):**
+The near-term AND eventual goal is **room-by-room CAN/CSA-F280 compliance**. Full compliance
+requires external evaluation and **certification by HVACDC** — the SOFTWARE itself must be
+certified; code correctness alone does not confer compliance. Near-term output must therefore be
+**demonstrably similar to a compliant F280 / HOT2000 result** AND **honestly labeled as
+pre-certification / provisional**. This certification gate is *why* the disclosure /
+provisional-state discipline matters (the `notModeled[]` honesty list, the unified provisional-state
+panel [ADDITIONAL_FUNCTIONALITY.md #143], and version/capability flagging of projects modelled before
+a function shipped). A read-only conformance audit of the HEATING path (Session 80) found the current
+output omits F280's mandatory **air-change** term (and is not yet compliant) — see
+ADDITIONAL_FUNCTIONALITY.md #132–#140 and the BUILD_ROADMAP.md Session-80 audit block.
+**Authority note:** the CSA F280:12 standard at `C:\dev\CSA_F280-12\f280.pdf` (image-only scan, but
+OCR-legible) is the SOLE authority for any conformance question; the `C:\dev\CollabinatorF280` digest
+(`F280_COMPLIANCE_SPEC.md`) is **navigation-only** — it has been shown to contain glosses NOT in the
+clause text (e.g. it claims BASESIMP uses "interior dimensions"; Cl. 5.2.2.1(a) says only "length,
+width, height, depth"). Never cite the digest as authority.
+
 **Owner / primary builder:** Ben — principal at StationCraft Inc (SCI) / Advance
 Building Collective (ABC), a residential pre-construction design consulting firm in
 BC, Canada. Working on a laptop, which requires zoom for readability.
@@ -1724,6 +1741,16 @@ After A.0.1–A.0.3 cleanup, Phase 1.5 builds the foundational architecture for 
 
 ## Design notes (Phase 1.5+)
 
+- **Room-by-room is a DIVISION OVERLAY, not a replacement (architectural — Session 80):** the
+  room-by-room model (F280's native granularity, Cl. 5.2.6→5.2.7) is a **LAYER OF DIVISIONS applied
+  over a PERSISTENT whole-building model**. The whole-building envelope totals ALWAYS live underneath
+  as a running verification check; adding rooms subdivides that model, it does not discard it.
+  **STANDING INVARIANT:** sum-of-rooms must reconcile against whole-building totals; any divergence is
+  a flag. This makes the current whole-building work (`deriveEnumeration`, `deriveF280Heating`, the
+  envelope totals) the **permanent reconciliation-ORACLE layer**, not throwaway scaffolding. Room
+  granularity is what unlocks the F280 terms that are whole-building-impossible (air-change room
+  allocation `Level_factor` Cl. 5.2.3.3, per-room duct/pipe loss, per-room delivery sizing Cl. 5.3.2).
+  See ADDITIONAL_FUNCTIONALITY.md #146.
 - **Coordinate system:** X,Y from plan (per compass rose), Z from elevations (vertical).
   The origin (0,0,0) is a **fixed, arbitrary zero** — not a building feature. All
   geometry lives in the coordinate space at whatever coordinates it lands on, and all
