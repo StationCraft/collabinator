@@ -789,8 +789,12 @@ A React + Vite app with:
     `unresolvedCount++`, area counted, no silent zero. `notModeled[]` STARTS as
     `['below-grade-wall','slab-on-grade','floor-over-unheated','solar-gain']` and now SHEDS
     `'below-grade-wall'`/`'slab-on-grade'` when the ground-coupled engine resolves (Session 78 — see
-    that entry); `'floor-over-unheated'`/`'solar-gain'` remain. Extensible spine — adding a new loss
-    endpoint = one bucket/engine + one loop body, no refactor.
+    that entry); `'floor-over-unheated'`/`'solar-gain'` remain. Extensible spine — adding a genuine
+    new HEATING loss endpoint = one bucket/engine + one loop body, no refactor (below-grade-wall and
+    slab-on-grade were exactly such additions, Session 78). NOTE: `'solar-gain'` is NOT such a heating
+    bucket — F280 credits zero solar against the heating load; solar is a COOLING-only term that belongs
+    to a future `deriveF280Cooling` endpoint (see ADDITIONAL_FUNCTIONALITY.md #130). It stays listed in
+    `notModeled[]` permanently and is not a heating gap to close.
   * **F280 Results sidebar tab** — in consolidated side-panel; design conditions + per-kind table +
     amber unresolved-U warnings + kW subtotal + greyed not-modeled list. No-climate guard in JSX.
   * **`window.__dumpF280()`** — DEV console hook; tree-shakes from production.

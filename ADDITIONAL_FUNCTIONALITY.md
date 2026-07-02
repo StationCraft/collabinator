@@ -2805,3 +2805,35 @@ built and Ben-verified.
 **Why deferred:** The aligned/protruding pair (`#22c55e` vs `#15803d`) has a wider apparent contrast (darker green distinctly separate from baseline green). Judging the three-way scheme requires a fixture that has an actual protruding face. Until that exists, the scheme cannot be evaluated end-to-end. No fix until re-judged with protruding data present.
 
 **Status:** Deferred. Re-examine when a fixture with a protruding wall face is available. If the three-way contrast reads well then, close without change; if not, consider widening the hue spread (e.g., amber for protruding, blue/teal for recessed).
+
+---
+
+### 130. Future deriveF280Cooling endpoint (solar gain lives here, NOT in heating)
+
+**Logged:** Session 79 (2026-07-01) after a read-only F280 spec recon (CollabinatorF280 @ `d94c18a`, `F280_COMPLIANCE_SPEC.md`).
+
+**Why this exists:** the prior plan treated "solar gain" as an additive result row in `deriveF280Heating` / a `notModeled[]` removal for the heating endpoint. That is WRONG. F280 credits ZERO solar against the HEATING load — solar is a COOLING-only term (spec line 540: "SHGC … Used only in the cooling solar gain term … Not used in heating"). Solar's home is a cooling endpoint that does not yet exist. `solar-gain` correctly stays in `deriveF280Heating`'s `notModeled[]` permanently. This entry is the architectural record of the deferred cooling endpoint. **Deferred — do NOT build now; solar/cooling is its own future planning arc.**
+
+**SCOPE (a cooling endpoint parallel to `deriveF280Heating`):**
+- **(a) Fenestration solar + conductive gain** — per window/glazed door: `HGet = A × (SHGC × Solar + DTDc / RSIw)`, where `Solar = Solaro × LFactor × [optional SFactor]`. This is the combined-formula folding solar and conductive gain together (spec Cl. 6.2.2.1).
+- **(b) Opaque-assembly cooling gain** — `HGcop = A / RSI × (DTDc + SC)`, using the Table-3 `SC` solar-air correction (°C by assembly orientation × summer daily temp range). **Table 3 IS already in the spec digest** (BUILD_ROADMAP / spec §2.6.1) — no missing data for the opaque path.
+- **(c) Internal gains** — people (`HGsp = 70 W × occupants`; bedrooms+1 if unknown) and appliances/lights (`HGiae = MAX(4 W/m² × Afloorb, 800 W)`).
+- **(d) Cooling air-leakage / ventilation gain** — AIM-2 cooling leakage + mechanical-ventilation sensible gain (spec §2.6.5–2.6.7).
+
+**MISSING DATA (hard blockers — hand-transcribe from CSA F280:12, print p.26; these are STATIC constants, NOT a live dataset):**
+- **The 6-value `Solaro` orientation table** — columns: North / South / East-West / Northeast-Northwest / Southeast-Southwest / Horizontal; units W/m²; a SINGLE peak cooling design condition (ONE row, **NO month dimension**, no latitude axis — latitude is handled by LFactor, below). This table did NOT survive OCR into either `F280_COMPLIANCE_SPEC.md` or `F280_OCR_RAW.md` — the OCR captured the header row but dropped the numeric data row. Provenance (Annex B.6.2.2): the values were "developed from data in Table 10 … of the 1990 edition" — internal to F280's own lineage, a fixed printed table, not an external feed.
+- **The Annex-A `F` shade-factor table** (orientation × north-latitude) — only needed IF overhang shading is modeled. Also absent from OCR.
+
+**NEW INPUTS NEEDED (not present in the model today):**
+- **`Tic` cooling indoor setpoint** — a NEW cooling-side `CONFIG_FIELD` (no cooling config exists yet).
+- **Project latitude carried into the model** for `LFactor = clamp(1 + (Latitude − 40) × 0.0375, 0.7, 1.3)`, applied to **South and SE/SW windows only** (all other orientations use LFactor = 1). Latitude IS available per station in `f280-weather.json` (`lat` field) — it just isn't threaded into the geometry model.
+- **Overhang head-drop `D` and projection `O`** — for the Annex-A shaded-area split: `S = F × O`, `shaded = W × (S − D)` (capped at H×W; if D > S, shaded = 0). Shaded area is treated as NORTH-facing (gets the North `Solaro`); the unshaded remainder gets the window's real orientation value.
+- **Derivable, no new capture:** `RSIw = 1/uw` (`getRsiW` already exists); `DTDc = Toc − Tic` where `Toc` = station `dcdbt` (already in `f280-weather.json`).
+
+**WHAT WE ALREADY HAVE READY (per element):** per-window ORIENTATION (from `deriveElevFaces`), SHGC (opening records, #108; doors carry `shgc:0` — correct, opaque, no solar), glazed AREA, overhang GEOMETRY.
+
+**SHAPE-FOR-LATER:** when built, define a standalone `deriveSolarGain` / `deriveF280Cooling` seam with an F280-shaped input contract (per-window `A`, `SHGC`, orientation → `Solaro` lookup, latitude → `LFactor`, optional overhang → Annex-A area split), stubbed against the `Solaro` table to be transcribed — mirroring exactly how the ground-coupled engine was shaped for a later BASESIMP drop-in (calc-fn wired into an output, contract stable while the numbers land later).
+
+**OVERHANG CAVEAT:** Annex A is INFORMATIVE (non-mandatory — Annex B.6.2.2.1: shading "need not be accounted for … at the discretion of the designer"). A compliant answer may IGNORE overhangs entirely (conservative — more cooling gain). Interior `SFactor` (Table 4) and exterior Annex-A overhang shading are SEPARATE mechanisms and independently optional.
+
+**Status:** Deferred (architectural record). Solar gain is cooling-side; it is NOT a heating-endpoint gap. Build only when a dedicated cooling planning arc starts and the `Solaro` (+ optional `F`) table has been hand-transcribed from the standard.

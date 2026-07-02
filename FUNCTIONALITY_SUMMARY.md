@@ -664,7 +664,7 @@ line as the final exterior face.
 }
 ```
 
-**Extensible spine:** Adding a loss endpoint = a bucket + loop body (in-engine) or a separate derive-fn wired into the output (like §11c ground-coupled); no refactor. `notModeled[]` marks the current gap explicitly and shrinks as endpoints land.
+**Extensible spine:** Adding a genuine HEATING loss endpoint = a bucket + loop body (in-engine) or a separate derive-fn wired into the output (like §11c ground-coupled); no refactor. below-grade-wall and slab-on-grade were exactly such additions. `notModeled[]` marks the current gap explicitly and shrinks as heating endpoints land. NOTE: `'solar-gain'` is NOT a heating bucket — F280 credits zero solar against heating; solar is a COOLING-only term for a future `deriveF280Cooling` endpoint (see ADDITIONAL_FUNCTIONALITY.md #130). It stays in `notModeled[]` permanently and never leaves via a heating build.
 
 **F280 Results panel:** sidebar tab inside consolidated side-panel. Renders: design conditions (Ti / Toh / ΔT), per-kind table (Kind | Area m² | Ū W/m²K | Loss W), amber inline warning for kinds with unresolved U, above-grade conductive subtotal in kW (blue), greyed "Not yet modeled" list. No-climate guard shows explanatory text instead of numbers. Panel re-derives on `enumerationTick` and `projectSetupTick` changes.
 

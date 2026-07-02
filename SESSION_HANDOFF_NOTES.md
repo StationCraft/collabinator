@@ -23,6 +23,44 @@ section, do not bury conventions inside a dated session entry.*
 
 ---
 
+## SESSION 79 — F280 solar-gain reclassification (DOCS-ONLY correction) (2026-07-01)
+
+**Branch:** main | **Code commit:** none (no executable change) | **Docs commit:** (this close-out).
+
+**What this session did:** a pure docs correction, driven by a read-only recon of the F280 compliance
+spec (`CollabinatorF280` @ commit `d94c18a`, `F280_COMPLIANCE_SPEC.md` + `F280_OCR_RAW.md`). No engine
+code, no harness, no `notModeled[]` change, no browser/harness verification (nothing executable changed).
+
+**The two findings that made the prior "solar gain" plan wrong:**
+1. **Solar is COOLING-only.** F280 credits ZERO solar against the HEATING load (spec line 540: "SHGC …
+   Used only in the cooling solar gain term … Not used in heating"). So solar gain is NOT an additive row
+   in `deriveF280Heating` and NOT a `notModeled[]` removal for the heating endpoint. Its home is a future
+   `deriveF280Cooling` endpoint that does not exist. `solar-gain` correctly stays in the heating
+   `notModeled[]` PERMANENTLY.
+2. **The environmental tables are missing from the digested spec.** The ~6-value orientation `Solaro`
+   array (W/m², Cl. 6.2.2, single peak cooling design condition, no month dimension) and the Annex-A `F`
+   shade-factor table are STATIC CSA F280:12 constants that did NOT survive OCR (the header row was
+   captured, the numeric data row dropped). They must be hand-transcribed from the standard PDF (print
+   p.26) when the cooling endpoint is built. Not a live dataset — internal to F280's own lineage.
+
+**Docs reclassification made this session:**
+- **BUILD_ROADMAP.md** (~line 487): replaced the wrong "Solar gain: additive result row in
+  deriveF280Heating" entry with a cooling-only reclassification cross-referencing #130; noted the
+  near-term HEATING thermal arc is effectively complete (above-grade conductive + ground-coupled done;
+  solar is cooling-side).
+- **ADDITIONAL_FUNCTIONALITY.md**: added entry **#130 "Future deriveF280Cooling endpoint"** — full
+  architectural record (scope a–d, missing-data blockers, new inputs needed, what we already have ready,
+  shape-for-later seam note, overhang caveat). Deferred; do NOT build now.
+- **CLAUDE.md** (~line 792) and **FUNCTIONALITY_SUMMARY.md** (~line 667): corrected the extensible-spine
+  lines — below-grade/slab ARE heating buckets (done); solar is NOT a heating bucket (cooling-side,
+  future endpoint). Kept the spine-extensibility point for genuine heating additions. `notModeled[]`
+  literal UNCHANGED in both (solar-gain stays listed — correct).
+
+**Next main-track item:** the cheap-wins batch (#121 / #53 / #118 / #112). Solar/cooling is deferred to
+its own future planning arc (see #130) — do not start it as a heating build.
+
+---
+
 ## SESSION 78 — Interim ground-coupled loss engine (2026-07-01)
 
 **Branch:** main | **Code commit:** `b92c86a` | **Docs commit:** (this close-out).

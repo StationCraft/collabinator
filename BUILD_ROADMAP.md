@@ -484,7 +484,16 @@ is arranged so most beats are things Ben can see.
           synthetic slab+below-grade case in sidecar groundCoupledCheck). Verified: slab 19.74m²×0.045×12=10.8W;
           no-ground path keeps all four notModeled; zero console errors.
         NEXT: full BASESIMP port (drop-in math swap at this seam); slab/below-grade U still #106 placeholders.
-    [ ] Solar gain: additive result row (last remaining notModeled entry alongside floor-over-unheated).
+    [--] Solar gain: NOT a deriveF280Heating row and NOT a notModeled[] removal for the heating endpoint.
+        F280 credits ZERO solar against the HEATING load — solar is a COOLING-only term (spec Cl. 6.2.2,
+        F280_COMPLIANCE_SPEC.md @ d94c18a line 540: "SHGC … Used only in the cooling solar gain term …
+        Not used in heating"). Its home is a future deriveF280Cooling endpoint that does NOT yet exist.
+        solar-gain therefore stays in deriveF280Heating's notModeled[] PERMANENTLY (heating genuinely does
+        not model solar) — it is not a gap to close in the heating engine. See ADDITIONAL_FUNCTIONALITY.md
+        #130 (Future deriveF280Cooling endpoint) for scope + the missing-data blockers.
+        With solar reclassified as cooling-side, the near-term HEATING thermal arc is effectively COMPLETE:
+        above-grade conductive DONE (Session 56) + ground-coupled DONE (Session 78); floor-over-unheated is
+        the only heating notModeled[] entry with future heating work; solar belongs to the cooling arc.
 
 [ ] ENVELOPE PENETRATION SUBSYSTEM (#79) — ARCHITECTURE SETTLED (Session 39), NOT YET SEQUENCED
     Founding-principle subsystem. Entity model, three-way detail derivation, detail-on-assembly,
