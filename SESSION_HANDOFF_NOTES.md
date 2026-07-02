@@ -23,6 +23,31 @@ section, do not bury conventions inside a dated session entry.*
 
 ---
 
+## SESSION 79 (part 2) — BASESIMP ground-coupled wire-in (Stage 1) (2026-07-01)
+
+**Branch:** main | **Code commit:** `4f6be45` | **Docs commit:** (this close-out).
+
+**What this session did:** wired the full, float-exact BASESIMP engine (`src/basesimp/engine.js`, Slice 10/11, acceptance 3/3) into the F280 path, replacing the Session-78 interim Model-B `deriveGroundCoupledLoss` placeholder. A CALCULATION + call-site restructure: per-surface `k·U·A·ΔT` summation → ONE WHOLE-FOUNDATION BOX per building, one `computeGroundCoupledLoss` call. Stage 1 = "function now, package-decode fidelity later."
+
+**Foundation model (locked, F280-structural):** one foundation = the WHOLE lowest-floor footprint (the single `slab-surface` element). F280's shape-factor correlations are per-FOUNDATION, not per-wall — so the per-surface shape was wrong. Multi-foundation-type buildings collapse to one box (§5 approximation under #88).
+
+**What was built:**
+- **STEP A.6 (`slab-surface`)** gains `footprintLengthM`/`footprintWidthM` — bounding box of the already-converted world vertices (`wv`). NO new px↔m math (coordinate-seam invariant confirmed).
+- **Two new Site CONFIG_FIELDS:** `water-table-depth` (`kind:'number'`, default 8 m), `design-heating-month` (select 1–12, default January via `MONTH_OPTIONS`).
+- **`deriveGroundCoupledLoss` is now the ADAPTER:** guards (no station / no footprint / pre-Stage-1 enum → `no-ground`); `isBasement` v1 heuristic (below-grade wall > 0.6 m sets depth + wall height, else slab depth 0.05/height 0); assembles the box; `soilConductivity` = RAW W/m·K (NOT the interim `k=value/0.85`); `exposedPerimeter 0` (=full, whole-building footprint); `station` passed verbatim (engine's `resolveClimate` reproduces `toh`/`dgtemp` — no second climate path; 679/679 key-identical tables); `try/catch` degrades an unknown station to honest absence. Returns `{status, isBasement, config, box, engine, total_W, total_kW, groundTempC(informational), ...}`.
+- **STAGE-1 STUB (loud constant block):** package HARDCODED — `GROUND_COUPLED_PKG_BASEMENT='BCIN_3'` / `GROUND_COUPLED_PKG_SLAB='SCB_33'`; `insExterior/insInterior/addedRsi=0`, `radiantFraction/fluidTemp=0`. Engine-EXACT but ASSEMBLY-GENERIC. Suffix swings ~26% (BCIN_1 2505 vs BCIN_3 3157). Slab default `SCB_33` chosen = the workbook-validated slab worked example (SCB = below-slab-insulated concrete slab; guarantees a real number).
+- **`deriveF280Heating` output:** consumption unchanged (`total_W`/`status`); `notModeled[]` sheds `below-grade-wall`+`slab-on-grade` on resolve, keeps `floor-over-unheated`+`solar-gain`.
+- **F280 panel + `__dumpF280`:** per-kind slab/below-grade table REPLACED by a single whole-foundation figure (type / config-package + Stage-1-stub badge / footprint L×W / wall height (basement) / depth / ground temp / soil class / water-table+month / whole-foundation load + "engine-exact, assembly-generic until Stage 2" note).
+- **Golden harness re-anchored:** the synthetic Model-B math is gone; gc block a–m → a–l (13→12 checks). New checks guard the WIRE (engine internals stay float-exact-guarded by `acceptance.test.js` 3/3): slab synthEnum reproduces `SCB_33` **500.6862 W** (box-build + default + climate reuse); basement synthEnum box == a direct `BCIN_3` engine call; isBasement selection; no-ground; `notModeled[]` shift. Sidecar `groundCoupledCheck` rewritten (Winnipeg\|\|\|MB, footprint/depth/height inputs).
+
+**Verification (browser + harness, this session):** `__verifyFixture()` **56/56 PASS** (was 57; gc block −1 net). `__dumpF280` station Vernon + `assembly-floor` → whole-foundation box 7.62×2.59 m, slab-on-grade SCB_33, **178.8 W (0.18 kW)**; `notModeled` = `floor-over-unheated, solar-gain`. No-ground path (`toh-override`, no station) → ground no-ground, total = above-grade only, all four `notModeled` retained. F280 panel renders the whole-foundation zone. Zero console errors. Engine's own `acceptance.test.js` still 3/3.
+
+**§5 approximations logged (eyes-open, not bugs):** package hardcoded (Stage-1 stub); multi-foundation-type collapses to one box; bbox L/W overstates non-rectangular footprints; grade-Z = mean vertex Z (#88); water-table default 8 m understates high-water-table sites; single-reference-edge depth/opening attribution.
+
+**NOW/NEXT:** **Stage-2 package-decode surface** (ADDITIONAL_FUNCTIONALITY #131) — replace the hardcoded package + wire the `insExterior/insInterior/addedRsi` RSI split (foundation-config surface OR curated assembly→package lookup; ~26% suffix swing = fidelity-critical; 1–2 sessions). Then solar gain (cooling endpoint #130). The drop-in seam is the two `GROUND_COUPLED_PKG_*` reads + `ins*` inputs inside the adapter — engine/tables/box/climate unchanged.
+
+---
+
 ## SESSION 79 — F280 solar-gain reclassification (DOCS-ONLY correction) (2026-07-01)
 
 **Branch:** main | **Code commit:** none (no executable change) | **Docs commit:** (this close-out).

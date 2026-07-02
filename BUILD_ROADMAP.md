@@ -480,10 +480,26 @@ is arranged so most beats are things Ben can see.
           & 'slab-on-grade' from notModeled[] (FIRST kinds to leave the list); no-ground → notModeled[]
           unchanged. 'floor-over-unheated'/'solar-gain' always remain.
         - F280 panel: ground-coupled conditions + per-kind table + subtotal kW; no-ground explanatory guard.
-        - DEV: __dumpF280 ground rows; new __setConfig hook. Harness 57/57 PASS (was 44; +13 gc.a–gc.m via
-          synthetic slab+below-grade case in sidecar groundCoupledCheck). Verified: slab 19.74m²×0.045×12=10.8W;
-          no-ground path keeps all four notModeled; zero console errors.
-        NEXT: full BASESIMP port (drop-in math swap at this seam); slab/below-grade U still #106 placeholders.
+        - DEV: __dumpF280 ground rows; new __setConfig hook. Harness 57/57 PASS.
+        SUPERSEDED by the Stage-1 BASESIMP wire-in below (Session 79).
+    [x] Ground-coupled loss — FULL BASESIMP engine, Stage 1 (Session 79; commit 4f6be45). REPLACES the
+        interim Model B. deriveGroundCoupledLoss is now the ADAPTER around src/basesimp/engine.js
+        (float-exact, acceptance 3/3), tables bundled as JSON imports. Per-surface summation → ONE
+        WHOLE-FOUNDATION BOX per building (F280 shape-factors are per-foundation, not per-wall); one
+        computeGroundCoupledLoss call. Foundation = whole lowest-floor footprint (the slab-surface element).
+        - STEP A.6 slab-surface gains footprintLengthM/WidthM (bbox of already-converted world vertices;
+          no new px↔m math — coordinate seam honored).
+        - New Site CONFIG_FIELDS: water-table-depth (default 8 m), design-heating-month (default January).
+        - isBasement v1 heuristic (below-grade wall > 0.6 m); climate reused via the station key verbatim
+          (engine's resolveClimate reproduces toh/dgtemp — no second climate path; 679/679 key-identical).
+        - STAGE-1 STUB: package HARDCODED (BCIN_3 basement / SCB_33 slab; ins*=0, radiant=0) → engine-exact
+          but ASSEMBLY-GENERIC (suffix swings ~26%). Stage-2 = package-decode surface (ADDITIONAL_FUNC #131).
+        - notModeled[] shed unchanged (below-grade-wall + slab-on-grade on resolve). F280 panel + __dumpF280:
+          per-kind table REPLACED by single whole-foundation figure (box dims + Watts + Stage-1 badge).
+        - Harness re-anchored: __verifyFixture 56/56 (gc a–l guard the WIRE, not engine math). Slab synthEnum
+          reproduces SCB_33 500.6862 W; basement box == direct engine call. Verified (preview): fixture slab
+          SCB_33 = 178.8 W; no-ground path keeps all four notModeled; panel renders; zero console errors.
+        NEXT: Stage-2 package-decode surface (#131); slab/below-grade assembly-fidelity + solar (#130 cooling).
     [--] Solar gain: NOT a deriveF280Heating row and NOT a notModeled[] removal for the heating endpoint.
         F280 credits ZERO solar against the HEATING load — solar is a COOLING-only term (spec Cl. 6.2.2,
         F280_COMPLIANCE_SPEC.md @ d94c18a line 540: "SHGC … Used only in the cooling solar gain term …
@@ -569,8 +585,9 @@ reconciliation is this pass. Settled near-term order after (b) lands and docs re
      (window/door `uw`/`shgc` post-placement edit) + `ti-heating` CONFIG_FIELD — **DONE (Session 76; commit
      44615f2)**. Arc is FULLY CLOSED for the base case in both code and docs (last hardcoded F280 input, Ti,
      retired). Below-grade + slab geometry DONE (Session 77); interim ground-coupled loss engine DONE
-     (Session 78, commit b92c86a) — below-grade-wall/slab-on-grade left notModeled[]. Next: full BASESIMP
-     port (math swap) + solar gain.
+     (Session 78, commit b92c86a); **full BASESIMP engine wired — Stage 1 — DONE (Session 79, commit
+     4f6be45)**: per-surface → whole-box adapter, engine-exact but assembly-generic (package hardcoded).
+     Next: Stage-2 package-decode surface (ADDITIONAL_FUNC #131) + solar gain (cooling endpoint #130).
 A parallel-track approach for #106–108 was considered and REJECTED — all three live inside App.jsx (shared
 ground); branch-management overhead is not worth it for a ~5–6 session arc. Run them sequentially on main.
 

@@ -821,7 +821,58 @@ A React + Vite app with:
     **NOW/NEXT:** the interim Model-B math is a placeholder for a future full BASESIMP port (drop-in math
     swap at the same seam); the remaining `notModeled[]` are `floor-over-unheated` + `solar-gain`.
 
-- **Interim ground-coupled loss engine (Session 78; commit `b92c86a`; DONE):** A SEPARATE, STANDALONE
+- **BASESIMP ground-coupled wire-in — Stage 1 (Session 79; commit `4f6be45`; DONE):** REPLACES the interim
+  Model-B engine below. `deriveGroundCoupledLoss` is now the ADAPTER around the full, float-exact BASESIMP
+  engine (`src/basesimp/engine.js`, acceptance 3/3). Tables bundled as JSON imports
+  (`BASESIMP_TABLES = { coefficients, cornerCf, weather }`). "Function now, package-decode fidelity later."
+  * **Foundation model (locked, F280-structural):** one foundation = the WHOLE lowest-floor footprint (the
+    single `slab-surface` enumeration element). F280's shape-factor correlations are per-FOUNDATION (whole
+    box), not per-wall — so the interim per-surface summation was the wrong shape. ONE `computeGroundCoupledLoss`
+    call per building. Multi-foundation-type buildings collapse to one box (§5 approximation under #88).
+  * **STEP A.6 (`slab-surface`)** now carries `footprintLengthM`/`footprintWidthM` — bounding box of the
+    already-converted world vertices (`wv`). NO new px↔m math (coordinate-seam invariant confirmed).
+  * **Two new Site CONFIG_FIELDS:** `water-table-depth` (`kind:'number'`, default 8 m — deep/no-influence),
+    `design-heating-month` (select 1–12 via `MONTH_OPTIONS`, default January).
+  * **`deriveGroundCoupledLoss(enumeration, resolvedConfig)` — the adapter:** guards (no station / no
+    `slab-surface` footprint / pre-Stage-1 enum missing `footprintLengthM` → `{status:'no-ground', total:null}`);
+    `isBasement` v1 heuristic (`GROUND_COUPLED_BASEMENT_DEPTH_THRESHOLD_M = 0.6` — deepest below-grade wall sets
+    `depth` + wall `height` from `wallTopZm−wallBottomZm`, else slab `depth 0.05`/`height 0`); box
+    `length/width` = `slab.footprintLengthM/WidthM` (engine sorts max/min); `exposedPerimeter 0` (=full — the
+    whole-building footprint is fully soil-exposed; `soilContactPerimeterM` reserved for a future shared-wall
+    model); `soilConductivity` = RAW W/m·K (NOT the interim `k=value/0.85` factor); `waterTableDepth`/
+    `designHeatingMonth` from the new Site fields. Returns `{status, isBasement, config, soilConductivity,
+    station, designHeatingMonth, waterTableDepthM, groundTempC(informational), box, engine, total_W, total_kW}`.
+  * **Climate reuse (no second path):** `station` ("City\|\|\|Region") passed straight through — the engine's own
+    `resolveClimate` reproduces the `toh`/`dgtemp` Collabinator already resolves (679/679 key-identical weather
+    tables, verified). Engine uses a FIXED `Troom = 22 °C` (F280 standard) — `ti-heating` does NOT enter
+    ground-coupled math. `try/catch` degrades an unknown station to honest absence rather than crashing the panel.
+  * **STAGE-1 STUB (loud constant block, App.jsx):** config package HARDCODED —
+    `GROUND_COUPLED_PKG_BASEMENT = 'BCIN_3'` / `GROUND_COUPLED_PKG_SLAB = 'SCB_33'`; `insExterior/insInterior/
+    addedRsi = 0`, `radiantFraction/fluidTemp = 0`. Result is ENGINE-EXACT but ASSEMBLY-GENERIC. The suffix
+    number alone swings ~26% (BCIN_1 2505 W vs BCIN_3 3157 W). `SCB_33` = the workbook-validated slab worked
+    example (below-slab-insulated concrete). Stage-2 fidelity = the package-decode surface (ADDITIONAL_FUNCTIONALITY
+    #131); drop-in seam = the two `GROUND_COUPLED_PKG_*` reads + the `ins*` inputs, engine/tables/box/climate unchanged.
+  * **`deriveF280Heating` output:** consumption unchanged (`total_W`/`status`); on resolve `notModeled[]` sheds
+    `below-grade-wall`+`slab-on-grade`, keeps `floor-over-unheated`+`solar-gain`; no-ground → all kept.
+  * **F280 panel + `__dumpF280`:** the per-kind slab/below-grade table is REPLACED by a single whole-foundation
+    figure (type / config-package + Stage-1-stub badge / footprint L×W / wall height (basement) / depth /
+    ground temp / soil class / water-table+month / whole-foundation load + "engine-exact, assembly-generic until
+    Stage 2" note).
+  * **Golden harness re-anchored:** `__verifyFixture` **56/56 PASS** (gc block a–m → a–l, 13→12). The gc checks
+    guard the WIRE, not the engine math (internals stay float-exact-guarded by `src/basesimp/acceptance.test.js`
+    3/3): slab synthEnum (footprint 12.1×6.1 + Winnipeg\|\|\|MB Jan) reproduces `SCB_33` **500.6862 W**; basement
+    synthEnum (below-grade wall 1.75 m > 0.6, height 2.5) asserts adapter box == a direct `BCIN_3` engine call;
+    plus isBasement selection, no-ground, `notModeled[]` shift. Sidecar `groundCoupledCheck` rewritten.
+  * **Verified (Claude preview, fixture-elevation):** `__dumpF280` station Vernon + `assembly-floor` → whole-
+    foundation box 7.62×2.59 m, slab-on-grade SCB_33, **178.8 W (0.18 kW)**; `notModeled` = `floor-over-unheated,
+    solar-gain`. No-ground path (`toh-override`, no station) → ground no-ground, total = above-grade only, all
+    four `notModeled` retained. Panel renders. Zero console errors.
+  * **§5 approximations (eyes-open):** package hardcoded (Stage-1 stub); multi-foundation-type collapses to one
+    box; bbox L/W overstates non-rectangular footprints; grade-Z = mean vertex Z (#88); water-table default 8 m
+    understates high-water-table sites; single-reference-edge depth/opening attribution.
+
+- **Interim ground-coupled loss engine (Session 78; commit `b92c86a`; SUPERSEDED by the Session-79 BASESIMP
+  wire-in above — kept for history):** A SEPARATE, STANDALONE
   pure function — NOT a bucket inside `deriveF280Heating`. Consumes the Session-77 `slab-surface` +
   `below-grade-wall` enumeration kinds; the FIRST thermal work to remove entries from `notModeled[]`.
   * **Model B (interim):** `loss_W = k × effectiveUValue × area × ΔT_ground`, `ΔT_ground = tiC − groundTempC`,

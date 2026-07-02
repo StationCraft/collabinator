@@ -2837,3 +2837,27 @@ built and Ben-verified.
 **OVERHANG CAVEAT:** Annex A is INFORMATIVE (non-mandatory — Annex B.6.2.2.1: shading "need not be accounted for … at the discretion of the designer"). A compliant answer may IGNORE overhangs entirely (conservative — more cooling gain). Interior `SFactor` (Table 4) and exterior Annex-A overhang shading are SEPARATE mechanisms and independently optional.
 
 **Status:** Deferred (architectural record). Solar gain is cooling-side; it is NOT a heating-endpoint gap. Build only when a dedicated cooling planning arc starts and the `Solaro` (+ optional `F`) table has been hand-transcribed from the standard.
+
+---
+
+### 131. BASESIMP package-decode surface (ground-coupled Stage-2 fidelity layer)
+
+**Logged:** Session 79 (2026-07-01), at the close of the BASESIMP Stage-1 wire-in (commit `4f6be45`).
+
+**Why this exists:** Stage 1 wired the FULL, float-exact BASESIMP engine (`src/basesimp/engine.js`, acceptance 3/3) into the F280 path against live geometry — but against a SINGLE HARDCODED default config package (`GROUND_COUPLED_PKG_BASEMENT = 'BCIN_3'`, `GROUND_COUPLED_PKG_SLAB = 'SCB_33'`, App.jsx). So the ground-coupled Watts are **ENGINE-EXACT but ASSEMBLY-GENERIC**: the number does not yet reflect the user's actual foundation construction/insulation. This entry is the deferred fidelity layer that replaces the hardcoded default.
+
+**Fidelity-critical:** the config-package suffix number ALONE swings the result ~26% on identical geometry (BCIN_1 = 2505 W vs BCIN_3 = 3157 W in the engine's own acceptance cases). The package is not cosmetic — it is a first-order input. Until Stage 2 lands, the ground-coupled figure is provisional.
+
+**SCOPE (one of two shapes — Ben's call at build time):**
+- **(a) Full decode surface** — a foundation-configuration UI (construction type + wall-insulation location + slab-insulation location + insulation extent) → `config_decode.json` (already extracted: `Foundation_Frm_Sel` index-codes + construction-type/wall-insulation/slab-location option maps) → the config-package **NUMBER**; then `form_data.json` maps number→name. This mirrors the workbook's own `Foundation_Frm_Sel` decode path.
+- **(b) Curated lookup** — a hand-built typical-assembly → package-name table using Ben's domain judgment (fewer options, opinionated defaults), sidestepping the full decode UI. Faster, less general.
+
+**Also carries the RSI split (Stage-1 stub passes all-zero):** `insExterior` / `insInterior` / `addedRsi` are the user insulation RSI inputs that feed the Inflag→RSI map (basement) or the slab RSI directly (slab). Stage 1 passes 0/0/0 (no user-added insulation beyond what the package name encodes). Stage 2 wires these to real assembly RSI — likely from the same assembly-library / Project-Setup assembly selections that `getSurfaceAssembly` already reads for above-grade surfaces (#106).
+
+**Related knobs deferred from Stage 1 (fold in here or leave off):** `radiantFraction` / `fluidTemp` (basement radiant-slab — Stage-1 passes 0/0, common non-radiant case); `isBasement` is a v1 heuristic (below-grade wall > 0.6 m) that Stage 2 may make an explicit foundation-type toggle.
+
+**Seam is ready:** the drop-in point is the two `GROUND_COUPLED_PKG_*` constant reads + the `insExterior/insInterior/addedRsi` inputs inside `deriveGroundCoupledLoss` (the adapter). The engine, data tables, box assembly, and climate reuse do NOT change — Stage 2 is a config-resolution swap at that one seam. Contract is stable (mirrors how ground-coupled itself was shaped for the BASESIMP drop-in).
+
+**Size:** 1–2 sessions.
+
+**Status:** Deferred. Gate: a Ben decision on shape (a) vs (b). No code dependency — buildable any time; it is a fidelity upgrade over a working, engine-exact-but-generic Stage-1 result.
