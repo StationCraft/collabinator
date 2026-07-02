@@ -99,6 +99,28 @@ const soilClassLabel = (kNum) => {
   return opt ? opt.label : `${kNum} W/m·K`
 }
 
+// ── Airtightness classes (ACH50 — air changes per hour at 50 Pa) ─────────────
+// Interim whole-building block-load infiltration input. The value is the RAW ACH50
+// (no AIM-2 derivation, no ACH50→natural conversion — a parked pre-certification
+// question, see ADDITIONAL_FUNCTIONALITY.md). value strings match <select> option
+// values (Number()-parsed at read time); the 'custom' sentinel reveals the numeric
+// ach50-custom field via the resolve-ach50 cross-field rule (mirrors resolve-toh).
+const AIRTIGHTNESS_OPTIONS = [
+  { value: '0.6',  label: '0.6 — Passive House',             ach50: 0.6 },
+  { value: '1.0',  label: '1.0 — high-performance new build', ach50: 1.0 },
+  { value: '1.5',  label: '1.5 — good new construction',      ach50: 1.5 },
+  { value: '2.5',  label: '2.5 — typical existing construction', ach50: 2.5 },
+  { value: '3.57', label: '3.57 — code minimum',              ach50: 3.57 },
+  { value: 'custom', label: 'Custom…',                        ach50: null },
+]
+const AIRTIGHTNESS_DEFAULT = 2.5  // mid-range existing construction — conservative interim default
+// Label for a resolved numeric ACH50 (nearest option); '—' if none.
+const ach50Label = (n) => {
+  if (n == null || isNaN(Number(n))) return '—'
+  const opt = AIRTIGHTNESS_OPTIONS.find(o => o.ach50 === Number(n))
+  return opt ? opt.label : `${n} ACH50`
+}
+
 // ── BASESIMP ground-coupled engine wiring (Session 79, Stage 1) ─────────────
 // The full BASESIMP engine (src/basesimp/engine.js) is float-exact against the
 // CSA-F280 workbooks (acceptance 3/3). It takes ONE WHOLE-FOUNDATION BOX per call
@@ -234,6 +256,29 @@ const CONFIG_FIELDS = [
     category: 'Site',
     label: 'Design heating month',
     options: MONTH_OPTIONS,
+    multi: false,
+    spawns: null,
+  },
+  // ── Air Leakage ──────────────────────────────────────────────────────────
+  {
+    // Airtightness class for the interim whole-building block-load infiltration.
+    // 'custom' reveals ach50-custom via the resolve-ach50 rule. Unset ⇒ no
+    // infiltration term (honest absence; the line is hidden, not zeroed).
+    id: 'airtightness-ach50',
+    category: 'Air Leakage',
+    label: 'Airtightness (ACH50)',
+    options: AIRTIGHTNESS_OPTIONS.map(o => ({ value: o.value, label: o.label })),
+    multi: false,
+    spawns: null,
+  },
+  {
+    // Numeric ACH50 override — consulted ONLY when airtightness-ach50 === 'custom'
+    // (resolve-toh precedent: the override wins only when selected). Plain number branch.
+    id: 'ach50-custom',
+    category: 'Air Leakage',
+    label: 'Custom ACH50 value',
+    kind: 'number',
+    placeholder: '— select Custom above —',
     multi: false,
     spawns: null,
   },
@@ -520,6 +565,26 @@ const CONFIG_CROSS_FIELD_RULES = [
       return { groundTempC: null }
     },
   },
+  {
+    // Resolve 'ach50' (air changes per hour at 50 Pa) from the airtightness class or,
+    // when the class is 'custom', the numeric ach50-custom override. Mirrors resolve-toh:
+    // the custom number wins only when 'custom' is selected. 'ach50' is derived — never
+    // stored as raw intent; null when the class is unset.
+    id: 'resolve-ach50',
+    when: () => true,
+    apply: (raw) => {
+      const cls = raw['airtightness-ach50']
+      if (cls === 'custom') {
+        const n = Number(raw['ach50-custom'])
+        return { ach50: (raw['ach50-custom'] != null && !isNaN(n)) ? n : null }
+      }
+      if (cls != null && cls !== '') {
+        const n = Number(cls)
+        if (!isNaN(n)) return { ach50: n }
+      }
+      return { ach50: null }
+    },
+  },
 ]
 
 function resolveEffectiveConfig(rawValues) {
@@ -537,6 +602,12 @@ function getRsiW(uw) { return uw != null && uw > 0 ? 1 / uw : null }
 // F280 indoor heating design temperature (°C). Module-level fallback when the
 // 'ti-heating' Climate CONFIG_FIELD is unset (see deriveF280Heating tiC seam).
 const F280_TI_HEATING = 22
+
+// Volumetric heat capacity of air, J/(m³·K) ≈ 1.2 kg/m³ (density at ~20 °C) ×
+// 1005 J/(kg·K) (specific heat cp) ≈ 1206; rounded to 1200 per common HVAC/F280
+// block-load practice. Used by the interim infiltration block load:
+// infiltration_W = volume_m3 × (ACH50 / 3600 s/h) × AIR_VOL_HEAT_CAPACITY × ΔT.
+const AIR_VOL_HEAT_CAPACITY = 1200
 
 // deriveF280Heating — pure, derive-on-demand, stores nothing.
 // Computes above-grade conductive heat loss (U·A·ΔT) by surface kind.
@@ -599,14 +670,58 @@ function deriveF280Heating(enumeration, resolvedConfig) {
   // it resolves (station selected + a slab-surface footprint), 'below-grade-wall' and
   // 'slab-on-grade' are subsumed into the single whole-foundation figure and LEAVE
   // notModeled[]. When there is no station/footprint, they stay listed as not-modeled.
-  // 'floor-over-unheated' and 'solar-gain' stay not-modeled regardless.
+  // 'floor-over-unheated' stays not-modeled regardless (solar-gain is COOLING-only, #139).
   const ground = deriveGroundCoupledLoss(enumeration, resolvedConfig)
-  let notModeled = ['below-grade-wall', 'slab-on-grade', 'floor-over-unheated', 'solar-gain']
+
+  // ── Interim whole-building block-load infiltration (raw ACH50) ─────────────
+  // volume_m3 = footprint × conditioned height, both derived here from the SAME
+  // enumeration (self-contained). Footprint = the whole-building slab-surface gross
+  // area; conditioned height = top ceiling Z − slab floor Z (max ceilingZm across
+  // wall surfaces minus the slab's floorZm). Honest-absence: if the volume is not
+  // derivable (no slab footprint, or no floor heights ⇒ null ceilingZm) OR ach50 is
+  // unset, infiltration is ABSENT (status flag), not zero — the line stays hidden.
+  //
+  // NOT the F280 room-by-room AIM-2 method: raw ACH50 (no AIM-2 derivation, no
+  // ACH50→natural conversion — parked pre-cert question) and full-stack-height volume
+  // (includes any unconditioned basement/attic) both bias this UPWARD. Conservative,
+  // likely-high block-load estimate; room-by-room AIM-2 pending.
+  const ach50 = (resolvedConfig.ach50 != null && !isNaN(Number(resolvedConfig.ach50)))
+    ? Number(resolvedConfig.ach50) : null
+  const slabEl = enumeration.find(e => e.kind === 'slab-surface')
+  const footprintAreaM2 = (slabEl && slabEl.grossAreaM2 > 0) ? slabEl.grossAreaM2 : null
+  let topCeilingZm = null
+  for (const el of enumeration) {
+    if (el.kind === 'wall-surface' && el.ceilingZm != null) {
+      if (topCeilingZm == null || el.ceilingZm > topCeilingZm) topCeilingZm = el.ceilingZm
+    }
+  }
+  const slabFloorZm = slabEl && slabEl.floorZm != null ? slabEl.floorZm : null
+  const conditionedHeightM = (topCeilingZm != null && slabFloorZm != null && topCeilingZm > slabFloorZm)
+    ? topCeilingZm - slabFloorZm : null
+  const volumeM3 = (footprintAreaM2 != null && conditionedHeightM != null)
+    ? footprintAreaM2 * conditionedHeightM : null
+  const infiltrationPresent = volumeM3 != null && ach50 != null
+  const infiltrationW = infiltrationPresent
+    ? volumeM3 * (ach50 / 3600) * AIR_VOL_HEAT_CAPACITY * deltaT
+    : null
+
+  // ── notModeled[] — full-string disclosures (air-change now PARTIALLY modeled) ──
+  // Air change: infiltration is block-load-modeled above; the room-by-room AIM-2
+  // method and the ventilation & duct/pipe terms remain unmodeled — disclosed precisely.
+  let notModeled = [
+    'infiltration — conservative block-load approximation (raw ACH50); room-by-room AIM-2 not yet modeled',
+    'ventilation — not modeled',
+    'duct/pipe loss — not modeled',
+    'below-grade-wall — not modeled',
+    'slab-on-grade — not modeled',
+    'floor-over-unheated — not modeled',
+  ]
   let total = conductiveAboveGradeW
   if (ground.status === 'ok') {
-    notModeled = notModeled.filter(k => k !== 'below-grade-wall' && k !== 'slab-on-grade')
-    total = conductiveAboveGradeW + ground.total_W
+    notModeled = notModeled.filter(s => !s.startsWith('below-grade-wall') && !s.startsWith('slab-on-grade'))
+    total += ground.total_W
   }
+  if (infiltrationPresent) total += infiltrationW
 
   return {
     status: 'ok',
@@ -616,7 +731,13 @@ function deriveF280Heating(enumeration, resolvedConfig) {
     bySurfaceKind,
     conductiveAboveGradeW,
     groundCoupled: ground.status === 'ok' ? ground : null,  // null on no-ground; panel/dump guard on it
-    total,  // above-grade conductive + ground-coupled (when resolved); extended by future rows
+    infiltration: infiltrationPresent
+      ? { ach50, volumeM3, footprintAreaM2, conditionedHeightM, deltaT, infiltrationW }
+      : null,  // null on honest-absence; panel/dump guard on it
+    infiltrationW,   // null when absent
+    volumeM3,        // null when not derivable
+    ach50,           // null when unset (raw resolved value, for dump/inspection)
+    total,  // above-grade conductive + ground-coupled + infiltration (each when present)
     notModeled,
   }
 }
@@ -638,6 +759,14 @@ function deriveF280Heating(enumeration, resolvedConfig) {
 // per-wall areas. Climate is reused: the `station` key ("City|||Region") is IDENTICAL to
 // location-station's value, passed straight through — the engine's own resolveClimate
 // reproduces the toh/dgtemp Collabinator already resolves (no second climate path).
+//
+// SHARED RESOLVED-TEMPERATURE SEAM (#134/#135): the outdoor heating design temp AND the
+// indoor design temp now come from the SAME resolved config the above-grade path reads —
+// `designHeatingDBT: resolvedConfig.toh` (override-aware; the engine's resolveClimate
+// prefers this over the raw station dhdbt) and `roomTempC: tiC` (the 'ti-heating' seam,
+// defaulting to 22 per F280 Cl. 4.2 when unset). Above-grade, ground, and infiltration
+// all read one resolved tiC/tohC. (This structure is deliberately kept as a single
+// resolution point so a future dual-path compliant-vs-preferred arc wraps it in a loop.)
 //
 // STAGE-1 STUB: the config package is HARDCODED (GROUND_COUPLED_PKG_*), so the result is
 // ENGINE-EXACT but ASSEMBLY-GENERIC (see the loud constant block above + ADDITIONAL_
@@ -686,6 +815,12 @@ function deriveGroundCoupledLoss(enumeration, resolvedConfig) {
 
   const config = isBasement ? GROUND_COUPLED_PKG_BASEMENT : GROUND_COUPLED_PKG_SLAB
 
+  // Shared resolved-temperature seam (#135): indoor design temp from 'ti-heating'
+  // (defaulting to F280_TI_HEATING=22 per Cl. 4.2 when unset) — identical seam to
+  // deriveF280Heating's tiC. Passed to the engine as roomTempC.
+  const tiRaw = resolvedConfig['ti-heating']
+  const tiC = (tiRaw != null && !isNaN(Number(tiRaw))) ? Number(tiRaw) : F280_TI_HEATING
+
   const input = {
     isBasement,
     config,
@@ -701,6 +836,12 @@ function deriveGroundCoupledLoss(enumeration, resolvedConfig) {
     waterTableDepth,
     station,
     designHeatingMonth,
+    // #134: honor toh-override. resolvedConfig.toh is override-aware (resolve-toh); the
+    // engine's resolveClimate prefers this over the raw station dhdbt when non-null. When
+    // no override is set, toh === the station dhdbt, so this is a no-op — identical result.
+    designHeatingDBT: resolvedConfig.toh,
+    // #135: honor ti-heating. Replaces the engine's hardcoded ROOM_TEMP_C when passed.
+    roomTempC: tiC,
     // Stage-1 defaults (see loud constant block): no user-added insulation, no radiant slab.
     // radiantFraction / fluidTemp are basement-radiant-slab only and Stage-2-or-later config.
     windowArea: 0,
@@ -731,10 +872,14 @@ function deriveGroundCoupledLoss(enumeration, resolvedConfig) {
     station,
     designHeatingMonth,
     waterTableDepthM: waterTableDepth,
-    // Informational only: the engine resolves its own climate from `station` and uses a
-    // FIXED Troom = 22 °C (F280 standard) — the 'ti-heating' config does NOT enter the
-    // ground-coupled math (it governs above-grade loss). groundTempC is the station's
-    // deep-ground temp, surfaced for the panel's design-conditions readout.
+    // Shared resolved-temperature seam (#134/#135 — policy reversal from the prior
+    // "fixed Troom=22, ti-heating does NOT enter" note): the ground-coupled math now
+    // honors the configured ti-heating (roomTempC) and the override-aware toh
+    // (designHeatingDBT), consistent with the above-grade path. Both default to the F280
+    // standard (22 °C indoor per Cl. 4.2; station dhdbt outdoor) when unset. groundTempC
+    // is the station's deep-ground temp, surfaced for the panel's design-conditions readout.
+    tiC,
+    tohC: resolvedConfig.toh ?? null,
     groundTempC: resolvedConfig.groundTempC ?? null,
     box: {
       lengthM: input.length,
@@ -7122,19 +7267,69 @@ function App() {
           const gcNone = deriveGroundCoupledLoss(slabEnum, resolveEffectiveConfig({}))
           checkEq('(gc.i) no station → no-ground', 'no-ground', gcNone.status)
 
-          // notModeled integration through deriveF280Heating
+          // notModeled integration through deriveF280Heating (entries are now full strings,
+          // Session: match by startsWith on the kebab key prefix).
           const f280ok = deriveF280Heating(slabEnum, rSlab)
-          const okLosesBoth = !f280ok.notModeled.includes('below-grade-wall') && !f280ok.notModeled.includes('slab-on-grade')
+          const okLosesBoth = !f280ok.notModeled.some(s => s.startsWith('below-grade-wall')) && !f280ok.notModeled.some(s => s.startsWith('slab-on-grade'))
           okLosesBoth ? pass('(gc.j) notModeled loses both when ground ok')
-                      : fail('(gc.j) notModeled loses both when ground ok', 'both removed', f280ok.notModeled.join(','))
-          const okKeepsOthers = f280ok.notModeled.includes('floor-over-unheated') && f280ok.notModeled.includes('solar-gain')
-          okKeepsOthers ? pass('(gc.k) floor-over-unheated + solar-gain stay listed')
-                        : fail('(gc.k) other notModeled entries stay', 'present', f280ok.notModeled.join(','))
+                      : fail('(gc.j) notModeled loses both when ground ok', 'both removed', f280ok.notModeled.join(' | '))
+          const okKeepsFloor = f280ok.notModeled.some(s => s.startsWith('floor-over-unheated')) && !f280ok.notModeled.some(s => s.includes('solar'))
+          okKeepsFloor ? pass('(gc.k) floor-over-unheated stays listed; solar-gain removed (#139)')
+                        : fail('(gc.k) floor-over-unheated stays, solar gone', 'floor present, solar absent', f280ok.notModeled.join(' | '))
 
           const f280noGround = deriveF280Heating(slabEnum, resolveEffectiveConfig({ 'toh-override': -20 }))
-          const noGroundKeepsBoth = f280noGround.notModeled.includes('below-grade-wall') && f280noGround.notModeled.includes('slab-on-grade')
+          const noGroundKeepsBoth = f280noGround.notModeled.some(s => s.startsWith('below-grade-wall')) && f280noGround.notModeled.some(s => s.startsWith('slab-on-grade'))
           noGroundKeepsBoth ? pass('(gc.l) notModeled keeps both when no-ground (toh-override, no station)')
-                            : fail('(gc.l) notModeled keeps both when no-ground', 'both present', f280noGround.notModeled.join(','))
+                            : fail('(gc.l) notModeled keeps both when no-ground', 'both present', f280noGround.notModeled.join(' | '))
+        }
+
+        // ── Infiltration + temperature-seam checks (inf.a)–(inf.k) ───────────────
+        // Interim whole-building block-load infiltration + #134/#135 consistency.
+        // Synthetic enumerations (NOT the fixture) so the arithmetic is exact & isolated.
+        if (golden.infiltrationCheck) {
+          const inf = golden.infiltrationCheck
+          // slab footprint + one wall carrying ceiling height ⇒ derivable volume.
+          const infEnum = [
+            { kind: 'slab-surface', id: 'floor-inf', footprintLengthM: 10, footprintWidthM: 10,
+              grossAreaM2: inf.footprintAreaM2, floorZm: 0, soilContactPerimeterM: 40 },
+            { kind: 'wall-surface', id: 'wall-inf', ceilingZm: inf.ceilingZm, floorZm: 0, netAreaM2: null, effectiveUValue: null },
+          ]
+          const rInf = resolveEffectiveConfig({ 'toh-override': inf.tohOverride, 'ti-heating': inf.tiHeating, 'airtightness-ach50': String(inf.ach50) })
+          const f280inf = deriveF280Heating(infEnum, rInf)
+          check('(inf.a) volume = footprint × height', inf.expectedVolumeM3, f280inf.volumeM3)
+          checkEq('(inf.b) deltaT = ti − toh', inf.expectedDeltaT, f280inf.deltaT)
+          check('(inf.c) infiltrationW at known ΔT', inf.expectedInfiltrationW, f280inf.infiltrationW)
+          const expTotal = f280inf.conductiveAboveGradeW + (f280inf.groundCoupled ? f280inf.groundCoupled.total_W : 0) + f280inf.infiltrationW
+          check('(inf.d) total == conductive + ground + infiltration', expTotal, f280inf.total)
+          const noSolar = !f280inf.notModeled.some(s => s.includes('solar'))
+          noSolar ? pass('(inf.e) solar-gain removed from notModeled (#139)') : fail('(inf.e) solar removed', 'no solar', f280inf.notModeled.join(' | '))
+          const airChange = f280inf.notModeled.some(s => s.startsWith('infiltration'))
+            && f280inf.notModeled.some(s => s.startsWith('ventilation'))
+            && f280inf.notModeled.some(s => s.startsWith('duct'))
+          airChange ? pass('(inf.f) three air-change entries present (infiltration/ventilation/duct)') : fail('(inf.f) air-change entries', 'all three', f280inf.notModeled.join(' | '))
+          // honest-absence: no ACH50 ⇒ infiltration null (not zero)
+          const f280NoAch = deriveF280Heating(infEnum, resolveEffectiveConfig({ 'toh-override': inf.tohOverride, 'ti-heating': inf.tiHeating }))
+          checkEq('(inf.g) no ACH50 → infiltration absent', null, f280NoAch.infiltration)
+          // honest-absence: no ceiling height (slab only) ⇒ infiltration null
+          const slabOnly = [{ kind: 'slab-surface', id: 'floor-inf', footprintLengthM: 10, footprintWidthM: 10, grossAreaM2: inf.footprintAreaM2, floorZm: 0, soilContactPerimeterM: 40 }]
+          checkEq('(inf.h) no ceiling height → infiltration absent', null, deriveF280Heating(slabOnly, rInf).infiltration)
+          // #134/#135: overrides flow into the ground engine AND change its output.
+          // Each fix isolated by holding the other at its station default.
+          const basEnumInf = [
+            { kind: 'slab-surface', id: 'floor-inf2', footprintLengthM: 12.4, footprintWidthM: 6.4, grossAreaM2: 12.4 * 6.4, floorZm: 0, soilContactPerimeterM: 37.6 },
+            { kind: 'below-grade-wall', id: 'foundation-inf', belowGradeHeightM: 1.75, wallBottomZm: 0, wallTopZm: 2.5, runLengthM: 10 },
+          ]
+          const gcBaseline = deriveGroundCoupledLoss(basEnumInf, resolveEffectiveConfig({ 'location-station': inf.station }))
+          const gcTi = deriveGroundCoupledLoss(basEnumInf, resolveEffectiveConfig({ 'location-station': inf.station, 'ti-heating': inf.tiHeating }))
+          const gcToh = deriveGroundCoupledLoss(basEnumInf, resolveEffectiveConfig({ 'location-station': inf.station, 'toh-override': inf.tohOverride }))
+          // #135: non-default ti (21) surfaces on tiC AND changes the engine load.
+          const ti135 = gcTi.tiC === inf.tiHeating && Math.abs(gcTi.total_W - gcBaseline.total_W) > 1
+          ti135 ? pass('(inf.i) ground honors ti-heating: tiC + engine load both shift (#135)')
+                : fail('(inf.i) ti-heating shifts ground', `tiC=${inf.tiHeating}, load≠${gcBaseline.total_W.toFixed(1)}`, `tiC=${gcTi.tiC}, load=${gcTi.total_W.toFixed(1)}`)
+          // #134: toh-override (−20) surfaces on tohC AND changes the engine load vs raw station dhdbt (−33).
+          const toh134 = gcToh.tohC === inf.tohOverride && Math.abs(gcToh.total_W - gcBaseline.total_W) > 1
+          toh134 ? pass('(inf.j) ground honors toh-override: tohC + engine load both shift (#134)')
+                 : fail('(inf.j) toh-override shifts ground', `tohC=${inf.tohOverride}, load≠${gcBaseline.total_W.toFixed(1)}`, `tohC=${gcToh.tohC}, load=${gcToh.total_W.toFixed(1)}`)
         }
 
         // Clean up test shapes so fixture state is not polluted for further use
@@ -7355,8 +7550,16 @@ function App() {
       } else {
         console.log('[f280] Ground-coupled: no-ground (no station selected, or no slab-surface footprint)')
       }
-      console.log(`[f280] Total (above-grade + ground): ${result.total.toFixed(1)} W (${(result.total / 1000).toFixed(2)} kW)`)
-      console.log(`[f280] Not modeled: ${result.notModeled.join(', ')}`)
+      const inf = result.infiltration
+      if (inf) {
+        console.log(`[f280] Infiltration (block load, raw ACH50=${inf.ach50}):`)
+        console.log(`[f280]   volume=${inf.volumeM3.toFixed(1)} m³ (footprint ${inf.footprintAreaM2.toFixed(1)} m² × height ${inf.conditionedHeightM.toFixed(2)} m), ΔT=${inf.deltaT}°C`)
+        console.log(`[f280]   infiltration load = ${inf.infiltrationW.toFixed(1)} W (${(inf.infiltrationW / 1000).toFixed(2)} kW)  [conservative — likely high]`)
+      } else {
+        console.log('[f280] Infiltration: absent (no ACH50 set, or volume not derivable)')
+      }
+      console.log(`[f280] Total (above-grade + ground + infiltration): ${result.total.toFixed(1)} W (${(result.total / 1000).toFixed(2)} kW)`)
+      console.log(`[f280] Not modeled: ${result.notModeled.join(' | ')}`)
     }
 
     // __setConfig(id, value): DEV injection path for Project Setup values (parallels
@@ -9244,7 +9447,7 @@ function App() {
 
                       <div className="fh-zone">
                         <div className="fh-row" style={{ fontWeight: 600 }}>
-                          <span className="fh-label">Above-grade conductive</span>
+                          <span className="fh-label">Above-grade conductive <span style={{ opacity: 0.5, fontWeight: 400, fontSize: '0.72rem' }}>(partial subtotal)</span></span>
                           <span className="fh-val" style={{ color:'#60a5fa' }}>
                             {(result.conductiveAboveGradeW / 1000).toFixed(2)} kW
                           </span>
@@ -9299,7 +9502,7 @@ function App() {
 
                           <div className="fh-zone">
                             <div className="fh-row" style={{ fontWeight: 600 }}>
-                              <span className="fh-label">Whole-foundation load</span>
+                              <span className="fh-label">Whole-foundation load <span style={{ opacity: 0.5, fontWeight: 400, fontSize: '0.72rem' }}>(partial subtotal)</span></span>
                               <span className="fh-val" style={{ color:'#60a5fa' }}>
                                 {gc.total_W.toFixed(0)} W ({gc.total_kW.toFixed(2)} kW)
                               </span>
@@ -9316,10 +9519,59 @@ function App() {
                         </div>
                       )}
 
+                      {/* ── Infiltration (interim whole-building block load, raw ACH50) ── */}
+                      {result.infiltration ? (() => {
+                        const inf = result.infiltration
+                        return (
+                          <div className="fh-zone">
+                            <div className="fh-zone-label">Infiltration (block load)</div>
+                            <div className="fh-row">
+                              <span className="fh-label">Conditioned volume</span>
+                              <span className="fh-val">{inf.volumeM3.toFixed(1)} m³</span>
+                            </div>
+                            <div className="fh-row">
+                              <span className="fh-label">Footprint × height</span>
+                              <span className="fh-val" style={{ fontSize:'0.72rem' }}>{inf.footprintAreaM2.toFixed(1)} m² × {inf.conditionedHeightM.toFixed(2)} m</span>
+                            </div>
+                            <div className="fh-row">
+                              <span className="fh-label">ACH50</span>
+                              <span className="fh-val">{inf.ach50}</span>
+                            </div>
+                            <div className="fh-row" style={{ fontWeight: 600 }}>
+                              <span className="fh-label">Infiltration load <span style={{ opacity: 0.5, fontWeight: 400, fontSize: '0.72rem' }}>(partial subtotal)</span></span>
+                              <span className="fh-val" style={{ color:'#60a5fa' }}>
+                                {inf.infiltrationW.toFixed(0)} W ({(inf.infiltrationW / 1000).toFixed(2)} kW)
+                              </span>
+                            </div>
+                            <div style={{ fontSize:'0.68rem', opacity:0.45, marginTop:4 }}>
+                              Conservative block-load estimate (likely high); room-by-room AIM-2 pending.
+                            </div>
+                          </div>
+                        )
+                      })() : (
+                        <div className="fh-zone">
+                          <div className="fh-zone-label">Infiltration (block load)</div>
+                          <div className="enum-empty">Set an airtightness (ACH50) in Project Setup → Air Leakage and enter floor heights to compute the interim block-load infiltration.</div>
+                        </div>
+                      )}
+
+                      {/* ── Combined heating load (partial — incompleteness signaled in label) ── */}
+                      <div className="fh-zone" style={{ borderTop: '2px solid rgba(96,165,250,0.4)', paddingTop: 8 }}>
+                        <div className="fh-row" style={{ fontWeight: 700 }}>
+                          <span className="fh-label">Heating load <span style={{ opacity: 0.6, fontWeight: 400, fontSize: '0.72rem' }}>(partial — ventilation &amp; duct/pipe not yet modeled)</span></span>
+                          <span className="fh-val" style={{ color:'#93c5fd', fontSize:'1.05rem' }}>
+                            {(result.total / 1000).toFixed(2)} kW
+                          </span>
+                        </div>
+                        <div style={{ fontSize:'0.68rem', opacity:0.5, marginTop:4 }}>
+                          Sum of above-grade conductive{result.groundCoupled ? ' + ground-coupled' : ''}{result.infiltration ? ' + infiltration' : ''}. Interim total — see "Not yet modeled" below.
+                        </div>
+                      </div>
+
                       <div className="fh-zone">
                         <div className="fh-zone-label" style={{ opacity: 0.5 }}>Not yet modeled</div>
                         {result.notModeled.map(item => (
-                          <div key={item} style={{ fontSize:'0.76rem', opacity:0.4, padding:'2px 0' }}>— {item.replace(/-/g, ' ')}</div>
+                          <div key={item} style={{ fontSize:'0.76rem', opacity:0.4, padding:'2px 0' }}>— {item}</div>
                         ))}
                       </div>
                     </>)}

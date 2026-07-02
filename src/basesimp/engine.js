@@ -272,6 +272,11 @@ export function computeGroundCoupledLoss(input, tables) {
   const k = configByName(tables, input.config);
   const k2 = uninsulatedVariant(tables, k);
 
+  // Indoor design temperature. Honors the caller-supplied roomTempC (the app's
+  // resolved ti-heating seam, #135); falls back to the F280 standard 22 °C when
+  // unset — so callers that pass nothing (e.g. acceptance.test.js) are unchanged.
+  const roomTempC = input.roomTempC != null ? input.roomTempC : ROOM_TEMP_C;
+
   // Sorted plan dimensions (Foundation_Selection B335/B336).
   const length = Math.max(input.length, input.width);
   const width = Math.min(input.length, input.width);
@@ -335,7 +340,7 @@ export function computeGroundCoupledLoss(input, tables) {
     const door = input.doorArea || 0;
     const radFrac = input.radiantFraction || 0;
     const fluid = input.fluidTemp || 0;
-    radiantSlabTempC = fluid > 0 ? ROOM_TEMP_C + radFrac * (fluid - ROOM_TEMP_C) : 0;
+    radiantSlabTempC = fluid > 0 ? roomTempC + radFrac * (fluid - roomTempC) : 0;
 
     const Abwag = (height - depth) * 2 * (length + width);
     const Agfr = (Abwag - door - win) / Abwag;
@@ -356,14 +361,14 @@ export function computeGroundCoupledLoss(input, tables) {
     const alpha3 = radFrac > 0 ? (SbgAvg_f * Ufloor) / uVal : 0;
 
     load_W =
-      (Sag_f * (ROOM_TEMP_C - DBT) * Agfr +
+      (Sag_f * (roomTempC - DBT) * Agfr +
         FHL +
-        alpha2 * (ROOM_TEMP_C - Tsoil) +
+        alpha2 * (roomTempC - Tsoil) +
         alpha3 * (radiantSlabTempC - Tsoil)) *
       exposedFraction;
   } else {
     load_W =
-      (Sag_f * (ROOM_TEMP_C - DBT) + FHL + SbgAvg_f * (ROOM_TEMP_C - Tsoil)) * exposedFraction;
+      (Sag_f * (roomTempC - DBT) + FHL + SbgAvg_f * (roomTempC - Tsoil)) * exposedFraction;
   }
 
   return {

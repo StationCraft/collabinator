@@ -51,5 +51,17 @@
     "basementFootprintWidthM": 6.4,
     "basementBelowGradeHeightM": 1.75,
     "basementWallHeightM": 2.5
+  },
+  "infiltrationCheck": {
+    "_note": "Interim whole-building block-load infiltration (raw ACH50) + shared-temperature-seam consistency (#134/#135). Synthetic enumerations (NOT the fixture). Volume = footprint 100 m² × conditioned height 6 m = 600 m³. deltaT = ti 21 − toh −20 = 41 °C. infiltrationW = 600 × (3.0/3600) × 1200 J/(m³·K) × 41 = 24600 W exactly. inf.i (#135): a ground call with ti-heating 21 differs in tiC AND engine load from a station-only call (default 22). inf.j (#134): a ground call with toh-override −20 differs in tohC AND engine load from station-only (dhdbt −33). Station Winnipeg|||MB.",
+    "footprintAreaM2": 100,
+    "ceilingZm": 6,
+    "ach50": 3.0,
+    "tiHeating": 21,
+    "tohOverride": -20,
+    "expectedVolumeM3": 600,
+    "expectedDeltaT": 41,
+    "expectedInfiltrationW": 24600,
+    "station": "Winnipeg|||MB"
   }
 }
