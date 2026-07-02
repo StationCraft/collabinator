@@ -803,15 +803,17 @@ A React + Vite app with:
   * **`deriveF280Heating(enumeration, resolvedConfig)`** — pure, derive-on-demand. No-climate guard
     (returns `{status:'no-climate'}` if `toh===null`). Four surface kinds in `bySurfaceKind` map
     (`'wall-surface'` / `'flat-roof-surface'` / `'window'` / `'door'`). Surfaces missing U-value:
-    `unresolvedCount++`, area counted, no silent zero. `notModeled[]` STARTS as
-    `['below-grade-wall','slab-on-grade','floor-over-unheated','solar-gain']` and now SHEDS
-    `'below-grade-wall'`/`'slab-on-grade'` when the ground-coupled engine resolves (Session 78 — see
-    that entry); `'floor-over-unheated'`/`'solar-gain'` remain. Extensible spine — adding a genuine
-    new HEATING loss endpoint = one bucket/engine + one loop body, no refactor (below-grade-wall and
-    slab-on-grade were exactly such additions, Session 78). NOTE: `'solar-gain'` is NOT such a heating
-    bucket — F280 credits zero solar against the heating load; solar is a COOLING-only term that belongs
-    to a future `deriveF280Cooling` endpoint (see ADDITIONAL_FUNCTIONALITY.md #130). It stays listed in
-    `notModeled[]` permanently and is not a heating gap to close.
+    `unresolvedCount++`, area counted, no silent zero. `notModeled[]` (as of **Session 81**) is now a
+    list of **full-string disclosures**, not kebab tokens:
+    `['infiltration — conservative block-load approximation (raw ACH50); room-by-room AIM-2 not yet
+    modeled', 'ventilation — not modeled', 'duct/pipe loss — not modeled', 'below-grade-wall — not
+    modeled', 'slab-on-grade — not modeled', 'floor-over-unheated — not modeled']`. It SHEDS
+    `below-grade-wall`/`slab-on-grade` (matched by `startsWith`) when the ground-coupled engine resolves.
+    `'solar-gain'` was **REMOVED entirely (Session 81, #139)** — F280 credits zero solar against the
+    heating load; solar is a COOLING-only term belonging to a future `deriveF280Cooling` endpoint
+    (ADDITIONAL_FUNCTIONALITY.md #130), so it does not belong in a *heating*-gaps list. The panel drops
+    the old `.replace(/-/g,' ')` cosmetic (entries render verbatim). Extensible spine — adding a genuine
+    new HEATING loss endpoint = one bucket/engine + one loop body, no refactor.
   * **F280 Results sidebar tab** — in consolidated side-panel; design conditions + per-kind table +
     amber unresolved-U warnings + kW subtotal + greyed not-modeled list. No-climate guard in JSX.
   * **`window.__dumpF280()`** — DEV console hook; tree-shakes from production.
@@ -837,6 +839,54 @@ A React + Vite app with:
     `b92c86a`)** — `below-grade-wall` + `slab-on-grade` are the **first two kinds to LEAVE `notModeled[]`**.
     **NOW/NEXT:** the interim Model-B math is a placeholder for a future full BASESIMP port (drop-in math
     swap at the same seam); the remaining `notModeled[]` are `floor-over-unheated` + `solar-gain`.
+
+- **ACH50 block-load infiltration + shared resolved-temperature seam (Session 81; commit `a49d9ad`; DONE):**
+  Interim honest-partial whole-building infiltration folded into the F280 heating total, plus #134/#135/#139.
+  * **`AIR_VOL_HEAT_CAPACITY = 1200`** J/(m³·K) module const (≈1.2 kg/m³ × 1005 J/kg·K).
+  * **ACH50 airtightness field:** `AIRTIGHTNESS_OPTIONS` (0.6/1.0/1.5/2.5/3.57 + `'custom'` sentinel;
+    default **2.5** — mid-range existing construction). New **'Air Leakage'** CONFIG_FIELDS category:
+    `airtightness-ach50` (select) + `ach50-custom` (`kind:'number'`, reuses the number branch — no new
+    render branch). **`resolve-ach50`** cross-field rule mirrors `resolve-toh`: custom number wins only
+    when class === `'custom'`; `resolvedConfig.ach50` is DERIVED (never stored), null when unset.
+  * **Infiltration INSIDE `deriveF280Heating` (self-contained):** `volumeM3 = footprintAreaM2 ×
+    conditionedHeightM` where footprint = the `slab-surface` `grossAreaM2` and height = `max(ceilingZm
+    over wall-surface elements) − slab.floorZm` — both read from the `enumeration` it already receives (no
+    new geometry takeoff). `infiltrationW = volumeM3 × (ach50/3600) × AIR_VOL_HEAT_CAPACITY × deltaT`,
+    RAW ACH50, using the SAME resolved `deltaT` (`tiC−tohC`) as the conductive spine. **Honest-absence:**
+    no slab footprint / no floor heights (null ceilingZm) / no ACH50 → `infiltration: null` (NOT zero),
+    line hidden. Returns `infiltration{ach50,volumeM3,footprintAreaM2,conditionedHeightM,deltaT,
+    infiltrationW}` + scalar `infiltrationW`/`volumeM3`/`ach50`.
+  * **`total` = above-grade conductive + ground (when ok) + infiltration (when present)** — component
+    values kept for the partial-subtotal display.
+  * **Panel reframe:** per-section figures labeled **"(partial subtotal)"**; new **Infiltration (block
+    load)** zone (volume, footprint×height, ACH50, subtotal, "Conservative block-load estimate (likely
+    high); room-by-room AIM-2 pending."); new combined **"Heating load (partial — ventilation & duct/pipe
+    not yet modeled)"** total row (the panel previously had NO combined total). `__dumpF280` extended to
+    the three-part total + infiltration lines.
+  * **#134 (shared Toh):** `deriveGroundCoupledLoss` adapter now passes `designHeatingDBT:
+    resolvedConfig.toh` (override-aware) into the BASESIMP `input`; the engine's `resolveClimate` already
+    prefers that over raw station `dhdbt`. Above-grade + ground + infiltration share ONE resolved `Toh`.
+  * **#135 (shared Ti — POLICY REVERSAL):** `engine.js computeGroundCoupledLoss` now reads
+    `const roomTempC = input.roomTempC != null ? input.roomTempC : ROOM_TEMP_C` and uses `roomTempC` in
+    all load-assembly terms; the adapter passes `roomTempC: tiC` (the `ti-heating` seam, default 22 per
+    Cl. 4.2). The prior "fixed Troom=22, ti-heating does NOT enter" comment was **rewritten** to the new
+    policy. `acceptance.test.js` (passes no `roomTempC`) → falls back to 22 → **3/3 still green**.
+  * **Single-seam discipline (for the NEXT arc):** `tiC`/`tohC`/`deltaT` are resolved at ONE point that
+    all three consumers read, so the dual-path compliant-vs-preferred arc (#159) wraps it in a two-set
+    loop rather than surgery. Do NOT scatter temp reads.
+  * **Harness:** `__verifyFixture` **66/66** (was 56; +10 checks `inf.a–inf.j`: volume, deltaT,
+    infiltrationW, three-part total, solar-removed, three air-change entries, two honest-absence guards,
+    #135/#134 engine-output shift). `gc.j/k/l` updated for the full-string `notModeled` format. New
+    `infiltrationCheck` sidecar block. **DESTRUCTIVE-harness reminder still applies** — the 6 placement
+    checks (n/p/q) false-fail on a not-truly-fresh restore; run once per FULL reload.
+  * **Verified (Claude preview, fixture-elevation):** station Vernon + assemblies + ACH50 2.5 →
+    infiltration 2549 W (72.8 m³ × ACH50 2.5 × ΔT 42), three-part total 3169 W (441.4 + 178.8 + 2549.2);
+    clear ACH50 → infiltration absent, total 620.1 W; `toh-override −30` + `ti-heating 24` → ground
+    178.8 → 205.9 W (both overrides flow through); panel renders 3 subtotals + 4.05 kW combined total +
+    conservative disclosure. Marks audit #132 (partial), #134, #135, #139 ADDRESSED.
+  * **§5 approximations (eyes-open, all bias HIGH):** raw ACH50 (parked #160), full-stack-height volume
+    includes unconditioned space (parked #162), constant-footprint-across-levels. Parked: dual-path (#159),
+    pressurized-vs-depressurized ACH50 (#161).
 
 - **BASESIMP ground-coupled wire-in — Stage 1 (Session 79; commit `4f6be45`; DONE):** REPLACES the interim
   Model-B engine below. `deriveGroundCoupledLoss` is now the ADAPTER around the full, float-exact BASESIMP
@@ -1434,7 +1484,7 @@ DISTINCT from B4 `projectConfigRef` (which holds physical-derivation thresholds 
 **Cross-field config resolver (added Session 37; commit f5553fa):**
 - `CONFIG_CROSS_FIELD_RULES` — module-level array of `{id, when(raw), apply(raw)}` rule objects.
   Hand-authored rule set (forward-proofs #74 data-driven layer — replace contents only, consumers untouched).
-  Current rule: `heat-pump-ducted-implies-cooling` (space-heating === 'heat-pump-ducted' AND cooling null → effective cooling = 'heat-pump-ducted').
+  Rules: `heat-pump-ducted-implies-cooling` (space-heating === 'heat-pump-ducted' AND cooling null → effective cooling = 'heat-pump-ducted'); `resolve-toh` (override-aware outdoor design temp); `resolve-ground-temp` (station `dgtemp` → `groundTempC`); `resolve-ach50` (Session 81 — `airtightness-ach50` class or `ach50-custom` when class === 'custom' → derived `ach50`, mirrors `resolve-toh`).
 - `resolveEffectiveConfig(rawValues)` — pure module-level function; takes `projectSetupRef.current.values`,
   returns a resolved copy with cross-field rules applied.
 - **Two honest truths:** `getConfigValue(fieldId)` returns the RAW stored value (user intent — actual stored
@@ -1472,9 +1522,12 @@ projectSetupRef.current = {
 // Reset on PDF upload to { values: {}, roleAssignments: {} }.
 ```
 
-`CONFIG_FIELDS` — module-level descriptor array (11 fields / 4 categories):
+`CONFIG_FIELDS` — module-level descriptor array (7 categories):
 - **Outputs** (multi:true): `outputs` — f280, h2k, permit-set
 - **Jurisdiction** (multi:false): `jurisdiction` — nbc, obc, other
+- **Climate**: `location-station` (679-opt select), `toh-override` (kind:'number'), `ti-heating` (kind:'number')
+- **Site**: `soil-conductivity` (select), `water-table-depth` (kind:'number'), `design-heating-month` (select)
+- **Air Leakage** (Session 81): `airtightness-ach50` (select, 0.6/1.0/1.5/2.5/3.57 + custom), `ach50-custom` (kind:'number', consulted only when class === 'custom')
 - **Assemblies** (multi:false, 2 opts each): `assembly-wall`, `assembly-foundation`, `assembly-roof`, `assembly-floor`
 - **Equipment** (multi:false): `water-heating` (tank-gas, tankless-gas), `space-heating` (furnace-gas, heat-pump-ducted),
   `cooling` (heat-pump-ducted, central-ac, none — 3 opts; heat-pump-ducted added Session 37), `ventilation` (hrv, erv),

@@ -23,6 +23,61 @@ section, do not bury conventions inside a dated session entry.*
 
 ---
 
+## SESSION 81 — ACH50 block-load infiltration + F280 heating consistency fixes (2026-07-02)
+
+**Branch:** main | **Code commit:** `a49d9ad` | **Docs commit:** (this close-out).
+
+**What this session did:** executed sequence step 1 of the Session-80 plan (the honesty + consistency
+fix), and went one step further than disclosure-only: **modeled** an interim whole-building block-load
+infiltration term and folded it into the F280 heating total. Single bounded session touching the F280
+output path, the shared resolved-temperature seam, and the golden harness.
+
+**Built (all in commit `a49d9ad`, files `src/App.jsx`, `src/basesimp/engine.js`,
+`public/devFixtures/fixture-elevation.expected.json`):**
+- **ACH50 airtightness field** — `AIRTIGHTNESS_OPTIONS` (0.6/1.0/1.5/2.5/3.57 + `custom`; default **2.5**),
+  new **'Air Leakage'** CONFIG_FIELDS category (`airtightness-ach50` select + `ach50-custom` number),
+  `resolve-ach50` cross-field rule mirroring `resolve-toh`. No new render branch (reuses number + select).
+- **`AIR_VOL_HEAT_CAPACITY = 1200`** J/(m³·K) module const.
+- **Infiltration block load inside `deriveF280Heating`** — volume = slab-footprint × conditioned-height,
+  both derived from the enumeration it already receives (no new geometry takeoff); `infiltrationW = vol ×
+  (ACH50/3600) × 1200 × deltaT`, RAW ACH50, same resolved `deltaT` as the conductive spine. Honest-absence:
+  no volume or no ACH50 → `infiltration: null` (not zero), line hidden. Folded into `total`.
+- **Panel reframe** — per-section figures → "(partial subtotal)"; new Infiltration zone + conservative
+  disclosure; new combined **"Heating load (partial — ventilation & duct/pipe not yet modeled)"** total
+  (the panel had NO combined total before). `__dumpF280` extended.
+- **notModeled[] → full-string disclosures**, `solar-gain` REMOVED (#139); precise air-change wording
+  (infiltration/ventilation/duct-pipe) + floor-over-unheated. Panel `.replace()` cosmetic dropped.
+- **#134** — ground adapter passes `designHeatingDBT: resolvedConfig.toh` (override-aware).
+- **#135** — `engine.js computeGroundCoupledLoss` honors `input.roomTempC` (adapter passes `roomTempC: tiC`),
+  default 22 when unset. **Deliberate policy reversal** — the "fixed 22, ti-heating does NOT enter" comment
+  was rewritten. `acceptance.test.js` passes no `roomTempC` → 22 → **3/3 still green**.
+
+**Audit items marked ADDRESSED:** #132 (PARTIAL — infiltration modeled + disclosed; ventilation/duct
+still open), #134, #135, #139. Updated in ADDITIONAL_FUNCTIONALITY.md.
+
+**Verification (browser + harness, this session — not compile-clean):**
+- `__verifyFixture` **66/66** on a fresh FULL-reload restore (was 56; +10 checks `inf.a–inf.j`). NOTE:
+  the harness is destructive — running it twice per JS session false-fails the 6 opening-**placement**
+  checks (n/p/q), which cost a diagnostic detour this session; the canonical fresh-reload run is clean.
+- `node src/basesimp/acceptance.test.js` → **3/3** after the #135 edit.
+- `__dumpF280` (Vernon + assemblies + ACH50 2.5): infiltration 2549 W, three-part total 3169 W
+  (441.4 + 178.8 + 2549.2). Clear ACH50 → infiltration absent, total 620.1 W. `toh-override −30` +
+  `ti-heating 24` → ground **178.8 → 205.9 W** (both overrides flow through). Panel renders 3 subtotals +
+  4.05 kW combined total + conservative disclosure.
+
+**Single-seam discipline (for the next arc):** `tiC`/`tohC`/`deltaT` resolved at ONE point all three
+consumers read — the dual-path compliant-vs-preferred arc (**#159**) wraps it in a two-set loop.
+
+**Logged as new parked items:** #159 dual-path compliant-vs-preferred (immediate next arc); #160 raw-ACH50
+vs AIM-2 (pre-cert verification); #161 pressurized-vs-depressurized ACH50; #162 conditioned-vs-unconditioned
+volume. Plus a §5 approximation-ledger note (raw-ACH50 / full-stack-height / constant-footprint biases, all HIGH).
+
+**Still OPEN from Session-80 audit:** ventilation modelling (#132b), duct/pipe (#136), basement
+double-count (#133), assembly RSI air-films/framing (#137), frame-basis openings (#138), open standard
+questions (#140). Room-by-room overlay (#146) upstream of the AIM-2 room-allocated infiltration.
+
+---
+
 ## SESSION 80 — F280 heating-path conformance audit + scope/architecture logging (DOCS-ONLY) (2026-07-02)
 
 **Branch:** main | **Code commit:** none (no executable change — docs only) | **Docs commit:** (this close-out).

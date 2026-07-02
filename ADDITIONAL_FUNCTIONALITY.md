@@ -2916,6 +2916,17 @@ AIM-2 leakage + ventilation term, fed by the airtightness input (#141) and intak
 room allocation (Level_factor, Cl. 5.2.3.3) needs the room model (#146). Do NOT change `notModeled[]`
 in code this docs-only session.
 
+**ADDRESSED — PARTIAL (Session 81, commit a49d9ad):** an interim **whole-building block-load
+infiltration** term is now modeled and folded into `deriveF280Heating`'s total: `infiltration_W =
+volume_m3 × (ACH50 / 3600) × 1200 J/(m³·K) × ΔT`, raw ACH50 (no AIM-2 derivation), volume derived at
+the call site from the slab footprint × conditioned height. `notModeled[]` now discloses precisely:
+`"infiltration — conservative block-load approximation (raw ACH50); room-by-room AIM-2 not yet
+modeled"`, `"ventilation — not modeled"`, `"duct/pipe loss — not modeled"`. The disclosure half of
+the audit is CLOSED; **ventilation (`HLvairb`)** and **duct/pipe (#136)** modelling remain OPEN, and
+the AIM-2 room-by-room leakage method (fed by #141/#142, allocated per #146) is still the certification
+target. This interim block load is honest-partial, conservatively biased HIGH (see the parked
+pre-cert verification item + §5 ledger below).
+
 ---
 
 ### 133. Basement above-grade wall DOUBLE-COUNT (F280 audit — CRITICAL-LATENT)
@@ -2975,6 +2986,14 @@ LATENT — the fixture uses a station, not an override, on the ground path.
 **Severity: MODERATE.** Fix (sequence step 1): thread the resolved `Toh` into the ground engine so
 both components share one outdoor design temp.
 
+**ADDRESSED (Session 81, commit a49d9ad):** `deriveGroundCoupledLoss` now passes
+`designHeatingDBT: resolvedConfig.toh` (the override-aware resolved `Toh`) into the BASESIMP engine
+input; the engine's `resolveClimate` already prefers that over the raw station `dhdbt`. Above-grade,
+ground, and infiltration now share ONE resolved `Toh`. Verified live: ground load 178.8 W → 205.9 W
+when a `toh-override` (−30) is applied over the station default (−20). Harness check `(inf.j)`.
+(Override-only-no-station still drops the ground term via the no-ground guard — that is correct: no
+station ⇒ no BASESIMP box; only the outdoor-temp *inconsistency* was the bug.)
+
 ---
 
 ### 135. Ground-engine Ti hardcoded 22 °C (F280 audit #8 — MINOR-LATENT)
@@ -2997,6 +3016,15 @@ conforms in isolation).
 
 **Severity: MINOR.** Fix (sequence step 1): pass the resolved `Ti` into the ground engine instead of
 the hardcoded 22.
+
+**ADDRESSED (Session 81, commit a49d9ad):** `computeGroundCoupledLoss` now reads
+`const roomTempC = input.roomTempC != null ? input.roomTempC : ROOM_TEMP_C` and uses `roomTempC` in
+all load-assembly terms; the adapter passes `roomTempC: tiC` (the resolved `ti-heating` seam,
+defaulting to 22 per Cl. 4.2). **Deliberate policy reversal** from the prior "fixed Troom=22,
+ti-heating does NOT enter" note — the adapter/engine comments were rewritten to state the new policy.
+`acceptance.test.js` passes no `roomTempC` ⇒ falls back to 22 ⇒ **3/3 still green** (verified).
+Harness check `(inf.i)`: a non-default Ti (21) shifts both `tiC` and the engine load vs the
+station-default call.
 
 ---
 
@@ -3098,6 +3126,11 @@ solar belongs to a future `deriveF280Cooling` endpoint (see #130 for the cooling
 
 **Severity: MINOR.** Code change (the `notModeled[]` edit) is deferred to sequence step 1; not done in
 this docs-only session.
+
+**ADDRESSED (Session 81, commit a49d9ad):** `solar-gain` removed from `deriveF280Heating`'s
+`notModeled[]`. The list is now heating-only gaps: infiltration (partial, disclosed), ventilation,
+duct/pipe, floor-over-unheated (+ below-grade-wall/slab-on-grade when ground is unresolved). Harness
+checks `(gc.k)`/`(inf.e)` assert solar is absent. #130's cooling-endpoint architecture unchanged.
 
 ---
 
@@ -3304,3 +3337,84 @@ open-question #140-Q3. It is **upstream of most of both tracks** (audit-fix and 
 validation data (whole-building number confirmed demonstrably-similar to compliant F280/H2K figures).
 
 ---
+
+---
+
+### 159. DUAL-PATH F280-compliant vs preferred-design heating calc (IMMEDIATE NEXT ARC)
+
+**Logged:** Session 81 (2026-07-02), developer-confirmed.
+
+**Description:** run the whole heating calc **twice, side by side** on two design-condition sets —
+(a) **F280-compliant minimum** (the sanctioned `ti`/`toh` from Cl. 4.1/4.2 + weather table) and
+(b) **preferred-design** (client-customization manual overrides on indoor setpoint and/or a more
+extreme outdoor design temp) — showing **both totals AND the delta**. F280 design temps are MINIMUM
+standards; designers may legitimately exceed them to client preference. This **reframes**
+`toh-override` / `ti-heating` from "replace the compliant number" to "spawn the second path."
+
+**Why it matters / builds on this session:** Session 81 deliberately resolved `tiC`/`tohC` at ONE
+clean point that all three consumers (above-grade, ground, infiltration) read from — the ground
+adapter's `roomTempC`/`designHeatingDBT` seam and `deriveF280Heating`'s `tiC`/`deltaT`. The next arc
+wraps that single resolution point in a **two-set loop** rather than surgery: resolve two temp sets,
+run the pipeline for each, diff. Do NOT scatter temp reads; keep the single seam.
+
+**Status:** Deferred (immediate next arc). Gate: this session's single-seam consolidation (DONE).
+
+---
+
+### 160. PARKED (pre-cert): raw ACH50 as design infiltration vs F280 AIM-2
+
+**Logged:** Session 81 (2026-07-02), developer-confirmed.
+
+**Description:** the interim infiltration block load (#132 partial) uses the **raw ACH50** value as
+the design-condition air-change rate. Mainstream practice derives a **LOWER** design-condition
+natural rate from ACH50 (e.g. an ACH50/N divisor, or the F280 **AIM-2** method). Using ACH50 raw is
+either (a) a physical claim to confirm or (b) a deliberate conservative-oversizing choice — **which
+one must be settled before HVACDC certification.** Developer's working rationale: ACH50's 50 Pa ≈ a
+strong-wind design day, so raw may be defensible as a design-day rate — **to be verified against
+AIM-2 / F280 Cl. 5.2.3.** This is the certification blocker for the infiltration term.
+
+**Status:** Parked (pre-certification verification). Gate: certification pass / AIM-2 build (#132b).
+
+---
+
+### 161. PARKED: pressurized vs depressurized ACH50 application
+
+**Logged:** Session 81 (2026-07-02), developer-confirmed.
+
+**Description:** a blower-door test yields ACH50 under **pressurization** and **depressurization**
+(often averaged). The program currently assumes a **depressurization-only** test and uses ACH50 raw
+as the baseline. Investigate how the two measurements should be applied to a heating design-condition
+infiltration rate later.
+
+**Status:** Parked. Gate: pairs with #160 (design-rate derivation) and the AIM-2 build.
+
+---
+
+### 162. PARKED: conditioned vs unconditioned volume (infiltration + candidate for #144 panel)
+
+**Logged:** Session 81 (2026-07-02), developer-confirmed.
+
+**Description:** the model does **not** distinguish heated from unheated levels. The Session-81
+infiltration volume = lowest-floor footprint × **full-stack conditioned height** (top ceilingZm −
+slab floorZm), so it **includes any unconditioned basement/attic** in the air-change volume — biasing
+the block load HIGH. When the conditioned/unconditioned distinction is built, exclude unheated levels
+from the infiltration volume. Candidate for the provisional-state parking-lot panel (#144) once built.
+
+**Status:** Parked. Gate: a conditioned/unconditioned level flag (does not exist today).
+
+---
+
+## §5 approximation ledger — Session 81 (interim infiltration block load)
+
+The interim whole-building infiltration term (#132 partial) carries these **eyes-open F280 §5
+approximations**, all biasing the block load **conservatively HIGH**:
+
+- **Raw ACH50 as the design air-change rate** — no AIM-2 derivation, no ACH50→natural divisor. Almost
+  certainly overstates the design-day rate (see parked #160). CONSERVATIVE (high).
+- **Full-stack-height volume includes unconditioned space** — footprint × (top ceiling − slab floor)
+  counts any unheated basement/attic in the air-change volume (see parked #162). CONSERVATIVE (high).
+- **Constant-footprint-across-levels** — volume uses the lowest-floor footprint × total height; upper
+  floors with a smaller footprint overstate volume, a larger footprint understates it. Direction
+  depends on the building; for typical step-back/simple massing this is neutral-to-high.
+- Pairs with the pre-existing ground-coupled §5 approximations (Stage-1 package stub, bbox L/W,
+  grade-Z = mean vertex Z, single-reference-edge attribution #88) already logged in CLAUDE.md.

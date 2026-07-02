@@ -599,6 +599,25 @@ recorded there too. This is the near-term FIX-WORK summary.
 certification goal); the intake/provisional-panel/packages/help-video work is the FEATURE TRACK (later
 build). Room-by-room architecture (#146) is upstream of most of both. See PARALLEL_TRACKS_LEDGER.md.
 
+**SEQUENCE STEP 1 — DONE (Session 81, commit `a49d9ad`).** Executed the honesty + consistency fix, and
+went beyond disclosure-only: an interim **whole-building block-load infiltration** term is now MODELED
+(raw ACH50 × volume × 1200 × ΔT, volume from slab-footprint × conditioned-height at the call site) and
+folded into the F280 heating total, with the panel reframed to partial subtotals + a combined
+"Heating load (partial — ventilation & duct/pipe not yet modeled)" total.
+- **#132 ADDRESSED-PARTIAL** — infiltration modeled + precisely disclosed; **ventilation (#132b) + duct/pipe
+  (#136) still OPEN** (listed in `notModeled[]`).
+- **#134 DONE** — ground engine gets the override-aware resolved `Toh` (`designHeatingDBT`).
+- **#135 DONE** — ground engine honors resolved `Ti` (`roomTempC`, default 22); deliberate policy reversal;
+  acceptance 3/3 green.
+- **#139 DONE** — `solar-gain` removed from the heating `notModeled[]`.
+- New ACH50 'Air Leakage' CONFIG_FIELDS + `resolve-ach50` rule + `AIR_VOL_HEAT_CAPACITY` const.
+- Harness `__verifyFixture` **66/66** (was 56; +10 `inf.*`); new `infiltrationCheck` sidecar; `gc.j/k/l`
+  updated for full-string `notModeled`.
+- Single resolved-temp seam consolidated for the dual-path arc **#159** (next). Parked: #160 (raw-ACH50 vs
+  AIM-2, pre-cert), #161 (pressurized/depressurized ACH50), #162 (conditioned/unconditioned volume).
+- **Still on the audit-fix track:** ventilation modelling, #136 duct/pipe, #133 basement double-count,
+  #137/#138, #140 open questions → then Session-2 geometry E2E validation.
+
 ---
 
 ## ⏸ PLATEAU WAYPOINTS — post-#5 / pre-#29  ← TRIGGERED 2026-06-29 (commit 8d6e57d)
