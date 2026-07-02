@@ -205,6 +205,33 @@ export default function ThreeDView({ wireframe, orientEdge = null, onClose }) {
       scene.add(new THREE.LineSegments(vGeo, new THREE.LineBasicMaterial({ color: 0x94a3b8 })))
     }
 
+    // Interior thermal-boundary face WIREFRAME (magenta #ec4899). The inner offset ring
+    // of exterior + foundation walls: per-segment inner floor edge, inner ceiling edge,
+    // and two inner verticals, read from the wall-panel solids' precomputed inner corners
+    // (iax/iay/ibx/iby — inward direction via the pointInPolygon test, orientation-
+    // independent). ALWAYS visible, like the exterior wireframe; the filled wall-panel
+    // solid stays behind its own showSolids toggle. Purely additive. A wall with no
+    // resolved assembly thickness contributes no wall-panel solid → no interior face.
+    const interiorPositions = []
+    for (const solid of solids) {
+      if (solid.kind !== 'wall-panel') continue
+      const fZ = solid.floorZ ?? 0, cZ = solid.ceilingZ ?? fZ
+      const iBA = toVec(solid.iax, solid.iay, fZ)
+      const iBB = toVec(solid.ibx, solid.iby, fZ)
+      const iTA = toVec(solid.iax, solid.iay, cZ)
+      const iTB = toVec(solid.ibx, solid.iby, cZ)
+      ;[iBA, iBB, iTA, iTB].forEach(expandBox)
+      interiorPositions.push(iBA.x, iBA.y, iBA.z, iBB.x, iBB.y, iBB.z)  // inner floor edge
+      interiorPositions.push(iTA.x, iTA.y, iTA.z, iTB.x, iTB.y, iTB.z)  // inner ceiling edge
+      interiorPositions.push(iBA.x, iBA.y, iBA.z, iTA.x, iTA.y, iTA.z)  // inner vertical A
+      interiorPositions.push(iBB.x, iBB.y, iBB.z, iTB.x, iTB.y, iTB.z)  // inner vertical B
+    }
+    if (interiorPositions.length) {
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(interiorPositions, 3))
+      scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xec4899 })))
+    }
+
     if (roofRing) {
       const boxCenter = new THREE.Vector3()
       if (!box.isEmpty()) box.getCenter(boxCenter)
@@ -431,6 +458,7 @@ export default function ThreeDView({ wireframe, orientEdge = null, onClose }) {
         <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>■ lineset</span>
         <span style={{ color: '#8b5cf6', fontSize: '0.75rem' }}>■ equipment</span>
         <span style={{ color: '#4ade80', fontSize: '0.75rem' }}>■ wall depth</span>
+        <span style={{ color: '#ec4899', fontSize: '0.75rem' }}>■ interior face</span>
         <button
           onClick={() => setShowSolids(s => !s)}
           style={{

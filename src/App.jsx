@@ -393,19 +393,31 @@ const CONFIG_FIELDS = [
 //
 // U = 1/R, where R is the nominal R-number parsed from the option key. AIR FILMS
 // ARE NOT BAKED IN — these are provisional and get replaced in a later values
-// pass with real air-film-inclusive effective U-values. thicknessM is null for
-// every entry (thickness is intentionally NOT defaulted this slice).
+// pass with real air-film-inclusive effective U-values.
+//
+// thicknessM — the two INTERIOR-PLANE assembly types (exterior wall, foundation
+// wall) now carry a PLACEHOLDER thickness so the interior thermal-boundary face can
+// be derived/rendered whole-envelope (see interior-face wireframe build). These are
+// common-value stand-ins pending real assembly data; a real assembly (library tier,
+// or future assembly authoring) supplies its OWN thicknessM per surface and OVERRIDES
+// the placeholder — the placeholder is the fallback, not a hardcode. Roof/floor
+// surfaces are already AT the thermal boundary (they expand outward, they do not
+// inset), so their thicknessM stays null this slice. effectiveUValue is unchanged
+// from #106 (the per-option nominal 1/R is retained — NOT overwritten by the interior-
+// face pass; a values pass sets real air-film-inclusive U later).
+const PLACEHOLDER_WALL_THICKNESS_M       = inchesToMeters(6)  // 0.1524 m — exterior wall (PLACEHOLDER, common 2×6 + finishes)
+const PLACEHOLDER_FOUNDATION_THICKNESS_M = inchesToMeters(16) // 0.4064 m — foundation wall (PLACEHOLDER, concrete + interior finish/insulation)
 const ASSEMBLY_TYPE_DEFAULTS = {
-  // assembly-wall
-  '2x6-r22':                { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106)
-  '2x6-r22-ext2':           { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — literal rule: only r-number in key is 22, so this equals '2x6-r22'; the +2" exterior insulation R is NOT encoded in the key. Set the real (lower) value in the values pass.
-  // assembly-foundation
-  '8in-concrete-frost':     { effectiveUValue: 1 / 12, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — no R-number in key; documented placeholder R12 (interior frost wall).
-  'icf':                    { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — no R-number in key; documented placeholder R22.
-  // assembly-roof
+  // assembly-wall (interior-plane type — insets inward by thickness)
+  '2x6-r22':                { effectiveUValue: 1 / 22, thicknessM: PLACEHOLDER_WALL_THICKNESS_M }, // PLACEHOLDER U (nominal 1/R, #106) + PLACEHOLDER 6" thickness (interior-face render)
+  '2x6-r22-ext2':           { effectiveUValue: 1 / 22, thicknessM: PLACEHOLDER_WALL_THICKNESS_M }, // PLACEHOLDER U — literal rule: only r-number in key is 22, so this equals '2x6-r22'; the +2" exterior insulation R is NOT encoded in the key. Thickness placeholder 6" (real ext-ins thickness is a values-pass refinement).
+  // assembly-foundation (interior-plane type — insets inward by thickness)
+  '8in-concrete-frost':     { effectiveUValue: 1 / 12, thicknessM: PLACEHOLDER_FOUNDATION_THICKNESS_M }, // PLACEHOLDER U — documented placeholder R12 (interior frost wall). Thickness placeholder 16" (key names 8" concrete core; +finishes/insulation → values pass).
+  'icf':                    { effectiveUValue: 1 / 22, thicknessM: PLACEHOLDER_FOUNDATION_THICKNESS_M }, // PLACEHOLDER U — documented placeholder R22. Thickness placeholder 16".
+  // assembly-roof (NOT an interior-plane type — already at thermal boundary; thickness stays null)
   'vented-attic-r50':       { effectiveUValue: 1 / 50, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106)
   'unvented-cathedral-r40': { effectiveUValue: 1 / 40, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106)
-  // assembly-floor
+  // assembly-floor (NOT an interior-plane type — already at thermal boundary; thickness stays null)
   'eng-i-joist':            { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — no R-number in key; documented placeholder R22.
   'open-web-truss':         { effectiveUValue: 1 / 22, thicknessM: null }, // PLACEHOLDER U — nominal 1/R, refine later (#106) — no R-number in key; documented placeholder R22.
 }
@@ -5616,15 +5628,19 @@ function App() {
           const ringCeilingZ  = row.ceilingZ != null ? feetToMeters(row.ceilingZ) : null
           floorRings.push({ level: row.level, shapeId: shape.id, floorZ: ringFloorZ, ceilingZ: ringCeilingZ, verts })
 
-          // Wall panel solids: library-tier surfaces with resolved totalThicknessM gain 3D depth.
-          // assemblyType 'wall' → grows INWARD (polygon traced at structural outside).
-          // Other types → grows OUTWARD. Manual/unset → no panel (zero-thickness plane unchanged).
+          // Wall panel solids: any wall segment with a RESOLVED thicknessM gains 3D depth.
+          // Un-gated (was library-tier-only) so manual, library, AND project-default
+          // placeholder thicknesses all derive an interior face whole-envelope. The
+          // interior thermal-boundary face (inner corners) is rendered as WIREFRAME in
+          // ThreeDView (magenta); this same solid also feeds the filled-solid toggle.
+          // Grows INWARD (polygon traced at structural outside). Walls WITHOUT a resolved
+          // thickness get no panel — an honest "no assembly thickness here" signal.
           if (ringCeilingZ != null) {
             for (let si = 0; si < verts.length; si++) {
               const wA = verts[si], wB = verts[(si + 1) % verts.length]
               const wallId = `wall-${shape.id}-seg${si}-${row.level.replace(/\s/g, '_')}`
               const sa = getSurfaceAssembly(wallId)
-              if (sa.source !== 'library' || !sa.thicknessM || !sa.assemblyType) continue
+              if (!sa.thicknessM) continue   // no resolved thickness → no interior face (honest gap)
               const dx = wB.x - wA.x, dy = wB.y - wA.y
               const edgeLen = Math.hypot(dx, dy)
               if (edgeLen < 0.001) continue
@@ -5634,8 +5650,11 @@ function App() {
               const isPerp1Interior = pointInPolygon({ x: midX + px1 * 0.01, y: midY + py1 * 0.01 }, verts)
               // sign: +1 when perp1 is interior, −1 when perp2 is interior
               const sign     = isPerp1Interior ? 1 : -1
-              // growDir: +1 = interior (walls), −1 = exterior (floor/roof/foundation)
-              const growDir  = sa.assemblyType === 'wall' ? 1 : -1
+              // growDir: this loop is all VERTICAL WALL segments (exterior + foundation),
+              // which inset INWARD (+1). assemblyType is null on the manual tier, so we
+              // default wall/foundation/unset → inward; only an explicit horizontal type
+              // (roof/floor — not expected on a wall- surfaceId) grows outward (−1).
+              const growDir  = (sa.assemblyType == null || sa.assemblyType === 'wall' || sa.assemblyType === 'foundation') ? 1 : -1
               const gx = sign * growDir * px1
               const gy = sign * growDir * py1
               const t = sa.thicknessM
@@ -6556,6 +6575,17 @@ function App() {
               // inside and outside face have identical area (parallel planes, same width × height).
               // insideFaceAreaM2 = netAreaM2 today; corner-adjustment refinement is Phase 2.
               insideFaceAreaM2: netAreaM2,
+              // ── DISPLAY-ONLY interior thermal-boundary face area ──────────────
+              // NOT consumed by deriveF280Heating (which reads netAreaM2). The traced
+              // polygon is the structural OUTSIDE; the interior face is that face inset
+              // inward by the assembly thickness. Straight inset (developer dropped the
+              // PH corner-overcount convention): interior width = gross width − 2×thickness.
+              // Null when thickness or floor height is unresolved (honest "no assembly
+              // thickness here" signal). This is a verification-display quantity only;
+              // flipping the calc to interior-face area is a deliberate FUTURE step.
+              interiorFaceAreaM2: (sa.thicknessM != null && widthM != null && heightM != null)
+                ? Math.max(0, widthM - 2 * sa.thicknessM) * heightM
+                : null,
             })
           }
         }
@@ -6748,6 +6778,11 @@ function App() {
           controlLayers:   sa.controlLayers,
           thicknessM:      sa.thicknessM,
           assemblySource:  sa.source,
+          // DISPLAY-ONLY interior face area (foundation wall insets inward by thickness).
+          // Same convention as wall-surface; NOT consumed by any heat-loss engine.
+          interiorFaceAreaM2: (sa.thicknessM != null && runLengthM != null && belowGradeHeightM != null)
+            ? Math.max(0, runLengthM - 2 * sa.thicknessM) * belowGradeHeightM
+            : null,
         })
       }
 
@@ -6880,6 +6915,9 @@ function App() {
           const uvStr = el.effectiveUValue != null ? el.effectiveUValue.toFixed(4) + ' W/m²K' : 'null'
           const thStr = el.thicknessM    != null ? el.thicknessM.toFixed(4)    + ' m'      : 'null'
           const ifStr = el.insideFaceAreaM2 != null ? el.insideFaceAreaM2.toFixed(4) + 'm²' : 'null (no floor height)'
+          const iface = el.interiorFaceAreaM2 != null ? el.interiorFaceAreaM2.toFixed(4) + 'm²' : 'null (no assembly thickness)'
+          const idelta = (el.interiorFaceAreaM2 != null && el.grossAreaM2 != null)
+            ? ` (Δ vs gross −${(el.grossAreaM2 - el.interiorFaceAreaM2).toFixed(4)}m²)` : ''
           console.log(
             `  ${el.id}\n` +
             `    page:${el.pageId}  floor:${el.floorLevel}\n` +
@@ -6890,7 +6928,8 @@ function App() {
             `    signedDist=${dStr}\n` +
             `    reconcile: ${rStr}\n` +
             `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}\n` +
-            `    insideFaceArea=${ifStr}`
+            `    insideFaceArea=${ifStr}\n` +
+            `    interiorFaceArea(DISPLAY-ONLY, not in calc)=${iface}${idelta}`
           )
         } else if (el.kind === 'soffit') {
           const pStr = el.projectionM.toFixed(4) + 'm'
@@ -6932,12 +6971,14 @@ function App() {
           const wbStr = el.wallBottomZm != null ? el.wallBottomZm.toFixed(4) + 'm' : 'null'
           const uvStr = el.effectiveUValue != null ? el.effectiveUValue.toFixed(4) + ' W/m²K' : 'null'
           const thStr = el.thicknessM    != null ? el.thicknessM.toFixed(4)    + ' m'      : 'null'
+          const iface = el.interiorFaceAreaM2 != null ? el.interiorFaceAreaM2.toFixed(4) + 'm²' : 'null (no assembly thickness)'
           console.log(
             `  ${el.id}\n` +
             `    wall page:${el.pageId}  grade page:${el.elevPageId}  floor:${el.floorLevel}\n` +
             `    belowGradeHeight=${bhStr}  runLength=${rStr}  belowGradeWallArea=${baStr}\n` +
             `    gradeZ=${gStr}  wallBottomZ=${wbStr}\n` +
-            `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}`
+            `    assembly: ${el.assemblySource}  U=${uvStr}  thickness=${thStr}\n` +
+            `    interiorFaceArea(DISPLAY-ONLY, not in calc)=${iface}`
           )
         } else if (el.kind === 'window' || el.kind === 'door') {
           const wStr = el.widthM  != null ? el.widthM.toFixed(4) + 'm'  : 'null'
@@ -7087,6 +7128,37 @@ function App() {
             } else {
               check(`(l) insideFaceAreaM2 ${surfaceId}`, expectedArea, el.insideFaceAreaM2)
             }
+          }
+        }
+
+        // ── (t) Interior-face area — DISPLAY-ONLY; proves separation from the calc ──
+        // interiorFaceAreaM2 is the inset interior thermal-boundary face (gross width
+        // − 2×thickness) × height. The F280 conductive calc reads netAreaM2 for walls —
+        // NOT this field; check (c) netTotalM2 already proves the calc's wall area is
+        // byte-unchanged by this build. (t) asserts the NEW field: derives by the exact
+        // formula, is smaller than the exterior gross, is DISTINCT from the calc's net
+        // area (note: interior is gross-inset while net subtracts openings — they are
+        // different quantities), and is null exactly when there is no resolved thickness
+        // (the honest "no assembly thickness here" gap).
+        {
+          let tFail = 0, tThick = 0
+          for (const el of wallEls) {
+            const hasThk = el.thicknessM != null && el.widthM != null && el.heightM != null
+            if (!hasThk) {
+              if (el.interiorFaceAreaM2 !== null) { console.error(`[verify] FAIL (t) ${el.id}: expected null interiorFaceAreaM2 (no thickness), got ${el.interiorFaceAreaM2}`); tFail++ }
+              continue
+            }
+            tThick++
+            const expected = Math.max(0, el.widthM - 2 * el.thicknessM) * el.heightM
+            const got = el.interiorFaceAreaM2
+            if (got == null || Math.abs(got - expected) >= EPS) { console.error(`[verify] FAIL (t) ${el.id}: interiorFaceAreaM2=${got} expected ${expected.toFixed(6)}`); tFail++; continue }
+            if (!(got < el.grossAreaM2)) { console.error(`[verify] FAIL (t) ${el.id}: interior ${got.toFixed(4)} not < exterior gross ${el.grossAreaM2.toFixed(4)}`); tFail++ }
+            if (el.netAreaM2 != null && Math.abs(got - el.netAreaM2) < EPS) { console.error(`[verify] FAIL (t) ${el.id}: interior area equals calc netArea — not display-separate`); tFail++ }
+          }
+          if (tThick >= 1 && tFail === 0) {
+            pass(`(t) interiorFaceAreaM2 derives, < gross, DISTINCT from calc netArea, null w/o thickness — ${tThick} thickened wall(s)`)
+          } else {
+            console.error(`[verify] FAIL (t) interiorFaceAreaM2: ${tFail} issue(s) across ${tThick} thickened wall(s)`); failed++
           }
         }
 
