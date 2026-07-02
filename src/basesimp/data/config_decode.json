@@ -1,0 +1,165 @@
+{
+ "index_codes": {
+  "110": [
+   "BCNN_1",
+   "BCNN_2"
+  ],
+  "120": [
+   "BCIN_1",
+   "BCIN_2",
+   "BCIN_3",
+   "BCIN_4"
+  ],
+  "130": [
+   "BCEN_1",
+   "BCEN_2",
+   "BCEN_3",
+   "BCEN_4",
+   "BCEN_5",
+   "BCEN_6"
+  ],
+  "140": [
+   "BCCN_1",
+   "BCCN_2",
+   "BCCN_3",
+   "BCCN_4",
+   "BCCN_5"
+  ],
+  "151": [
+   "BCIA_1",
+   "BCIA_3",
+   "BCIA_4",
+   "BCIA_5",
+   "BCIA_6"
+  ],
+  "152": [
+   "BCIB_8",
+   "BCIB_1",
+   "BCIB_10",
+   "BCIB_2",
+   "BCIB_3",
+   "BCIB_4",
+   "BCIB_5",
+   "BCIB_6",
+   "BCIB_7",
+   "BCIB_9"
+  ],
+  "161": [
+   "BCEA_1",
+   "BCEA_10",
+   "BCEA_11",
+   "BCEA_3",
+   "BCEA_4",
+   "BCEA_5",
+   "BCEA_6",
+   "BCEA_7",
+   "BCEA_8",
+   "BCEA_9"
+  ],
+  "162": [
+   "BCEB_1",
+   "BCEB_10",
+   "BCEB_11",
+   "BCEB_2",
+   "BCEB_3",
+   "BCEB_4",
+   "BCEB_5",
+   "BCEB_6",
+   "BCEB_8",
+   "BCEB_9"
+  ],
+  "171": [
+   "BCCA_4",
+   "BCCA_1",
+   "BCCA_7",
+   "BCCA_8"
+  ],
+  "172": [
+   "BCCB_10",
+   "BCCB_4",
+   "BCCB_8",
+   "BCCB_9"
+  ],
+  "210": [
+   "BWNN_1"
+  ],
+  "220": [
+   "BWIN_1",
+   "BWIN_2",
+   "BWIN_3"
+  ],
+  "230": [
+   "BWEN_1",
+   "BWEN_2",
+   "BWEN_3"
+  ],
+  "251": [
+   "BWIA_1",
+   "BWIA_2",
+   "BWIA_3"
+  ],
+  "252": [
+   "BWIB_1",
+   "BWIB_2",
+   "BWIB_4"
+  ],
+  "262": [
+   "BWEB_1",
+   "BWEB_2",
+   "BWEB_3",
+   "BWEB_4"
+  ],
+  "320": [
+   "BBIN_1",
+   "BBIN_2"
+  ],
+  "322": [
+   "BBIN_2"
+  ],
+  "330": [
+   "BBEN_1",
+   "BBEN_2"
+  ],
+  "351": [
+   "BBIA_1",
+   "BBIA_2"
+  ],
+  "352": [
+   "BBIB_1",
+   "BBIB_2",
+   "BBIB_3",
+   "BBIB_4",
+   "BBIB_5",
+   "BBIB_6"
+  ],
+  "361": [
+   "BBEA_2"
+  ],
+  "362": [
+   "BBEB_1",
+   "BBEB_2",
+   "BBEB_3",
+   "BBEB_4",
+   "BBEB_5"
+  ]
+ },
+ "construction_type": {
+  "Concrete": 1,
+  "Wood": 2,
+  "Concrete & Wood": 3
+ },
+ "wall_insulation": {
+  "Uninsulated": 1,
+  "Interior Wall Insulation": 2,
+  "Exterior Wall Insulation": 3,
+  "Combination Wall Insulation": 4,
+  "Interior Wall and Slab Insulation": 5,
+  "Exterior Wall and Slab Insulation": 6,
+  "Combination Wall and Slab Insulation": 7
+ },
+ "slab_location": {
+  "N/A": 0,
+  "Above Slab": 1,
+  "Below Slab": 2
+ }
+}

@@ -1,0 +1,5 @@
+# Proprietary CSA-F280 source workbooks (decrypted copies) are NOT committed —
+# only the derived data tables under ./data/ are. Matches repo precedent for the
+# F280 weather extraction (encrypted source kept out of the repo). Re-export the
+# workbook to diff against the JSON when revising coefficients.
+_source/
